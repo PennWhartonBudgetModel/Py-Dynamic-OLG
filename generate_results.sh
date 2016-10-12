@@ -9,7 +9,7 @@
 
 
 # Create empty log directory
-LOGDIR='./Results/Logs'
+LOGDIR='./Logs'
 rm -rf ${LOGDIR}
 mkdir -p ${LOGDIR}
 
