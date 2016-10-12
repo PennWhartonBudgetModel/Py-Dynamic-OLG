@@ -19,4 +19,4 @@ done
 
 
 # Process and package results
-qsub -N package -hold_jid solve_closed -q short.q -j y -o ${LOGDIR}'/package.log' -b y 'matlab -nojvm -nosplash -r "check_closed_convergence, generate_static_aggregates_all, package_results"'
+qsub -N package -hold_jid solve_closed -q short.q -j y -o ${LOGDIR}'/package.log' -b y 'matlab -nojvm -nosplash -r "check_closed_convergence, generate_static_aggregates_closed, package_results"'
