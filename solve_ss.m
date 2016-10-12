@@ -12,7 +12,7 @@
 %   cleanup (optional | false by default)
 %       Set to true to clean up data files and directories used for intermediary results after solver execution.
 % 
-%   uniquetag (optional | '' by default)
+%   this_uniquetag (optional | '' by default)
 %       String used to save solution into a unique directory, used to avoid conflicts between parallel runs.
 % 
 % Outputs:
@@ -23,7 +23,7 @@
 %%
 
 
-function [elasticities] = solve_ss(deep_params, showmore, cleanup, uniquetag)
+function [elasticities] = solve_ss(deep_params, showmore, cleanup, this_uniquetag)
 
 
 %% Initialization
@@ -50,8 +50,8 @@ if ~exist('cleanup', 'var')
 end
 
 % Set solution uniqueness tag to empty by default
-if ~exist('uniquetag', 'var')
-    uniquetag = '';
+if ~exist('this_uniquetag', 'var')
+    this_uniquetag = '';
 end
 
 
@@ -63,7 +63,7 @@ fprintf('\nSolving steady state:  beta = %0.3f  gamma = %0.3f  sigma = %05.2f\n'
 [param_dir, save_dir] = identify_dirs('ss', beta, gamma, sigma);
 
 % Append uniqueness tag to name of save directory
-save_dir = [save_dir, uniquetag];
+save_dir = [save_dir, this_uniquetag];
 
 % Clear or create save directory
 if exist(save_dir, 'dir')

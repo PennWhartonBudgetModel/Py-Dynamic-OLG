@@ -13,13 +13,13 @@
 %       Percentage government expenditure reduction, with positive values corresponding to reductions.
 %       Leave unspecified or set to [] for an open economy transition path.
 % 
-%   uniquetag (optional | '' by default)
+%   this_uniquetag (optional | '' by default)
 %       String used to save solution into a unique directory, used to avoid conflicts between parallel runs.
 % 
 %%
 
 
-function [] = generate_static_aggregates(deep_params, plan, gcut, uniquetag)
+function [] = generate_static_aggregates(deep_params, plan, gcut, this_uniquetag)
 
 % Extract deep parameters, or set defaults if none provided
 if exist('deep_params', 'var')
@@ -45,8 +45,8 @@ else
 end
 
 % Set solution uniqueness tag to empty by default
-if ~exist('uniquetag', 'var')
-    uniquetag = '';
+if ~exist('this_uniquetag', 'var')
+    this_uniquetag = '';
 end
 
 
@@ -57,7 +57,7 @@ if isopen
 else
     [param_dir, save_dir] = identify_dirs('closed', beta, gamma, sigma, plan, gcut);
 end
-save_dir = [save_dir, uniquetag];
+save_dir = [save_dir, this_uniquetag];
 
 % Identify corresponding reference directories
 [~, ss_dir] = identify_dirs('ss', beta, gamma, sigma);

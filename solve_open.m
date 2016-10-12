@@ -12,13 +12,13 @@
 %   showmore (optional | true by default)
 %       Set to true for more solver status updates.
 % 
-%   uniquetag (optional | '' by default)
+%   this_uniquetag (optional | '' by default)
 %       String used to save solution into a unique directory, used to avoid conflicts between parallel runs.
 % 
 %%
 
 
-function [] = solve_open(deep_params, plan, showmore, uniquetag)
+function [] = solve_open(deep_params, plan, showmore, this_uniquetag)
 
 
 %% Initialization
@@ -46,8 +46,8 @@ if ~exist('showmore', 'var')
 end
 
 % Set solution uniqueness tag to empty by default
-if ~exist('uniquetag', 'var')
-    uniquetag = '';
+if ~exist('this_uniquetag', 'var')
+    this_uniquetag = '';
 end
 
 
@@ -59,7 +59,7 @@ fprintf('\nSolving open economy transition path:  beta = %0.3f  gamma = %0.3f  s
 [param_dir, save_dir] = identify_dirs('open', beta, gamma, sigma, plan);
 
 % Append uniqueness tag to name of save directory
-save_dir = [save_dir, uniquetag];
+save_dir = [save_dir, this_uniquetag];
 
 % Clear or create save directory
 if exist(save_dir, 'dir')
@@ -450,7 +450,7 @@ save(fullfile(save_dir, 'aggregates.mat'), ...
 
 
 % Calculate static aggregates
-generate_static_aggregates(deep_params, plan, [], uniquetag);
+generate_static_aggregates(deep_params, plan, [], this_uniquetag);
 
 % Extract aggregates from folder
 s_static = load(fullfile(save_dir, 'aggregates_static.mat'));
