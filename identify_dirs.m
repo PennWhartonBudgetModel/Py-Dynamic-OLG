@@ -39,7 +39,10 @@ if isempty(uncommitted)
     %   %an = author name
     [~, commit_id] = system('git log -1 --format=%cd-%an --date=format:%Y-%m-%d-%H-%M-%S');
     % [~, commit_id] = system('git log -1 --format=%cd-%an-%h --date=short');   % For older versions of Git that don't support custom date formats
-
+    
+    % Strip off trailing newline character
+    commit_id(end) = '';
+    
     % Designate permanent root save directory
     save_root = fullfile(dev_dir, '..', 'Output', commit_id);
 
