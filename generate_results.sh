@@ -5,7 +5,6 @@
 
 
 # Build mex functions
-chmod a+x build_all.sh
 ./build_all.sh
 
 
