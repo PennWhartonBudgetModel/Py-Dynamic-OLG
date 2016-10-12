@@ -18,12 +18,5 @@ for GCUT in 0.10 0.05 0.00 -0.05; do
 done
 
 
-# Submit open economy runs
-# (Note that baseline runs are skipped since they are generated as required by the closed economy runs above)
-for PLAN in trump clinton ryan; do
-  qsub -N solve_open -t 1-16 -q short.q -j y -o ${LOGDIR}'/open_inddeep=$TASK_ID_plan='${PLAN}'.log' -b y 'matlab -nojvm -nosplash -r "solve_open(inddeep_to_params(${SGE_TASK_ID}), '\'${PLAN}\'', false)"'
-done
-
-
 # Process and package results
-qsub -N package -hold_jid solve_open,solve_closed -q short.q -j y -o ${LOGDIR}'/package.log' -b y 'matlab -nojvm -nosplash -r "check_closed_convergence, generate_static_aggregates_all, package_results"'
+qsub -N package -hold_jid solve_closed -q short.q -j y -o ${LOGDIR}'/package.log' -b y 'matlab -nojvm -nosplash -r "check_closed_convergence, generate_static_aggregates_all, package_results"'

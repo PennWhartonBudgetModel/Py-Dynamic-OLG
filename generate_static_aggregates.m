@@ -14,11 +14,14 @@
 %       Percentage government expenditure reduction, with positive values corresponding to reductions.
 %       Leave unspecified or set to [] for an open economy transition path.
 % 
+%   uniquetag (optional | '' by default)
+%       String used to save solution into a unique directory, used to avoid conflicts between parallel runs.
+% 
 % 
 
 
 
-function [] = generate_static_aggregates(deep_params, plan, gcut)
+function [] = generate_static_aggregates(deep_params, plan, gcut, uniquetag)
 
 % Extract deep parameters, or set defaults if none provided
 if exist('deep_params', 'var')
@@ -43,6 +46,11 @@ else
     isopen = false;
 end
 
+% Set solution uniqueness tag to empty by default
+if ~exist('uniquetag', 'var')
+    uniquetag = '';
+end
+
 
 
 % Identify working directories
@@ -51,13 +59,18 @@ if isopen
 else
     [param_dir, save_dir] = identify_dirs('closed', beta, gamma, sigma, plan, gcut);
 end
+save_dir = [save_dir, uniquetag];
 
 % Identify corresponding reference directories
-if isopen
-    [~, ss_dir]   = identify_dirs('ss',     beta, gamma, sigma);
-    [~, base_dir] = identify_dirs('open',   beta, gamma, sigma, 'base');
+[~, ss_dir] = identify_dirs('ss', beta, gamma, sigma);
+if strcmp(plan, 'base')
+    base_dir = save_dir;    % Includes uniquetag
 else
-    [~, base_dir] = identify_dirs('closed', beta, gamma, sigma, 'base', gcut);
+    if isopen
+        [~, base_dir] = identify_dirs('open',   beta, gamma, sigma, 'base');
+    else
+        [~, base_dir] = identify_dirs('closed', beta, gamma, sigma, 'base', gcut);
+    end
 end
 
 
@@ -241,7 +254,11 @@ cap_static          = s_base.cap_total;    %#ok<NASGU>
 domestic_cap_static = s_base.domestic_cap_total;  %#ok<NASGU>
 foreign_cap_static  = s_base.foreign_cap_total; %#ok<NASGU>
 domestic_debt_static = s_base.domestic_cap_total;  %#ok<NASGU>
-foreign_debt_static  = s_base.foreign_cap_total; %#ok<NASGU>
+
+% Loaded in solve_open for open; loaded from results if closed.
+if ~isopen
+    foreign_debt_static  = s_base.foreign_cap_total; %#ok<NASGU>
+end
 
 Y_static      = s_base.Y_total;      %#ok<NASGU>
 lfpr_static   = s_base.lfpr_total;   %#ok<NASGU>
@@ -260,7 +277,10 @@ clear('s_base')
 % Save static aggregates
 save(fullfile(save_dir, 'aggregates_static.mat'), ...
      'fedincome_static', 'fedit_static', 'ssrev_static', 'fcaptax_static', 'ssexp_static', ...
-     'elab_static', 'cap_static', 'domestic_cap_static', 'foreign_cap_static', 'Y_static', 'lfpr_static', 'labinc_static', 'kinc_static', 'feditlab_static', 'fcaprev_static', 'domestic_fcaptax_static','foreign_fcaptax_static','domestic_debt_static','foreign_debt_static')
+     'elab_static', 'cap_static', 'domestic_cap_static', 'foreign_cap_static', 'Y_static', 'lfpr_static', 'labinc_static', 'kinc_static', 'feditlab_static', 'fcaprev_static', 'domestic_fcaptax_static','foreign_fcaptax_static','domestic_debt_static')
 
+if ~isopen
+    save(fullfile(save_dir, 'aggregates_static.mat'), 'foreign_debt_static', '-append')
+end
 
 end

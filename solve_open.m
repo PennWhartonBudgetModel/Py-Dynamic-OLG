@@ -33,6 +33,7 @@ else
     beta  = 1.005;
     gamma = 0.390;
     sigma = 06.00;
+    deep_params = [beta, gamma, sigma];
 end
 
 % Set base plan as default
@@ -238,7 +239,12 @@ end
 s = load(fullfile(param_dir, 'param_gtilde.mat'));
 
 indplan = cellfun(@(s) strncmp(plan, s, length(s)), {'base'; 'trump'; 'clinton'; 'ryan'});
-Ttilde_percent = s.Ttilde_percent(indplan,1:Tss);
+revenue_percent = s.revenue_percent(indplan,:);
+
+% Repeat last value if vector is too small
+if length(revenue_percent)<Tss
+    revenue_percent = [revenue_percent, revenue_percent(end).*ones(1,Tss-length(revenue_percent))];
+end
 
 
 % Clear parameter loading structure
@@ -426,17 +432,44 @@ feditlab_total = fedit_total .* labinc_total ./ fedincome_total; %#ok<NASGU>
 fcaprev_total  = fcaptax_total + fedit_total .* (1 - labinc_total ./ fedincome_total); %#ok<NASGU>
 
 
-% Generate or load government expenditure adjustments
+% Save optimal decision values and distributions
+save(fullfile(save_dir, 'opt.mat'),  'opt' )
+save(fullfile(save_dir, 'dist.mat'), 'dist')
+
+
+% Save aggregates
+save(fullfile(save_dir, 'aggregates.mat'), ...
+     'kpr_total', 'cap_total', ...
+     'domestic_cap_total', 'foreign_cap_total', ...
+     'domestic_debt_total', ...
+     'domestic_fcaptax_total', 'foreign_fcaptax_total', ...
+     'beq_total', 'elab_total', 'lab_total', 'lfpr_total', ...
+     'fedincome_total', 'fedit_total', 'ssrev_total', 'fcaptax_total', 'ssexp_total', ...
+     'Y_total', 'labinc_total', 'kinc_total', 'feditlab_total', 'fcaprev_total', 'exp_subsidys')
+ 
+ 
+
+
+% Calculate static aggregates
+generate_static_aggregates(deep_params, plan, [], uniquetag);
+
+% Extract aggregates from folder
+s_static = load(fullfile(save_dir, 'aggregates_static.mat'));
+
+fedit_static   = s_static.fedit_static;
+ssrev_static   = s_static.ssrev_static;
+fcaptax_static = s_static.fcaptax_static;
+
 if strcmp(plan, 'base')
     Y_base = Y_total;
-    Gtilde = fedit_total + ssrev_total + fcaptax_total - ssexp_total - fedgovtnis.*Y_total;
 else
     s = hardyload(base_aggregates);
     Y_base = s.Y_total;
-    Gtilde = s.Gtilde;
 end
 
-Ttilde = Ttilde_percent .* Y_base;
+Ttilde = revenue_percent.*Y_base - fedit_static - ssrev_static - fcaptax_static;
+Gtilde = fedit_total + ssrev_total + fcaptax_total + Ttilde - ssexp_total - fedgovtnis.*Y_base;
+
 
 % Calculate aggregate debt
 netrev_total = fedit_total + ssrev_total + fcaptax_total - ssexp_total;
@@ -446,23 +479,15 @@ for t = 1:Tss-1
     debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*rate_govs_cbo(t);
 end
 
+% Solving foreign debt and appending to static aggregates because of dependency conflict
 foreign_debt_total = debt_total - domestic_debt_total; %#ok<NASGU>
+foreign_debt_static = foreign_cap_total; %#ok<NASGU>
 
+% Append to static aggregates because of dependency issue
+save(fullfile(save_dir, 'aggregates_static.mat'), 'foreign_debt_static', '-append');
 
-% Save optimal decision values and distributions
-save(fullfile(save_dir, 'opt.mat'),  'opt' )
-save(fullfile(save_dir, 'dist.mat'), 'dist')
-
-% Save aggregates
-save(fullfile(save_dir, 'aggregates.mat'), ...
-     'kpr_total', 'debt_total', 'cap_total', ...
-     'domestic_cap_total', 'foreign_cap_total', ...
-     'domestic_debt_total', 'foreign_debt_total', ...
-     'domestic_fcaptax_total', 'foreign_fcaptax_total', ...
-     'beq_total', 'elab_total', 'lab_total', 'lfpr_total', ...
-     'fedincome_total', 'fedit_total', 'ssrev_total', 'fcaptax_total', 'ssexp_total', ...
-     'Y_total', 'labinc_total', 'kinc_total', 'feditlab_total', 'fcaprev_total', 'exp_subsidys', ...
-     'Gtilde', 'Ttilde')
+% Append to results because of dependency of statics on other results
+save(fullfile(save_dir, 'aggregates.mat'), 'foreign_debt_total', 'Gtilde', 'Ttilde', 'debt_total', '-append')
 
 % Save log of beq iterations
 fid = fopen(fullfile(save_dir, 'iterations.txt'), 'wt');
