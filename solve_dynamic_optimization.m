@@ -1,5 +1,4 @@
-% Pete | 2016-10-12
-% 
+%%
 % Dynamic optimization solver.  Generalized to support both steady state and transition path solvers.
 % 
 % For open economy transition paths, the following arguments should not vary with year -- i.e. all columns should be identical:
@@ -21,7 +20,7 @@
 % 
 % q_tobin0 should equal q_tobin for steady states and transition paths using the base tax plan.
 % 
-% 
+%%
 
 
 function [V, Vss, kopt, koptss, labopt, bopt, ...

@@ -1,5 +1,4 @@
-% Jorge | 2016-09-29
-% 
+%%
 % Open economy transition path solver.
 % 
 % Arguments:
@@ -16,7 +15,7 @@
 %   uniquetag (optional | '' by default)
 %       String used to save solution into a unique directory, used to avoid conflicts between parallel runs.
 % 
-% 
+%%
 
 
 function [] = solve_open(deep_params, plan, showmore, uniquetag)

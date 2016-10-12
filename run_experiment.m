@@ -1,5 +1,4 @@
-% Pete | 2016-10-03
-% 
+%%
 % Run a singleton policy experiment.
 % 
 % Arguments:
@@ -17,7 +16,7 @@
 %   exp_param_set
 %       Parameters to adjust for experiment specified as a cell array of strings -- e.g. {'avg_deduc', 'coefs'}.
 % 
-% 
+%%
 
 
 function [] = run_experiment(deep_params, plan, gcut, exp_param_set)

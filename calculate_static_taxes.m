@@ -1,8 +1,7 @@
-% Pete | 2016-10-07
-% 
+%%
 % Static aggregate tax calculator.  Adapted from dynamic optimization solver.
 % 
-% 
+%%
 
 
 function [fedincome, fedincomess, fitax, fitaxss, fsstax, fsstaxss, fcaptax, fcaptaxss] ...

@@ -1,8 +1,7 @@
-% Pete | 2016-10-07
-% 
+%%
 % mex function builder.
 % 
-% 
+%%
 
 
 classdef mexBuilder

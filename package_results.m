@@ -1,8 +1,7 @@
-% Pete | 2016-09-28
-% 
+%%
 % Package all results into csv files for staging.
 % 
-% 
+%%
 
 
 function [] = package_results()

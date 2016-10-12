@@ -1,8 +1,7 @@
-% Pete | 2016-09-14
+%%
+% File loader that makes multiple attempts and takes random pauses between attempts to ameliorate parallel read-write conflicts.
 % 
-% Load file with multiple attempts and random pauses between attempts to ameliorate parallel read-write conflicts.
-% 
-% 
+%%
 
 
 function [s] = hardyload(filename)

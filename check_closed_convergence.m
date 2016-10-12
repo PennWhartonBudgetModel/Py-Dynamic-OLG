@@ -1,8 +1,8 @@
-% Pete | 2016-09-28
-% 
+%%
 % Check convergence for closed economy transition path runs.
 % 
-% 
+%%
+
 
 function [lastiters] = check_closed_convergence()
 

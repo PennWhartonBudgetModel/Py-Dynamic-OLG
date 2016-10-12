@@ -1,5 +1,4 @@
-% Jorge | 2016-10-04
-% 
+%%
 % Calculate static aggregates for a transition path.  Supports both open and closed economy transition paths.
 % 
 % Arguments:
@@ -17,8 +16,7 @@
 %   uniquetag (optional | '' by default)
 %       String used to save solution into a unique directory, used to avoid conflicts between parallel runs.
 % 
-% 
-
+%%
 
 
 function [] = generate_static_aggregates(deep_params, plan, gcut, uniquetag)

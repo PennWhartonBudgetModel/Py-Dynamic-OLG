@@ -1,5 +1,4 @@
-% Pete | 2016-09-28
-% 
+%%
 % Steady state solver.
 % 
 % Arguments:
@@ -21,7 +20,7 @@
 %   elasticities
 %       Capital-to-output ratio, labor elasticity, and savings elasticity collected in a 1 x 3 vector [K_Y, labor_elas, savings_elas].
 % 
-% 
+%%
 
 
 function [elasticities] = solve_ss(deep_params, showmore, cleanup, uniquetag)

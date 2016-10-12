@@ -1,5 +1,4 @@
-% Jorge | 2016-09-29
-% 
+%%
 % Closed economy transition path solver.
 % 
 % Arguments:
@@ -16,7 +15,7 @@
 %   showmore (optional | true by default)
 %       Set to true for more solver status updates.
 % 
-% 
+%%
 
 
 function [] = solve_closed(deep_params, plan, gcut, showmore)

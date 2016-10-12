@@ -1,5 +1,4 @@
-% Pete | 2016-09-26
-% 
+%%
 % Distribution generator.  Generalized to support both steady state and transition path solvers.
 % 
 % For steady state:
@@ -10,6 +9,7 @@
 %   dist_w0 = nk x nz x nb x 1 matrix
 %   dist_r0 = []
 % 
+%%
 
 
 function [dist_w, dist_r, N_w, N_r, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...

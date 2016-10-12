@@ -1,11 +1,10 @@
-% Pete | 2016-09-14
-% 
+%%
 % Helper function to identify working directories for steady state and transition path solvers.
 % 
 % To identify just the parameters directory, use:
 %   >> param_dir = identify_dirs('');
 % 
-% 
+%%
 
 
 function [param_dir, save_dir] = identify_dirs(solver, beta, gamma, sigma, plan, gcut)
