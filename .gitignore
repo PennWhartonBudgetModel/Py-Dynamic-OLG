@@ -1,4 +1,8 @@
 *.asv
-.nfs*
+
 /Testing
 /Logs
+
+.nfs*
+*.sh.o*
+*.sh.e*
