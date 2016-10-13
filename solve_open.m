@@ -461,7 +461,6 @@ fcaptax_static = s_static.fcaptax_static;
 
 if strcmp(plan, 'base')
     Y_base = Y_total;
-    
 else
     s = hardyload(base_aggregates);
     Y_base = s.Y_total;
@@ -475,8 +474,6 @@ else
     s = hardyload(base_aggregates);
     Gtilde = s.Gtilde;
 end
-
-% Gtilde = fedit_total + ssrev_total + fcaptax_total + Ttilde - ssexp_total - fedgovtnis.*Y_base;
 
 
 % Calculate aggregate debt
