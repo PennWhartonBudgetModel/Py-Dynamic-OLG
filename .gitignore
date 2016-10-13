@@ -1,8 +1,10 @@
+# Ignore temporary files and log files
+*~*
 *.asv
+.nfs*
+*.o*
+*.e*
 
+# Ignore testing directory and log directory
 /Testing
 /Logs
-
-.nfs*
-*.sh.o*
-*.sh.e*
