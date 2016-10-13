@@ -33,19 +33,30 @@ end
 [~, uncommitted] = system('git status -s');
 
 if isempty(uncommitted)
-
-    % Identify active Git commit
-    %   %cd = commit date
-    %   %an = author name
-    [~, commit_id] = system('git log -1 --format=%cd-%an --date=format:%Y-%m-%d-%H-%M-%S');
-    % [~, commit_id] = system('git log -1 --format=%cd-%an-%h --date=short');   % For older versions of Git that don't support custom date formats
     
-    % Strip off trailing newline character
-    commit_id(end) = '';
+    % Get date, author, and abbreviated hash for active Git commit
+    [~, commit_date  ] = system('git log -1 --format=%cd --date=iso');
+    [~, commit_author] = system('git log -1 --format=%ae'           );
+    [~, commit_hash  ] = system('git log -1 --format=%h'            );
+    
+    % Strip off trailing characters
+    commit_date   = commit_date  (1:end-7);     % (Time zone stripped off; only local time needed for commit identifier)
+    commit_author = commit_author(1:end-1);
+    commit_hash   = commit_hash  (1:end-1);
+    
+    % Extract author username from email address
+    commit_author = regexp(commit_author, '.*(?=@)', 'match');
+    commit_author = commit_author{1};
+    
+    % Convert date format
+    commit_date = datestr(commit_date, 'yyyy-mm-dd-HH-MM');
+    
+    % Construct identifier for active Git commit
+    commit_id = sprintf('%s-%s-%s', commit_date, commit_author, commit_hash);
     
     % Designate permanent root save directory
     save_root = fullfile(dev_dir, '..', 'Output', commit_id);
-
+    
 else
     
     % Designate temporary root save directory
