@@ -35,9 +35,9 @@ end
 if isempty(uncommitted)
     
     % Get date, author, and abbreviated hash for active Git commit
-    [~, commit_date  ] = system('git log -1 --format=%cd --date=iso');
-    [~, commit_author] = system('git log -1 --format=%ae'           );
-    [~, commit_hash  ] = system('git log -1 --format=%h'            );
+    [~, commit_date  ] = system('git --no-pager log -1 --format=%cd --date=iso');
+    [~, commit_author] = system('git --no-pager log -1 --format=%ae'           );
+    [~, commit_hash  ] = system('git --no-pager log -1 --format=%h'            );
     
     % Strip off trailing characters
     commit_date   = commit_date  (1:end-7);     % (Time zone stripped off; only local time needed for commit identifier)
