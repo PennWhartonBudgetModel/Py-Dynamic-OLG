@@ -10,8 +10,8 @@
 function [param_dir, save_dir] = identify_dirs(solver, beta, gamma, sigma, plan, gcut)
 
 % Identify base and parameter directories
-dev_dir  = fileparts(mfilename('fullpath'));
-param_dir = fullfile(dev_dir, 'Parameters');
+source_dir = fileparts(mfilename('fullpath'));
+param_dir  = fullfile(source_dir, 'Parameters');
 
 switch solver
 
@@ -32,7 +32,12 @@ end
 % Check for uncommitted changes
 [~, uncommitted] = system('git status -s');
 
-if isempty(uncommitted)
+if strfind(source_dir, 'Development') | uncommitted  %#ok<OR2>
+    
+    % Designate testing directory as root save directory
+    save_root = fullfile(source_dir, 'Testing');
+    
+else
     
     % Get date, author, and abbreviated hash for active Git commit
     [~, commit_date  ] = system('git --no-pager log -1 --format=%cd --date=iso');
@@ -54,17 +59,12 @@ if isempty(uncommitted)
     % Construct identifier for active Git commit
     commit_id = sprintf('%s-%s-%s', commit_date, commit_author, commit_hash);
     
-    % Designate permanent root save directory
-    save_root = fullfile(dev_dir, '..', 'Output', commit_id);
-    
-else
-    
-    % Designate temporary root save directory
-    save_root = fullfile(dev_dir, 'Testing');
+    % Identify root save directory
+    save_root = fullfile(source_dir, '..', '..', 'Output', commit_id);
     
 end
 
-% Identify save directory
+% Identify specific save directory
 save_dir = fullfile(save_root, sprintf('beta=%0.3f_gamma=%0.3f_sigma=%05.2f', beta, gamma, sigma), sub_dir);
 
 
