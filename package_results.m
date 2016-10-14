@@ -7,11 +7,11 @@
 function [] = package_results()
 
 % Identify working directories
-param_dir = identify_dirs('');
-main_dir  = fileparts(mfilename('fullpath'));
+source_dir = fileparts(mfilename('fullpath'));
+param_dir  = identify_dirs('');
 
 c = num2cell(clock); timestamp = sprintf('%04d-%02d-%02d-%02d-%02d', c{1:5});
-csv_dir = fullfile(main_dir, '..', '..', 'charts', 'version2', 'tax_dynamic_scores', timestamp);
+csv_dir = fullfile(source_dir, '..', '..', 'charts', 'version2', 'tax_dynamic_scores', timestamp);
 
 % Clear or create directory for csv files
 if exist(csv_dir, 'dir')
