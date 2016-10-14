@@ -146,4 +146,6 @@ for gcut = [+0.00, +0.10, +0.05, -0.05]
     end
 end
 
+fprintf('\nResults successfully packaged into csv files:\n\t%s\n', csv_dir)
+
 end
