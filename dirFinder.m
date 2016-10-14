@@ -3,23 +3,32 @@
 % 
 % Methods:
 % 
-%   source          Find source code directory.
+%   source()
+%       Find source code directory.
 % 
-%   modelroot       Find model root directory.
+%   modelroot()
+%       Find model root directory.
 % 
-%   root            Find absolute root directory.
+%   root()
+%       Find absolute root directory.
 % 
-%   param           Find parameters directory.
+%   param()
+%       Find parameters directory.
 % 
-%   saveroot        Find save root directory.
+%   saveroot()
+%       Find save root directory.
 % 
-%   ss              Find steady state save directory.
+%   ss(beta, gamma, sigma)
+%       Find steady state save directory.
 % 
-%   open            Find open economy save directory.
+%   open(beta, gamma, sigma, plan)
+%       Find open economy save directory.
 % 
-%   closed          Find closed economy save directory.
+%   closed(beta, gamma, sigma, plan, gcut)
+%       Find closed economy save directory.
 % 
-%   csv             Find csv save directory.
+%   csv()
+%       Find csv save directory.
 % 
 %%
 
@@ -114,10 +123,17 @@ methods (Static, Access = private)
         % Get source code stage
         [~, stage] = fileparts(fileparts(dirFinder.source));
         
-        % Check for uncommitted changes
-        [~, uncommitted] = system('git status -s');
-        
-        flag = strcmp(stage, 'Production') && isempty(uncommitted);
+        if ~strcmp(stage, 'Production')
+            flag = false;
+        else
+            
+            % Check for uncommitted changes
+            % (Safeguards against any unintentional changes made in Production directory after checkout)
+            [~, uncommitted] = system('git status -s');
+            
+            flag = isempty(uncommitted);
+            
+        end
         
     end
     
