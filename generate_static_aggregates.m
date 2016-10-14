@@ -38,11 +38,7 @@ if ~exist('plan', 'var')
 end
 
 % Identify open economy transition path by absence of gcut
-if ~exist('gcut', 'var') || isempty(gcut)
-    isopen = true;
-else
-    isopen = false;
-end
+isopen = ~exist('gcut', 'var') || isempty(gcut);
 
 % Set solution uniqueness tag to empty by default
 if ~exist('this_uniquetag', 'var')
@@ -137,7 +133,7 @@ clear('s_base')
 % (Baseline solution is equivalent to steady state solution for open economy)
 if isopen
     
-    s = load(fullfile(ss_dir, 'solution.mat'));
+    s = hardyload(fullfile(ss_dir, 'solution.mat'));
 
     wages        = s.wage      *ones(1,Tss);
     cap_shares   = s.cap_share *ones(1,Tss);
@@ -148,7 +144,7 @@ if isopen
     
 else
 
-    s = load(fullfile(base_dir, 'solution.mat'));
+    s = hardyload(fullfile(base_dir, 'solution.mat'));
 
     wages        = s.wages;
     cap_shares   = s.cap_shares;
@@ -156,17 +152,17 @@ else
     rate_caps    = s.rate_caps;
     rate_govs    = s.rate_govs;
     
-    s_agg = load(fullfile(base_dir,'aggregates.mat'));
+    s_agg = hardyload(fullfile(base_dir,'aggregates.mat'));
     exp_subsidys = s_agg.exp_subsidys;
     clear('s_agg');
     
 end
 
 % Load optimal decision values and distributions from baseline
-s = load(fullfile(base_dir, 'opt.mat'));
+s = hardyload(fullfile(base_dir, 'opt.mat'));
 base_opt = s.opt;
 
-s = load(fullfile(base_dir, 'dist.mat'));
+s = hardyload(fullfile(base_dir, 'dist.mat'));
 base_dist = s.dist;
 
 
@@ -249,7 +245,7 @@ end
 
 % Copy extra static aggregates from corresponding base plan aggregates
 % (Duplicates data but enhances modularity of results)
-s_base = load(fullfile(base_dir, 'aggregates.mat'));
+s_base = hardyload(fullfile(base_dir, 'aggregates.mat'));
 
 elab_static         = s_base.elab_total;   %#ok<NASGU>
 cap_static          = s_base.cap_total;    %#ok<NASGU>

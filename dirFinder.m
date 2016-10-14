@@ -117,7 +117,7 @@ methods (Static, Access = private)
         % Check for uncommitted changes
         [~, uncommitted] = system('git status -s');
         
-        flag = ( strcmp(stage, 'Production') && isempty(uncommitted) );
+        flag = strcmp(stage, 'Production') && isempty(uncommitted);
         
     end
     
