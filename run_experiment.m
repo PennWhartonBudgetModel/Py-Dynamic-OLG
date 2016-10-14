@@ -48,7 +48,7 @@ end
 
 
 % Identify parameter directory
-param_dir = identify_dirs('');
+param_dir = dirFinder.param;
 
 
 % Define experiment plan

@@ -52,22 +52,26 @@ end
 
 
 % Identify working directories
+param_dir = dirFinder.param;
+
 if isopen
-    [param_dir, save_dir] = identify_dirs('open',   beta, gamma, sigma, plan);
+    save_dir = dirFinder.open  (beta, gamma, sigma, plan);
 else
-    [param_dir, save_dir] = identify_dirs('closed', beta, gamma, sigma, plan, gcut);
+    save_dir = dirFinder.closed(beta, gamma, sigma, plan, gcut);
 end
 save_dir = [save_dir, this_uniquetag];
 
+
 % Identify corresponding reference directories
-[~, ss_dir] = identify_dirs('ss', beta, gamma, sigma);
+ss_dir = dirFinder.ss(beta, gamma, sigma);
+
 if strcmp(plan, 'base')
-    base_dir = save_dir;    % Includes uniquetag
+    base_dir = save_dir;    % Includes this_uniquetag
 else
     if isopen
-        [~, base_dir] = identify_dirs('open',   beta, gamma, sigma, 'base');
+        base_dir = dirFinder.open  (beta, gamma, sigma, 'base');
     else
-        [~, base_dir] = identify_dirs('closed', beta, gamma, sigma, 'base', gcut);
+        base_dir = dirFinder.closed(beta, gamma, sigma, 'base', gcut);
     end
 end
 

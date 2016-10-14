@@ -60,7 +60,8 @@ end
 fprintf('\nSolving steady state:  beta = %0.3f  gamma = %0.3f  sigma = %05.2f\n', beta, gamma, sigma)
 
 % Identify working directories
-[param_dir, save_dir] = identify_dirs('ss', beta, gamma, sigma);
+param_dir = dirFinder.param;
+save_dir  = dirFinder.ss(beta, gamma, sigma);
 
 % Append uniqueness tag to name of save directory
 save_dir = [save_dir, this_uniquetag];

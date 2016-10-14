@@ -1,8 +1,7 @@
-% Pete | 2016-09-26
-% 
+%%
 % Generate an inverse interpolant for the steady state solver using a grid of solutions as produced by generate_ss_sets.m and solve_ss_batch.m.
 % 
-% 
+%%
 
 
 function [] = generate_ss_inverter()

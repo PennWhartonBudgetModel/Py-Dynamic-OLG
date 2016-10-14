@@ -1,5 +1,4 @@
-% Pete | 2016-09-22
-% 
+%%
 % Generate a grid of deep parameter sets over which the steady state will be solved.
 % 
 % Arguments:
@@ -10,7 +9,7 @@
 %   batchsize
 %       Number of sets per batch to be solved together by solve_ss_batch.m.
 % 
-% 
+%%
 
 
 function [] = generate_ss_sets(gridsize, batchsize)

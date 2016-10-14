@@ -1,5 +1,4 @@
-% Pete | 2016-09-26
-% 
+%%
 % Solve a batch of steady states as defined by generate_ss_sets.m.
 % 
 % Arguments:
@@ -7,7 +6,7 @@
 %   ibatch
 %       Batch index.
 % 
-% 
+%%
 
 
 function [] = solve_ss_batch(ibatch)

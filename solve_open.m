@@ -56,7 +56,8 @@ end
 fprintf('\nSolving open economy transition path:  beta = %0.3f  gamma = %0.3f  sigma = %05.2f  plan = %s\n', beta, gamma, sigma, plan)
 
 % Identify working directories
-[param_dir, save_dir] = identify_dirs('open', beta, gamma, sigma, plan);
+param_dir = dirFinder.param;
+save_dir  = dirFinder.open(beta, gamma, sigma, plan);
 
 % Append uniqueness tag to name of save directory
 save_dir = [save_dir, this_uniquetag];
@@ -68,8 +69,8 @@ end
 mkdir(save_dir)
 
 % Identify reference steady state and baseline open economy directories
-[~, ss_dir  ] = identify_dirs('ss',   beta, gamma, sigma);
-[~, base_dir] = identify_dirs('open', beta, gamma, sigma, 'base');
+ss_dir   = dirFinder.ss  (beta, gamma, sigma);
+base_dir = dirFinder.open(beta, gamma, sigma, 'base');
 
 
 

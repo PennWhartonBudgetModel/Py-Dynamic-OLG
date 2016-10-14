@@ -55,7 +55,8 @@ end
 fprintf('\nSolving closed economy transition path:  beta = %0.3f  gamma = %0.3f  sigma = %05.2f  plan = %s  gcut = %+0.2f\n', beta, gamma, sigma, plan, gcut)
 
 % Identify working directories
-[param_dir, save_dir] = identify_dirs('closed', beta, gamma, sigma, plan, gcut);
+param_dir = dirFinder.param;
+save_dir  = dirFinder.closed(beta, gamma, sigma, plan, gcut);
 
 % Clear or create save directory
 if exist(save_dir, 'dir')
@@ -64,9 +65,9 @@ end
 mkdir(save_dir)
 
 % Identify reference steady state and open economy plan directories
-[~, ss_dir      ] = identify_dirs('ss',   beta, gamma, sigma);
-[~, openbase_dir] = identify_dirs('open', beta, gamma, sigma, 'base');
-[~, openplan_dir] = identify_dirs('open', beta, gamma, sigma, plan);
+ss_dir       = dirFinder.ss  (beta, gamma, sigma);
+openbase_dir = dirFinder.open(beta, gamma, sigma, 'base');
+openplan_dir = dirFinder.open(beta, gamma, sigma, plan  );
 
 
 
