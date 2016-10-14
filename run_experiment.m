@@ -22,7 +22,7 @@
 function [] = run_experiment(deep_params, plan, gcut, exp_param_set)
 
 % Set default deep parameters if none provided
-if ~exist('deep_params', 'var')
+if ~exist('deep_params', 'var') || isempty(deep_params)
     beta  = 1.005;
     gamma = 0.390;
     sigma = 06.00;
@@ -30,19 +30,15 @@ if ~exist('deep_params', 'var')
 end
 
 % Set base plan as default
-if ~exist('plan', 'var')
+if ~exist('plan', 'var') || isempty(plan)
     plan = 'base';
 end
 
 % Identify open economy by absence of gcut
-if ~exist('gcut', 'var') || isempty(gcut)
-    isopen = true;
-else
-    isopen = false;
-end
+isopen = ~exist('gcut', 'var') || isempty(gcut);
 
 % Set null experiment as default
-if ~exist('exp_param_set', 'var')
+if ~exist('exp_param_set', 'var') || isempty(exp_param_set)
     exp_param_set = {};
 end
 

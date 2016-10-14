@@ -29,28 +29,28 @@ function [elasticities] = solve_ss(deep_params, showmore, cleanup, this_uniqueta
 %% Initialization
 
 % Extract deep parameters or set defaults if none provided
-if exist('deep_params', 'var')
-    beta  = deep_params(1);
-    gamma = deep_params(2);
-    sigma = deep_params(3);
-else
+if ~exist('deep_params', 'var') || isempty(deep_params)
     beta  = 1.005;
     gamma = 0.390;
     sigma = 06.00;
+else
+    beta  = deep_params(1);
+    gamma = deep_params(2);
+    sigma = deep_params(3);
 end
 
 % Turn on all status updates by default
-if ~exist('showmore', 'var')
+if ~exist('showmore', 'var') || isempty(showmore)
     showmore = true;
 end
 
 % Turn off file cleanup by default
-if ~exist('cleanup', 'var')
+if ~exist('cleanup', 'var') || isempty(cleanup)
     cleanup = false;
 end
 
 % Set solution uniqueness tag to empty by default
-if ~exist('this_uniquetag', 'var')
+if ~exist('this_uniquetag', 'var') || isempty(this_uniquetag)
     this_uniquetag = '';
 end
 

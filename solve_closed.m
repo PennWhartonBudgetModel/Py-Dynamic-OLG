@@ -24,28 +24,28 @@ function [] = solve_closed(deep_params, plan, gcut, showmore)
 %% Initialization
 
 % Extract deep parameters or set defaults if none provided
-if exist('deep_params', 'var')
-    beta  = deep_params(1);
-    gamma = deep_params(2);
-    sigma = deep_params(3);
-else
+if ~exist('deep_params', 'var') || isempty(deep_params)
     beta  = 1.005;
     gamma = 0.390;
     sigma = 06.00;
+else
+    beta  = deep_params(1);
+    gamma = deep_params(2);
+    sigma = deep_params(3);
 end
 
 % Set base plan as default
-if ~exist('plan', 'var')
+if ~exist('plan', 'var') || isempty(plan)
     plan = 'base';
 end
 
 % Set 0 reduction in government expenditure as default
-if ~exist('gcut', 'var')
+if ~exist('gcut', 'var') || isempty(gcut)
     gcut = 0.00;
 end
 
 % Turn on all status updates by default
-if ~exist('showmore', 'var')
+if ~exist('showmore', 'var') || isempty(showmore)
     showmore = true;
 end
 

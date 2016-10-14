@@ -24,29 +24,28 @@ function [] = solve_open(deep_params, plan, showmore, this_uniquetag)
 %% Initialization
 
 % Extract deep parameters or set defaults if none provided
-if exist('deep_params', 'var')
-    beta  = deep_params(1);
-    gamma = deep_params(2);
-    sigma = deep_params(3);
-else
+if ~exist('deep_params', 'var') || isempty(deep_params)
     beta  = 1.005;
     gamma = 0.390;
     sigma = 06.00;
-    deep_params = [beta, gamma, sigma];
+else
+    beta  = deep_params(1);
+    gamma = deep_params(2);
+    sigma = deep_params(3);
 end
 
 % Set base plan as default
-if ~exist('plan', 'var')
+if ~exist('plan', 'var') || isempty(plan)
     plan = 'base';
 end
 
 % Turn on all status updates by default
-if ~exist('showmore', 'var')
+if ~exist('showmore', 'var') || isempty(showmore)
     showmore = true;
 end
 
 % Set solution uniqueness tag to empty by default
-if ~exist('this_uniquetag', 'var')
+if ~exist('this_uniquetag', 'var') || isempty(this_uniquetag)
     this_uniquetag = '';
 end
 
@@ -451,7 +450,7 @@ save(fullfile(save_dir, 'aggregates.mat'), ...
 
 
 % Calculate static aggregates
-generate_static_aggregates(deep_params, plan, [], this_uniquetag);
+generate_static_aggregates([beta, gamma, sigma], plan, [], this_uniquetag);
 
 % Extract aggregates from folder
 s_static = load(fullfile(save_dir, 'aggregates_static.mat'));

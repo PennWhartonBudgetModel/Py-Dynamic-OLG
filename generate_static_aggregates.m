@@ -21,19 +21,19 @@
 
 function [] = generate_static_aggregates(deep_params, plan, gcut, this_uniquetag)
 
-% Extract deep parameters, or set defaults if none provided
-if exist('deep_params', 'var')
-    beta  = deep_params(1);
-    gamma = deep_params(2);
-    sigma = deep_params(3);
-else
+% Extract deep parameters or set defaults if none provided
+if ~exist('deep_params', 'var') || isempty(deep_params)
     beta  = 1.005;
     gamma = 0.390;
     sigma = 06.00;
+else
+    beta  = deep_params(1);
+    gamma = deep_params(2);
+    sigma = deep_params(3);
 end
 
 % Set base plan as default
-if ~exist('plan', 'var')
+if ~exist('plan', 'var') || isempty(plan)
     plan = 'base';
 end
 
@@ -41,7 +41,7 @@ end
 isopen = ~exist('gcut', 'var') || isempty(gcut);
 
 % Set solution uniqueness tag to empty by default
-if ~exist('this_uniquetag', 'var')
+if ~exist('this_uniquetag', 'var') || isempty(this_uniquetag)
     this_uniquetag = '';
 end
 
