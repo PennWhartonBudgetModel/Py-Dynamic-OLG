@@ -67,7 +67,7 @@ else
     if isopen
         base_dir = dirFinder.open  (beta, gamma, sigma, 'base');
     else
-        base_dir = dirFinder.closed(beta, gamma, sigma, 'base', gcut);
+        base_dir = dirFinder.closed(beta, gamma, sigma, 'base', +0.00);
     end
 end
 
@@ -255,7 +255,7 @@ domestic_debt_static = s_base.domestic_cap_total;  %#ok<NASGU>
 
 % Loaded in solve_open for open; loaded from results if closed.
 if ~isopen
-    foreign_debt_static  = s_base.foreign_cap_total; %#ok<NASGU>
+    foreign_debt_static  = s_base.foreign_debt_total; %#ok<NASGU>
 end
 
 Y_static      = s_base.Y_total;      %#ok<NASGU>
