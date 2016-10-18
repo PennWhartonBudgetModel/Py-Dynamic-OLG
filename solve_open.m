@@ -489,8 +489,8 @@ for t = 1:Tss-1
 end
 
 % Solving foreign debt and appending to static aggregates because of dependency conflict
-foreign_debt_total = debt_total - domestic_debt_total; %#ok<NASGU>
-foreign_debt_static = foreign_cap_total; %#ok<NASGU>
+foreign_debt_total = debt_total - domestic_debt_total;
+foreign_debt_static = foreign_debt_total; %#ok<NASGU>
 
 % Append to static aggregates because of dependency issue
 save(fullfile(save_dir, 'aggregates_static.mat'), 'foreign_debt_static', '-append');
