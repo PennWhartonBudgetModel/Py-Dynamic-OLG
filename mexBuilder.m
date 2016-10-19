@@ -31,6 +31,8 @@ end
 
 function [] = build_mex(funstr)
 
+fprintf('\nBuilding mex function for %s.', funstr)
+
 % Specify code generation directory
 codegen_dir = sprintf('%s_codegen', funstr);
 
@@ -46,5 +48,7 @@ codegen('-d', codegen_dir, '-config', 'mex_cfg', funstr)
 
 % Clean up code generation directory
 rmdir(codegen_dir, 's')
+
+fprintf('\nBuild complete.\n')
 
 end
