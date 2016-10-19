@@ -8,3 +8,6 @@
 # Ignore testing directory and log directory
 /Testing
 /Logs
+
+# Ignore designated directories
+.ignore/
