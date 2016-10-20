@@ -1,5 +1,4 @@
-% Jorge | 2016-09-28
-% 
+%%
 % Tax function.  To be expanded to include income and consumption calculations.
 % 
 % Any dependent mex functions should be regenerated after making changes to this function.  These include but may not be limited to:
@@ -7,7 +6,7 @@
 %       solve_dynamic_optimization
 %       calculate_static_taxes
 % 
-% 
+%%
 
 
 function [fincome, ftax, sstax, fcap] ...

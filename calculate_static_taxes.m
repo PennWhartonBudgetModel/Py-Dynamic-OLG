@@ -1,8 +1,7 @@
-% Jorge | 2016-09-29
+%%
+% Static aggregate tax calculator.  Adapted from dynamic optimization solver.
 % 
-% Static aggregate tax calculation function.  Adapted from dynamic optimization solver.
-% 
-% 
+%%
 
 
 function [fedincome, fedincomess, fitax, fitaxss, fsstax, fsstaxss, fcaptax, fcaptaxss] ...
@@ -16,6 +15,56 @@ function [fedincome, fedincomess, fitax, fitaxss, fsstax, fsstaxss, fcaptax, fca
               avg_deduc, clinton, coefs, limit, X, ss_benefit, ...
               labopt) %#codegen
 
+
+% Define argument properties for C code generation
+T_max   = 100;
+Tss_max =  75;
+nb_max  =  50;
+nk_max  =  50;
+nz_max  =  50;
+
+assert( isa(T,              'double') && (size(T,               1) == 1         ) && (size(T,               2) == 1         ) );
+assert( isa(Tr,             'double') && (size(Tr,              1) == 1         ) && (size(Tr,              2) == 1         ) );
+assert( isa(Tss,            'double') && (size(Tss,             1) == 1         ) && (size(Tss,             2) == 1         ) );
+assert( isa(birthyear,      'double') && (size(birthyear,       1) == 1         ) && (size(birthyear,       2) == 1         ) );
+
+assert( isa(kgrid,          'double') && (size(kgrid,           1) <= nk_max    ) && (size(kgrid,           2) == 1         ) );
+assert( isa(nb,             'double') && (size(nb,              1) == 1         ) && (size(nb,              2) == 1         ) );
+assert( isa(nk,             'double') && (size(nk,              1) == 1         ) && (size(nk,              2) == 1         ) );
+assert( isa(nz,             'double') && (size(nz,              1) == 1         ) && (size(nz,              2) == 1         ) );
+assert( isa(idem,           'double') && (size(idem,            1) == 1         ) && (size(idem,            2) == 1         ) );
+
+assert( isa(mpci,           'double') && (size(mpci,            1) == 1         ) && (size(mpci,            2) == 1         ) );
+assert( isa(rpci,           'double') && (size(rpci,            1) == 1         ) && (size(rpci,            2) == 1         ) );
+assert( isa(cap_tax_share,  'double') && (size(cap_tax_share,   1) == 1         ) && (size(cap_tax_share,   2) == 1         ) );
+assert( isa(ss_tax_cred,    'double') && (size(ss_tax_cred,     1) == 1         ) && (size(ss_tax_cred,     2) == 1         ) );
+
+assert( isa(tau_cap,        'double') && (size(tau_cap,         1) == 1         ) && (size(tau_cap,         2) == 1         ) );
+assert( isa(tau_capgain,    'double') && (size(tau_capgain,     1) == 1         ) && (size(tau_capgain,     2) == 1         ) );
+assert( isa(ss_tax,         'double') && (size(ss_tax,          1) == 1         ) && (size(ss_tax,          2) <= Tss_max   ) );
+assert( isa(taxmax,         'double') && (size(taxmax,          1) == 1         ) && (size(taxmax,          2) <= Tss_max   ) );
+assert( isa(z,              'double') && (size(z,               1) <= nz_max    ) && (size(z,               2) <= T_max     ) && (size(z, 3) == 2) );
+
+assert( isa(wages,          'double') && (size(wages,           1) == 1         ) && (size(wages,           2) <= Tss_max   ) );
+assert( isa(cap_shares,     'double') && (size(cap_shares,      1) == 1         ) && (size(cap_shares,      2) <= Tss_max   ) );
+assert( isa(debt_shares,    'double') && (size(debt_shares,     1) == 1         ) && (size(debt_shares,     2) <= Tss_max   ) );
+assert( isa(rate_caps,      'double') && (size(rate_caps,       1) == 1         ) && (size(rate_caps,       2) <= Tss_max   ) );
+assert( isa(rate_govs,      'double') && (size(rate_govs,       1) == 1         ) && (size(rate_govs,       2) <= Tss_max   ) );
+assert( isa(exp_subsidys,   'double') && (size(exp_subsidys,    1) == 1         ) && (size(exp_subsidys,    2) <= Tss_max   ) );
+assert( isa(q_tobin,        'double') && (size(q_tobin,         1) == 1         ) && (size(q_tobin,         2) == 1         ) );
+assert( isa(q_tobin0,       'double') && (size(q_tobin0,        1) == 1         ) && (size(q_tobin0,        2) == 1         ) );
+
+assert( isa(avg_deduc,      'double') && (size(avg_deduc,       1) == 1         ) && (size(avg_deduc,       2) == 1         ) );
+assert( isa(clinton,        'double') && (size(clinton,         1) == 1         ) && (size(clinton,         2) == 1         ) );
+assert( isa(coefs,          'double') && (size(coefs,           1) == 1         ) && (size(coefs,           2) <= 10        ) );
+assert( isa(limit,          'double') && (size(limit,           1) == 1         ) && (size(limit,           2) == 1         ) );
+assert( isa(X,              'double') && (size(X,               1) == 1         ) && (size(X,               2) <= 10        ) );
+assert( isa(ss_benefit,     'double') && (size(ss_benefit,      1) <= nb_max    ) && (size(ss_benefit,      2) <= Tss_max   ) );
+
+assert( isa(labopt, 'double') && all(size(labopt) <= [nk_max, nz_max, nb_max, T_max]) );
+
+
+%% Initialization
 
 % Define past years and effective retirement age
 % (birthyear is defined relative to the present and can take both positive and negative values)

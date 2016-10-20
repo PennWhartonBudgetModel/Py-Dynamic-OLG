@@ -1,8 +1,8 @@
-% Pete | 2016-09-28
-% 
+%%
 % Check convergence for closed economy transition path runs.
 % 
-% 
+%%
+
 
 function [lastiters] = check_closed_convergence()
 
@@ -14,7 +14,7 @@ for inddeep = 1:16
             
             % Find save directory
             deep_params = inddeep_to_params(inddeep);
-            [~, save_dir] = identify_dirs('closed', deep_params(1), deep_params(2), deep_params(3), plan{1}, gcut);
+            save_dir = dirFinder.closed(deep_params(1), deep_params(2), deep_params(3), plan{1}, gcut);
             
             % Extract subdirectories
             [up_dir, gcut_sub, dec_str] = fileparts(save_dir);

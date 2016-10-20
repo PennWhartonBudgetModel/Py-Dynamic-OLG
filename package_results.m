@@ -1,20 +1,15 @@
-% Pete | 2016-09-28
-% 
+%%
 % Package all results into csv files for staging.
 % 
-% 
+%%
 
 
 function [] = package_results()
 
-% Identify working directories
-param_dir = identify_dirs('');
-main_dir  = fileparts(mfilename('fullpath'));
+% Identify csv save directory
+csv_dir = dirFinder.csv;
 
-c = num2cell(clock); timestamp = sprintf('%04d-%02d-%02d-%02d-%02d', c{1:5});
-csv_dir = fullfile(main_dir, '..', '..', 'charts', 'version2', 'tax_dynamic_scores', timestamp);
-
-% Clear or create directory for csv files
+% Clear or create save directory
 if exist(csv_dir, 'dir')
     rmdir(csv_dir, 's')
 end
@@ -22,7 +17,7 @@ mkdir(csv_dir)
 
 
 % Load target elasticity sets
-s = load(fullfile(param_dir, 'ss_inverses.mat'));
+s = load(fullfile(dirFinder.param, 'ss_inverses.mat'));
 elasticity_sets = s.targets(:,[2,3]);
 deep_param_sets = s.inverses;
 clear('s')
@@ -88,9 +83,9 @@ for gcut = [+0.00, +0.10, +0.05, -0.05]
 
                         % Identify working directoroes
                         if (openness == 1)
-                            [~, save_dir] = identify_dirs('open',   beta, gamma, sigma, plan{1});
+                            save_dir = dirFinder.open  (beta, gamma, sigma, plan{1});
                         else
-                            [~, save_dir] = identify_dirs('closed', beta, gamma, sigma, plan{1}, gcut);
+                            save_dir = dirFinder.closed(beta, gamma, sigma, plan{1}, gcut);
                         end
 
                         % Identify iterations log file
@@ -150,5 +145,7 @@ for gcut = [+0.00, +0.10, +0.05, -0.05]
         
     end
 end
+
+fprintf('\nResults successfully packaged into csv files:\n\t%s\n', csv_dir)
 
 end

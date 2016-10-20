@@ -1,5 +1,4 @@
-% Jorge | 2016-10-04
-% 
+%%
 % Calculate static aggregates for a transition path.  Supports both open and closed economy transition paths.
 % 
 % Arguments:
@@ -14,62 +13,61 @@
 %       Percentage government expenditure reduction, with positive values corresponding to reductions.
 %       Leave unspecified or set to [] for an open economy transition path.
 % 
-%   uniquetag (optional | '' by default)
+%   this_uniquetag (optional | '' by default)
 %       String used to save solution into a unique directory, used to avoid conflicts between parallel runs.
 % 
-% 
+%%
 
 
+function [] = generate_static_aggregates(deep_params, plan, gcut, this_uniquetag)
 
-function [] = generate_static_aggregates(deep_params, plan, gcut, uniquetag)
-
-% Extract deep parameters, or set defaults if none provided
-if exist('deep_params', 'var')
-    beta  = deep_params(1);
-    gamma = deep_params(2);
-    sigma = deep_params(3);
-else
+% Extract deep parameters or set defaults if none provided
+if ~exist('deep_params', 'var') || isempty(deep_params)
     beta  = 1.005;
     gamma = 0.390;
     sigma = 06.00;
+else
+    beta  = deep_params(1);
+    gamma = deep_params(2);
+    sigma = deep_params(3);
 end
 
 % Set base plan as default
-if ~exist('plan', 'var')
+if ~exist('plan', 'var') || isempty(plan)
     plan = 'base';
 end
 
 % Identify open economy transition path by absence of gcut
-if ~exist('gcut', 'var') || isempty(gcut)
-    isopen = true;
-else
-    isopen = false;
-end
+isopen = ~exist('gcut', 'var') || isempty(gcut);
 
 % Set solution uniqueness tag to empty by default
-if ~exist('uniquetag', 'var')
-    uniquetag = '';
+if ~exist('this_uniquetag', 'var') || isempty(this_uniquetag)
+    this_uniquetag = '';
 end
 
 
 
 % Identify working directories
+param_dir = dirFinder.param;
+
 if isopen
-    [param_dir, save_dir] = identify_dirs('open',   beta, gamma, sigma, plan);
+    save_dir = dirFinder.open  (beta, gamma, sigma, plan);
 else
-    [param_dir, save_dir] = identify_dirs('closed', beta, gamma, sigma, plan, gcut);
+    save_dir = dirFinder.closed(beta, gamma, sigma, plan, gcut);
 end
-save_dir = [save_dir, uniquetag];
+save_dir = [save_dir, this_uniquetag];
+
 
 % Identify corresponding reference directories
-[~, ss_dir] = identify_dirs('ss', beta, gamma, sigma);
+ss_dir = dirFinder.ss(beta, gamma, sigma);
+
 if strcmp(plan, 'base')
-    base_dir = save_dir;    % Includes uniquetag
+    base_dir = save_dir;    % Includes this_uniquetag
 else
     if isopen
-        [~, base_dir] = identify_dirs('open',   beta, gamma, sigma, 'base');
+        base_dir = dirFinder.open  (beta, gamma, sigma, 'base');
     else
-        [~, base_dir] = identify_dirs('closed', beta, gamma, sigma, 'base', +0.00);
+        base_dir = dirFinder.closed(beta, gamma, sigma, 'base', +0.00);
     end
 end
 
@@ -135,7 +133,7 @@ clear('s_base')
 % (Baseline solution is equivalent to steady state solution for open economy)
 if isopen
     
-    s = load(fullfile(ss_dir, 'solution.mat'));
+    s = hardyload(fullfile(ss_dir, 'solution.mat'));
 
     wages        = s.wage      *ones(1,Tss);
     cap_shares   = s.cap_share *ones(1,Tss);
@@ -146,7 +144,7 @@ if isopen
     
 else
 
-    s = load(fullfile(base_dir, 'solution.mat'));
+    s = hardyload(fullfile(base_dir, 'solution.mat'));
 
     wages        = s.wages;
     cap_shares   = s.cap_shares;
@@ -154,17 +152,17 @@ else
     rate_caps    = s.rate_caps;
     rate_govs    = s.rate_govs;
     
-    s_agg = load(fullfile(base_dir,'aggregates.mat'));
+    s_agg = hardyload(fullfile(base_dir,'aggregates.mat'));
     exp_subsidys = s_agg.exp_subsidys;
     clear('s_agg');
     
 end
 
 % Load optimal decision values and distributions from baseline
-s = load(fullfile(base_dir, 'opt.mat'));
+s = hardyload(fullfile(base_dir, 'opt.mat'));
 base_opt = s.opt;
 
-s = load(fullfile(base_dir, 'dist.mat'));
+s = hardyload(fullfile(base_dir, 'dist.mat'));
 base_dist = s.dist;
 
 
@@ -247,7 +245,7 @@ end
 
 % Copy extra static aggregates from corresponding base plan aggregates
 % (Duplicates data but enhances modularity of results)
-s_base = load(fullfile(base_dir, 'aggregates.mat'));
+s_base = hardyload(fullfile(base_dir, 'aggregates.mat'));
 
 elab_static         = s_base.elab_total;   %#ok<NASGU>
 cap_static          = s_base.cap_total;    %#ok<NASGU>

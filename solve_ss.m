@@ -1,5 +1,4 @@
-% Pete | 2016-09-28
-% 
+%%
 % Steady state solver.
 % 
 % Arguments:
@@ -13,7 +12,7 @@
 %   cleanup (optional | false by default)
 %       Set to true to clean up data files and directories used for intermediary results after solver execution.
 % 
-%   uniquetag (optional | '' by default)
+%   this_uniquetag (optional | '' by default)
 %       String used to save solution into a unique directory, used to avoid conflicts between parallel runs.
 % 
 % Outputs:
@@ -21,38 +20,38 @@
 %   elasticities
 %       Capital-to-output ratio, labor elasticity, and savings elasticity collected in a 1 x 3 vector [K_Y, labor_elas, savings_elas].
 % 
-% 
+%%
 
 
-function [elasticities] = solve_ss(deep_params, showmore, cleanup, uniquetag)
+function [elasticities] = solve_ss(deep_params, showmore, cleanup, this_uniquetag)
 
 
 %% Initialization
 
 % Extract deep parameters or set defaults if none provided
-if exist('deep_params', 'var')
-    beta  = deep_params(1);
-    gamma = deep_params(2);
-    sigma = deep_params(3);
-else
+if ~exist('deep_params', 'var') || isempty(deep_params)
     beta  = 1.005;
     gamma = 0.390;
     sigma = 06.00;
+else
+    beta  = deep_params(1);
+    gamma = deep_params(2);
+    sigma = deep_params(3);
 end
 
 % Turn on all status updates by default
-if ~exist('showmore', 'var')
+if ~exist('showmore', 'var') || isempty(showmore)
     showmore = true;
 end
 
 % Turn off file cleanup by default
-if ~exist('cleanup', 'var')
+if ~exist('cleanup', 'var') || isempty(cleanup)
     cleanup = false;
 end
 
 % Set solution uniqueness tag to empty by default
-if ~exist('uniquetag', 'var')
-    uniquetag = '';
+if ~exist('this_uniquetag', 'var') || isempty(this_uniquetag)
+    this_uniquetag = '';
 end
 
 
@@ -61,10 +60,11 @@ end
 fprintf('\nSolving steady state:  beta = %0.3f  gamma = %0.3f  sigma = %05.2f\n', beta, gamma, sigma)
 
 % Identify working directories
-[param_dir, save_dir] = identify_dirs('ss', beta, gamma, sigma);
+param_dir = dirFinder.param;
+save_dir  = dirFinder.ss(beta, gamma, sigma);
 
 % Append uniqueness tag to name of save directory
-save_dir = [save_dir, uniquetag];
+save_dir = [save_dir, this_uniquetag];
 
 % Clear or create save directory
 if exist(save_dir, 'dir')

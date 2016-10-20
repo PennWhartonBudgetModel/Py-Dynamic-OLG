@@ -1,5 +1,4 @@
-% Jorge | 2016-09-29
-% 
+%%
 % Closed economy transition path solver.
 % 
 % Arguments:
@@ -16,7 +15,7 @@
 %   showmore (optional | true by default)
 %       Set to true for more solver status updates.
 % 
-% 
+%%
 
 
 function [] = solve_closed(deep_params, plan, gcut, showmore)
@@ -25,28 +24,28 @@ function [] = solve_closed(deep_params, plan, gcut, showmore)
 %% Initialization
 
 % Extract deep parameters or set defaults if none provided
-if exist('deep_params', 'var')
-    beta  = deep_params(1);
-    gamma = deep_params(2);
-    sigma = deep_params(3);
-else
+if ~exist('deep_params', 'var') || isempty(deep_params)
     beta  = 1.005;
     gamma = 0.390;
     sigma = 06.00;
+else
+    beta  = deep_params(1);
+    gamma = deep_params(2);
+    sigma = deep_params(3);
 end
 
 % Set base plan as default
-if ~exist('plan', 'var')
+if ~exist('plan', 'var') || isempty(plan)
     plan = 'base';
 end
 
 % Set 0 reduction in government expenditure as default
-if ~exist('gcut', 'var')
+if ~exist('gcut', 'var') || isempty(gcut)
     gcut = 0.00;
 end
 
 % Turn on all status updates by default
-if ~exist('showmore', 'var')
+if ~exist('showmore', 'var') || isempty(showmore)
     showmore = true;
 end
 
@@ -56,7 +55,8 @@ end
 fprintf('\nSolving closed economy transition path:  beta = %0.3f  gamma = %0.3f  sigma = %05.2f  plan = %s  gcut = %+0.2f\n', beta, gamma, sigma, plan, gcut)
 
 % Identify working directories
-[param_dir, save_dir] = identify_dirs('closed', beta, gamma, sigma, plan, gcut);
+param_dir = dirFinder.param;
+save_dir  = dirFinder.closed(beta, gamma, sigma, plan, gcut);
 
 % Clear or create save directory
 if exist(save_dir, 'dir')
@@ -65,9 +65,9 @@ end
 mkdir(save_dir)
 
 % Identify reference steady state and open economy plan directories
-[~, ss_dir      ] = identify_dirs('ss',   beta, gamma, sigma);
-[~, openbase_dir] = identify_dirs('open', beta, gamma, sigma, 'base');
-[~, openplan_dir] = identify_dirs('open', beta, gamma, sigma, plan);
+ss_dir       = dirFinder.ss  (beta, gamma, sigma);
+openbase_dir = dirFinder.open(beta, gamma, sigma, 'base');
+openplan_dir = dirFinder.open(beta, gamma, sigma, plan  );
 
 
 

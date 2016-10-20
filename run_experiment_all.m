@@ -1,8 +1,7 @@
-% Pete | 2016-09-28
-% 
+%%
 % Run all singleton policy experiments.
 % 
-% 
+%%
 
 
 function [] = run_experiment_all()

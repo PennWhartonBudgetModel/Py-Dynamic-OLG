@@ -1,8 +1,7 @@
-% Pete | 2016-10-11
-% 
+%%
 % Calculate static aggregates for all closed economies.
 % 
-% 
+%%
 
 
 function [] = generate_static_aggregates_closed()
