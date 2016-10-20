@@ -446,8 +446,6 @@ save(fullfile(save_dir, 'aggregates.mat'), ...
      'beq_total', 'elab_total', 'lab_total', 'lfpr_total', ...
      'fedincome_total', 'fedit_total', 'ssrev_total', 'fcaptax_total', 'ssexp_total', ...
      'Y_total', 'labinc_total', 'kinc_total', 'feditlab_total', 'fcaprev_total', 'exp_subsidys')
- 
- 
 
 
 % Calculate static aggregates
@@ -462,22 +460,19 @@ fcaptax_static = s_static.fcaptax_static;
 
 if strcmp(plan, 'base')
     Y_base = Y_total;
-    
 else
-    s = hardyload(base_aggregates);
-    Y_base = s.Y_total;
+    s_base = hardyload(base_aggregates);
+    Y_base = s_base.Y_total;
 end
 
 Ttilde = revenue_percent.*Y_base - fedit_static - ssrev_static - fcaptax_static;
 
-if strcmp(plan,'base')
+if strcmp(plan, 'base')
     Gtilde = fedit_total + ssrev_total + fcaptax_total + Ttilde - ssexp_total - fedgovtnis.*Y_total;
 else
-    s = hardyload(base_aggregates);
-    Gtilde = s.Gtilde;
+    Gtilde = s_base.Gtilde;
 end
 
-% Gtilde = fedit_total + ssrev_total + fcaptax_total + Ttilde - ssexp_total - fedgovtnis.*Y_base;
 
 
 % Calculate aggregate debt
@@ -490,7 +485,11 @@ end
 
 % Solving foreign debt and appending to static aggregates because of dependency conflict
 foreign_debt_total = debt_total - domestic_debt_total;
-foreign_debt_static = foreign_debt_total; %#ok<NASGU>
+if strcmp(plan, 'base')
+    foreign_debt_static = foreign_debt_total; %#ok<NASGU>
+else
+    foreign_debt_static = s_base.foreign_debt_total; %#ok<NASGU>
+end
 
 % Append to static aggregates because of dependency issue
 save(fullfile(save_dir, 'aggregates_static.mat'), 'foreign_debt_static', '-append');
