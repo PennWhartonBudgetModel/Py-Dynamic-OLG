@@ -143,18 +143,16 @@ methods (Static, Access = private)
         
         % Get commit date (%cd), author email address (%ae), and abbreviated hash (%h)
         [~, commit_log] = system('git --no-pager log -1 --format=%cd,%ae,,%h --date=iso');
-
+        
         % Extract commit date and reformat
-        commit_date   = regexp(commit_log, '.* .*(?= )', 'match');
-        commit_date   = datestr(commit_date{1}, 'yyyy-mm-dd-HH-MM');
+        commit_date   = regexp(commit_log, '.*? .*?(?= )', 'match', 'once');
+        commit_date   = datestr(commit_date, 'yyyy-mm-dd-HH-MM');
         
         % Extract author username from email address
-        commit_author = regexp(commit_log, '(?<=,).*(?=@)', 'match');
-        commit_author = commit_author{1};
-
-        % Extract abbreviated hash and strip off trailing whitespace
-        commit_hash   = regexp(commit_log, '(?<=,,).*', 'match');
-        commit_hash   = commit_hash{1}(1:end-1);
+        commit_author = regexp(commit_log, '(?<=,).*?(?=@)', 'match', 'once');
+        
+        % Extract abbreviated hash
+        commit_hash   = regexp(commit_log, '(?<=,,).*?(?=\n)', 'match', 'once');
         
         % Construct commit identifier
         commit_id = sprintf('%s-%s-%s', commit_date, commit_author, commit_hash);

@@ -146,6 +146,23 @@ for gcut = [+0.00, +0.10, +0.05, -0.05]
     end
 end
 
+
+% Get commit date (%cd) and subject (%s)
+[~, commit_log] = system('git --no-pager log -1 --format=%cd,%s --date=iso');
+
+% Extract commit date and reformat
+commit_date    = regexp(commit_log, '.*? .*?(?= )', 'match', 'once');
+commit_date    = datestr(commit_date, 'yyyy-mm-dd HH:MM');
+
+% Extract subject
+commit_subject = regexp(commit_log, '(?<=,).*?(?=\n)', 'match', 'once');
+
+% Compose tag file
+fid = fopen(fullfile(csv_dir, 'dynamicModelTag.txt'), 'w+');
+fprintf(fid, 'TimeStamp=%s\nShortDescription=%s', commit_date, commit_subject);
+fclose(fid);
+
+
 fprintf('\nResults successfully packaged into csv files:\n\t%s\n', csv_dir)
 
 end
