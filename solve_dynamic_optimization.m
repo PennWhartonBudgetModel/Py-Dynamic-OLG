@@ -130,7 +130,6 @@ fcaptaxss   = zeros(nk,nb,N_r);
 
 % Specify settings for dynamic optimization subproblems
 optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
-lab0 = 1e-2;
 
 
 %% Retirement age dynamic optimization
@@ -142,14 +141,14 @@ for t = N_r:-1:1
     year = max(1, min(age + birthyear, Tss));
     
     % Extract annual parameters
-    ben         = ss_benefit(:,year);
-    beq         = beqs(year);
-    rate_cap    = rate_caps(year);
-    rate_gov    = rate_govs(year);
-    cap_share   = cap_shares(year);
-    debt_share  = debt_shares(year);
-    rate_tot    = rate_tots(year);
-    exp_subsidy = exp_subsidys(year);
+    ben         = ss_benefit(:,  year);
+    beq         = beqs          (year);
+    rate_cap    = rate_caps     (year);
+    rate_gov    = rate_govs     (year);
+    cap_share   = cap_shares    (year);
+    debt_share  = debt_shares   (year);
+    rate_tot    = rate_tots     (year);
+    exp_subsidy = exp_subsidys  (year);
     
     EV = (1-surv(age))*Vbeq*ones(1,nb) + surv(age)*beta*Vss(:,:,t+1);
     
@@ -198,21 +197,21 @@ for t = N_w:-1:1
     year = max(1, min(age + birthyear, Tss));
     
     % Extract annual parameters
-    v_ss_max    = taxmax(year);
-    tau_ss      = ss_tax(year);
-    beq         = beqs(year);
-    wage        = wages(year);
-    rate_cap    = rate_caps(year);
-    rate_gov    = rate_govs(year);
-    cap_share   = cap_shares(year);
-    debt_share  = debt_shares(year);
-    cap_inc     = cap_incs(:,year);
-    exp_subsidy = exp_subsidys(year);
+    v_ss_max    = taxmax        (year);
+    tau_ss      = ss_tax        (year);
+    beq         = beqs          (year);
+    wage        = wages         (year);
+    rate_cap    = rate_caps     (year);
+    rate_gov    = rate_govs     (year);
+    cap_share   = cap_shares    (year);
+    debt_share  = debt_shares   (year);
+    cap_inc     = cap_incs(:,    year);
+    exp_subsidy = exp_subsidys  (year);
     
     for ib = 1:nb
         for iz = 1:nz
             
-            eff_wage = wage*max(z(iz,age,idem), 0);
+            eff_wage = wage * z(iz,age,idem);
             
             % Calculate expected value curve using values for next time step
             if (age == Tr_eff)
@@ -228,13 +227,16 @@ for t = N_w:-1:1
                 valfun_work([], kgrid, bgrid, cap_inc(ik), cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, eff_wage, beq, EV, sigma, gamma, avg_deduc, coefs, limit, X, mpci, rpci, tau_ss, v_ss_max, age, ib, ik, clinton, year, q_tobin, q_tobin0);
                 
                 % Solve dynamic optimization subproblem
-                [x_opt, V_min] = fminsearch(@valfun_work, [kgrid(ik), lab0], optim_options);
+                lab0 = 0.9;
+                k0   = max(kgrid(ik), 0.1 * eff_wage * lab0);   % (Assumes taxation will not exceed 90% of labor income)
+                
+                [x_opt, V_min] = fminsearch(@valfun_work, [k0, lab0], optim_options);
                 
                 k_opt   = x_opt(1);
                 lab_opt = x_opt(2);
-                
+
                 % Calculate tax terms
-                fincome_lab = eff_wage*lab_opt;
+                fincome_lab = eff_wage * lab_opt;
                 [fincome, ftax, sstax, fcap] ...
                     = calculate_tax(fincome_lab, kgrid(ik), ...
                                     cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, ...
