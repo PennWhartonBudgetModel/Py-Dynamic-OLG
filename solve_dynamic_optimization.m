@@ -227,7 +227,7 @@ for t = N_w:-1:1
                 valfun_work([], kgrid, bgrid, cap_inc(ik), cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, eff_wage, beq, EV, sigma, gamma, avg_deduc, coefs, limit, X, mpci, rpci, tau_ss, v_ss_max, age, ib, ik, clinton, year, q_tobin, q_tobin0);
                 
                 % Solve dynamic optimization subproblem
-                lab0 = 0.9;
+                lab0 = 0.5;
                 k0   = max(kgrid(ik), 0.1 * eff_wage * lab0);   % (Assumes taxation will not exceed 90% of labor income)
                 
                 [x_opt, V_min] = fminsearch(@valfun_work, [k0, lab0], optim_options);
