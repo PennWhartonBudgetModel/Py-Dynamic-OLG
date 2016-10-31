@@ -221,13 +221,15 @@ for t = N_w:-1:1
             
             for ik = 1:nk
                 
-                % Call resource calculation function and value function to set parameters
+                % Call average earnings calculation function, resource calculation function, and value function to set parameters
+                calculate_b([], age, bgrid(ib), v_ss_max)
+                
                 calculate_resources([], kgrid(ik), ...
                                     cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, ...
                                     avg_deduc, coefs, limit, X, mpci, rpci, tau_ss, v_ss_max, clinton, year, q_tobin, q_tobin0, ...
                                     rate_tot*kgrid(ik), beq, 0);
                 
-                valfun_work([], kgrid, bgrid, eff_wage, EV, sigma, gamma, v_ss_max, age, ib)
+                valfun_work([], kgrid, bgrid, eff_wage, EV, sigma, gamma)
                 
                 % Solve dynamic optimization subproblem
                 lab0 = 0.5;
@@ -238,16 +240,16 @@ for t = N_w:-1:1
                 k_opt   = x_opt(1);
                 lab_opt = x_opt(2);
 
-                % Calculate available resources and tax terms
+                % Calculate tax terms for optimal decision values
                 fincome_lab_opt = eff_wage * lab_opt;
-                [resources, fincome, ftax, sstax, fcap] = calculate_resources(fincome_lab_opt);
+                [~, fincome, ftax, sstax, fcap] = calculate_resources(fincome_lab_opt);
                 
                 % Store values
                 V        (ik,iz,ib,t) = -V_min;
                 
                 kopt     (ik,iz,ib,t) = k_opt;
                 labopt   (ik,iz,ib,t) = lab_opt;
-                bopt     (ik,iz,ib,t) = calculate_b(fincome_lab_opt, age, bgrid(ib), v_ss_max);
+                bopt     (ik,iz,ib,t) = calculate_b(fincome_lab_opt);
                 
                 fedincome(ik,iz,ib,t) = fincome;
                 fitax    (ik,iz,ib,t) = ftax;
@@ -264,6 +266,7 @@ end
 
 
 
+% Retirement age value function
 function V_tilde = valfun_retire(k_prime, kgrid_, resources_, EV_ib_, sigma_, gamma_)
 
 % Enforce function inlining for C code generation
@@ -280,11 +283,11 @@ persistent gamma
 % Initialize parameters
 if isempty(initialized)
     
-    kgrid      = 0;
-    resources  = 0;
-    EV_ib      = 0;
-    sigma      = 0;
-    gamma      = 0;
+    kgrid           = 0;
+    resources       = 0;
+    EV_ib           = 0;
+    sigma           = 0;
+    gamma           = 0;
     
     initialized = true;
     
@@ -293,11 +296,11 @@ end
 % Set parameters if provided
 if (nargin > 1)
     
-    kgrid      = kgrid_;
-    resources  = resources_;
-    EV_ib      = EV_ib_;
-    sigma      = sigma_;
-    gamma      = gamma_;
+    kgrid           = kgrid_;
+    resources       = resources_;
+    EV_ib           = EV_ib_;
+    sigma           = sigma_;
+    gamma           = gamma_;
     
     return
     
@@ -328,7 +331,8 @@ end
 
 
 
-function V_tilde = valfun_work(x_prime, kgrid_, bgrid_, eff_wage_, EV_, sigma_, gamma_, v_ss_max_, age_, ib_)
+% Working age value function
+function V_tilde = valfun_work(x_prime, kgrid_, bgrid_, eff_wage_, EV_, sigma_, gamma_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -341,39 +345,30 @@ persistent eff_wage
 persistent EV
 persistent sigma
 persistent gamma
-persistent v_ss_max
-persistent age
-persistent ib
 
 % Initialize parameters
 if isempty(initialized)
     
-    kgrid         = 0;
-    bgrid         = 0;
-    eff_wage      = 0;
-    EV            = 0;
-    sigma         = 0;
-    gamma         = 0;
-    v_ss_max      = 0;
-    age           = 0;
-    ib            = 0;
+    kgrid           = 0;
+    bgrid           = 0;
+    eff_wage        = 0;
+    EV              = 0;
+    sigma           = 0;
+    gamma           = 0;
     
-    initialized = true;
+    initialized     = true;
     
 end
 
 % Set parameters if provided
 if (nargin > 1)
     
-    kgrid         = kgrid_;
-    bgrid         = bgrid_;
-    eff_wage      = eff_wage_;
-    EV            = EV_;
-    sigma         = sigma_;
-    gamma         = gamma_;
-    v_ss_max      = v_ss_max_;
-    age           = age_;
-    ib            = ib_;
+    kgrid           = kgrid_;
+    bgrid           = bgrid_;
+    eff_wage        = eff_wage_;
+    EV              = EV_;
+    sigma           = sigma_;
+    gamma           = gamma_;
     
     return
     
@@ -384,7 +379,7 @@ k_prime   = x_prime(1);
 lab_prime = x_prime(2);
 
 fincome_lab = eff_wage * lab_prime;
-b_prime     = calculate_b(fincome_lab, age, bgrid(ib), v_ss_max);
+b_prime     = calculate_b(fincome_lab);
 
 if ~((0 <= lab_prime) && (lab_prime <= 1) ...
      && (kgrid(1) <= k_prime) && (k_prime <= kgrid(end)) ...
@@ -420,7 +415,36 @@ end
 
 
 
-function [b_prime] = calculate_b(fincome_lab, age, bgrid_ib, v_ss_max)
+% Average earnings calculation function
+function [b_prime] = calculate_b(fincome_lab, age_, bgrid_ib_, v_ss_max_)
+
+% Define parameters as persistent variables
+persistent initialized
+persistent v_ss_max
+persistent age
+persistent bgrid_ib
+
+% Initialize parameters
+if isempty(initialized)
+    
+    v_ss_max        = 0;
+    age             = 0;
+    bgrid_ib        = 0;
+    
+    initialized     = true;
+    
+end
+
+% Set parameters if provided
+if (nargin > 1)
+    
+    v_ss_max        = v_ss_max_;
+    age             = age_;
+    bgrid_ib        = bgrid_ib_;
+    
+    return
+    
+end
 
 % Enforce function inlining for C code generation
 coder.inline('always');

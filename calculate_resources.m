@@ -8,6 +8,7 @@
 % 
 %%
 
+
 function [resources, fincome, ftax, sstax, fcap] ...
     ...
     = calculate_resources(fincome_lab, kgrid_ik_, ...
@@ -48,62 +49,62 @@ persistent ss_tax_cred
 % Initialize parameters
 if isempty(initialized)
     
-    kgrid_ik      = 0;
-    cap_share     = 0;
-    rate_cap      = 0;
-    debt_share    = 0;
-    rate_gov      = 0;
-    cap_tax_share = 0;
-    tau_cap       = 0;
-    tau_capgain   = 0;
-    exp_subsidy   = 0;
-    avg_deduc     = 0;
-    coefs         = 0;
-    limit         = 0;
-    X             = 0;
-    mpci          = 0;
-    rpci          = 0;
-    tau_ss        = 0;
-    v_ss_max      = 0;
-    clinton       = 0;
-    year          = 0;
-    q_tobin       = 0;
-    q_tobin0      = 0;
-    cap_inc_ik    = 0;
-    beq           = 0;
-    ss_tax_cred   = 0;
+    kgrid_ik        = 0;
+    cap_share       = 0;
+    rate_cap        = 0;
+    debt_share      = 0;
+    rate_gov        = 0;
+    cap_tax_share   = 0;
+    tau_cap         = 0;
+    tau_capgain     = 0;
+    exp_subsidy     = 0;
+    avg_deduc       = 0;
+    coefs           = 0;
+    limit           = 0;
+    X               = 0;
+    mpci            = 0;
+    rpci            = 0;
+    tau_ss          = 0;
+    v_ss_max        = 0;
+    clinton         = 0;
+    year            = 0;
+    q_tobin         = 0;
+    q_tobin0        = 0;
+    cap_inc_ik      = 0;
+    beq             = 0;
+    ss_tax_cred     = 0;
     
-    initialized = true;
+    initialized     = true;
     
 end
 
 % Set parameters if provided
 if (nargin > 1)
     
-    kgrid_ik      = kgrid_ik_;
-    cap_share     = cap_share_;
-    rate_cap      = rate_cap_;
-    debt_share    = debt_share_;
-    rate_gov      = rate_gov_;
-    cap_tax_share = cap_tax_share_;
-    tau_cap       = tau_cap_;
-    tau_capgain   = tau_capgain_;
-    exp_subsidy   = exp_subsidy_;
-    avg_deduc     = avg_deduc_;
-    coefs         = coefs_;
-    limit         = limit_;
-    X             = X_;
-    mpci          = mpci_;
-    rpci          = rpci_;
-    tau_ss        = tau_ss_;
-    v_ss_max      = v_ss_max_;
-    clinton       = clinton_;
-    year          = year_;
-    q_tobin       = q_tobin_;
-    q_tobin0      = q_tobin0_;
-    cap_inc_ik    = cap_inc_ik_;
-    beq           = beq_;
-    ss_tax_cred   = ss_tax_cred_;
+    kgrid_ik        = kgrid_ik_;
+    cap_share       = cap_share_;
+    rate_cap        = rate_cap_;
+    debt_share      = debt_share_;
+    rate_gov        = rate_gov_;
+    cap_tax_share   = cap_tax_share_;
+    tau_cap         = tau_cap_;
+    tau_capgain     = tau_capgain_;
+    exp_subsidy     = exp_subsidy_;
+    avg_deduc       = avg_deduc_;
+    coefs           = coefs_;
+    limit           = limit_;
+    X               = X_;
+    mpci            = mpci_;
+    rpci            = rpci_;
+    tau_ss          = tau_ss_;
+    v_ss_max        = v_ss_max_;
+    clinton         = clinton_;
+    year            = year_;
+    q_tobin         = q_tobin_;
+    q_tobin0        = q_tobin0_;
+    cap_inc_ik      = cap_inc_ik_;
+    beq             = beq_;
+    ss_tax_cred     = ss_tax_cred_;
     
     if isempty(fincome_lab), return, end
     
