@@ -11,3 +11,6 @@
 
 # Ignore designated directories
 .ignore/
+
+# Ignore mex files to enforce just-in-time builds and avoid version conflicts
+*.mex*
