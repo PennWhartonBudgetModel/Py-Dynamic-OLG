@@ -14,7 +14,7 @@ function [resources, fincome, ftax, sstax, fcap] ...
     = calculate_resources(fincome_lab, kgrid_ik_, ...
                           cap_share_, rate_cap_, debt_share_, rate_gov_, cap_tax_share_, tau_cap_, tau_capgain_, exp_subsidy_, ...
                           avg_deduc_, coefs_, limit_, X_, mpci_, rpci_, tau_ss_, v_ss_max_, clinton_, year_, q_tobin_, q_tobin0_, ...
-                          cap_inc_ik_, beq_, ss_tax_cred_) %#codegen
+                          rate_tot_, beq_, ss_tax_cred_) %#codegen
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -42,7 +42,7 @@ persistent clinton
 persistent year
 persistent q_tobin
 persistent q_tobin0
-persistent cap_inc_ik
+persistent rate_tot
 persistent beq
 persistent ss_tax_cred
 
@@ -70,7 +70,7 @@ if isempty(initialized)
     year            = 0;
     q_tobin         = 0;
     q_tobin0        = 0;
-    cap_inc_ik      = 0;
+    rate_tot        = 0;
     beq             = 0;
     ss_tax_cred     = 0;
     
@@ -102,7 +102,7 @@ if (nargin > 1)
     year            = year_;
     q_tobin         = q_tobin_;
     q_tobin0        = q_tobin0_;
-    cap_inc_ik      = cap_inc_ik_;
+    rate_tot        = rate_tot_;
     beq             = beq_;
     ss_tax_cred     = ss_tax_cred_;
     
@@ -132,7 +132,7 @@ fcap = cap_share*kgrid_ik*( tau_cap*((rate_cap-1) - exp_subsidy)*cap_tax_share .
        + tau_capgain*(year == 1)*(q_tobin - q_tobin0)/q_tobin0 );
 
 % Calculate available resources
-resources = cap_inc_ik + fincome_lab - (ftax + sstax + fcap) + beq ...
+resources = rate_tot*kgrid_ik + fincome_lab - (ftax + sstax + fcap) + beq ...
             + (year == 1)*kgrid_ik*cap_share*(q_tobin - q_tobin0)/q_tobin0;
 
 end
