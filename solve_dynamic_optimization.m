@@ -155,19 +155,17 @@ for t = N_r:-1:1
     for ib = 1:nb
         for ik = 1:nk
             
-            % Calculate tax terms
-            fincome_lab = (1-ss_tax_cred)*ben(ib);
-            [fincome, ftax, ~, fcap] ...
-                = calculate_tax(fincome_lab, kgrid(ik), ...
-                                cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy,...
-                                avg_deduc, coefs, limit, X, mpci, rpci, 0, 0, clinton, year, q_tobin, q_tobin0);
-            
-            % Calculate effective income
-            income  = rate_tot*kgrid(ik) + ben(ib) + (year == 1)*cap_share*kgrid(ik)*(q_tobin - q_tobin0)/q_tobin0 ;
-            eff_inc = income - ftax - fcap + beq;
+            % Calculate available resources and tax terms
+            fincome_lab = ben(ib);
+            [resources, fincome, ftax, ~, fcap] ...
+                ...
+                = calculate_resources(fincome_lab, kgrid(ik), ...
+                                      cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy,...
+                                      avg_deduc, coefs, limit, X, mpci, rpci, 0, 0, clinton, year, q_tobin, q_tobin0, ...
+                                      rate_tot*kgrid(ik), beq, ss_tax_cred);
             
             % Call value function to set parameters
-            valfun_retire([], kgrid, eff_inc, EV(:,ib), sigma, gamma);
+            valfun_retire([], kgrid, resources, EV(:,ib), sigma, gamma);
             
             % Solve dynamic optimization subproblem
             [k_opt, V_min] = fminsearch(@valfun_retire, kgrid(ik), optim_options);
@@ -235,12 +233,14 @@ for t = N_w:-1:1
                 k_opt   = x_opt(1);
                 lab_opt = x_opt(2);
 
-                % Calculate tax terms
+                % Calculate available resources and tax terms
                 fincome_lab = eff_wage * lab_opt;
-                [fincome, ftax, sstax, fcap] ...
-                    = calculate_tax(fincome_lab, kgrid(ik), ...
-                                    cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, ...
-                                    avg_deduc, coefs, limit, X, mpci, rpci, tau_ss, v_ss_max, clinton, year, q_tobin, q_tobin0);
+                [resources, fincome, ftax, sstax, fcap] ...
+                    ...
+                    = calculate_resources(fincome_lab, kgrid(ik), ...
+                                          cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, ...
+                                          avg_deduc, coefs, limit, X, mpci, rpci, tau_ss, v_ss_max, clinton, year, q_tobin, q_tobin0, ...
+                                          rate_tot*kgrid(ik), beq, 0);
                 
                 % Store values
                 V        (ik,iz,ib,t) = -V_min;
@@ -264,7 +264,7 @@ end
 
 
 
-function V_tilde = valfun_retire(k_prime, kgrid_, eff_inc_, EV_ib_, sigma_, gamma_)
+function V_tilde = valfun_retire(k_prime, kgrid_, resources_, EV_ib_, sigma_, gamma_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -272,7 +272,7 @@ coder.inline('always');
 % Define parameters as persistent variables
 persistent initialized
 persistent kgrid
-persistent eff_inc
+persistent resources
 persistent EV_ib
 persistent sigma
 persistent gamma
@@ -281,7 +281,7 @@ persistent gamma
 if isempty(initialized)
     
     kgrid      = 0;
-    eff_inc    = 0;
+    resources  = 0;
     EV_ib      = 0;
     sigma      = 0;
     gamma      = 0;
@@ -294,7 +294,7 @@ end
 if (nargin > 1)
     
     kgrid      = kgrid_;
-    eff_inc    = eff_inc_;
+    resources  = resources_;
     EV_ib      = EV_ib_;
     sigma      = sigma_;
     gamma      = gamma_;
@@ -305,16 +305,16 @@ if (nargin > 1)
 end
 
 % Calculate consumption
-cons = eff_inc - k_prime;
+consumption = resources - k_prime;
 
 % Perform bound checks
-if (kgrid(1) <= k_prime) && (k_prime <= kgrid(end)) && (0 <= cons)
+if (kgrid(1) <= k_prime) && (k_prime <= kgrid(end)) && (0 <= consumption)
     
     % Perform linear interpolation
     V_star = interp1(kgrid, EV_ib, k_prime, 'linear');
     
     % Calculate value function
-    V_tilde = V_star + (cons^(gamma*(1-sigma)))/(1-sigma);
+    V_tilde = V_star + (consumption^(gamma*(1-sigma)))/(1-sigma);
     
     % Negate for minimization and force to scalar for C code generation
     V_tilde = -V_tilde(1);
@@ -461,15 +461,17 @@ if ~((0 <= lab_prime) && (lab_prime <= 1) ...
     
 end
 
-% Calculate tax terms
-fincome_lab = eff_wage*lab_prime;
-[~, ftax, sstax, fcap] = calculate_tax(fincome_lab, kgrid(ik), cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, avg_deduc, coefs, limit, X, mpci, rpci, tau_ss, v_ss_max, clinton, year, q_tobin, q_tobin0);
+% Calculate available resources
+fincome_lab = eff_wage * lab_prime;
+resources = calculate_resources(fincome_lab, kgrid(ik), ...
+                                cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, ...
+                                avg_deduc, coefs, limit, X, mpci, rpci, tau_ss, v_ss_max, clinton, year, q_tobin, q_tobin0, ...
+                                cap_inc_ik, beq, 0);
 
 % Calculate consumption and perform bound check
-income  = cap_inc_ik + eff_wage*lab_prime + (year == 1)*kgrid(ik)*cap_share*( q_tobin - q_tobin0 ) / q_tobin0;
-cons    = income - ftax - fcap - sstax - k_prime + beq;
+consumption = resources - k_prime;
 
-if ~(0 <= cons)
+if ~(0 <= consumption)
     V_tilde = Inf;
     return
 end
@@ -478,7 +480,7 @@ end
 V_star = interp2(kgrid', bgrid, EV', k_prime, b_prime, 'linear');
 
 % Calculate value function
-V_tilde = V_star + (1/(1-sigma))*((cons^gamma)*((1-lab_prime)^(1-gamma)))^(1-sigma);
+V_tilde = V_star + (1/(1-sigma))*((consumption^gamma)*((1-lab_prime)^(1-gamma)))^(1-sigma);
 
 % Negate for minimization and force to scalar for C code generation
 V_tilde = -V_tilde(1);
