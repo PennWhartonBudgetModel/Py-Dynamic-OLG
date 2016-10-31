@@ -203,7 +203,7 @@ for t = N_w:-1:1
     rate_gov    = rate_govs     (year);
     cap_share   = cap_shares    (year);
     debt_share  = debt_shares   (year);
-    cap_inc     = cap_incs(:,    year);
+    rate_tot    = rate_tots     (year);
     exp_subsidy = exp_subsidys  (year);
     
     for ib = 1:nb
@@ -221,8 +221,13 @@ for t = N_w:-1:1
             
             for ik = 1:nk
                 
-                % Call value function to set parameters
-                valfun_work([], kgrid, bgrid, cap_inc(ik), cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, eff_wage, beq, EV, sigma, gamma, avg_deduc, coefs, limit, X, mpci, rpci, tau_ss, v_ss_max, age, ib, ik, clinton, year, q_tobin, q_tobin0);
+                % Call resource calculation function and value function to set parameters
+                calculate_resources([], kgrid(ik), ...
+                                    cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, ...
+                                    avg_deduc, coefs, limit, X, mpci, rpci, tau_ss, v_ss_max, clinton, year, q_tobin, q_tobin0, ...
+                                    rate_tot*kgrid(ik), beq, 0);
+                
+                valfun_work([], kgrid, bgrid, eff_wage, EV, sigma, gamma, v_ss_max, age, ib)
                 
                 % Solve dynamic optimization subproblem
                 lab0 = 0.5;
@@ -234,20 +239,15 @@ for t = N_w:-1:1
                 lab_opt = x_opt(2);
 
                 % Calculate available resources and tax terms
-                fincome_lab = eff_wage * lab_opt;
-                [resources, fincome, ftax, sstax, fcap] ...
-                    ...
-                    = calculate_resources(fincome_lab, kgrid(ik), ...
-                                          cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, ...
-                                          avg_deduc, coefs, limit, X, mpci, rpci, tau_ss, v_ss_max, clinton, year, q_tobin, q_tobin0, ...
-                                          rate_tot*kgrid(ik), beq, 0);
+                fincome_lab_opt = eff_wage * lab_opt;
+                [resources, fincome, ftax, sstax, fcap] = calculate_resources(fincome_lab_opt);
                 
                 % Store values
                 V        (ik,iz,ib,t) = -V_min;
                 
                 kopt     (ik,iz,ib,t) = k_opt;
                 labopt   (ik,iz,ib,t) = lab_opt;
-                bopt     (ik,iz,ib,t) = lab_to_b(lab_opt, age, bgrid(ib), v_ss_max, eff_wage);
+                bopt     (ik,iz,ib,t) = calculate_b(fincome_lab_opt, age, bgrid(ib), v_ss_max);
                 
                 fedincome(ik,iz,ib,t) = fincome;
                 fitax    (ik,iz,ib,t) = ftax;
@@ -299,7 +299,6 @@ if (nargin > 1)
     sigma      = sigma_;
     gamma      = gamma_;
     
-    V_tilde = [];
     return
     
 end
@@ -329,7 +328,7 @@ end
 
 
 
-function V_tilde = valfun_work(x_prime, kgrid_, bgrid_, cap_inc_ik_, cap_share_, rate_cap_, debt_share_, rate_gov_, cap_tax_share_, tau_cap_, tau_capgain_, exp_subsidy_, eff_wage_, beq_, EV_, sigma_, gamma_, avg_deduc_, coefs_, limit_, X_, mpci_, rpci_, tau_ss_, v_ss_max_, age_, ib_, ik_, clinton_, year_, q_tobin_, q_tobin0_)
+function V_tilde = valfun_work(x_prime, kgrid_, bgrid_, eff_wage_, EV_, sigma_, gamma_, v_ss_max_, age_, ib_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -338,70 +337,26 @@ coder.inline('always');
 persistent initialized
 persistent kgrid
 persistent bgrid
-persistent cap_inc_ik
-persistent cap_share
-persistent rate_cap
-persistent debt_share
-persistent rate_gov
-persistent cap_tax_share
-persistent tau_cap
-persistent tau_capgain
-persistent exp_subsidy
 persistent eff_wage
-persistent beq
 persistent EV
 persistent sigma
 persistent gamma
-persistent avg_deduc
-persistent coefs
-persistent limit
-persistent X
-persistent mpci
-persistent rpci
-persistent tau_ss
 persistent v_ss_max
 persistent age
 persistent ib
-persistent ik
-persistent clinton
-persistent year
-persistent q_tobin
-persistent q_tobin0
 
 % Initialize parameters
 if isempty(initialized)
     
     kgrid         = 0;
     bgrid         = 0;
-    cap_inc_ik    = 0;
-    cap_share     = 0;
-    rate_cap      = 0;
-    debt_share    = 0;
-    rate_gov      = 0;
-    cap_tax_share = 0;
-    tau_cap       = 0;
-    tau_capgain   = 0;
-    exp_subsidy   = 0;
     eff_wage      = 0;
-    beq           = 0;
     EV            = 0;
     sigma         = 0;
     gamma         = 0;
-    avg_deduc     = 0;
-    coefs         = 0;
-    limit         = 0;
-    X             = 0;
-    mpci          = 0;
-    rpci          = 0;
-    tau_ss        = 0;
     v_ss_max      = 0;
     age           = 0;
     ib            = 0;
-    ik            = 0;
-    clinton       = 0;
-    year          = 0;
-    q_tobin       = 0;
-    q_tobin0      = 0;
     
     initialized = true;
     
@@ -412,37 +367,14 @@ if (nargin > 1)
     
     kgrid         = kgrid_;
     bgrid         = bgrid_;
-    cap_inc_ik    = cap_inc_ik_;
-    cap_share     = cap_share_;
-    rate_cap      = rate_cap_;
-    debt_share    = debt_share_;
-    rate_gov      = rate_gov_;
-    cap_tax_share = cap_tax_share_;
-    tau_cap       = tau_cap_;
-    tau_capgain   = tau_capgain_;
-    exp_subsidy   = exp_subsidy_;
     eff_wage      = eff_wage_;
-    beq           = beq_;
     EV            = EV_;
     sigma         = sigma_;
     gamma         = gamma_;
-    avg_deduc     = avg_deduc_;
-    coefs         = coefs_;
-    limit         = limit_;
-    X             = X_;
-    mpci          = mpci_;
-    rpci          = rpci_;
-    tau_ss        = tau_ss_;
     v_ss_max      = v_ss_max_;
     age           = age_;
     ib            = ib_;
-    ik            = ik_;
-    clinton       = clinton_;
-    year          = year_;
-    q_tobin       = q_tobin_;
-    q_tobin0      = q_tobin0_;
     
-    V_tilde = [];
     return
     
 end
@@ -450,7 +382,9 @@ end
 % Define decision variables and perform bound checks
 k_prime   = x_prime(1);
 lab_prime = x_prime(2);
-b_prime   = lab_to_b(lab_prime, age, bgrid(ib), v_ss_max, eff_wage);
+
+fincome_lab = eff_wage * lab_prime;
+b_prime     = calculate_b(fincome_lab, age, bgrid(ib), v_ss_max);
 
 if ~((0 <= lab_prime) && (lab_prime <= 1) ...
      && (kgrid(1) <= k_prime) && (k_prime <= kgrid(end)) ...
@@ -462,11 +396,7 @@ if ~((0 <= lab_prime) && (lab_prime <= 1) ...
 end
 
 % Calculate available resources
-fincome_lab = eff_wage * lab_prime;
-resources = calculate_resources(fincome_lab, kgrid(ik), ...
-                                cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, ...
-                                avg_deduc, coefs, limit, X, mpci, rpci, tau_ss, v_ss_max, clinton, year, q_tobin, q_tobin0, ...
-                                cap_inc_ik, beq, 0);
+resources = calculate_resources(fincome_lab);
 
 % Calculate consumption and perform bound check
 consumption = resources - k_prime;
@@ -490,12 +420,12 @@ end
 
 
 
-function [b_prime] = lab_to_b(lab_prime, age, bgrid_ib, v_ss_max, eff_wage)
+function [b_prime] = calculate_b(fincome_lab, age, bgrid_ib, v_ss_max)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
 
-b_prime = (1/age)*(bgrid_ib*(age-1) + min(v_ss_max, eff_wage*lab_prime));
+b_prime = (1/age)*(bgrid_ib*(age-1) + min(fincome_lab, v_ss_max));
 
 end
 
