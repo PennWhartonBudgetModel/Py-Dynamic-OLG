@@ -11,3 +11,6 @@
 
 # Ignore designated directories
 .ignore/
+
+# Ignore Linux mex files -- i.e. mex files built on the HPCC
+*.mexa64
