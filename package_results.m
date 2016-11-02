@@ -9,7 +9,7 @@ function [] = package_results()
 % Identify csv save directory
 csv_dir = dirFinder.csv;
 
-% Clear or create save directory
+% Clear or create csv directory
 if exist(csv_dir, 'dir')
     rmdir(csv_dir, 's')
 end
@@ -46,148 +46,379 @@ n_aggs = size(agg_codes, 1);
 
 % Specify projection years for csv files
 years_csv = (2015 : 2089)';
-n_csv = length(years_csv);
+n_years = length(years_csv);
 
 % Specify number of years to shift results
 % (Currently, shifting up from 2015 to 2017)
 upshift = 2;
 
 
-% Initialize ID value
-ID = 3000000 - 1;
+% Load table of run IDs
+tablefilename = 'scenario_table.csv';
+tablesource = fullfile(dirFinder.root, 'charts', 'scenario_table', tablefilename);
+copyfile(tablesource, fullfile(csv_dir, tablefilename))
 
-for use_dyn_base = [0,1]
-    for gcut = [+0.00, +0.10, +0.05, -0.05]
-        for plan = {'trump', 'clinton', 'ryan', 'base'}
-            if ( strcmp('base', plan{1}) && (use_dyn_base == 0) ), break, end
+fid = fopen(tablesource);
+idtable = textscan(fid, ['%d ', repmat('%*q ', 1, 7),'%q %*[^\n]'], 'Delimiter', ',', 'HeaderLines', 1);
+fclose(fid);
 
-            if ( strcmp('base', plan{1}) && (gcut ~= 0)         ), break, end
+n_ids = length(idtable{1});
 
-            % Skip one ID value representing the static scenario
-            ID = ID + 1;
+% Define mapping from table plan names to dynamic model plan names
+planmap = struct( 'CurrentLaw'  , 'base'    , ...
+                  'Clinton'     , 'clinton' , ...
+                  'Trump'       , 'trump'   , ...
+                  'Ryan'        , 'ryan'    );
 
-            for openness = [0, 0.4, 0.7, 1]
-                for labor_elas = [0.25, 0.50, 0.75, 1.00]
-                    for savings_elas = [0.25, 0.50, 0.75, 1.00]
 
-                        % Increment ID value
-                        ID = ID + 1;
-
-                        if (openness == 0) || (openness == 1)
-
-                            % Find elasticity set index, which is equivalent to the deep parameter set index
-                            inddeep = all(bsxfun(@eq, [labor_elas, savings_elas], elasticity_sets), 2);
-
-                            % Get deep parameters based on set index
-                            deep_params = deep_param_sets(inddeep,:);
-
-                            beta  = deep_params(1);
-                            gamma = deep_params(2);
-                            sigma = deep_params(3);
-
-                            % Identify working directories
-                            save_dir_base_open     = dirFinder.open(beta, gamma, sigma, 'base');
-                            if (openness == 1)
-                                save_dir_base_case = dirFinder.open(beta, gamma, sigma, 'base');
-                                save_dir_dynamic   = dirFinder.open(beta, gamma, sigma, plan{1});
-                                save_dir_static    = dirFinder.open(beta, gamma, sigma, plan{1});
-                            else
-                                save_dir_dynamic = dirFinder.closed(beta, gamma, sigma, plan{1}, gcut);
-                                save_dir_static  = dirFinder.closed(beta, gamma, sigma, plan{1}, gcut);
-                                if (use_dyn_base == 0)
-                                    save_dir_base_case  = dirFinder.open(beta, gamma, sigma, 'base');
-                                elseif (use_dyn_base == 1)
-                                    save_dir_base_case  = dirFinder.closed(beta, gamma, sigma, 'base', gcut);
-                                end
-                            end
-
-                            % Identify iterations log file
-                            logfile = fullfile(save_dir_dynamic, 'iterations.txt');
-
-                            if exist(logfile, 'file')
-
-                                % Get last line of iterations log file
-                                fid = fopen(logfile);
-                                while ~feof(fid)
-                                    lastline = fgetl(fid);
-                                end
-                                fclose(fid);
-
-                                % Check convergence error against threshold
-                                lastiter = sscanf(lastline, '  %2d  --  %f', [1,2]);
-                                if (lastiter(2) > 0.1), continue, end
-
-                            else
-                                continue
-                            end
-
-                            % Load dynamic and static aggregates
-                            s_base_open = load(fullfile(save_dir_base_open, 'aggregates.mat'));
-                            s_base_case = load(fullfile(save_dir_base_case, 'aggregates.mat'));
-                            s_dynamic   = load(fullfile(save_dir_dynamic,   'aggregates.mat'));
-                            s_static    = load(fullfile(save_dir_static,    'aggregates_static.mat'));
-
-                            % Find number of projection years
-                            Tss = length(s_dynamic.kpr_total);
-
-                            % Find number of entries to be trimmed or padded
-                            trim_or_pad = upshift + Tss - n_csv;
-                            n_trim =  max(trim_or_pad, 0);
-                            n_pad  = -min(trim_or_pad, 0);
-
-                            for i = 1:n_aggs
-
-                                agg_num = agg_codes{i,1};
-                                agg_str = agg_codes{i,2};
-                                
-                                agg_base_delta = (s_base_case .([agg_str,'_total']))./(s_base_open .([agg_str,'_total']));
-                                
-                                if (openness ==1)&&(sum(~eq(agg_base_delta,1))~=0), desktop, end
-                                agg_dynamic = s_dynamic.([agg_str,'_total' ]);
-                                agg_static  = s_static .([agg_str,'_static']);
-                                agg_static  = agg_static./agg_base_delta;
-                                
-                                % Replace NaNs with zero
-                                agg_dynamic(isnan(agg_dynamic)) = 0;
-                                agg_static (isnan(agg_static) ) = 0;
-                                
-
-                                agg_series  = [ ones(upshift, 2); ...
-                                                [agg_dynamic(1:end-n_trim)', agg_static(1:end-n_trim)']; ...
-                                                ones(n_pad,   2) ];
-
-                                csvwrite(fullfile(csv_dir, sprintf('%d-%d.csv', ID, agg_num)), ...
-                                    [years_csv, agg_series])
-
-                            end
-
-                        end
-
-                    end
-                end
-            end
-
-        end
+for i = 1:n_ids
+    
+    % Get run ID
+    id = idtable{1}(i);
+    
+    % Get run specifications
+    specs = xml2struct(idtable{2}{i});
+    specs = specs.Dynamics;
+    
+    % Skip run if not dynamic model tax policy
+    if ~isfield(specs, 'TaxPlan'), continue, end
+    
+    % Get economy openness
+    openness = str2double(specs.OpenEconomy.Text);
+    
+    % Skip run if not fully open or fully closed
+    if (openness ~= 1 && openness ~= 0), continue, end
+    
+    % Get elasticities
+    labor_elas   = str2double(specs.LaborElasticity  .Text);
+    savings_elas = str2double(specs.SavingsElasticity.Text);
+    
+    % Find elasticity set index, which is equivalent to the deep parameter set index
+    inddeep = all(bsxfun(@eq, [labor_elas, savings_elas], elasticity_sets), 2);
+    
+    % Get deep parameters based on set index
+    deep_params = deep_param_sets(inddeep,:);
+    
+    beta  = deep_params(1);
+    gamma = deep_params(2);
+    sigma = deep_params(3);
+    
+    % Get plan
+    plan = planmap.(specs.TaxPlan.Text);
+    
+    % Get government expenditure reduction
+    % (Note negation to align with dynamic model convention)
+    gcut = -str2double(specs.ExpenditureShift.Text);
+    
+    % Get dynamic baseline flag
+    % (Note activation for closed economy runs only)
+    use_dynamic_baseline = str2double(specs.UseDynamicBaseline.Text) & (openness == 0);
+    
+    
+    % Identify working directories
+    switch openness
+        case 1, save_dir = dirFinder.open  (beta, gamma, sigma, plan      );
+        case 0, save_dir = dirFinder.closed(beta, gamma, sigma, plan, gcut);
     end
+    
+    
+    % Identify iterations log file
+    logfile = fullfile(save_dir, 'iterations.txt');
+    
+    % Check for run completion
+    if exist(logfile, 'file')
+        
+        % Get last line of iterations log file
+        fid = fopen(logfile);
+        while ~feof(fid)
+            lastline = fgetl(fid);
+        end
+        fclose(fid);
+        
+        % Check convergence error against threshold
+        lastiter = sscanf(lastline, '  %2d  --  %f', [1,2]);
+        if (lastiter(2) > 0.1), continue, end
+        
+    else
+        continue
+    end
+    
+    
+    % Load aggregates    
+    s_dynamic = load(fullfile(save_dir, 'aggregates.mat'       ));
+    s_static  = load(fullfile(save_dir, 'aggregates_static.mat'));
+    
+    if (use_dynamic_baseline)
+        s_base_open   = load(fullfile(dirFinder.open  (beta, gamma, sigma, 'base'       ), 'aggregates.mat'));
+        s_base_closed = load(fullfile(dirFinder.closed(beta, gamma, sigma, 'base', +0.00), 'aggregates.mat'));
+    end
+    
+    
+    % Find number of projection years
+    Tss = length(s_dynamic.kpr_total);
+    
+    % Find number of entries to be trimmed or padded
+    trim_or_pad = upshift + Tss - n_years;
+    n_trim =  max(trim_or_pad, 0);
+    n_pad  = -min(trim_or_pad, 0);
+    
+    % Extract aggregates and generate csvs
+    for j = 1:n_aggs
+        
+        aggnum = agg_codes{j,1};
+        aggstr = agg_codes{j,2};
+        
+        agg_dynamic = s_dynamic.([aggstr,'_total' ]);
+        agg_static  = s_static .([aggstr,'_static']);
+        
+        % Adjust static aggregate if using dynamic baseline
+        if (use_dynamic_baseline)
+            agg_static  = agg_static .* s_base_open.([aggstr,'_total']) ./ s_base_closed.([aggstr,'_total']);
+            agg_static(isnan(agg_static)) = 0;
+        end
+        
+        agg_series  = [ ones(upshift, 2); ...
+                        [agg_dynamic(1:end-n_trim)', agg_static(1:end-n_trim)']; ...
+                        ones(n_pad,   2) ];
+        
+        csvfile = fullfile(csv_dir, sprintf('%d-%d.csv', id, aggnum));
+        fid = fopen(csvfile, 'w');
+        fprintf(fid, 'Year,DynamicAggregate,StaticAggregate\n');
+        fclose(fid);
+        dlmwrite(csvfile, [years_csv, agg_series], '-append')
+        
+    end
+    
 end
 
 
-% Get commit date (%cd) and subject (%s)
-[~, commit_log] = system('git --no-pager log -1 --format=%cd,%s --date=iso');
-
-% Extract commit date and reformat
-commit_date    = regexp(commit_log, '.*? .*?(?= )', 'match', 'once');
-commit_date    = datestr(commit_date, 'yyyy-mm-dd HH:MM');
-
-% Extract subject
-commit_subject = regexp(commit_log, '(?<=,).*?(?=\n)', 'match', 'once');
+% Get time stamp from csv directory name and convert format
+[~, timestamp] = fileparts(csv_dir);
+timestamp = datestr(datenum(timestamp, 'yyyy-mm-dd-HH-MM'), 'yyyy-mm-dd HH:MM');
 
 % Compose tag file
-fid = fopen(fullfile(csv_dir, 'dynamicModelTag.txt'), 'w+');
-fprintf(fid, 'TimeStamp=%s\nShortDescription=%s', commit_date, commit_subject);
+fid = fopen(fullfile(csv_dir, 'dynamicModelTag.txt'), 'w');
+fprintf(fid, 'TimeStamp=%s\nShortDescription=Generated by dynamic model version %s.', timestamp, dirFinder.get_commit_id);
 fclose(fid);
 
 
 fprintf('\nResults successfully packaged into csv files:\n\t%s\n', csv_dir)
 
+
 end
+
+
+
+
+%% xml2struct
+%
+% Pulled from Matlab File Exchange on 2016-11-02
+% https://www.mathworks.com/matlabcentral/fileexchange/28518
+% https://www.mathworks.com/matlabcentral/fileexchange/58700
+
+function [outStruct] = xml2struct(input)
+% input can be a Java XML object, an XML file, or a string in
+% XML format.
+%
+% XML:
+% 
+%   <XMLname attrib1="Some value">
+%     <Element>Some text</Element>
+%     <DifferentElement attrib2="2">Some more text</Element>
+%     <DifferentElement attrib3="2" attrib4="1">Even more text</DifferentElement>
+%   </XMLname>
+%
+% Matlab structure:
+% 
+%   s.XMLname.Attributes.attrib1 = "Some value";
+%   s.XMLname.Element.Text = "Some text";
+%   s.XMLname.DifferentElement{1}.Attributes.attrib2 = "2";
+%   s.XMLname.DifferentElement{1}.Text = "Some more text";
+%   s.XMLname.DifferentElement{2}.Attributes.attrib3 = "2";
+%   s.XMLname.DifferentElement{2}.Attributes.attrib4 = "1";
+%   s.XMLname.DifferentElement{2}.Text = "Even more text";
+%
+% 
+% Please note that the following characters are substituted
+% '-' by '_dash_', ':' by '_colon_' and '.' by '_dot_'
+%
+% Originally written by W. Falkena, ASTI, TUDelft, 21-08-2010
+% Attribute parsing speed increase by 40% by A. Wanner, 14-6-2011
+% Added CDATA support by I. Smirnov, 20-3-2012
+% Modified by X. Mo, University of Wisconsin, 12-5-2012
+% Modified by Chao-Yuan Yeh, August 2016
+
+errorMsg = ['%s is not in a supported format.\n\nInput has to be',...
+        ' a java xml object, an xml file, or a string in xml format.'];
+
+% check if input is a java xml object
+if isa(input, 'org.apache.xerces.dom.DeferredDocumentImpl') ||...
+        isa(input, 'org.apache.xerces.dom.DeferredElementImpl')
+    xDoc = input;
+else
+    try 
+        if exist(input, 'file') == 2
+            xDoc = xmlread(input);
+        else
+            try
+                xDoc = xmlFromString(input);
+            catch
+                error(errorMsg, inputname(1));
+            end
+        end
+    catch ME
+        if strcmp(ME.identifier, 'MATLAB:UndefinedFunction')
+            error(errorMsg, inputname(1));
+        else
+            rethrow(ME)
+        end
+    end
+end
+
+% parse xDoc into a MATLAB structure
+outStruct = parseChildNodes(xDoc);
+    
+end
+
+function [children, ptext, textflag] = parseChildNodes(theNode)
+% Recurse over node children.
+children = struct;
+ptext = struct; 
+textflag = 'Text';
+
+if hasChildNodes(theNode)
+    childNodes = getChildNodes(theNode);
+    numChildNodes = getLength(childNodes);
+
+    for count = 1:numChildNodes
+
+        theChild = item(childNodes,count-1);
+        [text, name, attr, childs, textflag] = getNodeData(theChild);
+        
+        if ~strcmp(name,'#text') && ~strcmp(name,'#comment') && ...
+                ~strcmp(name,'#cdata_dash_section')
+            % XML allows the same elements to be defined multiple times,
+            % put each in a different cell
+            if (isfield(children,name))
+                if (~iscell(children.(name)))
+                    % put existsing element into cell format
+                    children.(name) = {children.(name)};
+                end
+                index = length(children.(name))+1;
+                % add new element
+                children.(name){index} = childs;
+                
+                textfields = fieldnames(text);
+                if ~isempty(textfields)
+                    for ii = 1:length(textfields)
+                        children.(name){index}.(textfields{ii}) = ...
+                            text.(textfields{ii});
+                    end
+                end
+                if(~isempty(attr)) 
+                    children.(name){index}.('Attributes') = attr; 
+                end
+            else
+                % add previously unknown (new) element to the structure
+                
+                children.(name) = childs;
+                
+                % add text data ( ptext returned by child node )
+                textfields = fieldnames(text);
+                if ~isempty(textfields)
+                    for ii = 1:length(textfields)
+                        children.(name).(textfields{ii}) = text.(textfields{ii});
+                    end
+                end
+
+                if(~isempty(attr)) 
+                    children.(name).('Attributes') = attr; 
+                end
+            end
+        else
+            ptextflag = 'Text';
+            if (strcmp(name, '#cdata_dash_section'))
+                ptextflag = 'CDATA';
+            elseif (strcmp(name, '#comment'))
+                ptextflag = 'Comment';
+            end
+
+            % this is the text in an element (i.e., the parentNode) 
+            if (~isempty(regexprep(text.(textflag),'[\s]*','')))
+                if (~isfield(ptext,ptextflag) || isempty(ptext.(ptextflag)))
+                    ptext.(ptextflag) = text.(textflag);
+                else
+                    % This is what happens when document is like this:
+                    % <element>Text <!--Comment--> More text</element>
+                    %
+                    % text will be appended to existing ptext
+                    ptext.(ptextflag) = [ptext.(ptextflag) text.(textflag)];
+                end
+            end
+        end
+
+    end
+end
+end
+
+function [text,name,attr,childs,textflag] = getNodeData(theNode)
+% Create structure of node info.
+
+%make sure name is allowed as structure name
+name = toCharArray(getNodeName(theNode))';
+name = strrep(name, '-', '_dash_');
+name = strrep(name, ':', '_colon_');
+name = strrep(name, '.', '_dot_');
+name = strrep(name, '_', 'u_');
+
+attr = parseAttributes(theNode);
+if (isempty(fieldnames(attr))) 
+    attr = []; 
+end
+
+%parse child nodes
+[childs, text, textflag] = parseChildNodes(theNode);
+
+% Get data from any childless nodes. This version is faster than below.
+if isempty(fieldnames(childs)) && isempty(fieldnames(text))
+    text.(textflag) = toCharArray(getTextContent(theNode))';
+end
+
+% This alterative to the above 'if' block will also work but very slowly.
+% if any(strcmp(methods(theNode),'getData'))
+%   text.(textflag) = char(getData(theNode));
+% end
+    
+end
+
+function attributes = parseAttributes(theNode)
+% Create attributes structure.
+attributes = struct;
+if hasAttributes(theNode)
+   theAttributes = getAttributes(theNode);
+   numAttributes = getLength(theAttributes);
+
+   for count = 1:numAttributes
+        % Suggestion of Adrian Wanner
+        str = toCharArray(toString(item(theAttributes,count-1)))';
+        k = strfind(str,'='); 
+        attr_name = str(1:(k(1)-1));
+        attr_name = strrep(attr_name, '-', '_dash_');
+        attr_name = strrep(attr_name, ':', '_colon_');
+        attr_name = strrep(attr_name, '.', '_dot_');
+        attributes.(attr_name) = str((k(1)+2):(end-1));
+   end
+end
+end
+
+function xmlroot = xmlFromString(iString)
+import org.xml.sax.InputSource
+import java.io.*
+
+iSource = InputSource();
+iSource.setCharacterStream(StringReader(iString));
+xmlroot = xmlread(iSource);
+end
+
+
+

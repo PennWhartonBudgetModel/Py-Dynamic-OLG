@@ -90,6 +90,7 @@ methods (Static)
     
     % Find closed economy save directory
     function [closed_dir] = closed(beta, gamma, sigma, plan, gcut)
+        if (gcut == 0), gcut = 0; end   % Enforces positive zero in the case of a negative zero
         closed_dir = fullfile( dirFinder.saveroot, ...
                                get_deep_params_tag(beta, gamma, sigma), ...
                                get_plan_tag(plan), ...
@@ -99,11 +100,35 @@ methods (Static)
     
     % Find csv save directory
     function [csv_dir] = csv()
+        timestamp = datestr(now, 'yyyy-mm-dd-HH-MM');
         if dirFinder.isproductionready
-            csv_dir = fullfile(dirFinder.root, 'charts', 'version2', 'tax_dynamic_scores', dirFinder.get_commit_id);
+            csvroot = fullfile(dirFinder.root, 'charts', 'version2', 'tax_dynamic_scores', dirFinder.get_commit_id);
         else
-            csv_dir = fullfile(dirFinder.testout, 'csv');
+            csvroot = fullfile(dirFinder.testout, 'csv');
         end
+        csv_dir = fullfile(csvroot, timestamp);
+    end
+    
+    
+    % Get identifier for active Git commit
+    function [commit_id] = get_commit_id()
+        
+        % Get commit date (%cd), author email address (%ae), and abbreviated hash (%h)
+        [~, commit_log] = system('git --no-pager log -1 --format=%cd,%ae,,%h --date=iso');
+        
+        % Extract commit date and reformat
+        commit_date   = regexp(commit_log, '.*? .*?(?= )', 'match', 'once');
+        commit_date   = datestr(commit_date, 'yyyy-mm-dd-HH-MM');
+        
+        % Extract author username from email address
+        commit_author = regexp(commit_log, '(?<=,).*?(?=@)', 'match', 'once');
+        
+        % Extract abbreviated hash
+        commit_hash   = regexp(commit_log, '(?<=,,).*?(?=\n)', 'match', 'once');
+        
+        % Construct commit identifier
+        commit_id = sprintf('%s-%s-%s', commit_date, commit_author, commit_hash);
+        
     end
     
 end
@@ -134,28 +159,6 @@ methods (Static, Access = private)
             flag = isempty(uncommitted);
             
         end
-        
-    end
-    
-    
-    % Get identifier for active Git commit
-    function [commit_id] = get_commit_id()
-        
-        % Get commit date (%cd), author email address (%ae), and abbreviated hash (%h)
-        [~, commit_log] = system('git --no-pager log -1 --format=%cd,%ae,,%h --date=iso');
-        
-        % Extract commit date and reformat
-        commit_date   = regexp(commit_log, '.*? .*?(?= )', 'match', 'once');
-        commit_date   = datestr(commit_date, 'yyyy-mm-dd-HH-MM');
-        
-        % Extract author username from email address
-        commit_author = regexp(commit_log, '(?<=,).*?(?=@)', 'match', 'once');
-        
-        % Extract abbreviated hash
-        commit_hash   = regexp(commit_log, '(?<=,,).*?(?=\n)', 'match', 'once');
-        
-        % Construct commit identifier
-        commit_id = sprintf('%s-%s-%s', commit_date, commit_author, commit_hash);
         
     end
     
