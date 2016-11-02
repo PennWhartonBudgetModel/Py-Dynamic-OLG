@@ -4,10 +4,6 @@
 #$ -o /dev/null
 
 
-# Build mex functions
-./build_all.sh
-
-
 # Create empty log directory
 LOGDIR='./Logs'
 rm -rf ${LOGDIR}
