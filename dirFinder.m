@@ -63,7 +63,7 @@ methods (Static)
     
     % Find save root directory
     function [saveroot_dir] = saveroot()
-        if dirFinder.isproductionready
+        if dirFinder.isproduction
             saveroot_dir = fullfile(dirFinder.modelroot, 'Output', dirFinder.get_commit_id);
         else
             saveroot_dir = dirFinder.testout;
@@ -101,7 +101,7 @@ methods (Static)
     % Find csv save directory
     function [csv_dir] = csv()
         timestamp = datestr(now, 'yyyy-mm-dd-HH-MM');
-        if dirFinder.isproductionready
+        if dirFinder.isproduction
             csvroot = fullfile(dirFinder.root, 'charts', 'version2', 'tax_dynamic_scores', dirFinder.get_commit_id);
         else
             csvroot = fullfile(dirFinder.testout, 'csv');
@@ -142,24 +142,10 @@ methods (Static, Access = private)
     end
     
     
-    % Identify production run by Production stage and absence of uncommitted changes
-    function [flag] = isproductionready()
-        
-        % Get source code stage
+    % Identify Production stage
+    function [flag] = isproduction()
         [~, stage] = fileparts(fileparts(dirFinder.source));
-        
-        if ~strcmp(stage, 'Production')
-            flag = false;
-        else
-            
-            % Check for uncommitted changes
-            % (Safeguards against any unintentional changes made in Production directory after checkout)
-            [~, uncommitted] = system('git status -s');
-            
-            flag = isempty(uncommitted);
-            
-        end
-        
+        flag = strcmp(stage, 'Production');
     end
     
 end
