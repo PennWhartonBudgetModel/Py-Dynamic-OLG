@@ -12,6 +12,9 @@ for inddeep = 1:16
     for plan = {'base', 'trump', 'clinton', 'ryan'}
         for gcut = [0.10, 0.05, 0.00, -0.05]
             
+            % Skip non-zero gcut baseline runs
+            if (strcmp(plan, 'base') && gcut ~= +0.00), continue, end
+            
             % Find save directory
             deep_params = inddeep_to_params(inddeep);
             save_dir = dirFinder.closed(deep_params(1), deep_params(2), deep_params(3), plan{1}, gcut);
