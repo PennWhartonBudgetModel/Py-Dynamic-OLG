@@ -31,6 +31,7 @@ done
 
 
 # Process and package results
+# (Note that Java is needed for package_results; hence the use of -nodesktop instead of -nojvm)
 qsub -N package -hold_jid solve_closed -q short.q \
      -j y -o ${LOGDIR}'/package.log' \
-     -b y 'matlab -nojvm -nosplash -r "check_closed_convergence, generate_static_aggregates_closed, package_results"'
+     -b y 'matlab -nodesktop -nosplash -r "check_closed_convergence, generate_static_aggregates_closed, package_results"'

@@ -212,9 +212,13 @@ end
 
 %% xml2struct
 %
-% Pulled from Matlab File Exchange on 2016-11-02
-% https://www.mathworks.com/matlabcentral/fileexchange/28518
-% https://www.mathworks.com/matlabcentral/fileexchange/58700
+% Pulled from Matlab File Exchange on 2016-11-02:
+% 
+%   https://www.mathworks.com/matlabcentral/fileexchange/28518
+%   https://www.mathworks.com/matlabcentral/fileexchange/58700
+% 
+% (Note use of Java for string inputs)
+%
 
 function [outStruct] = xml2struct(input)
 % input can be a Java XML object, an XML file, or a string in
