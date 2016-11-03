@@ -283,6 +283,14 @@ while true
     ssexp_total     = zeros(1,Tss);
     
     
+    % Define birth year range
+    birthyears = (-T+1):(Tss-1);
+        
+    % Initialize storage structures for optimal decision values and distributions
+    s_birthyear = struct('birthyear', num2cell(repmat(birthyears', [1,2])));
+    opt  = s_birthyear;
+    dist = s_birthyear;
+    
     for idem = 1:ndem
         
         % Extract demographic adjustments
@@ -297,12 +305,13 @@ while true
         dist_r_ss = bsxfun(@rdivide, dist_ss(1,idem).dist_r, shiftdim(mu2_idem(N_w_ss+(1:N_r_ss)), -1));
         
         
-        for birthyear = (-T+1):(Tss-1)
+        parfor i = 1:length(birthyears)
+            
+            % Get birth year and retirement age
+            birthyear = birthyears(i);
+            Tr = NRA(i);
             
             if showmore, fprintf('\tidem = %02d\tbirthyear = %+03d\n', idem, birthyear), end
-            
-            % Get retirement age
-            Tr = NRA(birthyear+T);
             
             
             % Solve dynamic optimization
@@ -321,27 +330,26 @@ while true
                    avg_deduc, clinton, coefs, limit, X, ss_benefit, ...
                    beta, gamma, sigma);
             
+            % (Duplicated variable assignments necessary for parfor)
+            opt(i,idem).V             = V             ; %#ok<PFOUS>
+            opt(i,idem).Vss           = Vss           ;
+            opt(i,idem).kopt          = kopt          ;
+            opt(i,idem).koptss        = koptss        ;
+            opt(i,idem).labopt        = labopt        ;
+            opt(i,idem).bopt          = bopt          ;
+            opt(i,idem).fedincome     = fedincome     ;
+            opt(i,idem).fedincomess   = fedincomess   ;
+            opt(i,idem).fitax         = fitax         ;
+            opt(i,idem).fitaxss       = fitaxss       ;
+            opt(i,idem).fsstax        = fsstax        ;
+            opt(i,idem).fsstaxss      = fsstaxss      ;
+            opt(i,idem).fcaptax       = fcaptax       ;
+            opt(i,idem).fcaptaxss     = fcaptaxss     ;
+            
             % Check for unsolved dynamic optimization subproblems
             if any(isinf([V(:); Vss(:)]))
                 warning('Infinite utility values found.  Some dynamic optimization subproblems unsolved.  Check that initial conditions satisfy constraints.')
             end
-            
-            % Package optimal decision values
-            opt(birthyear+T,idem).birthyear   = birthyear;    %#ok<AGROW>
-            opt(birthyear+T,idem).V           = V;            %#ok<AGROW>
-            opt(birthyear+T,idem).Vss         = Vss;          %#ok<AGROW>
-            opt(birthyear+T,idem).kopt        = kopt;         %#ok<AGROW>
-            opt(birthyear+T,idem).koptss      = koptss;       %#ok<AGROW>
-            opt(birthyear+T,idem).labopt      = labopt;       %#ok<AGROW>
-            opt(birthyear+T,idem).bopt        = bopt;         %#ok<AGROW>
-            opt(birthyear+T,idem).fedincome   = fedincome;    %#ok<AGROW>
-            opt(birthyear+T,idem).fedincomess = fedincomess;  %#ok<AGROW>
-            opt(birthyear+T,idem).fcaptax     = fcaptax;      %#ok<AGROW>
-            opt(birthyear+T,idem).fcaptaxss   = fcaptaxss;    %#ok<AGROW>
-            opt(birthyear+T,idem).fitax       = fitax;        %#ok<AGROW>
-            opt(birthyear+T,idem).fitaxss     = fitaxss;      %#ok<AGROW>
-            opt(birthyear+T,idem).fsstax      = fsstax;       %#ok<AGROW>
-            opt(birthyear+T,idem).fsstaxss    = fsstaxss;     %#ok<AGROW>
             
             
             % Generate distributions
@@ -357,38 +365,48 @@ while true
                    dist_w_ss, dist_r_ss, ...
                    mu2_idem, mu3_idem);
             
-            % Package distributions
-            dist(birthyear+T,idem).birthyear = birthyear;  %#ok<AGROW>
-            dist(birthyear+T,idem).dist_w    = dist_w;     %#ok<AGROW>
-            dist(birthyear+T,idem).dist_r    = dist_r;     %#ok<AGROW>
-            dist(birthyear+T,idem).Kalive    = Kalive;     %#ok<AGROW>
-            dist(birthyear+T,idem).Kdead     = Kdead;      %#ok<AGROW>
-            dist(birthyear+T,idem).ELab      = ELab;       %#ok<AGROW>
-            dist(birthyear+T,idem).Lab       = Lab;        %#ok<AGROW>
-            dist(birthyear+T,idem).Lfpr      = Lfpr;       %#ok<AGROW>
-            dist(birthyear+T,idem).Fedincome = Fedincome;  %#ok<AGROW>
-            dist(birthyear+T,idem).Fedit     = Fedit;      %#ok<AGROW>
-            dist(birthyear+T,idem).SSrev     = SSrev;      %#ok<AGROW>
-            dist(birthyear+T,idem).Fcaptax   = Fcaptax;    %#ok<AGROW>
-            dist(birthyear+T,idem).SSexp     = SSexp;      %#ok<AGROW>
+            % (Duplicated variable assignments necessary for parfor)
+            dist(i,idem).dist_w       = dist_w        ;
+            dist(i,idem).dist_r       = dist_r        ;
+            dist(i,idem).N_w          = N_w           ;
+            dist(i,idem).N_r          = N_r           ;
+            dist(i,idem).Kalive       = Kalive        ;
+            dist(i,idem).Kdead        = Kdead         ;
+            dist(i,idem).ELab         = ELab          ;
+            dist(i,idem).Lab          = Lab           ;
+            dist(i,idem).Lfpr         = Lfpr          ;
+            dist(i,idem).Fedincome    = Fedincome     ;
+            dist(i,idem).Fedit        = Fedit         ;
+            dist(i,idem).SSrev        = SSrev         ;
+            dist(i,idem).Fcaptax      = Fcaptax       ;
+            dist(i,idem).SSexp        = SSexp         ;
+            
+        end
+        
+        for i = 1:length(birthyears)
             
             % Add aggregate values to global aggregates, aligning to projection years
-            T_shift = max(0, birthyear);
-            kpr_total      ( T_shift + (1:N_w+N_r) ) = kpr_total      ( T_shift + (1:N_w+N_r) ) + Kalive + Kdead;
-            beq_total      ( T_shift + (1:N_w+N_r) ) = beq_total      ( T_shift + (1:N_w+N_r) ) + Kdead;
-            elab_total     ( T_shift + (1:N_w)     ) = elab_total     ( T_shift + (1:N_w)     ) + ELab;
-            lab_total      ( T_shift + (1:N_w)     ) = lab_total      ( T_shift + (1:N_w)     ) + Lab;
-            lfpr_total     ( T_shift + (1:N_w)     ) = lfpr_total     ( T_shift + (1:N_w)     ) + Lfpr;
-            fedincome_total( T_shift + (1:N_w+N_r) ) = fedincome_total( T_shift + (1:N_w+N_r) ) + Fedincome;
-            fedit_total    ( T_shift + (1:N_w+N_r) ) = fedit_total    ( T_shift + (1:N_w+N_r) ) + Fedit;
-            ssrev_total    ( T_shift + (1:N_w+N_r) ) = ssrev_total    ( T_shift + (1:N_w+N_r) ) + SSrev;
-            fcaptax_total  ( T_shift + (1:N_w+N_r) ) = fcaptax_total  ( T_shift + (1:N_w+N_r) ) + Fcaptax;
-            ssexp_total    ( T_shift + N_w+(1:N_r) ) = ssexp_total    ( T_shift + N_w+(1:N_r) ) + SSexp;
+            T_shift = max(0, birthyears(i));
+            
+            N_w = dist(i,idem).N_w;
+            N_r = dist(i,idem).N_r;
+            
+            kpr_total      ( T_shift + (1:N_w+N_r) ) = kpr_total      ( T_shift + (1:N_w+N_r) ) + dist(i,idem).Kalive + dist(i,idem).Kdead;
+            beq_total      ( T_shift + (1:N_w+N_r) ) = beq_total      ( T_shift + (1:N_w+N_r) ) + dist(i,idem).Kdead;
+            elab_total     ( T_shift + (1:N_w)     ) = elab_total     ( T_shift + (1:N_w)     ) + dist(i,idem).ELab;
+            lab_total      ( T_shift + (1:N_w)     ) = lab_total      ( T_shift + (1:N_w)     ) + dist(i,idem).Lab;
+            lfpr_total     ( T_shift + (1:N_w)     ) = lfpr_total     ( T_shift + (1:N_w)     ) + dist(i,idem).Lfpr;
+            fedincome_total( T_shift + (1:N_w+N_r) ) = fedincome_total( T_shift + (1:N_w+N_r) ) + dist(i,idem).Fedincome;
+            fedit_total    ( T_shift + (1:N_w+N_r) ) = fedit_total    ( T_shift + (1:N_w+N_r) ) + dist(i,idem).Fedit;
+            ssrev_total    ( T_shift + (1:N_w+N_r) ) = ssrev_total    ( T_shift + (1:N_w+N_r) ) + dist(i,idem).SSrev;
+            fcaptax_total  ( T_shift + (1:N_w+N_r) ) = fcaptax_total  ( T_shift + (1:N_w+N_r) ) + dist(i,idem).Fcaptax;
+            ssexp_total    ( T_shift + N_w+(1:N_r) ) = ssexp_total    ( T_shift + N_w+(1:N_r) ) + dist(i,idem).SSexp;
             
         end
         
     end
     
+    % Calculate aggregate capital
     cap_total = rho * elab_total;
     
     
