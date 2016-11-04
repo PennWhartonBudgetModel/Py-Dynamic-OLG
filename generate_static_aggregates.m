@@ -251,7 +251,7 @@ elab_static         = s_base.elab_total;   %#ok<NASGU>
 cap_static          = s_base.cap_total;    %#ok<NASGU>
 domestic_cap_static = s_base.domestic_cap_total;  %#ok<NASGU>
 foreign_cap_static  = s_base.foreign_cap_total; %#ok<NASGU>
-domestic_debt_static = s_base.domestic_cap_total;  %#ok<NASGU>
+domestic_debt_static = s_base.domestic_debt_total;  %#ok<NASGU>
 
 % Loaded in solve_open for open; loaded from results if closed.
 if ~isopen
