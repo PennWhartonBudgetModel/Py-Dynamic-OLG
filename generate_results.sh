@@ -16,9 +16,9 @@ mkdir -p ${LOGDIR}
 
 # Submit closed economy baseline runs
 # (Steady state and open economy baseline runs performed as dependencies)
-qsub -N baseline -t 1-16 -q short.q \
-     -j y -o ${LOGDIR}'/closed_inddeep=$TASK_ID_base.log' \
-     -b y 'sleep $[(${SGE_TASK_ID}-1)*5]; matlab -nodesktop -nosplash -r "pool = parpool(12), solve_closed(inddeep_to_params(${SGE_TASK_ID}), '\''base'\'', +0.00, false), delete(pool)"'
+qsub -N baseline -q short.q \
+     -j y -o ${LOGDIR}'/closed_base.log' \
+     -b y 'matlab -nodesktop -nosplash -r "pool = parpool(32), for i = 1:16,  solve_closed(inddeep_to_params(i), '\''base'\'', +0.00, false), end, delete(pool)"'
 
 
 # Submit closed economy counterfactual runs
@@ -38,4 +38,4 @@ done
 # Process and package results
 qsub -N package -hold_jid counterfactual -q short.q \
      -j y -o ${LOGDIR}'/package.log' \
-     -b y 'matlab -nodesktop -nosplash -r "pool = parpool(12), check_closed_convergence, generate_static_aggregates_closed, package_results, delete(pool)"'
+     -b y 'matlab -nodesktop -nosplash -r "pool = parpool(16), check_closed_convergence, generate_static_aggregates_closed, package_results, delete(pool)"'
