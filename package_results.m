@@ -59,7 +59,7 @@ tablesource = fullfile(dirFinder.root, 'charts', 'scenario_table', tablefilename
 copyfile(tablesource, fullfile(csv_dir, tablefilename))
 
 fid = fopen(tablesource);
-idtable = textscan(fid, ['%d ', repmat('%*q ', 1, 7),'%q %*[^\n]'], 'Delimiter', ',', 'HeaderLines', 1);
+idtable = textscan(fid, ['%u64 ', repmat('%*q ', 1, 7),'%q %*[^\n]'], 'Delimiter', ',', 'HeaderLines', 1);
 fclose(fid);
 
 n_ids = length(idtable{1});
@@ -181,7 +181,7 @@ for i = 1:n_ids
                         [agg_dynamic(1:end-n_trim)', agg_static(1:end-n_trim)']; ...
                         ones(n_pad,   2) ];
         
-        csvfile = fullfile(csv_dir, sprintf('%d-%d.csv', id, aggnum));
+        csvfile = fullfile(csv_dir, sprintf('%u-%u.csv', id, aggnum));
         fid = fopen(csvfile, 'w');
         fprintf(fid, 'Year,DynamicAggregate,StaticAggregate\n');
         fclose(fid);
