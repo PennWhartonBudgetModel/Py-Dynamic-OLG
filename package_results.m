@@ -99,10 +99,6 @@ for i = 1:n_ids
     % Get deep parameters based on set index
     deep_params = deep_param_sets(inddeep,:);
     
-    beta  = deep_params(1);
-    gamma = deep_params(2);
-    sigma = deep_params(3);
-    
     % Get plan
     plan = planmap.(specs.TaxPlan.Text);
     
@@ -117,8 +113,8 @@ for i = 1:n_ids
     
     % Identify working directories
     switch openness
-        case 1, save_dir = dirFinder.open  (beta, gamma, sigma, plan      );
-        case 0, save_dir = dirFinder.closed(beta, gamma, sigma, plan, gcut);
+        case 1, save_dir = dirFinder.open  (deep_params, plan      );
+        case 0, save_dir = dirFinder.closed(deep_params, plan, gcut);
     end
     
     
@@ -149,8 +145,8 @@ for i = 1:n_ids
     s_static  = load(fullfile(save_dir, 'aggregates_static.mat'));
     
     if (use_dynamic_baseline)
-        s_base_open   = load(fullfile(dirFinder.open  (beta, gamma, sigma, 'base'       ), 'aggregates.mat'));
-        s_base_closed = load(fullfile(dirFinder.closed(beta, gamma, sigma, 'base', +0.00), 'aggregates.mat'));
+        s_base_open   = load(fullfile(dirFinder.open  (deep_params, 'base'       ), 'aggregates.mat'));
+        s_base_closed = load(fullfile(dirFinder.closed(deep_params, 'base', +0.00), 'aggregates.mat'));
     end
     
     

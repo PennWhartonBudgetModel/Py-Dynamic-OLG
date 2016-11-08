@@ -96,10 +96,10 @@ for inddeep = 6%1:16
                 for plan = plans 
                     % Find save directory for open economy transition path and load aggregates
                     if     strcmp(econ_case{1}, 'open'  )
-                        load_dir     = dirFinder.open  (deep_parameters(1), deep_parameters(2), deep_parameters(3), plan{1});
+                        load_dir     = dirFinder.open  (deep_parameters, plan{1});
                         figure_title = 'Open Economy';
                     elseif strcmp(econ_case{1}, 'closed')
-                        load_dir     = dirFinder.closed(deep_parameters(1), deep_parameters(2), deep_parameters(3), plan{1}, gcut{1});
+                        load_dir     = dirFinder.closed(deep_parameters, plan{1}, gcut{1});
                         figure_title = ['Closed Economy, Government Expenditure Cut = ' num2str(gcut{1}*100) '%'];
                     end
 

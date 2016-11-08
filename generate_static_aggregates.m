@@ -23,13 +23,7 @@ function [] = generate_static_aggregates(deep_params, plan, gcut, this_uniquetag
 
 % Extract deep parameters or set defaults if none provided
 if ~exist('deep_params', 'var') || isempty(deep_params)
-    beta  = 1.005;
-    gamma = 0.390;
-    sigma = 06.00;
-else
-    beta  = deep_params(1);
-    gamma = deep_params(2);
-    sigma = deep_params(3);
+    deep_params = [1.005, 0.390, 06.00];
 end
 
 % Set base plan as default
@@ -51,23 +45,23 @@ end
 param_dir = dirFinder.param;
 
 if isopen
-    save_dir = dirFinder.open  (beta, gamma, sigma, plan);
+    save_dir = dirFinder.open  (deep_params, plan);
 else
-    save_dir = dirFinder.closed(beta, gamma, sigma, plan, gcut);
+    save_dir = dirFinder.closed(deep_params, plan, gcut);
 end
 save_dir = [save_dir, this_uniquetag];
 
 
 % Identify corresponding reference directories
-ss_dir = dirFinder.ss(beta, gamma, sigma);
+ss_dir = dirFinder.ss(deep_params);
 
 if strcmp(plan, 'base')
     base_dir = save_dir;    % Includes this_uniquetag
 else
     if isopen
-        base_dir = dirFinder.open  (beta, gamma, sigma, 'base');
+        base_dir = dirFinder.open  (deep_params, 'base');
     else
-        base_dir = dirFinder.closed(beta, gamma, sigma, 'base', +0.00);
+        base_dir = dirFinder.closed(deep_params, 'base', +0.00);
     end
 end
 

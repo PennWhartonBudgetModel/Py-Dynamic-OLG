@@ -30,14 +30,11 @@ function [elasticities] = solve_ss(deep_params, showmore, cleanup, this_uniqueta
 
 % Extract deep parameters or set defaults if none provided
 if ~exist('deep_params', 'var') || isempty(deep_params)
-    beta  = 1.005;
-    gamma = 0.390;
-    sigma = 06.00;
-else
-    beta  = deep_params(1);
-    gamma = deep_params(2);
-    sigma = deep_params(3);
+    deep_params = [1.005, 0.390, 06.00];
 end
+beta  = deep_params(1);
+gamma = deep_params(2);
+sigma = deep_params(3);
 
 % Turn on all status updates by default
 if ~exist('showmore', 'var') || isempty(showmore)
@@ -61,7 +58,7 @@ fprintf('\nSolving steady state:  beta = %0.3f  gamma = %0.3f  sigma = %05.2f\n'
 
 % Identify working directories
 param_dir = dirFinder.param;
-save_dir  = dirFinder.ss(beta, gamma, sigma);
+save_dir  = dirFinder.ss(deep_params);
 
 % Append uniqueness tag to name of save directory
 save_dir = [save_dir, this_uniquetag];

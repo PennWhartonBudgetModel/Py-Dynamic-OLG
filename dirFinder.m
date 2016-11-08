@@ -18,13 +18,13 @@
 %   saveroot()
 %       Find save root directory.
 % 
-%   ss(beta, gamma, sigma)
+%   ss(deep_params)
 %       Find steady state save directory.
 % 
-%   open(beta, gamma, sigma, plan)
+%   open(deep_params, plan)
 %       Find open economy save directory.
 % 
-%   closed(beta, gamma, sigma, plan, gcut)
+%   closed(deep_params, plan, gcut)
 %       Find closed economy save directory.
 % 
 %   csv()
@@ -72,27 +72,27 @@ methods (Static)
     
     
     % Find steady state save directory
-    function [ss_dir] = ss(beta, gamma, sigma)
+    function [ss_dir] = ss(deep_params)
         ss_dir     = fullfile( dirFinder.saveroot, ...
-                               get_deep_params_tag(beta, gamma, sigma), ...
+                               get_deep_params_tag(deep_params), ...
                                'ss' );
     end
     
     
     % Find open economy save directory
-    function [open_dir] = open(beta, gamma, sigma, plan)
+    function [open_dir] = open(deep_params, plan)
         open_dir   = fullfile( dirFinder.saveroot, ...
-                               get_deep_params_tag(beta, gamma, sigma), ...
+                               get_deep_params_tag(deep_params), ...
                                get_plan_tag(plan), ...
                                'open' );
     end
     
     
     % Find closed economy save directory
-    function [closed_dir] = closed(beta, gamma, sigma, plan, gcut)
+    function [closed_dir] = closed(deep_params, plan, gcut)
         if (gcut == 0), gcut = 0; end   % Enforces positive zero in the case of a negative zero
         closed_dir = fullfile( dirFinder.saveroot, ...
-                               get_deep_params_tag(beta, gamma, sigma), ...
+                               get_deep_params_tag(deep_params), ...
                                get_plan_tag(plan), ...
                                sprintf('closed_gcut=%+0.2f', gcut) );
     end
@@ -168,8 +168,8 @@ end
 
 
 % Get string tag corresponding to deep parameters
-function [deep_params_tag] = get_deep_params_tag(beta, gamma, sigma)
-    deep_params_tag = sprintf('beta=%0.3f_gamma=%0.3f_sigma=%05.2f', beta, gamma, sigma);
+function [deep_params_tag] = get_deep_params_tag(deep_params)
+    deep_params_tag = sprintf('beta=%0.3f_gamma=%0.3f_sigma=%05.2f', deep_params(1), deep_params(2), deep_params(3));
 end
 
 
