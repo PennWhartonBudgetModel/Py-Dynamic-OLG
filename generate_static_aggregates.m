@@ -241,22 +241,22 @@ end
 % (Duplicates data but enhances modularity of results)
 s_base = hardyload(fullfile(base_dir, 'aggregates.mat'));
 
-elab_static         = s_base.elab_total;   %#ok<NASGU>
-cap_static          = s_base.cap_total;    %#ok<NASGU>
-domestic_cap_static = s_base.domestic_cap_total;  %#ok<NASGU>
-foreign_cap_static  = s_base.foreign_cap_total; %#ok<NASGU>
+elab_static          = s_base.elab_total;           %#ok<NASGU>
+cap_static           = s_base.cap_total;            %#ok<NASGU>
+domestic_cap_static  = s_base.domestic_cap_total;   %#ok<NASGU>
+foreign_cap_static   = s_base.foreign_cap_total;    %#ok<NASGU>
 domestic_debt_static = s_base.domestic_debt_total;  %#ok<NASGU>
 
 % Loaded in solve_open for open; loaded from results if closed.
 if ~isopen
-    foreign_debt_static  = s_base.foreign_debt_total; %#ok<NASGU>
+    foreign_debt_static = s_base.foreign_debt_total; %#ok<NASGU>
 end
 
-Y_static      = s_base.Y_total;      %#ok<NASGU>
-lfpr_static   = s_base.lfpr_total;   %#ok<NASGU>
+Y_static      = s_base.Y_total;         %#ok<NASGU>
+lfpr_static   = s_base.lfpr_total;      %#ok<NASGU>
 
 labinc_static = s_base.labinc_total;
-kinc_static   = s_base.kinc_total; %#ok<NASGU>
+kinc_static   = s_base.kinc_total;      %#ok<NASGU>
 
 feditlab_static          = fedit_static .* labinc_static ./ fedincome_static; %#ok<NASGU>
 domestic_fcaptax_static  = fcaptax_static + fedit_static .* (1 - labinc_static ./ fedincome_static);
@@ -269,7 +269,9 @@ clear('s_base')
 % Save static aggregates
 save(fullfile(save_dir, 'aggregates_static.mat'), ...
      'fedincome_static', 'fedit_static', 'ssrev_static', 'fcaptax_static', 'ssexp_static', ...
-     'elab_static', 'cap_static', 'domestic_cap_static', 'foreign_cap_static', 'Y_static', 'lfpr_static', 'labinc_static', 'kinc_static', 'feditlab_static', 'fcaprev_static', 'domestic_fcaptax_static','foreign_fcaptax_static','domestic_debt_static')
+     'elab_static', 'cap_static', 'domestic_cap_static', 'foreign_cap_static', ...
+     'Y_static', 'lfpr_static', 'labinc_static', 'kinc_static', ...
+     'feditlab_static', 'fcaprev_static', 'domestic_fcaptax_static', 'foreign_fcaptax_static', 'domestic_debt_static')
 
 if ~isopen
     save(fullfile(save_dir, 'aggregates_static.mat'), 'foreign_debt_static', '-append')
