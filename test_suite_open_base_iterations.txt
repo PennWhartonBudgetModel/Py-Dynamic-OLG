@@ -1,4 +1,0 @@
-1 beq iteration(s) of a maximum 25
-
-Error term(s):
-   1  --   0.0001

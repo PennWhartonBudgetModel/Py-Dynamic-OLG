@@ -20,10 +20,13 @@
 %   elasticities
 %       Capital-to-output ratio, labor elasticity, and savings elasticity collected in a 1 x 3 vector [K_Y, labor_elas, savings_elas].
 % 
+%   save_dir
+%       Directory where results are saved.
+% 
 %%
 
 
-function [elasticities] = solve_ss(deep_params, showmore, cleanup, this_uniquetag)
+function [elasticities, save_dir] = solve_ss(deep_params, showmore, cleanup, this_uniquetag)
 
 
 %% Initialization

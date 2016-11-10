@@ -18,10 +18,15 @@
 %   this_uniquetag (optional | '' by default)
 %       String used to save solution into a unique directory, used to avoid conflicts between parallel runs.
 % 
+% Outputs:
+% 
+%   save_dir
+%       Directory where results are saved.
+% 
 %%
 
 
-function [] = solve_closed(deep_params, plan, gcut, showmore, this_uniquetag)
+function [save_dir] = solve_closed(deep_params, plan, gcut, showmore, this_uniquetag)
 
 
 %% Initialization

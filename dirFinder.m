@@ -30,6 +30,9 @@
 %   csv()
 %       Find csv save directory.
 % 
+%   get_commit_id()
+%       Get identifier for active Git commit.
+% 
 %%
 
 
@@ -63,7 +66,7 @@ methods (Static)
     
     % Find save root directory
     function [saveroot_dir] = saveroot()
-        if dirFinder.isproductionready
+        if isproductionready
             saveroot_dir = fullfile(dirFinder.modelroot, 'Output', dirFinder.get_commit_id);
         else
             saveroot_dir = dirFinder.testout;
@@ -101,7 +104,7 @@ methods (Static)
     % Find csv save directory
     function [csv_dir] = csv()
         timestamp = datestr(now, 'yyyy-mm-dd-HH-MM');
-        if dirFinder.isproductionready
+        if isproductionready
             csvroot = fullfile(dirFinder.root, 'charts', 'version2', 'tax_dynamic_scores', dirFinder.get_commit_id);
         else
             csvroot = fullfile(dirFinder.testout, 'csv');
@@ -141,29 +144,29 @@ methods (Static, Access = private)
         testout_dir = fullfile(dirFinder.source, 'Testing');
     end
     
+end
+
+end
+
+
+% Identify production run by Production stage and absence of uncommitted changes
+function [flag] = isproductionready()
     
-    % Identify production run by Production stage and absence of uncommitted changes
-    function [flag] = isproductionready()
+    % Get source code stage
+    [~, stage] = fileparts(fileparts(dirFinder.source));
+    
+    if ~strcmp(stage, 'Production')
+        flag = false;
+    else
         
-        % Get source code stage
-        [~, stage] = fileparts(fileparts(dirFinder.source));
+        % Check for uncommitted changes
+        % (Safeguards against any unintentional changes made in Production directory after checkout)
+        [~, uncommitted] = system('git status -s');
         
-        if ~strcmp(stage, 'Production')
-            flag = false;
-        else
-            
-            % Check for uncommitted changes
-            % (Safeguards against any unintentional changes made in Production directory after checkout)
-            [~, uncommitted] = system('git status -s');
-            
-            flag = isempty(uncommitted);
-            
-        end
+        flag = isempty(uncommitted);
         
     end
     
-end
-
 end
 
 
