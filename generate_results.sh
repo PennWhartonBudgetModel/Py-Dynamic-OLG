@@ -21,7 +21,7 @@ for GCUT in +0.10 +0.05 +0.00 -0.05; do
     
     qsub -N counterfactual -t 1-16 -q short.q \
          -j y -o ${LOGDIR}'/closed_inddeep=$TASK_ID_plan='${PLAN}'_gcut='${GCUT}'.log' \
-         -b y 'matlab -nojvm -nosplash -r "solve_closed(inddeep_to_params(${SGE_TASK_ID}), '\'${PLAN}\'', '${GCUT}', false)"'
+         -b y 'matlab -nojvm -nosplash -r "solve_closed(inddeep_to_params(${SGE_TASK_ID}), '\'${PLAN}\'', '${GCUT}')"'
 		
   done
 done

@@ -6,9 +6,6 @@
 %   deep_params
 %       beta, gamma, and sigma preference parameters collected in a 1 x 3 vector [beta, gamma, sigma].
 % 
-%   showmore (optional | true by default)
-%       Set to true for more solver status updates.
-% 
 %   cleanup (optional | false by default)
 %       Set to true to clean up data files and directories used for intermediary results after solver execution.
 % 
@@ -26,7 +23,7 @@
 %%
 
 
-function [elasticities, save_dir] = solve_ss(deep_params, showmore, cleanup, this_uniquetag)
+function [elasticities, save_dir] = solve_ss(deep_params, cleanup, this_uniquetag)
 
 
 %% Initialization
@@ -38,11 +35,6 @@ end
 beta  = deep_params(1);
 gamma = deep_params(2);
 sigma = deep_params(3);
-
-% Turn on all status updates by default
-if ~exist('showmore', 'var') || isempty(showmore)
-    showmore = true;
-end
 
 % Turn off file cleanup by default
 if ~exist('cleanup', 'var') || isempty(cleanup)
@@ -171,13 +163,12 @@ rho_eps = [];
 % Initialize iteration count and set maximum number of iterations
 rho_iter    =  0;
 rho_itermax = 25;
-if showmore, fprintf('\n'), end
 
 while true
     
     % Increment iteration count
     rho_iter = rho_iter + 1;
-    if showmore, fprintf('rho_iter = %2d  ...  ', rho_iter), end
+    fprintf('\trho_iter = %2d  ...  ', rho_iter)
     
     % Solve dynamic optimization and generate distributions
     [opt, dist, kpr_total, DD, elab_total, beq_total, wage, cap_share, debt_share, rate_cap, rate_gov, rate_tot] ...
@@ -194,7 +185,7 @@ while true
     rhopr = (max(kpr_total-DD, 0)/q_tobin)/elab_total;
     
     rho_eps = [rho_eps, abs(rho - rhopr)]; %#ok<AGROW>
-    if showmore, fprintf('rho_eps = %7.4f\n', rho_eps(end)), end
+    fprintf('rho_eps = %7.4f\n', rho_eps(end))
     if (rho_eps(end) < rho_tol), break, end
     
     % Check for maximum iterations

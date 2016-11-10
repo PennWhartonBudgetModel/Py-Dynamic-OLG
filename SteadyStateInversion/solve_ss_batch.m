@@ -31,7 +31,7 @@ results = zeros(size(batch));
 
 parfor j = 1:size(batch,1)
     fprintf('Solving set %2d in batch %5d.\n', j, ibatch)
-    results(j,:) = solve_ss(batch(j,:), false, true);
+    results(j,:) = solve_ss(batch(j,:), true);
 end
 
 
