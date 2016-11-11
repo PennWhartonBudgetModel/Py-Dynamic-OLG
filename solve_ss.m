@@ -237,10 +237,6 @@ K_Y = (kpr-DD)/Y;
 working_mass = 0;
 frisch_total = 0;
 
-s = load(fullfile(save_dir, 'opt.mat'));  opt  = s.opt;
-s = load(fullfile(save_dir, 'dist.mat')); dist = s.dist;
-clear('s')
-
 for idem = 1:ndem
     
     labopt = opt(1,idem).labopt;
