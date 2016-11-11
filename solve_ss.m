@@ -14,16 +14,16 @@
 % 
 % Outputs:
 % 
-%   elasticities
-%       Capital-to-output ratio, labor elasticity, and savings elasticity collected in a 1 x 3 vector [K_Y, labor_elas, savings_elas].
-% 
 %   save_dir
 %       Directory where results are saved.
+% 
+%   elasticities
+%       Capital-to-output ratio, labor elasticity, and savings elasticity collected in a 1 x 3 vector [K_Y, labor_elas, savings_elas].
 % 
 %%
 
 
-function [elasticities, save_dir] = solve_ss(deep_params, cleanup, this_uniquetag)
+function [save_dir, elasticities] = solve_ss(deep_params, cleanup, this_uniquetag)
 
 
 %% Initialization
@@ -285,8 +285,14 @@ if cleanup
     rmdir(fullfile(save_dir, '..'), 's')
 end
 
-% Package elasticities
+% Package elasticities and display
 elasticities = [K_Y, labor_elas, savings_elas];
+
+displaynames = { 'Capital-to-output ratio', 'Labor elasticity', 'Savings elasticity' };
+for i = 1:length(elasticities)
+    fprintf('\t%-25s= % 7.4f\n', displaynames{i}, elasticities(i))
+end
+fprintf('\n')
 
 
 end

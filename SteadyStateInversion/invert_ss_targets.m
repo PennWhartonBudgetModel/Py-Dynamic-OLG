@@ -36,7 +36,7 @@ inverses = invert_ss(targets);
 % Find true solutions corresponding to interpolated inverses
 truths = zeros(size(targets));
 parfor i = 1:ntargets
-    truths(i,:) = solve_ss(inverses(i,:), false);
+    [~, truths(i,:)] = solve_ss(inverses(i,:), false);
 end
 
 

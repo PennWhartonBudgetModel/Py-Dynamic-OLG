@@ -24,7 +24,7 @@ methods (Static)
     % Test steady state solution
     function [] = steady(update_target)
         
-        [~, save_dir] = modelTester.steady_run();
+        save_dir = modelTester.steady_run();
         s_solution = load(fullfile(save_dir, 'solution.mat'));
         
         s_target = load('modelTester.mat');
@@ -36,7 +36,7 @@ methods (Static)
             isdiff = compare_values(s_solution, target.steady.Solution);
             
             if ~isdiff
-                fprintf('\tNo differences from target identified.\n')
+                fprintf('\tOutput matches target.\n')
             end
             fprintf('\n')
             
@@ -117,7 +117,7 @@ methods (Static, Access = private)
             isdiff_static  = compare_values(s_static , target.(testname).Static );
 
             if (~isdiff_dynamic && ~isdiff_static)
-                fprintf('\tNo differences from target identified.\n')
+                fprintf('\tOutput matches target.\n')
             end
             fprintf('\n')
         
