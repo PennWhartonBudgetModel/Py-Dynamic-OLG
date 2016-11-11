@@ -205,6 +205,15 @@ while true
     kpr = kpr_total;
     
 end
+fprintf('\n')
+
+% Save log of rho iterations
+fid = fopen(fullfile(save_dir, 'iterations.txt'), 'wt');
+fprintf(fid, '%d rho iteration(s) of a maximum %d\n\nError term(s):', rho_iter, rho_itermax);
+for i = 1:rho_iter
+    fprintf(fid, '\n  % 2d  --  %7.4f', i, rho_eps(i));
+end
+fclose(fid);
 
 
 % Save optimal decision values and distributions
@@ -216,13 +225,6 @@ save(fullfile(save_dir, 'solution.mat'), ...
      'rho', 'kpr', 'Y', 'DEBTss', 'beq', 'wage', ...
      'cap_share', 'debt_share', 'rate_cap', 'rate_gov', 'rate_tot')
 
-% Save log of rho iterations
-fid = fopen(fullfile(save_dir, 'iterations.txt'), 'wt');
-fprintf(fid, '%d rho iteration(s) of a maximum %d\n\nError term(s):', rho_iter, rho_itermax);
-for i = 1:rho_iter
-    fprintf(fid, '\n  % 2d  --  %7.4f', i, rho_eps(i));
-end
-fclose(fid);
 
 % Calculate capital to output ratio
 K_Y = (kpr-DD)/Y;

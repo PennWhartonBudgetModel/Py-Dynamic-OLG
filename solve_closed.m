@@ -463,6 +463,7 @@ while true
     cap_series = cap_total;
     
 end
+fprintf('\n')
 
 % Save log of rho iterations
 fid = fopen(fullfile(save_dir, 'iterations.txt'), 'wt');

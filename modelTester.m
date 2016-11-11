@@ -7,63 +7,93 @@
 classdef modelTester
 
 properties (Constant)
+    
+    % Define test runs
     deep_params = inddeep_to_params(6);
+    
+    steady_run      = @() solve_ss    (modelTester.deep_params               );
+    open_base_run   = @() solve_open  (modelTester.deep_params, 'base'       );
+    open_plan_run   = @() solve_open  (modelTester.deep_params, 'ryan'       );
+    closed_base_run = @() solve_closed(modelTester.deep_params, 'base', +0.00);
+    closed_plan_run = @() solve_closed(modelTester.deep_params, 'ryan', +0.10);
+    
 end
 
 methods (Static)
     
     % Test steady state solution
-    function [] = steady()
+    function [] = steady(update_target)
         
-        [~, save_dir] = solve_ss(modelTester.deep_params);
+        [~, save_dir] = modelTester.steady_run();
         s_solution = load(fullfile(save_dir, 'solution.mat'));
         
-        s_target = load('modelTester.mat', 'steady');
+        s_target = load('modelTester.mat');
+        target = s_target.target;
         
-        fprintf('\n')
-        isdiff = compare_values(s_solution, s_target.steady.Solution);
-        
-        if ~isdiff
-            fprintf('No differences found.\n')
+        if (~exist('update_target', 'var') || ~update_target)
+            
+            fprintf('[Test results]\n')
+            isdiff = compare_values(s_solution, target.steady.Solution);
+            
+            if ~isdiff
+                fprintf('\tNo differences from target identified.\n')
+            end
+            fprintf('\n')
+            
+        else
+            
+            % Update target values
+            target.steady.Solution = s_solution;
+            save('modelTester.mat', 'target')
+            fprintf('[Test target updated]\n\n')
+            
         end
-        fprintf('\n')
-        
     end
     
     
     % Test open economy baseline dynamic and static aggregates
-    function [] = open_base()
-        
-        save_dir = solve_open(modelTester.deep_params, 'base');
-        modelTester.transition(save_dir, 'open_base')
-        
+    function [] = open_base(update_target)
+        if ~exist('update_target', 'var'), update_target = false; end
+        save_dir = modelTester.open_base_run();
+        modelTester.transition('open_base', save_dir, update_target)
     end
     
     
     % Test open economy counterfactual dynamic and static aggregates
-    function [] = open_plan()
-        
-        save_dir = solve_open(modelTester.deep_params, 'ryan');
-        modelTester.transition(save_dir, 'open_plan')
-        
+    function [] = open_plan(update_target)
+        if ~exist('update_target', 'var'), update_target = false; end
+        save_dir = modelTester.open_plan_run();
+        modelTester.transition('open_plan', save_dir, update_target)
     end
     
     
     % Test closed economy baseline dynamic and static aggregates
-    function [] = closed_base()
-        
-        save_dir = solve_closed(modelTester.deep_params, 'base', +0.00);
-        modelTester.transition(save_dir, 'closed_base')
-        
+    function [] = closed_base(update_target)
+        if ~exist('update_target', 'var'), update_target = false; end
+        save_dir = modelTester.closed_base_run();
+        modelTester.transition('closed_base', save_dir, update_target)
     end
     
     
     % Test closed economy counterfactual dynamic and static aggregates
-    function [] = closed_plan()
-        
-        save_dir = solve_closed(modelTester.deep_params, 'ryan', +0.10);
-        modelTester.transition(save_dir, 'closed_plan')
-        
+    function [] = closed_plan(update_target)
+        if ~exist('update_target', 'var'), update_target = false; end
+        save_dir = modelTester.closed_plan_run();
+        modelTester.transition('closed_plan', save_dir, update_target)
+    end
+    
+    
+    % Perform all tests
+    function [] = test_all()
+        update_target = false;
+        modelTester.run_all(update_target);
+    end
+    
+    
+    % Update all test targets
+    function [] = update_all()
+        update_target = true;
+        modelTester.run_all(update_target);
     end
     
 end
@@ -72,22 +102,45 @@ end
 methods (Static, Access = private)
     
     % Test transition path dynamic and static aggregates
-    function [] = transition(save_dir, testname)
+    function [] = transition(testname, save_dir, update_target)
         
         s_dynamic = load(fullfile(save_dir, 'aggregates.mat'       ));
         s_static  = load(fullfile(save_dir, 'aggregates_static.mat'));
         
-        s_target = load('modelTester.mat', testname);
+        s_target = load('modelTester.mat');
+        target = s_target.target;
         
-        fprintf('\n')
-        isdiff_dynamic = compare_values(s_dynamic, s_target.(testname).Dynamic);
-        isdiff_static  = compare_values(s_static , s_target.(testname).Static );
+        if ~update_target
+            
+            fprintf('[Test results]\n')
+            isdiff_dynamic = compare_values(s_dynamic, target.(testname).Dynamic);
+            isdiff_static  = compare_values(s_static , target.(testname).Static );
+
+            if (~isdiff_dynamic && ~isdiff_static)
+                fprintf('\tNo differences from target identified.\n')
+            end
+            fprintf('\n')
         
-        if (~isdiff_dynamic && ~isdiff_static)
-            fprintf('No differences found.\n')
+        else
+            
+            % Update target values
+            target.(testname).Dynamic = s_dynamic;
+            target.(testname).Static  = s_static ;
+            save('modelTester.mat', 'target')
+            fprintf('[Test target updated]\n\n')
+            
         end
-        fprintf('\n')
         
+    end
+    
+    
+    % Perform all tests or update all test targets
+    function [] = run_all(update_target)
+        modelTester.steady     (update_target);
+        modelTester.open_base  (update_target);
+        modelTester.open_plan  (update_target);
+        modelTester.closed_base(update_target);
+        modelTester.closed_plan(update_target);
     end
     
 end
@@ -96,7 +149,7 @@ end
 
 
 % Compare values and report differences
-function [isdiff] = compare_values(test, target)
+function [isdiff] = compare_values(output, target)
     
     isdiff = false;
     valuestrs = fieldnames(target);
@@ -105,17 +158,17 @@ function [isdiff] = compare_values(test, target)
         
         valuestr = valuestrs{i};
         
-        if ~isfield(test, valuestr)
-            fprintf('Difference found: %s does not exist.\n', valuestr)
+        if ~isfield(output, valuestr)
+            fprintf('\t%-25sNot found.\n', valuestr)
             isdiff = true;
         else
             
-            diff = test.(valuestr)(:) - target.(valuestr)(:);
+            diff = output.(valuestr)(:) - target.(valuestr)(:);
             
             if any(diff)
                 [maxdiff, ind] = max(diff);
-                dev = maxdiff * 2 / (test.(valuestr)(ind) + target.(valuestr)(ind));
-                fprintf('Difference found: %s exhibits %0.2f%% deviation.\n', valuestr, abs(dev*100))
+                dev = maxdiff * 2 / (output.(valuestr)(ind) + target.(valuestr)(ind));
+                fprintf('\t%-25s%06.2f%% deviation.\n', valuestr, abs(dev*100))
                 isdiff = true;
             end
             
