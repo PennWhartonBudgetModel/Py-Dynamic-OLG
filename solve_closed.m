@@ -75,6 +75,7 @@ openbase_dir = dirFinder.open(deep_params, 'base');
 openplan_dir = dirFinder.open(deep_params, plan  );
 
 
+
 % Load global parameters
 s = load(fullfile(param_dir, 'param_global.mat'));
 
@@ -476,20 +477,19 @@ fclose(fid);
 Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp)); %#ok<NASGU>
 
 domestic_cap_total  = [cap_total(1)*q_tobin0 q_tobin*cap_total(2:end)]; %#ok<NASGU>
-foreign_cap_total   = zeros(1,Tss);
+foreign_cap_total   = zeros(1,Tss); %#ok<NASGU>
 
 domestic_debt_total = debt_total;   %#ok<NASGU>
 foreign_debt_total  = zeros(1,Tss); %#ok<NASGU>
 
-domestic_fcaptax_total = fcaptax_total;
-foreign_fcaptax_total  = tau_cap.*(rate_caps - 1).*cap_tax_share.*foreign_cap_total;
-fcaptax_total          = domestic_fcaptax_total + foreign_fcaptax_total; 
+domestic_fcaptax_total = fcaptax_total; %#ok<NASGU>
+foreign_fcaptax_total  = zeros(1,Tss);	%#ok<NASGU>
 
 labinc_total = elab_total .* wages;
 kinc_total   = (rate_caps - 1) .* (kpr_total - debt_total); %#ok<NASGU>
 
-feditlab_total = fedit_total .* labinc_total ./ fedincome_total; %#ok<NASGU>
-fcaprev_total  = fcaptax_total + fedit_total .* (1 - labinc_total ./ fedincome_total); %#ok<NASGU>
+feditlab_total = fedit_total .* labinc_total ./ fedincome_total;
+fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
 
 
 % Save optimal decision values and distributions for baseline
@@ -563,9 +563,9 @@ debt_shares  = s.debt_shares;
 rate_caps    = s.rate_caps;
 rate_govs    = s.rate_govs;
 
-s_agg = hardyload(fullfile(base_dir, 'aggregates.mat'));
-exp_subsidys = s_agg.exp_subsidys;
-clear('s_agg');
+% Load baseline aggregates
+s = hardyload(fullfile(base_dir, 'aggregates.mat'));
+exp_subsidys = s.exp_subsidys;
 
 % Load optimal decision values and distributions from baseline
 s = hardyload(fullfile(base_dir, 'opt.mat'));
@@ -573,6 +573,11 @@ base_opt = s.opt;
 
 s = hardyload(fullfile(base_dir, 'dist.mat'));
 base_dist = s.dist;
+
+
+% Clear parameter loading structure
+clear('s')
+
 
 
 % Initialize static aggregates
@@ -622,13 +627,13 @@ for idem = 1:ndem
         
         Fedit     = [sum(reshape(fitax      (:,:,:,1:N_w_dist) .* dist_w, [], N_w_dist), 1), ...
                      sum(reshape(fitaxss    (:,:,1:N_r_dist)   .* dist_r, [], N_r_dist), 1)];
-
+        
         SSrev     = [sum(reshape(fsstax     (:,:,:,1:N_w_dist) .* dist_w, [], N_w_dist), 1), ...
                      sum(reshape(fsstaxss   (:,:,1:N_r_dist)   .* dist_r, [], N_r_dist), 1)];
-
+        
         Fcaptax   = [sum(reshape(fcaptax    (:,:,:,1:N_w_dist) .* dist_w, [], N_w_dist), 1), ...
                      sum(reshape(fcaptaxss  (:,:,1:N_r_dist)   .* dist_r, [], N_r_dist), 1)];
-
+        
         SSexp     = sum(reshape(repmat(ss_benefit(:,1)', [nk,1,N_r_dist]) .* dist_r, [], N_r_dist), 1);
         
         
@@ -666,10 +671,11 @@ clear('s_base')
 
 
 % Calculate additional static aggregates
-domestic_fcaptax_static = fcaptax_static + fedit_static .* (1 - labinc_static ./ fedincome_static);
+feditlab_static         = fedit_static .* labinc_static ./ fedincome_static;
+
+domestic_fcaptax_static = fcaptax_static + fedit_static - feditlab_static;
 foreign_fcaptax_static  = zeros(1,Tss); %#ok<NASGU>
 
-feditlab_static         = fedit_static .* labinc_static ./ fedincome_static; %#ok<NASGU>
 fcaprev_static          = domestic_fcaptax_static; %#ok<NASGU>
 
 
