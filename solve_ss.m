@@ -285,8 +285,10 @@ if cleanup
     rmdir(fullfile(save_dir, '..'), 's')
 end
 
-% Package elasticities and display
+% Package, save, and display elasticities
 elasticities = [K_Y, labor_elas, savings_elas];
+
+save(fullfile(save_dir, 'elasticities.mat'), 'K_Y', 'labor_elas', 'savings_elas')
 
 displaynames = { 'Capital-to-output ratio', 'Labor elasticity', 'Savings elasticity' };
 for i = 1:length(elasticities)

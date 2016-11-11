@@ -25,7 +25,9 @@ methods (Static)
     function [] = steady(update_target)
         
         save_dir = modelTester.steady_run();
-        s_solution = load(fullfile(save_dir, 'solution.mat'));
+        
+        s_solution     = load(fullfile(save_dir, 'solution.mat'    ));
+        s_elasticities = load(fullfile(save_dir, 'elasticities.mat'));
         
         s_target = load('modelTester.mat');
         target = s_target.target;
@@ -33,9 +35,10 @@ methods (Static)
         if (~exist('update_target', 'var') || ~update_target)
             
             fprintf('[Test results]\n')
-            isdiff = compare_values(s_solution, target.steady.Solution);
+            isdiff_solution     = compare_values(s_solution    , target.steady.Solution    );
+            isdiff_elasticities = compare_values(s_elasticities, target.steady.Elasticities);
             
-            if ~isdiff
+            if (~isdiff_solution && ~isdiff_elasticities)
                 fprintf('\tOutput matches target.\n')
             end
             fprintf('\n')
@@ -43,11 +46,14 @@ methods (Static)
         else
             
             % Update target values
-            target.steady.Solution = s_solution;
+            target.steady.Solution     = s_solution    ;
+            target.steady.Elasticities = s_elasticities;
+            
             save('modelTester.mat', 'target')
             fprintf('[Test target updated]\n\n')
             
         end
+        
     end
     
     
@@ -126,6 +132,7 @@ methods (Static, Access = private)
             % Update target values
             target.(testname).Dynamic = s_dynamic;
             target.(testname).Static  = s_static ;
+            
             save('modelTester.mat', 'target')
             fprintf('[Test target updated]\n\n')
             
