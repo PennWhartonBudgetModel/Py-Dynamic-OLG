@@ -11,11 +11,13 @@ prod_shocks   = exp(prod_shocks);
 
 
 % Other parameters
-depreciation    = .08; %#ok<*NASGU>
-adj_cost_param  = .15;
-prod_func_param = .7;
+depreciation    = .03; %#ok<*NASGU>
+% adj_cost_param  = .15;
+adj_cost_param  = 0;
+prod_func_param = .8;
+discount_factor = .95;
 nk              = 10;
-kgrid           = linspace(.1,50,nk);
+kgrid           = linspace(.1,350,nk);
 
 
 % Create structure
@@ -26,7 +28,8 @@ firm_params.depreciation    = depreciation;
 firm_params.adj_cost_param  = adj_cost_param;
 firm_params.prod_func_param = prod_func_param; 
 firm_params.nk              = nk; 
-firm_params.kgrid           = kgrid; %#ok<*STRNU>
+firm_params.kgrid           = kgrid; 
+firm_params.discount_factor = discount_factor; %#ok<*STRNU>
 
 save('firm_parameters.mat','firm_params')
 
