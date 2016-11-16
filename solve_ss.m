@@ -256,7 +256,8 @@ for idem = 1:ndem
     working_ind = (labopt > 0.01);  % (Labor elasticity calculation sensitive to threshold value)
     
     working_mass = working_mass + sum(dist_w(working_ind));
-    frisch_total = frisch_total + sum(dist_w(working_ind).*(1-labopt(working_ind))./labopt(working_ind))*(1-gamma*(1-sigma))/sigma;
+    frisch_total = frisch_total + sum( dist_w(working_ind) .* (1-labopt(working_ind)) ./ labopt(working_ind) )...
+                                    *(1-gamma*(1-sigma))/sigma;
     
 end
 
