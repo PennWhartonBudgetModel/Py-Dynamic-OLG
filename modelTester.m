@@ -12,8 +12,8 @@ properties (Constant)
     deep_params = inddeep_to_params(6);
     
     steady_run      = @() solve_ss    (modelTester.deep_params               );
-    open_base_run   = @() solve_open  (modelTester.deep_params, 'base'       );
-    open_plan_run   = @() solve_open  (modelTester.deep_params, 'ryan'       );
+    open_base_run   = @() dynamicSolver.open( struct('deep_params', modelTester.deep_params, 'plan', 'base', 'gcut', +0.00) );
+    open_plan_run   = @() dynamicSolver.open( struct('deep_params', modelTester.deep_params, 'plan', 'ryan', 'gcut', +0.00) );
     closed_base_run = @() solve_closed(modelTester.deep_params, 'base', +0.00);
     closed_plan_run = @() solve_closed(modelTester.deep_params, 'ryan', +0.10);
     
