@@ -3,4 +3,4 @@ s = load(fullfile('Parameters','hh_parameters.mat'));
 
 rate = 1.04;
 
-[V, aopt, assets_total, dist] = solve_hh_optimization(s.hh_params,rate);
+[V, aopt, assets_total, consumption_total, dist] = solve_hh_optimization(s.hh_params,rate);

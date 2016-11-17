@@ -19,7 +19,7 @@ for id = 1:length(discount_factors)
     % Guess a firm discount factor
     prices.consumption = 1;
     s_firm.firm_params.discount_factor = discount_factors(id);
-    [capital_total, eq_total, V_total, dist] = solve_firm_optimization_mex(prices, s_firm.firm_params); %#ok<ASGLU>
+    [capital_total, eq_total, V_total, output_total, dist] = solve_firm_optimization_mex(prices, s_firm.firm_params); %#ok<ASGLU>
     R_m(id) = V_total/(V_total - eq_total);    % Mutual fund return
 end
 
@@ -32,7 +32,7 @@ end
 
 discount_opt = fsolve(@(x) find_eqm_discount(x,discount_factors,R_m,R), (discount_lb + discount_ub)/2, optim_options);
 s_firm.firm_params.discount_factor = discount_opt;
-[capital_total, eq_total, V_total, dist] = solve_firm_optimization_mex(prices, s_firm.firm_params); %#ok<ASGLU>
+[capital_total, eq_total, V_total, output_total, dist] = solve_firm_optimization_mex(prices, s_firm.firm_params); %#ok<ASGLU>
 R_mutual = V_total/(V_total - eq_total); %#ok<NASGU>
 Available_assets = V_total - eq_total;
 

@@ -1,4 +1,4 @@
-function [capital_total, eq_total, V_total, dist] = solve_firm_optimization( prices, firm_params) %#ok<*INUSD>
+function [capital_total, eq_total, V_total, output_total, dist] = solve_firm_optimization( prices, firm_params) %#ok<*INUSD>
 %#codegen
 
 % Unload firm parameter structure
@@ -20,7 +20,7 @@ invopt = zeros( nk, n_prodshocks);
 eqopt  = zeros( nk, n_prodshocks);
 
 % Presolve quantities
-revenues = prices.consumption*(prod_shocks*(kgrid.^prod_func_param));
+revenues = prices.consumption*(prod_shocks*(kgrid.^prod_func_param))';
 
 
 % Specify settings for dynamic optimization subproblems
@@ -37,7 +37,7 @@ while true
         for ip = 1:n_prodshocks
 %             EVpr = reshape( sum(bsxfun(@times, prod_transprob(ip,:), Vpr' ), 2), [nk,1] );
             EVpr = prod_transprob(ip,:)*Vpr';
-            revenue = revenues(ip,ik);
+            revenue = revenues(ik,ip);
             value_function([],revenue,kgrid(ik),EVpr,firm_params);
             k_opt = 0; %#ok<NASGU>
             V_opt = 0;  %#ok<NASGU>
@@ -57,7 +57,7 @@ end
 
 
 % Solve stationary distribution
-[capital_total, eq_total, V_total, dist] = solve_firm_distribution(kopt, eqopt, Vopt, firm_params);
+[capital_total, eq_total, V_total, output_total, dist] = solve_firm_distribution(kopt, eqopt, Vopt, revenues, firm_params);
 
 end
 
@@ -127,7 +127,7 @@ end
 
 
 
-function [capital_total, eq_total, V_total, dist] = solve_firm_distribution(kopt, eqopt, Vopt, firm_params)
+function [capital_total, eq_total, V_total, output_total, dist] = solve_firm_distribution(kopt, eqopt, Vopt, revenues, firm_params)
 kgrid          = firm_params.kgrid;
 nk             = firm_params.nk;
 n_prodshocks   = firm_params.n_prodshocks;
@@ -171,6 +171,7 @@ end
 capital_total = sum(dist(:).*kopt(:) );
 eq_total      = sum(dist(:).*eqopt(:));
 V_total       = sum(dist(:).*Vopt(:) );
+output_total  = sum(dist(:).*revenues(:) );
 
 end
 

@@ -1,27 +1,23 @@
-function [] = solve_equilibrium()
+function [] = solve_equilibrium_()
 
 
 % Generate grid of interest rates
-rate_lb = 1.0055;
-rate_ub = 1.04;
-n_rates = 7;
+rate_lb = 1.02;
+rate_ub = 1.0415;
+n_rates = 5;
 rates = linspace(rate_lb,rate_ub,n_rates);
 
-assets_demanded = zeros(size(rates));
-assets_supplied = zeros(size(rates));
-
-for ir = 1:n_rates
-%     percent_done = ir/n_rates
-    assets_demanded(ir) = asset_demand(rates(ir));
-    assets_supplied(ir) = asset_supply(rates(ir));
-
+% Test bounds of algorithm
+excess_demand_lb = excess_demand(rate_lb, rate_lb, rate_ub);    % Should be positive
+excess_demand_ub = excess_demand(rate_ub, rate_lb, rate_ub);    % Should be negative
+if excess_demand_lb<0 
+    error('Excess demand negative at lower bound.  Decrease lower bound and set upper bound to lower bound value.')
+elseif excess_demand_ub>0
+    error('Excess demand positive at lower bound.  Increase upper bound and set lower bound to upper bound value.')
 end
 
-
-plot(rates,assets_demanded,rates,assets_supplied,'LineWidth',4)
-legend('Asset Demand','Asset Supply')
-
-eqm_r = fsolve(@(x) excess_demand(x,assets_demanded,assets_supplied,rates),(rate_lb+rate_ub)/2)
+% Solve equilibrium rate of return
+eqm_r = fsolve(@(x) excess_demand(x, rate_lb, rate_ub),(rate_lb+rate_ub)/2)
 
 [~,eqm_discount] = asset_demand(eqm_r);
 eqm_discount
@@ -54,8 +50,13 @@ aggregate_output      = output_total
 end
 
 
-function [ex_dem] = excess_demand(x,assets_demanded,assets_supplied,rates)
+function [ex_dem] = excess_demand(x, rate_lb, rate_ub)
 
-ex_dem = interp1(rates,assets_demanded,x) - interp1(rates,assets_supplied,x);
+if (x<rate_lb)||(x>rate_ub)
+    ex_dem = Inf;
+    return
+end
+
+ex_dem = asset_demand(x) - asset_supply(x);
 
 end

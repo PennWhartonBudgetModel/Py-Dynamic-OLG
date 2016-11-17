@@ -1,4 +1,4 @@
-function [V, aopt, assets_total, dist] = solve_hh_optimization(hh_params,rate)
+function [V, aopt, assets_total, consumption_total, dist] = solve_hh_optimization(hh_params,rate)
 %#codegen
 % This function solves the household optimization problem over the entire state space.
 
@@ -12,17 +12,18 @@ na              = hh_params.na;
 asset_grid      = hh_params.asset_grid; 
 
 % Specify settings for dynamic optimization subproblems
-optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
+optim_options = optimset('Display', 'off', 'TolFun', 1e-8, 'TolX', 1e-6);
 
 
 % Initialize arrays
 V    = zeros(na, n_prodshocks);
 aopt = zeros(na, n_prodshocks);
+copt = zeros(na, n_prodshocks);
 Vpr  = zeros(na, n_prodshocks);
 
-tolerance = .01;
+tolerance = .001;
 iter = 0;
-maxiter = 1000;
+maxiter = 10000;
 while true
     iter = iter+1;
     for ia = 1:na
@@ -37,6 +38,7 @@ while true
             [x_opt, V_opt, exitflag] = fminsearch(@value_function, a0, optim_options);
             if exitflag~=1, break, end
             aopt(ia,ip) = x_opt;
+            copt(ia,ip) = financial_resources - x_opt;
             V   (ia,ip) = -V_opt;
         end
     end
@@ -47,9 +49,10 @@ end
 
 % Solve HH distribution
 if n_prodshocks>1
-    [assets_total, dist] = solve_hh_distribution(aopt,hh_params);
+    [assets_total, consumption_total, dist] = solve_hh_distribution(aopt, copt, hh_params);
 else
     assets_total = NaN;
+    consumption_total = NaN;
     dist = NaN;
 end
 
@@ -120,7 +123,7 @@ end
 
 
 
-function [assets_total, dist] = solve_hh_distribution(aopt,hh_params)
+function [assets_total, consumption_total, dist] = solve_hh_distribution(aopt, copt, hh_params)
 asset_grid     = hh_params.asset_grid;
 na             = hh_params.na;
 n_prodshocks   = hh_params.n_prodshocks;
@@ -161,7 +164,8 @@ while true
     dist = distpr;
 end
 
-assets_total = sum(dist(:).*aopt(:));
+assets_total      = sum(dist(:).*aopt(:));
+consumption_total = sum(dist(:).*copt(:));
 
 end
 

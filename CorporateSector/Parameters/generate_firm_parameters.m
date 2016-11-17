@@ -12,12 +12,11 @@ prod_shocks   = exp(prod_shocks);
 
 % Other parameters
 depreciation    = .03; %#ok<*NASGU>
-% adj_cost_param  = .15;
-adj_cost_param  = 0;
+adj_cost_param  = .15;
 prod_func_param = .8;
 discount_factor = .95;
-nk              = 10;
-kgrid           = linspace(.1,350,nk);
+nk              = 15;
+kgrid           = linspace(.1,1500,nk);
 
 
 % Create structure
