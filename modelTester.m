@@ -8,12 +8,10 @@ classdef modelTester
 
 properties (Constant)
     
-    % Define test runs
-    deep_params = inddeep_to_params(6);
-    basedef = struct('beta' , modelTester.deep_params(1), ...
-                     'gamma', modelTester.deep_params(2), ...
-                     'sigma', modelTester.deep_params(3));
+    % Specify baseline definition
+    basedef = get_basedef(6);
     
+    % Define test runs
     steady_run      = @() solve_ss(modelTester.deep_params);
     open_base_run   = @() dynamicSolver.open  ( modelTester.basedef, struct('plan', 'base', 'gcut', +0.00) );
     open_plan_run   = @() dynamicSolver.open  ( modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.00) );

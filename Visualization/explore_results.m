@@ -62,9 +62,9 @@ time = 2016+1:1:2016+Tss;
 clear('s')
 
 
-for inddeep = 6%1:16
+for inddeep = 6 %1:16
     
-    deep_parameters = inddeep_to_params(inddeep);
+    [~, deep_params] = get_basedef(inddeep);
     for econ_case = econ_cases
 
         % create vectors for and case variables and names 
@@ -96,10 +96,10 @@ for inddeep = 6%1:16
                 for plan = plans 
                     % Find save directory for open economy transition path and load aggregates
                     if     strcmp(econ_case{1}, 'open'  )
-                        load_dir     = dirFinder.open  (deep_parameters, plan{1});
+                        load_dir     = dirFinder.open  (deep_params, plan{1});
                         figure_title = 'Open Economy';
                     elseif strcmp(econ_case{1}, 'closed')
-                        load_dir     = dirFinder.closed(deep_parameters, plan{1}, gcut{1});
+                        load_dir     = dirFinder.closed(deep_params, plan{1}, gcut{1});
                         figure_title = ['Closed Economy, Government Expenditure Cut = ' num2str(gcut{1}*100) '%'];
                     end
 

@@ -1,5 +1,5 @@
 %%
-% Check convergence for closed economy transition path runs.
+% Check convergence of closed economy transition path runs.
 % 
 %%
 
@@ -8,7 +8,7 @@ function [lastiters] = check_closed_convergence()
 
 lastiters = cell(0,5); %#ok<*AGROW>
 
-for inddeep = 1:16
+for ind = 1:16
     for plan = {'base', 'trump', 'clinton', 'ryan'}
         for gcut = [0.10, 0.05, 0.00, -0.05]
             
@@ -16,7 +16,7 @@ for inddeep = 1:16
             if (strcmp(plan, 'base') && gcut ~= +0.00), continue, end
             
             % Find save directory
-            deep_params = inddeep_to_params(inddeep);
+            [~, deep_params] = get_basedef(ind);
             save_dir = dirFinder.closed(deep_params, plan{1}, gcut);
             
             % Extract subdirectories
