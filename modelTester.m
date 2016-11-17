@@ -14,11 +14,11 @@ properties (Constant)
                      'gamma', modelTester.deep_params(2), ...
                      'sigma', modelTester.deep_params(3));
     
-    steady_run      = @() solve_ss    (modelTester.deep_params               );
-    open_base_run   = @() dynamicSolver.open( modelTester.basedef, struct('plan', 'base', 'gcut', +0.00) );
-    open_plan_run   = @() dynamicSolver.open( modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.00) );
-    closed_base_run = @() solve_closed(modelTester.deep_params, 'base', +0.00);
-    closed_plan_run = @() solve_closed(modelTester.deep_params, 'ryan', +0.10);
+    steady_run      = @() solve_ss(modelTester.deep_params);
+    open_base_run   = @() dynamicSolver.open  ( modelTester.basedef, struct('plan', 'base', 'gcut', +0.00) );
+    open_plan_run   = @() dynamicSolver.open  ( modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.00) );
+    closed_base_run = @() dynamicSolver.closed( modelTester.basedef, struct('plan', 'base', 'gcut', +0.00) );
+    closed_plan_run = @() dynamicSolver.closed( modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.10) );
     
 end
 
