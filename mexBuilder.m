@@ -8,21 +8,25 @@ classdef mexBuilder
 
 methods (Static)
     
+    
     % Build all mex functions
     function [] = build_all()
         mexBuilder.build_solve_dynamic_optimization
         mexBuilder.build_calculate_static_taxes
     end
     
+    
     % Build dynamic optimization solver mex function
     function [] = build_solve_dynamic_optimization()
         build_mex('solve_dynamic_optimization')
     end
     
+    
     % Build static aggregate tax calculator mex function
     function [] = build_calculate_static_taxes()
         build_mex('calculate_static_taxes')
     end
+    
     
 end
 

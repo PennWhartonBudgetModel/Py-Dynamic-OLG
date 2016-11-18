@@ -1,14 +1,6 @@
 %%
 % Dynamic model solver.
 % 
-% Methods:
-% 
-%   open(basedef, counterdef, partag)
-%       Solve open economy transition path.
-% 
-%   closed(basedef, counterdef, partag)
-%       Solve closed economy transition path.
-% 
 %%
 
 
@@ -16,20 +8,20 @@ classdef dynamicSolver
 
 methods (Static)    
     
+    
+    % Solve open economy transition path
     function [save_dir] = open(basedef, counterdef, partag)
-        
         if ~exist('partag', 'var'), partag = ''; end
         [save_dir] = dynamicSolver.transition(true, basedef, counterdef, partag);
-        
     end
     
     
+    % Solve closed economy transition path
     function [save_dir] = closed(basedef, counterdef, partag)
-        
         if ~exist('partag', 'var'), partag = ''; end
         [save_dir] = dynamicSolver.transition(false, basedef, counterdef, partag);
-        
     end
+    
     
 end
 

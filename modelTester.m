@@ -1,5 +1,5 @@
 %%
-% Dynamic model test suite.
+% Dynamic model tester.
 % 
 %%
 
@@ -11,177 +11,126 @@ properties (Constant)
     % Specify baseline definition
     basedef = get_basedef(6);
     
-    % Define test runs
-    steady_run      = @() solve_ss(modelTester.deep_params);
-    open_base_run   = @() dynamicSolver.open  ( modelTester.basedef, struct('plan', 'base', 'gcut', +0.00) );
-    open_plan_run   = @() dynamicSolver.open  ( modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.00) );
-    closed_base_run = @() dynamicSolver.closed( modelTester.basedef, struct('plan', 'base', 'gcut', +0.00) );
-    closed_plan_run = @() dynamicSolver.closed( modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.10) );
-    
 end
 
 methods (Static)
     
-    % Test steady state solution
-    function [] = steady(update_target)
-        
-        save_dir = modelTester.steady_run();
-        
-        s_solution     = load(fullfile(save_dir, 'solution.mat'    ));
-        s_elasticities = load(fullfile(save_dir, 'elasticities.mat'));
-        
-        s_target = load('modelTester.mat');
-        target = s_target.target;
-        
-        if (~exist('update_target', 'var') || ~update_target)
-            
-            fprintf('[Test results]\n')
-            isdiff_solution     = compare_values(s_solution    , target.steady.Solution    );
-            isdiff_elasticities = compare_values(s_elasticities, target.steady.Elasticities);
-            
-            if (~isdiff_solution && ~isdiff_elasticities)
-                fprintf('\tOutput matches target.\n')
-            end
-            fprintf('\n')
-            
-        else
-            
-            % Update target values
-            target.steady.Solution     = s_solution    ;
-            target.steady.Elasticities = s_elasticities;
-            
-            save('modelTester.mat', 'target')
-            fprintf('[Test target updated]\n\n')
-            
-        end
-        
+    
+    % Test steady state solution and elasticities
+    function [] = steady()
+        save_dir = solve_ss( [modelTester.basedef.beta, modelTester.basedef.gamma, modelTester.basedef.sigma] );
+        setnames = {'solution', 'elasticities'};
+        test_output(save_dir, setnames);
     end
     
     
-    % Test open economy baseline dynamic and static aggregates
-    function [] = open_base(update_target)
-        if ~exist('update_target', 'var'), update_target = false; end
-        save_dir = modelTester.open_base_run();
-        modelTester.transition('open_base', save_dir, update_target)
+    % Test open economy baseline solution, dynamic aggregates, and static aggregates
+    function [] = open_base()
+        save_dir = dynamicSolver.open( modelTester.basedef, struct('plan', 'base', 'gcut', +0.00) );
+        setnames = {'solution', 'aggregates', 'aggregates_static'};
+        test_output(save_dir, setnames);
     end
     
     
-    % Test open economy counterfactual dynamic and static aggregates
-    function [] = open_plan(update_target)
-        if ~exist('update_target', 'var'), update_target = false; end
-        save_dir = modelTester.open_plan_run();
-        modelTester.transition('open_plan', save_dir, update_target)
+    % Test open economy counterfactual solution, dynamic aggregates, and static aggregates
+    function [] = open_plan()
+        save_dir = dynamicSolver.open( modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.00) );
+        setnames = {'solution', 'aggregates', 'aggregates_static'};
+        test_output(save_dir, setnames);
     end
     
     
-    % Test closed economy baseline dynamic and static aggregates
-    function [] = closed_base(update_target)
-        if ~exist('update_target', 'var'), update_target = false; end
-        save_dir = modelTester.closed_base_run();
-        modelTester.transition('closed_base', save_dir, update_target)
+    % Test closed economy baseline solution, dynamic aggregates, and static aggregates
+    function [] = closed_base()
+        save_dir = dynamicSolver.closed( modelTester.basedef, struct('plan', 'base', 'gcut', +0.00) );
+        setnames = {'solution', 'aggregates', 'aggregates_static'};
+        test_output(save_dir, setnames);
     end
     
     
-    % Test closed economy counterfactual dynamic and static aggregates
-    function [] = closed_plan(update_target)
-        if ~exist('update_target', 'var'), update_target = false; end
-        save_dir = modelTester.closed_plan_run();
-        modelTester.transition('closed_plan', save_dir, update_target)
+    % Test closed economy counterfactual solution, dynamic aggregates, and static aggregates
+    function [] = closed_plan()
+        save_dir = dynamicSolver.closed( modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.10) );
+        setnames = {'solution', 'aggregates', 'aggregates_static'};
+        test_output(save_dir, setnames);
     end
     
-    
-    % Perform all tests
-    function [] = test_all()
-        update_target = false;
-        modelTester.run_all(update_target);
-    end
-    
-    
-    % Update all test targets
-    function [] = update_all()
-        update_target = true;
-        modelTester.run_all(update_target);
-    end
-    
-end
-
-
-methods (Static, Access = private)
-    
-    % Test transition path dynamic and static aggregates
-    function [] = transition(testname, save_dir, update_target)
-        
-        s_dynamic = load(fullfile(save_dir, 'aggregates.mat'       ));
-        s_static  = load(fullfile(save_dir, 'aggregates_static.mat'));
-        
-        s_target = load('modelTester.mat');
-        target = s_target.target;
-        
-        if ~update_target
-            
-            fprintf('[Test results]\n')
-            isdiff_dynamic = compare_values(s_dynamic, target.(testname).Dynamic);
-            isdiff_static  = compare_values(s_static , target.(testname).Static );
-
-            if (~isdiff_dynamic && ~isdiff_static)
-                fprintf('\tOutput matches target.\n')
-            end
-            fprintf('\n')
-        
-        else
-            
-            % Update target values
-            target.(testname).Dynamic = s_dynamic;
-            target.(testname).Static  = s_static ;
-            
-            save('modelTester.mat', 'target')
-            fprintf('[Test target updated]\n\n')
-            
-        end
-        
-    end
-    
-    
-    % Perform all tests or update all test targets
-    function [] = run_all(update_target)
-        modelTester.steady     (update_target);
-        modelTester.open_base  (update_target);
-        modelTester.open_plan  (update_target);
-        modelTester.closed_base(update_target);
-        modelTester.closed_plan(update_target);
-    end
     
 end
 
 end
 
+    
+% Test solver output against target values
+function [] = test_output(save_dir, setnames)
 
-% Compare values and report differences
-function [isdiff] = compare_values(output, target)
+% Get test name from name of calling method
+callstack = dbstack();
+testname = regexp(callstack(2).name, '(?<=^modelTester\.).*$', 'match', 'once');
+
+% Load target values
+s = load('modelTester.mat');
+target = s.target;
+
+% Initialize match flag
+ismatch = true;
+
+fprintf('[Test results]\n')
+for i = 1:length(setnames)
     
-    isdiff = false;
-    valuestrs = fieldnames(target);
+    % Extract output and target values by set
+    setname = setnames{i};
+    output.(testname).(setname) = load(fullfile(save_dir, sprintf('%s.mat', setname)));
     
-    for i = 1:length(valuestrs)
+    outputset = output.(testname).(setname);
+    targetset = target.(testname).(setname);
+    
+    % Iterate over values
+    % (Note that values present in the output but not in the target are not considered)
+    valuenames = fieldnames(targetset);
+    
+    for j = 1:length(valuenames)
         
-        valuestr = valuestrs{i};
+        valuename = valuenames{j};
         
-        if ~isfield(output, valuestr)
-            fprintf('\t%-25sNot found.\n', valuestr)
-            isdiff = true;
+        % Identify missing value
+        if ~isfield(outputset, valuename)
+            fprintf('\t%-25sNot found.\n', valuename)
+            ismatch = false;
         else
             
-            diff = output.(valuestr)(:) - target.(valuestr)(:);
+            % Identify value deviation
+            delta = outputset.(valuename)(:) - targetset.(valuename)(:);
             
-            if any(diff)
-                [maxdiff, ind] = max(diff);
-                dev = maxdiff * 2 / (output.(valuestr)(ind) + target.(valuestr)(ind));
-                fprintf('\t%-25s%06.2f%% deviation.\n', valuestr, abs(dev*100))
-                isdiff = true;
+            if any(delta)
+                [maxdelta, ind] = max(delta);
+                dev = maxdelta * 2 / (outputset.(valuename)(ind) + targetset.(valuename)(ind));
+                fprintf('\t%-25s%06.2f%% deviation.\n', valuename, abs(dev*100))
+                ismatch = false;
             end
             
         end
         
     end
+    
+end
+
+% Check for match
+if ismatch
+    fprintf('\tTarget matched.\n')
+else
+    
+    % Query user for target update
+    if strcmp(input(sprintf('\n\tUpdate test target with new values? Y/[N]: '), 's'), 'Y')
+        target.(testname) = output.(testname);
+        save('modelTester.mat', 'target')
+        fprintf('\tTarget updated.\n')
+    else
+        fprintf('\tTarget retained.\n')
+    end
+    
+end
+fprintf('\n')
+
 end
 

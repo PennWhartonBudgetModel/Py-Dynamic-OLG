@@ -1,44 +1,13 @@
 %%
 % Directory finder.
 % 
-% Methods:
-% 
-%   source()
-%       Find source code directory.
-% 
-%   modelroot()
-%       Find model root directory.
-% 
-%   root()
-%       Find absolute root directory.
-% 
-%   param()
-%       Find parameters directory.
-% 
-%   saveroot()
-%       Find save root directory.
-% 
-%   ss(deep_params)
-%       Find steady state save directory.
-% 
-%   open(deep_params, plan)
-%       Find open economy save directory.
-% 
-%   closed(deep_params, plan, gcut)
-%       Find closed economy save directory.
-% 
-%   csv()
-%       Find csv save directory.
-% 
-%   get_commit_id()
-%       Get identifier for active Git commit.
-% 
 %%
 
 
 classdef dirFinder
     
 methods (Static)
+    
     
     % Find source code directory
     function [source_dir] = source()
@@ -133,6 +102,7 @@ methods (Static)
         commit_id = sprintf('%s-%s-%s', commit_date, commit_author, commit_hash);
         
     end
+    
     
 end
 
