@@ -27,7 +27,7 @@ methods (Static)
     % Test open economy baseline solution, dynamic aggregates, and static aggregates
     function [] = open_base()
         save_dir = dynamicSolver.open( modelTester.basedef, struct('plan', 'base', 'gcut', +0.00) );
-        setnames = {'solution', 'aggregates', 'aggregates_static'};
+        setnames = {'solution', 'aggregates'};
         test_output(save_dir, setnames);
     end
     
@@ -43,7 +43,7 @@ methods (Static)
     % Test closed economy baseline solution, dynamic aggregates, and static aggregates
     function [] = closed_base()
         save_dir = dynamicSolver.closed( modelTester.basedef, struct('plan', 'base', 'gcut', +0.00) );
-        setnames = {'solution', 'aggregates', 'aggregates_static'};
+        setnames = {'solution', 'aggregates'};
         test_output(save_dir, setnames);
     end
     
