@@ -191,7 +191,7 @@ methods (Static, Access = private)
             kpr_ss  = s.kpr;
             debt_ss = s.DEBTss;
 
-            cap_series = (kpr_ss - debt_ss)*ones(1,Tss)/q_tobin0;
+            cap_series = (kpr_ss - debt_ss)*ones(1,Tss)/q_tobin0; % q_tobin0 used here for initialization?
             
         else
             
@@ -205,7 +205,7 @@ methods (Static, Access = private)
             KK   = kpr_ss *ones(1,Tss);
             DD   = debt_ss*ones(1,Tss);
 
-            cap_series = (KK - DD)/q_tobin;
+            cap_series = (KK - DD)/q_tobin; % q_tobin used here for initialization?
             
             rate_govs = rate_govs_cbo;
             
@@ -217,19 +217,7 @@ methods (Static, Access = private)
         dist_ss = s.dist;
         
         
-        if isopen
-            
-            % Load government expenditure adjustment parameters
-            s = load(fullfile(param_dir, 'param_gtilde.mat'));
-            
-            indplan = cellfun(@(s) strncmp(plan, s, length(s)), {'base'; 'trump'; 'clinton'; 'ryan'});
-            
-            revenue_percent = s.revenue_percent(indplan,:);
-            if (length(revenue_percent) < Tss)
-                revenue_percent = [revenue_percent, revenue_percent(end) * ones(1, Tss - length(revenue_percent))];
-            end
-            
-        else
+        if ~isopen
             
             % Identify reference open economy directories
             openbase_dir = dirFinder.open(deep_params, 'base');
@@ -330,16 +318,11 @@ methods (Static, Access = private)
             exp_subsidys = [exp_share * max(diff(cap_series), 0), 0] ./ cap_series;
             
             if ~isopen
-                
-                wages        = A*(1-alp)*(rhos.^alp);
-                
+                wages       = A*(1-alp)*(rhos.^alp);
                 cap_shares  = (KK - DD) ./ KK;
                 debt_shares = 1 - cap_shares;
-                
                 rate_caps   = 1 + (A*alp*(rhos.^(alp-1)) - d)/q_tobin;
-                
                 rate_tots   = cap_shares.*rate_caps + debt_shares.*rate_govs;
-                
             end
             
             
@@ -479,22 +462,15 @@ methods (Static, Access = private)
             
             % Calculate additional aggregates
             if isopen
-                
                 cap_total = rho * elab_total;
-                
             else
-                
                 netrev_total = fedit_total + ssrev_total + fcaptax_total - ssexp_total;
-                
                 debt_total = [debt_ss, zeros(1,Tss-1)];
                 for t = 1:Tss-1
-                    debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*rate_govs(t);
+                    debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*rate_govs_cbo(t);
                 end
-                
                 cap_total = ([(kpr_ss - debt_ss)/q_tobin0, (kpr_total(1:end-1) - debt_total(2:end))/q_tobin]);
-                
                 rhoprs = (max([kpr_ss, kpr_total(1:end-1)] - debt_total, 0)/q_tobin) ./ elab_total;
-                
             end
             
             
@@ -502,7 +478,7 @@ methods (Static, Access = private)
             if isopen
                 delta = beqs - beq_total;
             else
-                delta = rhos - rhoprs;
+                delta = rhos - rhoprs   ;
             end
             eps = [eps, max(abs(delta))]; %#ok<AGROW>
             
@@ -517,14 +493,14 @@ methods (Static, Access = private)
             
             
             % Update variables for next iteration
-            beqs = beq_total;
+            beqs       = beq_total;
             cap_series = cap_total;
             
             if ~isopen
                 stepfactor = 0.3;
                 rhos = (1-stepfactor) * rhos + stepfactor * rhoprs;
                 
-                KK = kpr_total;
+                KK = kpr_total ;
                 DD = debt_total;
             end
             
@@ -644,31 +620,18 @@ methods (Static, Access = private)
             
         end
         
-        if isopen
-            
-            % Load steady state solution
-            s = hardyload(fullfile(ss_dir, 'solution.mat'));
-            
-            wages        = s.wage    *ones(1,Tss);
-            rate_caps    = s.rate_cap*ones(1,Tss);
-            exp_subsidys = zeros(1,Tss);
-            
-        else
-            
-            % Load baseline solution
-            s = hardyload(fullfile(base_dir, 'solution.mat'));
-            
-            wages        = s.wages;
-            cap_shares   = s.cap_shares;
-            debt_shares  = s.debt_shares;
-            rate_caps    = s.rate_caps;
-            rate_govs    = s.rate_govs;
-            
-            % Load baseline aggregates
-            s = hardyload(fullfile(base_dir, 'aggregates.mat'));
-            exp_subsidys = s.exp_subsidys;
-            
-        end
+        % Load baseline solution
+        s = hardyload(fullfile(base_dir, 'solution.mat'));
+        
+        wages        = s.wages;
+        cap_shares   = s.cap_shares;
+        debt_shares  = s.debt_shares;
+        rate_caps    = s.rate_caps;
+        rate_govs    = s.rate_govs;
+        
+        % Load baseline aggregates
+        s = hardyload(fullfile(base_dir, 'aggregates.mat'));
+        exp_subsidys = s.exp_subsidys;
         
         % Load optimal decision values and distributions from baseline
         s = hardyload(fullfile(base_dir, 'opt.mat'));
@@ -804,7 +767,17 @@ methods (Static, Access = private)
             else
                 Y_base = Y_total;
             end
-
+            
+            % Load government expenditure adjustment parameters
+            s = load(fullfile(param_dir, 'param_gtilde.mat'));
+            
+            indplan = cellfun(@(s) strncmp(plan, s, length(s)), {'base'; 'trump'; 'clinton'; 'ryan'});
+            
+            revenue_percent = s.revenue_percent(indplan,:);
+            if (length(revenue_percent) < Tss)
+                revenue_percent = [revenue_percent, revenue_percent(end) * ones(1, Tss - length(revenue_percent))];
+            end
+            
             % Calculate government expenditure adjustments
             Ttilde = revenue_percent.*Y_base - fedit_static - ssrev_static - fcaptax_static;
 
