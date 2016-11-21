@@ -113,7 +113,7 @@ for i = 1:n_ids
     
     % Identify working directories
     switch openness
-        case 1, save_dir = dirFinder.open  (deep_params, plan      );
+        case 1, save_dir = dirFinder.open  (deep_params, plan, gcut);
         case 0, save_dir = dirFinder.closed(deep_params, plan, gcut);
     end
     
@@ -145,7 +145,7 @@ for i = 1:n_ids
     s_static  = load(fullfile(save_dir, 'aggregates_static.mat'));
     
     if (use_dynamic_baseline)
-        s_base_open   = load(fullfile(dirFinder.open  (deep_params, 'base'       ), 'aggregates.mat'));
+        s_base_open   = load(fullfile(dirFinder.open  (deep_params, 'base', +0.00), 'aggregates.mat'));
         s_base_closed = load(fullfile(dirFinder.closed(deep_params, 'base', +0.00), 'aggregates.mat'));
     end
     

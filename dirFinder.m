@@ -52,20 +52,21 @@ methods (Static)
     
     
     % Find open economy save directory
-    function [open_dir] = open(deep_params, plan)
+    function [open_dir] = open(deep_params, plan, gcut)
+        if (gcut == 0), gcut = 0; end   % Enforces positive zero in case of negative zero
         open_dir   = fullfile( dirFinder.saveroot, ...
                                get_deep_params_tag(deep_params), ...
-                               get_plan_tag(plan), ...
-                               'open' );
+                               sprintf('trans_plan=%s', plan), ...
+                               sprintf('open_gcut=%+0.2f', gcut) );
     end
     
     
     % Find closed economy save directory
     function [closed_dir] = closed(deep_params, plan, gcut)
-        if (gcut == 0), gcut = 0; end   % Enforces positive zero in the case of a negative zero
+        if (gcut == 0), gcut = 0; end   % Enforces positive zero in case of negative zero
         closed_dir = fullfile( dirFinder.saveroot, ...
                                get_deep_params_tag(deep_params), ...
-                               get_plan_tag(plan), ...
+                               sprintf('trans_plan=%s', plan), ...
                                sprintf('closed_gcut=%+0.2f', gcut) );
     end
     
@@ -143,11 +144,5 @@ end
 % Get string tag corresponding to deep parameters
 function [deep_params_tag] = get_deep_params_tag(deep_params)
     deep_params_tag = sprintf('beta=%0.3f_gamma=%0.3f_sigma=%05.2f', deep_params(1), deep_params(2), deep_params(3));
-end
-
-
-% Get string tag corresponding to plan
-function [plan_tag] = get_plan_tag(plan)
-    plan_tag = sprintf('trans_plan=%s', plan);
 end
 
