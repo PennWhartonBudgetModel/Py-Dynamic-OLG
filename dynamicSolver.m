@@ -299,6 +299,7 @@ methods (Static, Access = private)
             foreign_cap_static      = s_base.foreign_cap_total      ; %#ok<NASGU>
             
             domestic_debt_static    = s_base.domestic_debt_total    ; %#ok<NASGU>
+            foreign_debt_static     = s_base.foreign_debt_total     ; %#ok<NASGU>
             
             clear('s_base')
             
@@ -316,7 +317,7 @@ methods (Static, Access = private)
             save(fullfile(save_dir, 'aggregates_static.mat'), ...
                  'cap_static', ...
                  'domestic_cap_static', 'foreign_cap_static', ...
-                 'domestic_debt_static', ...
+                 'domestic_debt_static', 'foreign_debt_static', ...
                  'domestic_fcaptax_static', 'foreign_fcaptax_static', ...
                  'elab_static', 'lfpr_static', ...
                  'fedincome_static', 'fedit_static', 'ssrev_static', 'fcaptax_static', 'ssexp_static', ...
@@ -408,7 +409,29 @@ methods (Static, Access = private)
         dist_ss = s.dist;
         
         
-        if ~isopen
+        if isopen
+            
+            % Load government expenditure adjustment parameters
+            s = load(fullfile(param_dir, 'param_gtilde.mat'));
+            
+            indplan = cellfun(@(str) strncmp(plan, str, length(str)), {'base'; 'trump'; 'clinton'; 'ryan'});
+            revenue_percent = s.revenue_percent(indplan,:);
+            revenue_percent = [revenue_percent, revenue_percent(end)*ones(1, max(Tss-length(revenue_percent), 0))];
+            
+            if ~isbase
+                
+                % Calculate government expenditure adjustments
+                s_base = hardyload(base_aggregates);
+                
+                Y_base = s_base.Y_total;
+                Gtilde = s_base.Gtilde - gcut * s.GEXP_percent(1:Tss) .* Y_base;
+                Ttilde = revenue_percent .* Y_base - fedit_static - ssrev_static - fcaptax_static;
+                
+                clear('s_base')
+                
+            end
+            
+        else
             
             % Identify reference open economy directory
             open_dir = dirFinder.open(deep_params, plan, gcut);
@@ -438,10 +461,11 @@ methods (Static, Access = private)
                 
             end
             
-            % Load open economy aggregates
+            % Load government expenditure adjustments
             s = hardyload(open_aggregates);
-            Ttilde = s.Ttilde;
+            
             Gtilde = s.Gtilde;
+            Ttilde = s.Ttilde;
             
         end
         
@@ -476,7 +500,6 @@ methods (Static, Access = private)
                 rate_tots   = cap_shares.*rate_caps + debt_shares.*rate_govs;
             end
             
-            
             % Initialize global aggregates
             kpr_total       = zeros(1,Tss);
             beq_total       = zeros(1,Tss);
@@ -488,7 +511,6 @@ methods (Static, Access = private)
             ssrev_total     = zeros(1,Tss);
             fcaptax_total   = zeros(1,Tss);
             ssexp_total     = zeros(1,Tss);
-            
             
             % Define birth year range
             birthyears = (-T+1):(Tss-1);
@@ -517,7 +539,6 @@ methods (Static, Access = private)
                     % Get birth year and retirement age
                     birthyear = birthyears(i);
                     Tr = NRA(i);
-                    
                     
                     % Solve dynamic optimization
                     [V, Vss, kopt, koptss, labopt, bopt, ...
@@ -555,7 +576,6 @@ methods (Static, Access = private)
                     if any(isinf([V(:); Vss(:)]))
                         warning('Infinite utility values found.  Some dynamic optimization subproblems unsolved.  Check that initial conditions satisfy constraints.')
                     end
-                    
                     
                     % Generate distributions
                     % (Note that currently only the first column of ss_benefit is used to calculate social security benefits)
@@ -611,26 +631,77 @@ methods (Static, Access = private)
                 
             end
             
+            
             % Calculate additional aggregates
+            % (Note that open economy requires capital calculation before debt calculation while closed economy requires the reverse)
             if isopen
+                
+                % Calculate capital and output
                 cap_total = rho * elab_total;
-            else
+                Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp));
+                
+                domestic_cap_total = cap_shares .* [kpr_ss, kpr_total(1:end-1)];
+                foreign_cap_total  = q_tobin*cap_total - domestic_cap_total;
+                
+                % Calculate debt
+                domestic_fcaptax_total = fcaptax_total;
+                foreign_fcaptax_total  = tau_cap.*(rate_caps - 1).*cap_tax_share.*foreign_cap_total;
+                fcaptax_total          = domestic_fcaptax_total + foreign_fcaptax_total;
+                
+                if isbase
+                    Gtilde = (revenue_percent - fedgovtnis).*Y_total - ssexp_total;
+                    Ttilde = revenue_percent.*Y_total - fedit_total - ssrev_total - fcaptax_total;
+                end
+                
                 netrev_total = fedit_total + ssrev_total + fcaptax_total - ssexp_total;
                 debt_total = [debt_ss, zeros(1,Tss-1)];
                 for t = 1:Tss-1
                     debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*rate_govs_cbo(t);
                 end
+                
+                domestic_debt_total = (1 - cap_shares) .* kpr_total;
+                foreign_debt_total  = debt_total - domestic_debt_total; %#ok<NASGU>
+                
+                % Calculate convergence delta
+                delta = beqs - beq_total;
+                
+            else
+                
+                % Calculate debt
+                domestic_fcaptax_total = fcaptax_total;
+                foreign_fcaptax_total  = zeros(1,Tss);
+                fcaptax_total          = domestic_fcaptax_total + foreign_fcaptax_total;
+                
+                netrev_total = fedit_total + ssrev_total + fcaptax_total - ssexp_total;
+                debt_total = [debt_ss, zeros(1,Tss-1)];
+                for t = 1:Tss-1
+                    debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*rate_govs_cbo(t);
+                end
+                
+                domestic_debt_total = debt_total;   %#ok<NASGU>
+                foreign_debt_total  = zeros(1,Tss); %#ok<NASGU>
+                
+                % Calculate capital and output
                 cap_total = ([(kpr_ss - debt_ss)/q_tobin0, (kpr_total(1:end-1) - debt_total(2:end))/q_tobin]);
+                Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp)); %#ok<NASGU>
+                
+                domestic_cap_total = [q_tobin0 * cap_total(1), q_tobin * cap_total(2:end)]; %#ok<NASGU>
+                foreign_cap_total  = zeros(1,Tss); %#ok<NASGU>
+                
+                % Calculate convergence delta
                 rhoprs = (max([kpr_ss, kpr_total(1:end-1)] - debt_total, 0)/q_tobin) ./ elab_total;
+                delta = rhos - rhoprs;
+                
             end
+            
+            labinc_total = elab_total .* wages;
+            kinc_total   = q_tobin * (rate_caps - 1) .* cap_total; %#ok<NASGU>
+            
+            feditlab_total = fedit_total .* labinc_total ./ fedincome_total;
+            fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
             
             
             % Check for convergence
-            if isopen
-                delta = beqs - beq_total;
-            else
-                delta = rhos - rhoprs   ;
-            end
             eps = [eps, max(abs(delta))]; %#ok<AGROW>
             
             fprintf('Error term = %7.4f\n', eps(end))
@@ -642,7 +713,6 @@ methods (Static, Access = private)
                 break
             end
             
-            
             % Update variables for next iteration
             beqs       = beq_total;
             cap_series = cap_total;
@@ -650,13 +720,13 @@ methods (Static, Access = private)
             if ~isopen
                 stepfactor = 0.3;
                 rhos = (1-stepfactor) * rhos + stepfactor * rhoprs;
-                
                 KK = kpr_total ;
                 DD = debt_total;
             end
             
         end
         fprintf('\n')
+        
         
         % Save log of iterations
         fid = fopen(fullfile(save_dir, 'iterations.txt'), 'wt');
@@ -665,42 +735,7 @@ methods (Static, Access = private)
             fprintf(fid, '\n  %2d  --  %7.4f', i, eps(i));
         end
         fclose(fid);
-        
-        
-        % Calculate additional aggregates
-        if isopen
-            
-            domestic_cap_total  = cap_shares .* [kpr_ss, kpr_total(1:end-1)];
-            foreign_cap_total   = q_tobin*cap_total - domestic_cap_total;
-            
-            domestic_debt_total = (1 - cap_shares) .* kpr_total;
-            
-            domestic_fcaptax_total = fcaptax_total;
-            foreign_fcaptax_total  = tau_cap.*(rate_caps - 1).*cap_tax_share.*foreign_cap_total;
-            fcaptax_total          = domestic_fcaptax_total + foreign_fcaptax_total;
-            
-        else
-            
-            domestic_cap_total  = [q_tobin0 * cap_total(1), q_tobin * cap_total(2:end)]; %#ok<NASGU>
-            foreign_cap_total   = zeros(1,Tss); %#ok<NASGU>
-            
-            domestic_debt_total = debt_total;
-            foreign_debt_total  = zeros(1,Tss); %#ok<PREALL>
-            
-            domestic_fcaptax_total = fcaptax_total; %#ok<NASGU>
-            foreign_fcaptax_total  = zeros(1,Tss);	%#ok<NASGU>
-            
-        end
-        
-        Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp));
-        
-        labinc_total = elab_total .* wages;
-        kinc_total   = q_tobin * (rate_caps - 1) .* cap_total; %#ok<NASGU>
-        
-        feditlab_total = fedit_total .* labinc_total ./ fedincome_total;
-        fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
-        
-        
+                
         % Save optimal decision values and distributions for baseline
         if isbase
             save(fullfile(save_dir, 'opt.mat' ), 'opt' )
@@ -713,76 +748,14 @@ methods (Static, Access = private)
         
         % Save dynamic aggregates
         save(fullfile(save_dir, 'aggregates.mat'), ...
-             'kpr_total', 'cap_total', ...
+             'kpr_total', 'cap_total', 'debt_total', ...
+             'Gtilde', 'Ttilde', ...
              'domestic_cap_total', 'foreign_cap_total', ...
-             'domestic_debt_total', ...
+             'domestic_debt_total', 'foreign_debt_total', ...
              'domestic_fcaptax_total', 'foreign_fcaptax_total', ...
              'beq_total', 'elab_total', 'lab_total', 'lfpr_total', ...
              'fedincome_total', 'fedit_total', 'ssrev_total', 'fcaptax_total', 'ssexp_total', ...
              'Y_total', 'labinc_total', 'kinc_total', 'feditlab_total', 'fcaprev_total', 'exp_subsidys')
-        
-        
-        
-        %% Foreign debt calculation
-        
-        if isopen
-            
-            % Load baseline output
-            if ~isbase
-                s_base = hardyload(base_aggregates);
-                Y_base = s_base.Y_total;
-            end
-            
-            % Load government expenditure adjustment parameters
-            s = load(fullfile(param_dir, 'param_gtilde.mat'));
-            
-            indplan = cellfun(@(str) strncmp(plan, str, length(str)), {'base'; 'trump'; 'clinton'; 'ryan'});
-            revenue_percent = s.revenue_percent(indplan,:);
-            revenue_percent = [revenue_percent, revenue_percent(end)*ones(1, max(Tss-length(revenue_percent), 0))];
-            
-            GEXP_percent = s.GEXP_percent(1:Tss);
-            
-            % Calculate government expenditure adjustments
-            if ~isbase
-                Ttilde = revenue_percent.*Y_base - fedit_static - ssrev_static - fcaptax_static;
-                Gtilde = s_base.Gtilde - gcut*GEXP_percent.*Y_base;
-            else
-                Ttilde = revenue_percent.*Y_total - fedit_total - ssrev_total - fcaptax_total;
-                Gtilde = (revenue_percent - fedgovtnis).*Y_total - ssexp_total;
-            end
-            
-            % Calculate total debt
-            netrev_total = fedit_total + ssrev_total + fcaptax_total - ssexp_total;
-            
-            debt_total = [debt_ss, zeros(1,Tss-1)];
-            for t = 1:Tss-1
-                debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*rate_govs_cbo(t);
-            end
-            
-            % Calculate foreign debt
-            foreign_debt_total = debt_total - domestic_debt_total; %#ok<NASGU>
-            if ~isbase
-                foreign_debt_static = s_base.foreign_debt_total; %#ok<NASGU>
-            end
-            
-        else
-            
-            if ~isbase
-                foreign_debt_static = zeros(1,Tss); %#ok<NASGU>
-            end
-            
-        end
-        
-        
-        % Save additional dynamic aggregates
-        save(fullfile(save_dir, 'aggregates.mat'), '-append', ...
-             'debt_total', 'foreign_debt_total', 'Gtilde', 'Ttilde')
-        
-        % Save additional static aggregate
-        if ~isbase
-            save(fullfile(save_dir, 'aggregates_static.mat'), '-append', ...
-                 'foreign_debt_static');
-        end
         
         
     end
