@@ -191,11 +191,11 @@ methods (Static, Access = private)
             % Load baseline solution
             s = hardyload(fullfile(base_dir, 'solution.mat'));
             
-            wages        = s.wages;
-            cap_shares   = s.cap_shares;
+            wages        = s.wages      ;
+            cap_shares   = s.cap_shares ;
             debt_shares  = s.debt_shares;
-            rate_caps    = s.rate_caps;
-            rate_govs    = s.rate_govs;
+            rate_caps    = s.rate_caps  ;
+            rate_govs    = s.rate_govs  ;
             
             % Load baseline aggregates
             s = hardyload(fullfile(base_dir, 'aggregates.mat'));
@@ -363,45 +363,15 @@ methods (Static, Access = private)
         % Load steady state solution
         s = hardyload(ss_solution);
         
-        if isopen
-        
-            beqs        = s.beq       *ones(1,Tss);
-            cap_shares  = s.cap_share *ones(1,Tss);
-            debt_shares = s.debt_share*ones(1,Tss);
-            rate_govs   = s.rate_gov  *ones(1,Tss);
-            rate_tots   = s.rate_tot  *ones(1,Tss);
-
-            rate_cap = ((1 - tau_cap_base)/(1 - tau_cap))*(s.rate_cap - 1) + 1;
-            rate_caps = rate_cap*ones(1,Tss);
-
-            rho = ((q_tobin*(rate_cap - 1) + d)/alp)^(1/(alp-1));
-            rhos = rho*ones(1,Tss);
-
-            wage = A*(1-alp)*rho^alp;
-            wages = wage*ones(1,Tss);
-
-            kpr_ss  = s.kpr;
-            debt_ss = s.DEBTss;
-
-            cap_series = (kpr_ss - debt_ss)*ones(1,Tss)/q_tobin0; % q_tobin0 used here for initialization?
-            
-        else
-            
-            rho_ss  = s.rho;
-            beq_ss  = s.beq;
-            kpr_ss  = s.kpr;
-            debt_ss = s.DEBTss;
-
-            rhos = rho_ss *ones(1,Tss);
-            beqs = beq_ss *ones(1,Tss);
-            KK   = kpr_ss *ones(1,Tss);
-            DD   = debt_ss*ones(1,Tss);
-
-            cap_series = (KK - DD)/q_tobin; % q_tobin used here for initialization?
-            
-            rate_govs = rate_govs_cbo;
-            
-        end
+        rho_ss          = s.rho         ;
+        beq_ss          = s.beq         ;
+        kpr_ss          = s.kpr         ;
+        debt_ss         = s.DEBTss      ;
+        cap_share_ss    = s.cap_share   ;
+        debt_share_ss   = s.debt_share  ;
+        rate_cap_ss     = s.rate_cap    ;
+        rate_gov_ss     = s.rate_gov    ;
+        rate_tot_ss     = s.rate_tot    ;
         
         % Load steady state distributions
         s = hardyload(fullfile(ss_dir, 'dist.mat'));
@@ -475,30 +445,68 @@ methods (Static, Access = private)
         
         
         
-        % Define convergence tolerance and initialize error term sequence
+        % Define convergence tolerance and initialize error term
         tol = 1e-3;
-        eps = [];
+        eps = Inf;
         
         % Initialize iteration count and set maximum number of iterations
         iter    =  0;
         itermax = 25;
         
-        while true
+        % Create file for logging iterations
+        log = fopen(fullfile(save_dir, 'iterations.csv'), 'wt');
+        
+        
+        while ( eps > tol && iter < itermax )
             
             % Increment iteration count
             iter = iter + 1;
             fprintf('\tIteration %2d  ...  ', iter)
             
-            % Derive values
-            exp_subsidys = [exp_share * max(diff(cap_series), 0), 0] ./ cap_series;
             
-            if ~isopen
-                wages       = A*(1-alp)*(rhos.^alp);
-                cap_shares  = (KK - DD) ./ KK;
+            % Define prices
+            if isopen
+                
+                if (iter == 1)
+                    cap_total = (kpr_ss - debt_ss)*ones(1,Tss)/q_tobin0;
+                    
+                    cap_shares  = cap_share_ss *ones(1,Tss);
+                    debt_shares = debt_share_ss*ones(1,Tss);
+                    rate_caps   = (((1 - tau_cap_base)/(1 - tau_cap))*(rate_cap_ss - 1) + 1)*ones(1,Tss);
+                    rate_govs   = rate_gov_ss  *ones(1,Tss);
+                    rate_tots   = rate_tot_ss  *ones(1,Tss);
+                    
+                    rhos = ((q_tobin*(rate_caps - 1) + d)/alp).^(1/(alp-1));
+                    beqs = beq_ss*ones(1,Tss);
+                else
+                    beqs = beq_total;
+                end
+                
+            else
+                
+                if (iter == 1)
+                    kpr_total  = kpr_ss *ones(1,Tss);
+                    debt_total = debt_ss*ones(1,Tss);
+                    cap_total  = (kpr_total - debt_total)/q_tobin;
+                    
+                    rhos = rho_ss*ones(1,Tss);
+                    beqs = beq_ss*ones(1,Tss);
+                else
+                    rhos = 0.7*rhos + 0.3*rhoprs;
+                    beqs = beq_total;
+                end
+                
+                cap_shares  = (kpr_total - debt_total) ./ kpr_total;
                 debt_shares = 1 - cap_shares;
                 rate_caps   = 1 + (A*alp*(rhos.^(alp-1)) - d)/q_tobin;
+                rate_govs   = rate_govs_cbo;
                 rate_tots   = cap_shares.*rate_caps + debt_shares.*rate_govs;
+                
             end
+            
+            wages        = A*(1-alp)*(rhos.^alp);
+            exp_subsidys = [exp_share * max(diff(cap_total), 0), 0] ./ cap_total;
+            
             
             % Initialize dynamic aggregates
             kpr_total       = zeros(1,Tss);
@@ -637,7 +645,7 @@ methods (Static, Access = private)
             if isopen
                 
                 % Calculate capital and output
-                cap_total = rho * elab_total;
+                cap_total = rhos .* elab_total;
                 Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp));
                 
                 domestic_cap_total = cap_shares .* [kpr_ss, kpr_total(1:end-1)];
@@ -662,7 +670,7 @@ methods (Static, Access = private)
                 domestic_debt_total = (1 - cap_shares) .* kpr_total;
                 foreign_debt_total  = debt_total - domestic_debt_total; %#ok<NASGU>
                 
-                % Calculate convergence delta
+                % Calculate convergence series delta
                 delta = beqs - beq_total;
                 
             else
@@ -688,7 +696,7 @@ methods (Static, Access = private)
                 domestic_cap_total = [q_tobin0 * cap_total(1), q_tobin * cap_total(2:end)]; %#ok<NASGU>
                 foreign_cap_total  = zeros(1,Tss); %#ok<NASGU>
                 
-                % Calculate convergence delta
+                % Calculate convergence series delta
                 rhoprs = (max([kpr_ss, kpr_total(1:end-1)] - debt_total, 0)/q_tobin) ./ elab_total;
                 delta = rhos - rhoprs;
                 
@@ -701,41 +709,21 @@ methods (Static, Access = private)
             fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
             
             
-            % Check for convergence
-            eps = [eps, max(abs(delta))]; %#ok<AGROW>
+            % Calculate convergence error
+            eps = max(abs(delta));
             
-            fprintf('Error term = %7.4f\n', eps(end))
-            if (eps(end) < tol), break, end
+            fprintf('Error term = %7.4f\n', eps)
+            fprintf(log, '%u,%0.4f\n', iter, eps);
             
-            % Check for maximum iterations
-            if (iter == itermax)
-                warning('Maximum iterations reached.')
-                break
-            end
-            
-            % Update variables for next iteration
-            beqs       = beq_total;
-            cap_series = cap_total;
-            
-            if ~isopen
-                stepfactor = 0.3;
-                rhos = (1-stepfactor) * rhos + stepfactor * rhoprs;
-                KK = kpr_total ;
-                DD = debt_total;
-            end
             
         end
         fprintf('\n')
+        fclose(log);
+        
+        % Issue warning if maximum iterations reached
+        if (iter == itermax), warning('Maximum iterations reached.'), end
         
         
-        % Save log of iterations
-        fid = fopen(fullfile(save_dir, 'iterations.txt'), 'wt');
-        fprintf(fid, '%d iteration(s) of a maximum %d\n\nError term(s):', iter, itermax);
-        for i = 1:iter
-            fprintf(fid, '\n  %2d  --  %7.4f', i, eps(i));
-        end
-        fclose(fid);
-                
         % Save optimal decision values and distributions for baseline
         if isbase
             save(fullfile(save_dir, 'opt.mat' ), 'opt' )
