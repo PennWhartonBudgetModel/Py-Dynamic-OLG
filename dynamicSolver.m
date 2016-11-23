@@ -451,7 +451,7 @@ methods (Static, Access = private)
         
         % Initialize iteration count and set maximum number of iterations
         iter    =  0;
-        itermax = 25;
+        itermax = 20;
         
         % Create file for logging iterations
         log = fopen(fullfile(save_dir, 'iterations.csv'), 'wt');
@@ -492,7 +492,7 @@ methods (Static, Access = private)
                     rhos = rho_ss*ones(1,Tss);
                     beqs = beq_ss*ones(1,Tss);
                 else
-                    rhos = 0.7*rhos + 0.3*rhoprs;
+                    rhos = rhoprs;
                     beqs = beq_total;
                 end
                 
