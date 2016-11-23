@@ -44,30 +44,32 @@ methods (Static)
     
     
     % Find steady state save directory
-    function [ss_dir] = ss(deep_params)
-        ss_dir     = fullfile( dirFinder.saveroot, ...
-                               get_deep_params_tag(deep_params), ...
-                               'ss' );
+    function [steady_dir] = ss(deep_params)
+        steady_dir = fullfile( dirFinder.saveroot, ...
+                               sprintf('beta=%0.3f_gamma=%0.3f_sigma=%05.2f', deep_params(1), deep_params(2), deep_params(3)), ...
+                               'baseline', 'steady' );
     end
     
     
-    % Find open economy save directory
-    function [open_dir] = open(deep_params, plan, gcut)
-        if (gcut == 0), gcut = 0; end   % Enforces positive zero in case of negative zero
-        open_dir   = fullfile( dirFinder.saveroot, ...
-                               get_deep_params_tag(deep_params), ...
-                               sprintf('trans_plan=%s', plan), ...
-                               sprintf('open_gcut=%+0.2f', gcut) );
-    end
-    
-    
-    % Find closed economy save directory
-    function [closed_dir] = closed(deep_params, plan, gcut)
-        if (gcut == 0), gcut = 0; end   % Enforces positive zero in case of negative zero
-        closed_dir = fullfile( dirFinder.saveroot, ...
-                               get_deep_params_tag(deep_params), ...
-                               sprintf('trans_plan=%s', plan), ...
-                               sprintf('closed_gcut=%+0.2f', gcut) );
+    % Find save directory
+    function [save_dir, callingtag] = save(economy, basedef, counterdef)
+        
+        basedef_tag = sprintf( 'beta=%0.3f_gamma=%0.3f_sigma=%05.2f', ...
+                               basedef.beta  , ...
+                               basedef.gamma , ...
+                               basedef.sigma );
+        
+        if ( ~exist('counterdef', 'var') || isempty(counterdef) || isempty(fields(counterdef)) )
+            counterdef_tag = 'baseline';
+        else
+            if isfield(counterdef, 'plan'), plan = counterdef.plan; else plan = 'base'; end
+            if isfield(counterdef, 'gcut'), gcut = counterdef.gcut; else gcut = +0.00 ; end
+            counterdef_tag = sprintf('plan=%s_gcut=%+0.2f', plan, gcut);
+        end
+        
+        save_dir   = fullfile( dirFinder.saveroot, basedef_tag, counterdef_tag, economy );
+        callingtag = sprintf('_%s_%s', counterdef_tag, economy);
+        
     end
     
     
@@ -138,11 +140,5 @@ function [flag] = isproductionready()
         
     end
     
-end
-
-
-% Get string tag corresponding to deep parameters
-function [deep_params_tag] = get_deep_params_tag(deep_params)
-    deep_params_tag = sprintf('beta=%0.3f_gamma=%0.3f_sigma=%05.2f', deep_params(1), deep_params(2), deep_params(3));
 end
 
