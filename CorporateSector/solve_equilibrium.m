@@ -2,9 +2,10 @@ function [] = solve_equilibrium()
 
 
 % Generate grid of interest rates
+s_hh = load(fullfile('Parameters','hh_parameters.mat'));
+rate_ub = (s_hh.hh_params.discount_factor)^(-1)-0.001;
 rate_lb = 1.0055;
-rate_ub = 1.04;
-n_rates = 7;
+n_rates = 20;
 rates = linspace(rate_lb,rate_ub,n_rates);
 
 assets_demanded = zeros(size(rates));

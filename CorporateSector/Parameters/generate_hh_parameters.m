@@ -2,18 +2,19 @@ function [] = generate_hh_parameters()
 
 
 % Determine productivity shock process
-n_prodshocks = 1;
+n_prodshocks = 2;
 ar1_coef     = .75;
-var_innov    = .21;
+var_innov    = .20;
 addpath('..')
 [prod_shocks, prod_transprob, ~] = cooper_mex(n_prodshocks,0,ar1_coef,sqrt(var_innov));
 prod_shocks   = exp(prod_shocks);
 
 
+
 % Other parameters
-crra = 3;
-discount_factor = .985;
-na = 250;
+crra = 2.5;
+discount_factor = .96;
+na = 100;
 % asset_grid = [0,logspace(-1,log(1000000)/log(10),na-1)];
 asset_grid = linspace(0,100000,na);
 

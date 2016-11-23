@@ -114,7 +114,7 @@ if consumption<0
     return
 end
 
-vf = (1/(1-crra))*(consumption^(1-crra)) + discount_factor*interp1(asset_grid,EVpr,a_prime,'linear');
+vf = (1/(1-crra))*(consumption^(1-crra)) + discount_factor*interp1(asset_grid,EVpr,a_prime,'spline');
 vf = -vf;
 
 end
