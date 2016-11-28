@@ -446,7 +446,7 @@ methods (Static, Access = private)
         itermax = 20;
         
         % Create file for logging iterations
-        log = fopen(fullfile(save_dir, 'iterations.csv'), 'wt');
+        log = fopen(fullfile(save_dir, 'iterations.csv'), 'w');
         
         
         while ( eps > tol && iter < itermax )
