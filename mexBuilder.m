@@ -48,7 +48,7 @@ mex_cfg.IntegrityChecks           = false;
 mex_cfg.SaturateOnIntegerOverflow = false;
 
 % Generate mex function
-codegen('-d', codegen_dir, '-config', 'mex_cfg', funstr)
+codegen('-d', codegen_dir, '-config', 'mex_cfg', '-o', funstr, funstr)
 
 % Clean up code generation directory
 rmdir(codegen_dir, 's')
