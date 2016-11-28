@@ -31,5 +31,5 @@ done
 # (Note use of -nodesktop instead of -nojvm to activate Java for package_results)
 qsub -N package -hold_jid counterfactual -q short.q \
      -j y -o ${LOGDIR}'/package.log' \
-     -b y 'matlab -nodesktop -nosplash -r "check_closed_convergence, package_results"'
+     -b y 'matlab -nodesktop -nosplash -r "check_convergence, package_results"'
 

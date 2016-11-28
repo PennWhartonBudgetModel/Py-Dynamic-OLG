@@ -1,5 +1,5 @@
 %%
-% Package all results into csv files for staging.
+% Package all results into csv files for downstream digestion.
 % 
 %%
 
@@ -19,7 +19,6 @@ mkdir(csv_dir)
 % Load target elasticity sets
 s = load(fullfile(dirFinder.param, 'ss_inverses.mat'));
 elasticity_sets = s.targets(:,[2,3]);
-deep_param_sets = s.inverses;
 clear('s')
 
 
@@ -50,7 +49,7 @@ n_years = length(years_csv);
 
 % Specify number of years to shift results
 % (Currently, shifting up from 2015 to 2017)
-upshift = 2;
+n_shift = 2;
 
 
 % Load table of run IDs
@@ -96,15 +95,24 @@ for i = 1:n_ids
     % Find elasticity set index, which is equivalent to the deep parameter set index
     inddeep = all(bsxfun(@eq, [labor_elas, savings_elas], elasticity_sets), 2);
     
-    % Get deep parameters based on set index
-    deep_params = deep_param_sets(inddeep,:);
+    % Get baseline definition based on deep parameter set index
+    basedef = get_basedef(inddeep);
     
     % Get plan
     plan = planmap.(specs.TaxPlan.Text);
+    isbase = strcmp(plan, 'base');
     
     % Get government expenditure reduction
-    % (Note negation to align with dynamic model convention)
+    % (Note negation to align with dynamic model convention and enforcement of positive zero)
     gcut = -str2double(specs.ExpenditureShift.Text);
+    if (gcut == 0), gcut = +0.00; end
+    
+    % Construct counterfactual definition
+    if isbase
+        counterdef = struct();
+    else
+        counterdef = struct('plan', plan, 'gcut', gcut);
+    end
     
     % Get dynamic baseline flag
     % (Note activation for closed economy runs only)
@@ -113,40 +121,19 @@ for i = 1:n_ids
     
     % Identify working directories
     switch openness
-        case 1, save_dir = dirFinder.open  (deep_params, plan, gcut);
-        case 0, save_dir = dirFinder.closed(deep_params, plan, gcut);
+        case 1, save_dir = dirFinder.save('open'  , basedef, counterdef);
+        case 0, save_dir = dirFinder.save('closed', basedef, counterdef);
     end
-    
-    
-    % Identify iterations log file
-    logfile = fullfile(save_dir, 'iterations.txt');
-    
-    % Check for run completion
-    if exist(logfile, 'file')
-        
-        % Get last line of iterations log file
-        fid = fopen(logfile);
-        while ~feof(fid)
-            lastline = fgetl(fid);
-        end
-        fclose(fid);
-        
-        % Check convergence error against threshold
-        lastiter = sscanf(lastline, '  %2d  --  %f', [1,2]);
-        if (lastiter(2) > 0.1), continue, end
-        
-    else
-        continue
-    end
-    
     
     % Load aggregates    
-    s_dynamic = load(fullfile(save_dir, 'aggregates.mat'       ));
-    s_static  = load(fullfile(save_dir, 'aggregates_static.mat'));
+    s_dynamic = load(fullfile(save_dir, 'aggregates.mat'));
+    if ~isbase
+        s_static = load(fullfile(save_dir, 'aggregates_static.mat'));
+    end
     
     if (use_dynamic_baseline)
-        s_base_open   = load(fullfile(dirFinder.open  (deep_params, 'base', +0.00), 'aggregates.mat'));
-        s_base_closed = load(fullfile(dirFinder.closed(deep_params, 'base', +0.00), 'aggregates.mat'));
+        s_base_open   = load(fullfile(dirFinder.save('open'  , basedef), 'aggregates.mat'));
+        s_base_closed = load(fullfile(dirFinder.save('closed', basedef), 'aggregates.mat'));
     end
     
     
@@ -154,7 +141,7 @@ for i = 1:n_ids
     Tss = length(s_dynamic.kpr_total);
     
     % Find number of entries to be trimmed or padded
-    trim_or_pad = upshift + Tss - n_years;
+    trim_or_pad = n_shift + Tss - n_years;
     n_trim =  max(trim_or_pad, 0);
     n_pad  = -min(trim_or_pad, 0);
     
@@ -164,16 +151,20 @@ for i = 1:n_ids
         aggnum = agg_codes{j,1};
         aggstr = agg_codes{j,2};
         
-        agg_dynamic = s_dynamic.([aggstr,'_total' ]);
-        agg_static  = s_static .([aggstr,'_static']);
+        agg_dynamic = s_dynamic.([aggstr, '_total']);
+        if isbase
+            agg_static = agg_dynamic;
+        else
+            agg_static = s_static.([aggstr, '_static']);
+        end
         
         % Adjust static aggregate if using dynamic baseline
         if (use_dynamic_baseline)
-            agg_static  = agg_static .* s_base_open.([aggstr,'_total']) ./ s_base_closed.([aggstr,'_total']);
+            agg_static = agg_static .* s_base_open.([aggstr, '_total']) ./ s_base_closed.([aggstr, '_total']);
             agg_static(isnan(agg_static)) = 0;
         end
         
-        agg_series  = [ ones(upshift, 2); ...
+        agg_series  = [ ones(n_shift, 2); ...
                         [agg_dynamic(1:end-n_trim)', agg_static(1:end-n_trim)']; ...
                         ones(n_pad,   2) ];
         
