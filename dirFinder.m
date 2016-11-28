@@ -68,7 +68,7 @@ methods (Static)
         end
         
         save_dir   = fullfile( dirFinder.saveroot, basedef_tag, counterdef_tag, economy );
-        callingtag = sprintf('_%s_%s', counterdef_tag, economy);
+        callingtag = sprintf('^%s_%s', counterdef_tag, economy);
         
     end
     
