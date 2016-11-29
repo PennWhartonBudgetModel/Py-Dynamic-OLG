@@ -1,4 +1,4 @@
-function [V, aopt, assets_total, consumption_total, dist] = solve_hh_optimization(hh_params,rate)
+function [V, aopt, assets_total, consumption_total, dist] = solve_hh_optimization(hh_params,prices)
 %#codegen
 % This function solves the household optimization problem over the entire state space.
 
@@ -30,15 +30,15 @@ while true
         for ip = 1:n_prodshocks
 %             EVpr = sum(bsxfun(@times, prod_transprob(ip,:), Vpr),2);
             EVpr = prod_transprob(ip,:)*Vpr';
-            financial_resources = rate*asset_grid(ia) + prod_shocks(ip);
+            financial_resources = prices.rate*asset_grid(ia) + prices.wage*prod_shocks(ip);
             
             % Call valfunc to intiate parameters
-            value_function([],hh_params,EVpr,financial_resources);
+            value_function([], hh_params, EVpr, financial_resources, prices);
             a0 = asset_grid(ia);
             [x_opt, V_opt, exitflag] = fminsearch(@value_function, a0, optim_options);
             if exitflag~=1, break, end
             aopt(ia,ip) = x_opt;
-            copt(ia,ip) = financial_resources - x_opt;
+            copt(ia,ip) = (financial_resources - x_opt)/prices.consumption;
             V   (ia,ip) = -V_opt;
         end
     end
@@ -62,7 +62,7 @@ end
 
 
 
-function vf = value_function( a_prime, hh_params, EVpr_, financial_resources_)
+function vf = value_function( a_prime, hh_params, EVpr_, financial_resources_, prices)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -74,6 +74,7 @@ persistent financial_resources
 persistent crra
 persistent discount_factor
 persistent asset_grid
+persistent price_consumption
 
 
 % Initialize parameters
@@ -83,6 +84,7 @@ if isempty(initialized)
     crra                = 0;
     discount_factor     = 0;
     asset_grid          = 0;
+    price_consumption   = 0;
 
     
     initialized = true;
@@ -96,6 +98,7 @@ if (nargin > 1)
     crra                = hh_params.crra;
     discount_factor     = hh_params.discount_factor;
     asset_grid          = hh_params.asset_grid;
+    price_consumption   = prices.consumption;
     
     vf = [];
     return
@@ -108,13 +111,13 @@ if a_prime<asset_grid(1) || a_prime>asset_grid(end)
 end
     
 
-consumption = financial_resources - a_prime;
+consumption = (financial_resources - a_prime)/price_consumption;
 if consumption<0
     vf = Inf;
     return
 end
 
-vf = (1/(1-crra))*(consumption^(1-crra)) + discount_factor*interp1(asset_grid,EVpr,a_prime,'spline');
+vf = (1/(1-crra))*(consumption^(1-crra)) + discount_factor*interp1(asset_grid,EVpr,a_prime,'linear');
 vf = -vf;
 
 end
