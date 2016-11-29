@@ -447,7 +447,7 @@ methods (Static, Access = private)
         
         % Initialize iteration count and set maximum number of iterations
         iter    =  0;
-        itermax = 20;
+        itermax = 25;
         
         % Create file for logging iterations
         % (Note that this should be done after any parallel pool is started to avoid file access issues)
@@ -491,7 +491,7 @@ methods (Static, Access = private)
                         rhos = rho_ss*ones(1,Tss);
                         beqs = beq_ss*ones(1,Tss);
                     else
-                        rhos = rhoprs;
+                        rhos = 0.3*rhos + 0.7*rhoprs;
                         beqs = beq_total;
                     end
                     
