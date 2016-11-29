@@ -438,8 +438,8 @@ methods (Static, Access = private)
         
         
         
-        % Start a parallel pool if one does not already exist
-        gcp;
+        % Start a parallel pool if one does not already exist and JVM is enabled
+        if usejava('jvm'), gcp; end
         
         % Define convergence tolerance and initialize error term
         tol = 1e-3;
