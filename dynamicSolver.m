@@ -438,6 +438,9 @@ methods (Static, Access = private)
         
         
         
+        % Start a parallel pool if one does not already exist
+        gcp;
+        
         % Define convergence tolerance and initialize error term
         tol = 1e-3;
         eps = Inf;
@@ -447,7 +450,8 @@ methods (Static, Access = private)
         itermax = 20;
         
         % Create file for logging iterations
-        log = fopen(fullfile(save_dir, 'iterations.csv'), 'w');
+        % (Note that this should be done after any parallel pool is started to avoid file access issues)
+        iterlog = fopen(fullfile(save_dir, 'iterations.csv'), 'w');
         
         
         while ( eps > tol && iter < itermax )
@@ -710,12 +714,12 @@ methods (Static, Access = private)
             eps = max(abs(delta));
             
             fprintf('Error term = %7.4f\n', eps)
-            fprintf(log, '%u,%0.4f\n', iter, eps);
+            fprintf(iterlog, '%u,%0.4f\n', iter, eps);
             
             
         end
         fprintf('\n')
-        fclose(log);
+        fclose(iterlog);
         
         % Issue warning if maximum iterations reached
         if (iter == itermax), warning('Maximum iterations reached.'), end
