@@ -49,7 +49,7 @@ end
 
 
 % Display problem definition
-fprintf('\nSolving steady state:  beta = %0.3f  gamma = %0.3f  sigma = %05.2f\n', beta, gamma, sigma)
+fprintf('\n[Steady state]\n')
 
 % Identify working directories
 param_dir = dirFinder.param;

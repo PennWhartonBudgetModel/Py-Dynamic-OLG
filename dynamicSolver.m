@@ -385,6 +385,11 @@ methods (Static, Access = private)
         % (Note that this should be done after any parallel pool is started to avoid file access issues)
         iterlog = fopen(fullfile(save_dir, 'iterations.csv'), 'w');
         
+        % Display header
+        str1 = [upper(economy(1)), economy(2:end)];
+        if isbase, str2 = 'baseline'; else str2 = 'counterfactual'; end
+        fprintf('\n[%s economy %s]\n', str1, str2)
+        
         
         while ( eps > tol && iter < itermax )
             

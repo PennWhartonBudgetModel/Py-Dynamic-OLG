@@ -75,7 +75,7 @@ target = s.target;
 % Initialize match flag
 ismatch = true;
 
-fprintf('[Test results]\n')
+fprintf('\n[Test results]\n')
 for i = 1:length(setnames)
     
     % Extract output and target values by set
