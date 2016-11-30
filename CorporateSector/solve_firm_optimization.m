@@ -1,33 +1,36 @@
-function [capital_total, eq_total, V_total, output_total, dist] = solve_firm_optimization( prices, firm_params) %#ok<*INUSD>
+function [capital_total, labor_total, eq_total, V_total, output_total, dist] = solve_firm_optimization( prices, firm_params) %#ok<*INUSD>
 %#codegen
 
-% Unload firm parameter structure
+%% Unload firm parameter structure
 n_prodshocks    = firm_params.n_prodshocks;
 prod_transprob  = firm_params.prod_transprob;
 prod_shocks     = firm_params.prod_shocks;
 depreciation    = firm_params.depreciation;
 adj_cost_param  = firm_params.adj_cost_param;
-prod_func_param = firm_params.prod_func_param; 
+capital_share   = firm_params.capital_share;
+labor_share     = firm_params.labor_share;
 nk              = firm_params.nk; 
 kgrid           = firm_params.kgrid; %#ok<*STRNU>
 
 
-% Initiate arrays
+%% Initiate arrays
 Vopt   = zeros( nk, n_prodshocks);
 kopt   = zeros( nk, n_prodshocks);
 Vpr    = zeros( nk, n_prodshocks);
 invopt = zeros( nk, n_prodshocks);
 eqopt  = zeros( nk, n_prodshocks);
 
-% Presolve quantities
-revenues = prices.consumption*(prod_shocks*(kgrid.^prod_func_param))';
+%% Presolve quantities
+capital_production =  prices.consumption*(prod_shocks*(kgrid.^capital_share))';
+labopt             = (prices.wage./(labor_share*capital_production)).^(1/(labor_share-1));
+revenues           = capital_production.*labopt.^labor_share - prices.wage.*labopt;
 
 
 % Specify settings for dynamic optimization subproblems
 optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
 
 
-% Solve firm optimization problem
+%% Solve firm optimization problem
 tolerance = .01;
 max_iter = 200;
 iter=0;
@@ -57,7 +60,7 @@ end
 
 
 % Solve stationary distribution
-[capital_total, eq_total, V_total, output_total, dist] = solve_firm_distribution(kopt, eqopt, Vopt, revenues, firm_params);
+[capital_total, labor_total, eq_total, V_total, output_total, dist] = solve_firm_distribution(kopt, labopt, eqopt, Vopt, revenues, firm_params);
 
 end
 
@@ -127,7 +130,7 @@ end
 
 
 
-function [capital_total, eq_total, V_total, output_total, dist] = solve_firm_distribution(kopt, eqopt, Vopt, revenues, firm_params)
+function [capital_total, labor_total, eq_total, V_total, output_total, dist] = solve_firm_distribution(kopt, labopt, eqopt, Vopt, revenues, firm_params)
 kgrid          = firm_params.kgrid;
 nk             = firm_params.nk;
 n_prodshocks   = firm_params.n_prodshocks;
@@ -169,6 +172,7 @@ while true
 end
 
 capital_total = sum(dist(:).*kopt(:) );
+labor_total   = sum(dist(:).*labopt(:) );
 eq_total      = sum(dist(:).*eqopt(:));
 V_total       = sum(dist(:).*Vopt(:) );
 output_total  = sum(dist(:).*revenues(:) );

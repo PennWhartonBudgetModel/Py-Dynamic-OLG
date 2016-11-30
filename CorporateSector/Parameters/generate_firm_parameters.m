@@ -11,12 +11,15 @@ prod_shocks   = exp(prod_shocks);
 
 
 % Other parameters
-depreciation    = .03; %#ok<*NASGU>
-adj_cost_param  = .15;
-prod_func_param = .8;
-discount_factor = .95;
-nk              = 15;
-kgrid           = linspace(.1,1500,nk);
+depreciation                = .03; %#ok<*NASGU>
+adj_cost_param              = .15;
+returns_to_scale_adjustment = .9;    % Want: f(k,n) = [(k^a)*(n^(1-a))]^b = (k^(a*b))*(n^((1-a)*b)).
+capital_share               = .3;
+capital_share               = capital_share*returns_to_scale_adjustment;
+labor_share                 = (1-capital_share)*returns_to_scale_adjustment;
+discount_factor             = .95;
+nk                          = 15;
+kgrid                       = linspace(.1,1500,nk);
 
 
 % Create structure
@@ -25,7 +28,8 @@ firm_params.prod_transprob  = prod_transprob;
 firm_params.prod_shocks     = prod_shocks;
 firm_params.depreciation    = depreciation;
 firm_params.adj_cost_param  = adj_cost_param;
-firm_params.prod_func_param = prod_func_param; 
+firm_params.capital_share   = capital_share; 
+firm_params.labor_share     = labor_share; 
 firm_params.nk              = nk; 
 firm_params.kgrid           = kgrid; 
 firm_params.discount_factor = discount_factor; %#ok<*STRNU>
