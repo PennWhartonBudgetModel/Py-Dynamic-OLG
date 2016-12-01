@@ -177,7 +177,7 @@ methods (Static, Access = private)
             
             % Load optimal decision values and distributions from baseline
             s = hardyload('opt.mat' , base_generator, base_dir);
-            base_opt = s.opt;
+            base_opt  = s.opt ;
             
             s = hardyload('dist.mat', base_generator, base_dir);
             base_dist = s.dist;
@@ -205,7 +205,7 @@ methods (Static, Access = private)
                     
                     
                     % Extract optimal labor values
-                    labopt = base_opt(birthyear+T,idem).labopt;
+                    labopt = base_opt(birthyear+T,idem).lab;
                     
                     % Calculate tax terms
                     [fedincome, fedincomess, fitax, fitaxss, fsstax, fsstaxss, fcaptax, fcaptaxss] ...
@@ -221,8 +221,8 @@ methods (Static, Access = private)
                     
                     
                     % Extract distributions
-                    dist_w = base_dist(birthyear+T,idem).dist_w;
-                    dist_r = base_dist(birthyear+T,idem).dist_r;
+                    dist_w = base_dist(birthyear+T,idem).w;
+                    dist_r = base_dist(birthyear+T,idem).r;
                     
                     % Redefine effective numbers of working and retirement years
                     % (Redefinition needed because distribution generator makes use of head truncation while dynamic optimization solver does not)
@@ -461,8 +461,9 @@ methods (Static, Access = private)
             
             % Initialize storage structures for optimal decision values and distributions
             s_birthyear = struct('birthyear', num2cell(repmat(birthyears', [1,2])));
-            opt  = s_birthyear;
-            dist = s_birthyear;
+            opt     = s_birthyear;
+            dist    = s_birthyear;
+            cohorts = s_birthyear;
             
             for idem = 1:ndem
                 
@@ -501,20 +502,7 @@ methods (Static, Access = private)
                            beta, gamma, sigma);
                     
                     % (Duplicated variable assignments necessary for parfor)
-                    opt(i,idem).V             = V             ; %#ok<PFOUS>
-                    opt(i,idem).Vss           = Vss           ;
-                    opt(i,idem).kopt          = kopt          ;
-                    opt(i,idem).koptss        = koptss        ;
-                    opt(i,idem).labopt        = labopt        ;
-                    opt(i,idem).bopt          = bopt          ;
-                    opt(i,idem).fedincome     = fedincome     ;
-                    opt(i,idem).fedincomess   = fedincomess   ;
-                    opt(i,idem).fitax         = fitax         ;
-                    opt(i,idem).fitaxss       = fitaxss       ;
-                    opt(i,idem).fsstax        = fsstax        ;
-                    opt(i,idem).fsstaxss      = fsstaxss      ;
-                    opt(i,idem).fcaptax       = fcaptax       ;
-                    opt(i,idem).fcaptaxss     = fcaptaxss     ;
+                    opt(i,idem).lab = labopt; %#ok<PFOUS>
                     
                     % Check for unsolved dynamic optimization subproblems
                     if any(isinf([V(:); Vss(:)]))
@@ -535,20 +523,21 @@ methods (Static, Access = private)
                            mu2_idem, mu3_idem);
                     
                     % (Duplicated variable assignments necessary for parfor)
-                    dist(i,idem).dist_w       = dist_w        ;
-                    dist(i,idem).dist_r       = dist_r        ;
-                    dist(i,idem).N_w          = N_w           ;
-                    dist(i,idem).N_r          = N_r           ;
-                    dist(i,idem).Kalive       = Kalive        ;
-                    dist(i,idem).Kdead        = Kdead         ;
-                    dist(i,idem).ELab         = ELab          ;
-                    dist(i,idem).Lab          = Lab           ;
-                    dist(i,idem).Lfpr         = Lfpr          ;
-                    dist(i,idem).Fedincome    = Fedincome     ;
-                    dist(i,idem).Fedit        = Fedit         ;
-                    dist(i,idem).SSrev        = SSrev         ;
-                    dist(i,idem).Fcaptax      = Fcaptax       ;
-                    dist(i,idem).SSexp        = SSexp         ;
+                    dist(i,idem).w = dist_w; %#ok<PFOUS>
+                    dist(i,idem).r = dist_r;
+                    
+                    cohorts(i,idem).N_w         = N_w           ;
+                    cohorts(i,idem).N_r         = N_r           ;
+                    cohorts(i,idem).Kalive      = Kalive        ;
+                    cohorts(i,idem).Kdead       = Kdead         ;
+                    cohorts(i,idem).ELab        = ELab          ;
+                    cohorts(i,idem).Lab         = Lab           ;
+                    cohorts(i,idem).Lfpr        = Lfpr          ;
+                    cohorts(i,idem).Fedincome   = Fedincome     ;
+                    cohorts(i,idem).Fedit       = Fedit         ;
+                    cohorts(i,idem).SSrev       = SSrev         ;
+                    cohorts(i,idem).Fcaptax     = Fcaptax       ;
+                    cohorts(i,idem).SSexp       = SSexp         ;
                     
                 end
                 
@@ -557,19 +546,19 @@ methods (Static, Access = private)
                     % Add cohort aggregates to dynamic aggregates, aligning to projection years
                     T_shift = max(0, birthyears(i));
                     
-                    N_w = dist(i,idem).N_w;
-                    N_r = dist(i,idem).N_r;
+                    N_w = cohorts(i,idem).N_w;
+                    N_r = cohorts(i,idem).N_r;
                     
-                    kpr_total      ( T_shift + (1:N_w+N_r) ) = kpr_total      ( T_shift + (1:N_w+N_r) ) + dist(i,idem).Kalive + dist(i,idem).Kdead;
-                    beq_total      ( T_shift + (1:N_w+N_r) ) = beq_total      ( T_shift + (1:N_w+N_r) ) + dist(i,idem).Kdead;
-                    elab_total     ( T_shift + (1:N_w)     ) = elab_total     ( T_shift + (1:N_w)     ) + dist(i,idem).ELab;
-                    lab_total      ( T_shift + (1:N_w)     ) = lab_total      ( T_shift + (1:N_w)     ) + dist(i,idem).Lab;
-                    lfpr_total     ( T_shift + (1:N_w)     ) = lfpr_total     ( T_shift + (1:N_w)     ) + dist(i,idem).Lfpr;
-                    fedincome_total( T_shift + (1:N_w+N_r) ) = fedincome_total( T_shift + (1:N_w+N_r) ) + dist(i,idem).Fedincome;
-                    fedit_total    ( T_shift + (1:N_w+N_r) ) = fedit_total    ( T_shift + (1:N_w+N_r) ) + dist(i,idem).Fedit;
-                    ssrev_total    ( T_shift + (1:N_w+N_r) ) = ssrev_total    ( T_shift + (1:N_w+N_r) ) + dist(i,idem).SSrev;
-                    fcaptax_total  ( T_shift + (1:N_w+N_r) ) = fcaptax_total  ( T_shift + (1:N_w+N_r) ) + dist(i,idem).Fcaptax;
-                    ssexp_total    ( T_shift + N_w+(1:N_r) ) = ssexp_total    ( T_shift + N_w+(1:N_r) ) + dist(i,idem).SSexp;
+                    kpr_total      ( T_shift + (1:N_w+N_r) ) = kpr_total      ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Kalive + cohorts(i,idem).Kdead;
+                    beq_total      ( T_shift + (1:N_w+N_r) ) = beq_total      ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Kdead;
+                    elab_total     ( T_shift + (1:N_w)     ) = elab_total     ( T_shift + (1:N_w)     ) + cohorts(i,idem).ELab;
+                    lab_total      ( T_shift + (1:N_w)     ) = lab_total      ( T_shift + (1:N_w)     ) + cohorts(i,idem).Lab;
+                    lfpr_total     ( T_shift + (1:N_w)     ) = lfpr_total     ( T_shift + (1:N_w)     ) + cohorts(i,idem).Lfpr;
+                    fedincome_total( T_shift + (1:N_w+N_r) ) = fedincome_total( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fedincome;
+                    fedit_total    ( T_shift + (1:N_w+N_r) ) = fedit_total    ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fedit;
+                    ssrev_total    ( T_shift + (1:N_w+N_r) ) = ssrev_total    ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).SSrev;
+                    fcaptax_total  ( T_shift + (1:N_w+N_r) ) = fcaptax_total  ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fcaptax;
+                    ssexp_total    ( T_shift + N_w+(1:N_r) ) = ssexp_total    ( T_shift + N_w+(1:N_r) ) + cohorts(i,idem).SSexp;
                     
                 end
                 
