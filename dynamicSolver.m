@@ -660,7 +660,7 @@ end
 
 
 %%
-% Hardy file loader.  Checks if file exists and generates if necessary.  Handles parallel write and read conflicts.
+% Check if file exists and generate if necessary before loading, handling parallel write and read conflicts.
 % 
 %%
 
