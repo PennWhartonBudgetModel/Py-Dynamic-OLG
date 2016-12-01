@@ -4,8 +4,8 @@
 #$ -o /dev/null
 
 
-# Build mex files
-./build_all.sh
+# Build mex functions
+matlab -nojvm -nosplash -r "mexBuilder.build_all; exit"
 
 
 # Create empty log directory
