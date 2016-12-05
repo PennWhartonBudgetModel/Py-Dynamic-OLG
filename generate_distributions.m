@@ -17,7 +17,7 @@ function [labopt, dist_w, dist_r, N_w, N_r, Kalive, Kdead, ELab, Lab, Lfpr, Fedi
 
 % Define argument properties for C code generation
 T_max   = 100;
-Tss_max =  75;
+Tss_max = 100;  % (Should be greater than or equal to T_max since Tss = T for steady state)
 nk_max  =  50;
 nz_max  =  50;
 nb_max  =  50;

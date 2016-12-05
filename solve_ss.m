@@ -248,8 +248,8 @@ frisch_total = 0;
 
 for idem = 1:ndem
     
-    labopt = opt(1,idem).labopt;
-    dist_w = dist(1,idem).dist_w;
+    labopt = opt(1,idem).lab;
+    dist_w = dist(1,idem).w;
     
     working_ind = (labopt > 0.01);  % (Labor elasticity calculation sensitive to threshold value)
     
@@ -320,6 +320,7 @@ function [opt, dist, kpr_total, debt_total, elab_total, beq_total, wage, cap_sha
                 beta, gamma, sigma, MU2, MU3, ...
                 rate_deviation)
 
+economy = 'steady';
 
 wage = A*(1-alp)*(rho^alp);
 
@@ -342,45 +343,16 @@ kpr_total  = 0;
 beq_total  = 0;
 elab_total = 0;
 
+% Define birth year range
+birthyears = 0;
+
+% Initialize storage structures for optimal decision values and distributions
+s_birthyear = struct('birthyear', num2cell(repmat(birthyears', [1,ndem])));
+opt     = s_birthyear;
+dist    = s_birthyear;
+cohorts = s_birthyear;
+
 for idem = 1:ndem
-    
-    % Solve dynamic optimization
-    [V, Vss, kopt, koptss, labopt, bopt, ...
-     fedincome, fedincomess, ...
-     fitax,     fitaxss,     ...
-     fsstax,    fsstaxss,    ...
-     fcaptax,   fcaptaxss]   ...
-     ...
-       = solve_dynamic_optimization(...
-           beq*ones(1,Tss), T, Tr, Tss, 0, ...
-           bgrid, kgrid, nb, nk, nz, idem, ...
-           mpci, rpci, cap_tax_share, ss_tax_cred, ...
-           surv, tau_cap, tau_capgain, tau_ss*ones(1,Tss), tr_z, v_ss_max*ones(1,Tss), z, ...
-           wage*ones(1,Tss), cap_share*ones(1,Tss), debt_share*ones(1,Tss), rate_cap*ones(1,Tss), rate_gov*ones(1,Tss), rate_tot*ones(1,Tss), zeros(1,Tss), q_tobin, q_tobin, Vbeq, ...
-           avg_deduc, clinton, coefs, limit, X, ben*ones(1,Tss), ...
-           beta, gamma, sigma);
-    
-    % Check for unsolved dynamic optimization subproblems
-    if any(isinf([V(:); Vss(:)]))
-        warning('Infinite utility values found.  Some dynamic optimization subproblems unsolved.  Check that initial conditions satisfy constraints.')
-    end
-    
-    % Package optimal decision values
-    opt(1,idem).V           = V;            %#ok<AGROW>
-    opt(1,idem).Vss         = Vss;          %#ok<AGROW>
-    opt(1,idem).kopt        = kopt;         %#ok<AGROW>
-    opt(1,idem).koptss      = koptss;       %#ok<AGROW>
-    opt(1,idem).labopt      = labopt;       %#ok<AGROW>
-    opt(1,idem).bopt        = bopt;         %#ok<AGROW>
-    opt(1,idem).fedincome   = fedincome;    %#ok<AGROW>
-    opt(1,idem).fedincomess = fedincomess;  %#ok<AGROW>
-    opt(1,idem).fcaptax     = fcaptax;      %#ok<AGROW>
-    opt(1,idem).fcaptaxss   = fcaptaxss;    %#ok<AGROW>
-    opt(1,idem).fitax       = fitax;        %#ok<AGROW>
-    opt(1,idem).fitaxss     = fitaxss;      %#ok<AGROW>
-    opt(1,idem).fsstax      = fsstax;       %#ok<AGROW>
-    opt(1,idem).fsstaxss    = fsstaxss;     %#ok<AGROW>
-    
     
     % Extract demographic adjustments
     mu2_idem = MU2(idem,:);
@@ -390,33 +362,69 @@ for idem = 1:ndem
     dist_w0 = zeros(nk,nz,nb,1);
     dist_w0(1,:,1,1) = proddist;
     
-    % Generate distributions
-    [dist_w, dist_r, ~, ~, Kalive, Kdead, ELab] ...
-     ...
-       = generate_distributions0(...
-           kopt, koptss, labopt, bopt, ...
-           fedincome, fedincomess, fitax, fitaxss, fsstax, fsstaxss, fcaptax, fcaptaxss, ...
-           T, Tr, T, 0, ...
-           kgrid, bgrid, nk, nz, nb, idem, ...
-           z, tr_z, ben, ...
-           dist_w0, [], ...
-           mu2_idem, mu3_idem);
+    parfor i = 1:length(birthyears)
+        
+        % Get birth year
+        birthyear = birthyears(i);
+        
+        % Generate optimal decision values, distributions, and cohort aggregates
+        [labopt, dist_w, dist_r, N_w, N_r, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...
+         ...
+           = generate_distributions(...
+               beta, gamma, sigma, T, Tr, T, birthyear, ...
+               kgrid, z, tr_z, bgrid, nk, nz, nb, idem, ...
+               mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, tau_ss*ones(1,T), v_ss_max*ones(1,T), ...
+               beq*ones(1,T), wage*ones(1,T), cap_share*ones(1,T), debt_share*ones(1,T), rate_cap*ones(1,T), rate_gov*ones(1,T), rate_tot*ones(1,T), zeros(1,T), q_tobin, q_tobin, Vbeq, ...
+               avg_deduc, clinton, coefs, limit, X, ben*ones(1,T), ...
+               dist_w0, [], mu2_idem, mu3_idem);
+        
+        % Store values
+        opt(i,idem).lab = labopt; %#ok<PFOUS>
+        
+        dist(i,idem).w = dist_w; %#ok<PFOUS>
+        dist(i,idem).r = dist_r;
+        
+        cohorts(i,idem).N_w         = N_w           ;
+        cohorts(i,idem).N_r         = N_r           ;
+        cohorts(i,idem).Kalive      = Kalive        ;
+        cohorts(i,idem).Kdead       = Kdead         ;
+        cohorts(i,idem).ELab        = ELab          ;
+        cohorts(i,idem).Lab         = Lab           ;
+        cohorts(i,idem).Lfpr        = Lfpr          ;
+        cohorts(i,idem).Fedincome   = Fedincome     ;
+        cohorts(i,idem).Fedit       = Fedit         ;
+        cohorts(i,idem).SSrev       = SSrev         ;
+        cohorts(i,idem).Fcaptax     = Fcaptax       ;
+        cohorts(i,idem).SSexp       = SSexp         ;
+        
+    end
     
-    % Package distributions
-    dist(1,idem).dist_w = dist_w;  %#ok<AGROW>
-    dist(1,idem).dist_r = dist_r;  %#ok<AGROW>
-    dist(1,idem).Kalive = Kalive;  %#ok<AGROW>
-    dist(1,idem).Kdead  = Kdead;   %#ok<AGROW>
-    dist(1,idem).ELab   = ELab;    %#ok<AGROW>
-    
-    % Add aggregate values to global aggregates
-    kpr_total  = kpr_total  + sum(Kalive + Kdead);
-    beq_total  = beq_total  + sum(Kdead);
-    elab_total = elab_total + sum(ELab);
+    for i = 1:length(birthyears)
+        
+        switch economy
+            
+            case 'steady'
+            
+                % Add aggregate values to global aggregates
+                kpr_total  = kpr_total  + sum(cohorts(i,idem).Kalive + cohorts(i,idem).Kdead);
+                beq_total  = beq_total  + sum(cohorts(i,idem).Kdead);
+                elab_total = elab_total + sum(cohorts(i,idem).ELab);
+            
+        end
+        
+    end
     
 end
 
+
 % Calculate additional dynamic aggregates
-debt_total = debt;
+switch economy
+    
+    case 'steady'
+        
+        debt_total = debt;
+        
+end
+
 
 end

@@ -159,7 +159,7 @@ methods (Static, Access = private)
         if ~isbase
             
             % Identify baseline generator and save directory
-            base_generator = @() dynamicSolver.transition(economy, basedef, callingtag);
+            base_generator = @() dynamicSolver.transition(economy, basedef, [], callingtag);
             base_dir = dirFinder.save(economy, basedef);
             
             % Load baseline solution
@@ -473,11 +473,11 @@ methods (Static, Access = private)
                 
                 % Extract steady state distributions to be used for initialization, reversing demographic adjustment
                 % (Note that this currently assumes a fixed retirement age matching the one used for the steady state solution)
-                N_w_ss = length(dist_ss(1,idem).dist_w);
-                N_r_ss = length(dist_ss(1,idem).dist_r);
+                N_w_ss = length(dist_ss(1,idem).w);
+                N_r_ss = length(dist_ss(1,idem).r);
                 
-                dist_w_ss = bsxfun(@rdivide, dist_ss(1,idem).dist_w, shiftdim(mu2_idem(1:N_w_ss),          -2));
-                dist_r_ss = bsxfun(@rdivide, dist_ss(1,idem).dist_r, shiftdim(mu2_idem(N_w_ss+(1:N_r_ss)), -1));
+                dist_w_ss = bsxfun(@rdivide, dist_ss(1,idem).w, shiftdim(mu2_idem(1:N_w_ss),          -2));
+                dist_r_ss = bsxfun(@rdivide, dist_ss(1,idem).r, shiftdim(mu2_idem(N_w_ss+(1:N_r_ss)), -1));
                 
                 
                 parfor i = 1:length(birthyears)
