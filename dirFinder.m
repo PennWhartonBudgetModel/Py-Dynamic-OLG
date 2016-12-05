@@ -43,14 +43,6 @@ methods (Static)
     end
     
     
-    % Find steady state save directory
-    function [steady_dir] = ss(deep_params)
-        steady_dir = fullfile( dirFinder.saveroot, ...
-                               sprintf('beta=%0.3f_gamma=%0.3f_sigma=%05.2f', deep_params(1), deep_params(2), deep_params(3)), ...
-                               'baseline', 'steady' );
-    end
-    
-    
     % Find save directory
     function [save_dir, callingtag] = save(economy, basedef, counterdef)
         

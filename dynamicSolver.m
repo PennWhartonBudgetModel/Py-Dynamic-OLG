@@ -159,7 +159,7 @@ methods (Static, Access = private)
         if ~isbase
             
             % Identify baseline generator and save directory
-            base_generator = @() dynamicSolver.transition(economy, basedef, [], callingtag);
+            base_generator = @() dynamicSolver.transition(economy, basedef, callingtag);
             base_dir = dirFinder.save(economy, basedef);
             
             % Load baseline solution
@@ -304,8 +304,8 @@ methods (Static, Access = private)
         %% Dynamic aggregate generation
         
         % Identify steady state generator and save directory
-        steady_generator = @() solve_ss([beta, gamma, sigma], false, callingtag);
-        steady_dir = dirFinder.ss([beta, gamma, sigma]);
+        steady_generator = @() solve_ss(basedef, callingtag);
+        steady_dir = dirFinder.save('steady', basedef);
         
         % Load steady state solution
         s = hardyload('solution.mat', steady_generator, steady_dir);
@@ -313,7 +313,7 @@ methods (Static, Access = private)
         rho_ss          = s.rho         ;
         beq_ss          = s.beq         ;
         kpr_ss          = s.kpr         ;
-        debt_ss         = s.DEBTss      ;
+        debt_ss         = s.debt        ;
         cap_share_ss    = s.cap_share   ;
         debt_share_ss   = s.debt_share  ;
         rate_cap_ss     = s.rate_cap    ;
@@ -613,7 +613,7 @@ methods (Static, Access = private)
             fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
             
             
-            % Calculate convergence error
+            
             eps = max(abs(delta));
             
             fprintf('Error term = %7.4f\n', eps)

@@ -6,10 +6,7 @@
 %   deep_params
 %       beta, gamma, and sigma preference parameters collected in a 1 x 3 vector [beta, gamma, sigma].
 % 
-%   cleanup (optional | false by default)
-%       Set to true to clean up data files and directories used for intermediary results after solver execution.
-% 
-%   this_uniquetag (optional | '' by default)
+%   callertag (optional | '' by default)
 %       String used to save solution into a unique directory, used to avoid conflicts between parallel runs.
 % 
 % Outputs:
@@ -23,46 +20,44 @@
 %%
 
 
-function [save_dir, elasticities] = solve_ss(deep_params, cleanup, this_uniquetag)
+function [save_dir, elasticities] = solve_ss(basedef, callertag)
 
 
 %% Initialization
 
-% Extract deep parameters or set defaults if none provided
-if ~exist('deep_params', 'var') || isempty(deep_params)
-    deep_params = [1.005, 0.390, 06.00];
-end
-beta  = deep_params(1);
-gamma = deep_params(2);
-sigma = deep_params(3);
-
-% Turn off file cleanup by default
-if ~exist('cleanup', 'var') || isempty(cleanup)
-    cleanup = false;
-end
-
-% Set solution uniqueness tag to empty by default
-if ~exist('this_uniquetag', 'var') || isempty(this_uniquetag)
-    this_uniquetag = '';
-end
-
-
-
-% Display problem definition
-fprintf('\n[Steady state]\n')
+economy = 'steady';
+if ~exist('counterdef', 'var'), counterdef = []; end
+if ~exist('callertag' , 'var'), callertag  = ''; end
 
 % Identify working directories
 param_dir = dirFinder.param;
-save_dir  = dirFinder.ss(deep_params);
+[save_dir, callingtag] = dirFinder.save('steady', basedef);
 
-% Append uniqueness tag to name of save directory
-save_dir = [save_dir, this_uniquetag];
+% Append caller tag to save directory name and calling tag
+% (Obviates conflicts between parallel runs)
+save_dir   = [save_dir  , callertag];
+callingtag = [callingtag, callertag];
 
 % Clear or create save directory
 if exist(save_dir, 'dir')
     rmdir(save_dir, 's')
 end
 mkdir(save_dir)
+
+
+% Unpack parameters from baseline definition
+beta  = basedef.beta ;
+gamma = basedef.gamma;
+sigma = basedef.sigma;
+
+% Identify baseline run by absence of counterfactual definition
+isbase = isempty(counterdef) || isempty(fields(counterdef));
+if isbase, counterdef = struct(); end
+
+% Unpack parameters from counterfactual definition, setting baseline values for unspecified parameters
+if isfield(counterdef, 'plan'), plan = counterdef.plan; else plan = 'base'; end
+if isfield(counterdef, 'gcut'), gcut = counterdef.gcut; else gcut = +0.00 ; end
+
 
 
 
@@ -100,12 +95,6 @@ MU2 = s.demdist_2015 * ( s.Mu2/sum(s.Mu2) );
 MU3 = repmat(1-surv, [ndem,1]) .* MU2;
 
 
-% Load CBO parameters
-s = load(fullfile(param_dir, 'param_cbo.mat'));
-
-r_cbo = mean(s.r_cbo);
-
-
 % Load social security parameters
 s = load(fullfile(param_dir, 'param_socsec.mat'));
 
@@ -115,8 +104,14 @@ tau_ss   = s.ss_tax(1);
 v_ss_max = s.taxmax(1);
 
 
-% Load income tax parameters, using base plan
-s = load(fullfile(param_dir, 'param_inctax_base.mat'));
+% Load CBO parameters
+s = load(fullfile(param_dir, 'param_cbo.mat'));
+
+r_cbo = mean(s.r_cbo);
+
+
+% Load income tax parameters
+s = load(fullfile(param_dir, sprintf('param_inctax_%s.mat', plan)));
 
 avg_deduc = deduc_scale * s.avg_deduc;
 clinton   = s.clinton;
@@ -125,8 +120,8 @@ limit     = s.limit;
 X         = s.X;
 
 
-% Load business tax parameters, using base plan
-s = load(fullfile(param_dir, 'param_bustax_base.mat'));
+% Load business tax parameters
+s = load(fullfile(param_dir, sprintf('param_bustax_%s.mat', plan)));
 
 cap_tax_share = s.cap_tax_share;
 exp_share     = s.exp_share;
@@ -137,15 +132,12 @@ q_tobin = 1 - tau_cap * exp_share;
 
 
 % Load initial values for steady state solution
-s = load(fullfile(param_dir, 'ss_solution0.mat'));
+s = load(fullfile(param_dir, 'solution0.mat'));
 
-rho    = s.rho;
-beq    = s.beq;
-kpr    = s.kpr;
-DEBTss = s.DEBTss;
-
-D_Y = 0.74;
-Y = DEBTss / D_Y;
+rho0  = s.rho;
+beq0  = s.beq;
+kpr0  = s.kpr;
+debt0 = s.DEBTss;
 
 
 % Clear parameter loading structure
@@ -157,77 +149,94 @@ clear('s')
 %% Steady state calculation
 
 % Define tolerance for rho convergence and initialize collection of rho error terms
-rho_tol = 1e-3;
-rho_eps = [];
+tol = 1e-3;
+eps = Inf;
 
 % Initialize iteration count and set maximum number of iterations
-rho_iter    =  0;
-rho_itermax = 25;
+iter    =  0;
+itermax = 25;
 
-while true
+% Create file for logging iterations
+% (Note that this should be done after any parallel pool is started to avoid file access issues)
+iterlog = fopen(fullfile(save_dir, 'iterations.csv'), 'w');
+
+% Display header
+fprintf('\n[Steady state]\n')
+
+while ( eps > tol && iter < itermax )
     
     % Increment iteration count
-    rho_iter = rho_iter + 1;
-    fprintf('\trho_iter = %2d  ...  ', rho_iter)
+    iter = iter + 1;
+    fprintf('\tIteration %2d  ...  ', iter)
+    
+    
+    % Define prices
+    switch economy
+        
+        case 'steady'
+            
+            if (iter == 1)
+                rho  = rho0 ;
+                beq  = beq0 ;
+                kpr  = kpr0 ;
+                debt = debt0;
+            else
+                rho  = 0.5*rho + 0.5*rhopr;
+                beq  = beq_total;
+                kpr  = kpr_total;
+                debt = 0.74*Y;
+            end
+        
+    end
+    
     
     % Solve dynamic optimization and generate distributions
-    [opt, dist, kpr_total, DD, elab_total, beq_total, wage, cap_share, debt_share, rate_cap, rate_gov, rate_tot] ...
+    [opt, dist, kpr_total, debt_total, elab_total, beq_total, wage, cap_share, debt_share, rate_cap, rate_gov, rate_tot] ...
      ...
        = solve_and_generate(...
-           rho, kpr, DEBTss, beq, ...
+           rho, beq, kpr, debt, ...
            T, Tr, Tss, bgrid, kgrid, ndem, nb, nk, nz, ...
            mpci, rpci, A, alp, cap_tax_share, d, q_tobin, Vbeq, proddist, ss_tax_cred, surv, ...
            tau_cap, tau_capgain, tau_ss, tr_z, v_ss_max, z, ...
            avg_deduc, clinton, coefs, limit, X, r_cbo, ben, ...
            beta, gamma, sigma, MU2, MU3); %#ok<ASGLU>
     
-    % Check for convergence
-    rhopr = (max(kpr_total-DD, 0)/q_tobin)/elab_total;
     
-    rho_eps = [rho_eps, abs(rho - rhopr)]; %#ok<AGROW>
-    fprintf('rho_eps = %7.4f\n', rho_eps(end))
-    if (rho_eps(end) < rho_tol), break, end
+    % Calculate additional dynamic aggregates
+    Y = A*(max((kpr_total-debt_total)/q_tobin, 0)^alp)*(elab_total^(1-alp));
     
-    % Check for maximum iterations
-    if (rho_iter == rho_itermax)
-        warning('Maximum iterations reached.')
-        break
-    end
+    % Calculate convergence series delta
+    rhopr = (max(kpr_total-debt_total, 0)/q_tobin)/elab_total;
     
-    % Update variables
-    stepfactor = 0.5;
-    rho = (1-stepfactor) * rho + stepfactor * rhopr;
+    % Calculate convergence error
+    eps = abs(rho - rhopr);
     
-    Y      = A*(max((kpr_total-DD)/q_tobin, 0)^alp)*(elab_total^(1-alp));
-    DEBTss = D_Y * Y;
+    fprintf('Error term = %7.4f\n', eps)
+    fprintf(iterlog, '%u,%0.4f\n', iter, eps);
     
-    beq = beq_total;
-    kpr = kpr_total;
     
 end
 fprintf('\n')
+fclose(iterlog);
 
-% Save log of rho iterations
-fid = fopen(fullfile(save_dir, 'iterations.txt'), 'wt');
-fprintf(fid, '%d rho iteration(s) of a maximum %d\n\nError term(s):', rho_iter, rho_itermax);
-for i = 1:rho_iter
-    fprintf(fid, '\n  % 2d  --  %7.4f', i, rho_eps(i));
+% Issue warning if maximum iterations reached
+if (iter == itermax), warning('Maximum iterations reached.'), end
+
+
+% Save optimal decision values and distributions for baseline
+if isbase
+    save(fullfile(save_dir, 'opt.mat' ), 'opt' )
+    save(fullfile(save_dir, 'dist.mat'), 'dist')
 end
-fclose(fid);
-
-
-% Save optimal decision values and distributions
-save(fullfile(save_dir, 'opt.mat'),  'opt' )
-save(fullfile(save_dir, 'dist.mat'), 'dist')
 
 % Save solution
 save(fullfile(save_dir, 'solution.mat'), ...
-     'rho', 'kpr', 'Y', 'DEBTss', 'beq', 'wage', ...
+     'rho', 'beq', 'kpr', 'debt', ...
      'cap_share', 'debt_share', 'rate_cap', 'rate_gov', 'rate_tot')
 
 
 % Calculate capital to output ratio
-K_Y = (kpr-DD)/Y;
+K_Y = (kpr_total-debt_total)/Y;
 
 
 
@@ -264,7 +273,7 @@ rate_deviation = 0.005;
 [~, ~, kpr_dev, ~, ~, ~, ~, ~, ~, ~, ~, rate_tot_dev] ...
  ...
    = solve_and_generate(...
-       rho, kpr, DEBTss, beq, ...
+       rho, beq, kpr, debt, ...
        T, Tr, Tss, bgrid, kgrid, ndem, nb, nk, nz, ...
        mpci, rpci, A, alp, cap_tax_share, d, q_tobin, Vbeq, proddist, ss_tax_cred, surv, ...
        tau_cap, tau_capgain, tau_ss, tr_z, v_ss_max, z, ...
@@ -279,11 +288,6 @@ savings_elas = ((kpr_dev - kpr)/kpr) / ((rate_tot_dev - rate_tot)/(rate_tot-1));
 
 
 %%
-
-% Clean up working directory
-if cleanup
-    rmdir(fullfile(save_dir, '..'), 's')
-end
 
 % Package, save, and display elasticities
 elasticities = [K_Y, labor_elas, savings_elas];
@@ -305,10 +309,10 @@ end
 %% Dynamic optimization solver and distribution generator applied to steady state
 % (Generalized for use in savings elasticity calculation)
 
-function [opt, dist, kpr_total, DD, elab_total, beq_total, wage, cap_share, debt_share, rate_cap, rate_gov, rate_tot] ...
+function [opt, dist, kpr_total, debt_total, elab_total, beq_total, wage, cap_share, debt_share, rate_cap, rate_gov, rate_tot] ...
           ...
             = solve_and_generate(...
-                rho, kpr, DD, beq, ...
+                rho, beq, kpr, debt, ...
                 T, Tr, Tss, bgrid, kgrid, ndem, nb, nk, nz, ...
                 mpci, rpci, A, alp, cap_tax_share, d, q_tobin, Vbeq, proddist, ss_tax_cred, surv, ...
                 tau_cap, tau_capgain, tau_ss, tr_z, v_ss_max, z, ...
@@ -319,7 +323,7 @@ function [opt, dist, kpr_total, DD, elab_total, beq_total, wage, cap_share, debt
 
 wage = A*(1-alp)*(rho^alp);
 
-cap_share  = (kpr-DD)/kpr;
+cap_share  = (kpr-debt)/kpr;
 debt_share = 1 - cap_share;
 
 rate_cap = 1 + (A*alp*(rho^(alp-1)) - d)/q_tobin;
@@ -411,5 +415,8 @@ for idem = 1:ndem
     elab_total = elab_total + sum(ELab);
     
 end
+
+% Calculate additional dynamic aggregates
+debt_total = debt;
 
 end

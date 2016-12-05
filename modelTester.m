@@ -18,7 +18,7 @@ methods (Static)
     
     % Test steady state solution and elasticities
     function [] = steady()
-        save_dir = solve_ss( [modelTester.basedef.beta, modelTester.basedef.gamma, modelTester.basedef.sigma] );
+        save_dir = solve_ss( modelTester.basedef );
         setnames = {'solution', 'elasticities'};
         test_output(save_dir, setnames);
     end
@@ -103,8 +103,7 @@ for i = 1:length(setnames)
             delta = outputset.(valuename)(:) - targetset.(valuename)(:);
             
             if any(delta)
-                [maxdelta, ind] = max(delta);
-                dev = maxdelta * 2 / (outputset.(valuename)(ind) + targetset.(valuename)(ind));
+                dev = nanmean( delta*2 ./ (outputset.(valuename)(:) + targetset.(valuename)(:)) );
                 fprintf('\t%-25s%06.2f%% deviation.\n', valuename, abs(dev*100))
                 ismatch = false;
             end
