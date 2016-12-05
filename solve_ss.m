@@ -64,8 +64,8 @@ if isfield(counterdef, 'gcut'), gcut = counterdef.gcut; else gcut = +0.00 ; end
 % Load global parameters
 s = load(fullfile(param_dir, 'param_global.mat'));
 
-T   = s.T;
-Tss = s.Tss;
+T_life  = s.T_life;
+T_model = s.T_model;
 
 kgrid = s.kgrid;
 bgrid = [0; s.bgrid(2:end)];            % (Lower bound on average earnings set to 0)
@@ -86,8 +86,8 @@ A           = s.A;
 alp         = s.alp;
 d           = s.d;
 deduc_scale = s.deduc_scale;
-proddist    = s.proddist(:,1);
-surv        = [s.surv(1:T-1), 0];       % (Survival probability at age T set to 0)
+proddist    = s.proddist(:,1)';
+surv        = [s.surv(1:T_life-1), 0];       % (Survival probability at age T set to 0)
 tr_z        = s.tr_z;
 z           = s.z;
 
@@ -131,13 +131,27 @@ tau_capgain   = s.tau_capgain;
 q_tobin = 1 - tau_cap * exp_share;
 
 
-% Load initial values for steady state solution
-s = load(fullfile(param_dir, 'solution0.mat'));
+% Clear parameter loading structure
+clear('s')
 
-rho0  = s.rho;
-beq0  = s.beq;
-kpr0  = s.kpr;
-debt0 = s.DEBTss;
+
+
+
+%% Dynamic aggregate generation
+
+switch economy
+    
+    case 'steady'
+        
+        % Load initial values for steady state solution
+        s = load(fullfile(param_dir, 'solution0.mat'));
+        
+        rho0  = s.rho   ;
+        beq0  = s.beq   ;
+        kpr0  = s.kpr   ;
+        debt0 = s.DEBTss;
+        
+end
 
 
 % Clear parameter loading structure
@@ -145,8 +159,8 @@ clear('s')
 
 
 
-
-%% Steady state calculation
+% Start a parallel pool if one does not already exist and JVM is enabled
+if usejava('jvm'), gcp; end
 
 % Define tolerance for rho convergence and initialize collection of rho error terms
 tol = 1e-3;
@@ -161,7 +175,15 @@ itermax = 25;
 iterlog = fopen(fullfile(save_dir, 'iterations.csv'), 'w');
 
 % Display header
-fprintf('\n[Steady state]\n')
+fprintf('\n[')
+switch economy
+    
+    case 'steady'
+        fprintf('Steady state')
+        
+end
+fprintf(']\n')
+
 
 while ( eps > tol && iter < itermax )
     
@@ -186,30 +208,134 @@ while ( eps > tol && iter < itermax )
                 kpr  = kpr_total;
                 debt = 0.74*Y;
             end
+
+            cap_share  = (kpr-debt)/kpr;
+            debt_share = 1 - cap_share;
+            rate_cap   = 1 + (A*alp*(rho^(alp-1)) - d)/q_tobin;
+            rate_gov   = 1 + r_cbo;
+            rate_tot   = cap_share*rate_cap + debt_share*rate_gov;
+            
+    end
+    
+    wage = A*(1-alp)*(rho^alp);
+    
+    
+    % Initialize global aggregates
+    kpr_total  = 0;
+    beq_total  = 0;
+    elab_total = 0;
+    
+    % Define birth year range
+    switch economy
+        
+        case 'steady'
+            birthyears = 0;
+        
+    end
+    
+    % Initialize storage structures for optimal decision values and distributions
+    s_birthyear = struct('birthyear', num2cell(repmat(birthyears', [1,ndem])));
+    opt     = s_birthyear;
+    dist    = s_birthyear;
+    cohorts = s_birthyear;
+    
+    % Define dynamic optimization and distribution generation time intervals
+    switch economy
+        
+        case 'steady'
+            T_opt  = 1;
+            T_dist = T_life;
+            
+    end
+    
+    for idem = 1:ndem
+        
+        % Extract demographic adjustments
+        mu2_idem = MU2(idem,:);
+        mu3_idem = MU3(idem,:);
+        
+        % Define initial distributions
+        switch economy
+            
+            case 'steady'
+                dist_w0 = padarray(proddist, [nk-1, 0, nb-1], 0, 'post');
+                dist_r0 = [];
+                
+        end
+        
+        parfor i = 1:length(birthyears)
+            
+            % Get birth year
+            birthyear = birthyears(i);
+            
+            % Generate optimal decision values, distributions, and cohort aggregates
+            [labopt, dist_w, dist_r, N_w, N_r, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...
+             ...
+               = generate_distributions(...
+                   beta, gamma, sigma, T_life, Tr, T_opt, T_dist, birthyear, ...
+                   kgrid, z, tr_z, bgrid, nk, nz, nb, idem, ...
+                   mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, tau_ss, v_ss_max, ...
+                   beq, wage, cap_share, debt_share, rate_cap, rate_gov, rate_tot, 0, q_tobin, q_tobin, Vbeq, ...
+                   avg_deduc, clinton, coefs, limit, X, ben, ...
+                   dist_w0, dist_r0, mu2_idem, mu3_idem);
+            
+            % Store values
+            opt(i,idem).lab = labopt; %#ok<PFOUS>
+            
+            dist(i,idem).w = dist_w; %#ok<PFOUS>
+            dist(i,idem).r = dist_r;
+            
+            cohorts(i,idem).N_w         = N_w           ;
+            cohorts(i,idem).N_r         = N_r           ;
+            cohorts(i,idem).Kalive      = Kalive        ;
+            cohorts(i,idem).Kdead       = Kdead         ;
+            cohorts(i,idem).ELab        = ELab          ;
+            cohorts(i,idem).Lab         = Lab           ;
+            cohorts(i,idem).Lfpr        = Lfpr          ;
+            cohorts(i,idem).Fedincome   = Fedincome     ;
+            cohorts(i,idem).Fedit       = Fedit         ;
+            cohorts(i,idem).SSrev       = SSrev         ;
+            cohorts(i,idem).Fcaptax     = Fcaptax       ;
+            cohorts(i,idem).SSexp       = SSexp         ;
+            
+        end
+        
+        for i = 1:length(birthyears)
+            
+            switch economy
+                
+                case 'steady'
+                    
+                    % Add aggregate values to global aggregates
+                    kpr_total  = kpr_total  + sum(cohorts(i,idem).Kalive + cohorts(i,idem).Kdead);
+                    beq_total  = beq_total  + sum(cohorts(i,idem).Kdead);
+                    elab_total = elab_total + sum(cohorts(i,idem).ELab);
+                    
+            end
+            
+        end
         
     end
     
     
-    % Solve dynamic optimization and generate distributions
-    [opt, dist, kpr_total, debt_total, elab_total, beq_total, wage, cap_share, debt_share, rate_cap, rate_gov, rate_tot] ...
-     ...
-       = solve_and_generate(...
-           rho, beq, kpr, debt, ...
-           T, Tr, Tss, bgrid, kgrid, ndem, nb, nk, nz, ...
-           mpci, rpci, A, alp, cap_tax_share, d, q_tobin, Vbeq, proddist, ss_tax_cred, surv, ...
-           tau_cap, tau_capgain, tau_ss, tr_z, v_ss_max, z, ...
-           avg_deduc, clinton, coefs, limit, X, r_cbo, ben, ...
-           beta, gamma, sigma, MU2, MU3); %#ok<ASGLU>
-    
-    
     % Calculate additional dynamic aggregates
-    Y = A*(max((kpr_total-debt_total)/q_tobin, 0)^alp)*(elab_total^(1-alp));
+    switch economy
+        
+        case 'steady'
+            
+            % Calculate debt and output
+            debt_total = debt;
+            Y = A*(max((kpr_total-debt_total)/q_tobin, 0)^alp)*(elab_total^(1-alp));
+            
+            % Calculate convergence delta
+            rhopr = (max(kpr_total-debt_total, 0)/q_tobin)/elab_total;
+            delta = rho - rhopr;
+            
+    end
     
-    % Calculate convergence series delta
-    rhopr = (max(kpr_total-debt_total, 0)/q_tobin)/elab_total;
     
     % Calculate convergence error
-    eps = abs(rho - rhopr);
+    eps = max(abs(delta));
     
     fprintf('Error term = %7.4f\n', eps)
     fprintf(iterlog, '%u,%0.4f\n', iter, eps);
@@ -266,23 +392,29 @@ labor_elas = frisch_total / working_mass;
 
 %% Savings elasticity calculation
 
-% Specify percentage change in net interest rate
-rate_deviation = 0.005;
+% % Specify percentage change in net interest rate
+% rate_deviation = 0.005;
+% 
+% % Scale rates by deviation if provided
+% rate_cap = rate_cap * (1 + rate_deviation);
+% rate_gov = rate_gov * (1 + rate_deviation);
+% 
+% % Solve dynamic optimization and generate distributions
+% [~, ~, kpr_dev, ~, ~, ~, ~, ~, ~, ~, ~, rate_tot_dev] ...
+%  ...
+%    = solve_and_generate(...
+%        rho, beq, kpr, debt, ...
+%        T, Tr, bgrid, kgrid, ndem, nb, nk, nz, ...
+%        mpci, rpci, A, alp, cap_tax_share, d, q_tobin, Vbeq, proddist, ss_tax_cred, surv, ...
+%        tau_cap, tau_capgain, tau_ss, tr_z, v_ss_max, z, ...
+%        avg_deduc, clinton, coefs, limit, X, r_cbo, ben, ...
+%        beta, gamma, sigma, MU2, MU3, ...
+%        rate_deviation);
+% 
+% % Calculate savings elasticity
+% savings_elas = ((kpr_dev - kpr)/kpr) / ((rate_tot_dev - rate_tot)/(rate_tot-1));
 
-% Solve dynamic optimization and generate distributions
-[~, ~, kpr_dev, ~, ~, ~, ~, ~, ~, ~, ~, rate_tot_dev] ...
- ...
-   = solve_and_generate(...
-       rho, beq, kpr, debt, ...
-       T, Tr, Tss, bgrid, kgrid, ndem, nb, nk, nz, ...
-       mpci, rpci, A, alp, cap_tax_share, d, q_tobin, Vbeq, proddist, ss_tax_cred, surv, ...
-       tau_cap, tau_capgain, tau_ss, tr_z, v_ss_max, z, ...
-       avg_deduc, clinton, coefs, limit, X, r_cbo, ben, ...
-       beta, gamma, sigma, MU2, MU3, ...
-       rate_deviation);
-
-% Calculate savings elasticity
-savings_elas = ((kpr_dev - kpr)/kpr) / ((rate_tot_dev - rate_tot)/(rate_tot-1));
+savings_elas = 0;
 
 
 
@@ -299,132 +431,6 @@ for i = 1:length(elasticities)
     fprintf('\t%-25s= % 7.4f\n', displaynames{i}, elasticities(i))
 end
 fprintf('\n')
-
-
-end
-
-
-
-
-%% Dynamic optimization solver and distribution generator applied to steady state
-% (Generalized for use in savings elasticity calculation)
-
-function [opt, dist, kpr_total, debt_total, elab_total, beq_total, wage, cap_share, debt_share, rate_cap, rate_gov, rate_tot] ...
-          ...
-            = solve_and_generate(...
-                rho, beq, kpr, debt, ...
-                T, Tr, Tss, bgrid, kgrid, ndem, nb, nk, nz, ...
-                mpci, rpci, A, alp, cap_tax_share, d, q_tobin, Vbeq, proddist, ss_tax_cred, surv, ...
-                tau_cap, tau_capgain, tau_ss, tr_z, v_ss_max, z, ...
-                avg_deduc, clinton, coefs, limit, X, r_cbo, ben, ...
-                beta, gamma, sigma, MU2, MU3, ...
-                rate_deviation)
-
-economy = 'steady';
-
-wage = A*(1-alp)*(rho^alp);
-
-cap_share  = (kpr-debt)/kpr;
-debt_share = 1 - cap_share;
-
-rate_cap = 1 + (A*alp*(rho^(alp-1)) - d)/q_tobin;
-rate_gov = 1 + r_cbo;
-
-% Scale rates by deviation if provided
-if exist('rate_deviation', 'var')
-	rate_cap = rate_cap * (1 + rate_deviation);
-	rate_gov = rate_gov * (1 + rate_deviation);
-end
-
-rate_tot  = cap_share*rate_cap + debt_share*rate_gov;
-
-% Initialize global aggregates
-kpr_total  = 0;
-beq_total  = 0;
-elab_total = 0;
-
-% Define birth year range
-birthyears = 0;
-
-% Initialize storage structures for optimal decision values and distributions
-s_birthyear = struct('birthyear', num2cell(repmat(birthyears', [1,ndem])));
-opt     = s_birthyear;
-dist    = s_birthyear;
-cohorts = s_birthyear;
-
-for idem = 1:ndem
-    
-    % Extract demographic adjustments
-    mu2_idem = MU2(idem,:);
-    mu3_idem = MU3(idem,:);
-    
-    % Define distribution used for initialization
-    dist_w0 = zeros(nk,nz,nb,1);
-    dist_w0(1,:,1,1) = proddist;
-    
-    parfor i = 1:length(birthyears)
-        
-        % Get birth year
-        birthyear = birthyears(i);
-        
-        % Generate optimal decision values, distributions, and cohort aggregates
-        [labopt, dist_w, dist_r, N_w, N_r, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...
-         ...
-           = generate_distributions(...
-               beta, gamma, sigma, T, Tr, T, birthyear, ...
-               kgrid, z, tr_z, bgrid, nk, nz, nb, idem, ...
-               mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, tau_ss*ones(1,T), v_ss_max*ones(1,T), ...
-               beq*ones(1,T), wage*ones(1,T), cap_share*ones(1,T), debt_share*ones(1,T), rate_cap*ones(1,T), rate_gov*ones(1,T), rate_tot*ones(1,T), zeros(1,T), q_tobin, q_tobin, Vbeq, ...
-               avg_deduc, clinton, coefs, limit, X, ben*ones(1,T), ...
-               dist_w0, [], mu2_idem, mu3_idem);
-        
-        % Store values
-        opt(i,idem).lab = labopt; %#ok<PFOUS>
-        
-        dist(i,idem).w = dist_w; %#ok<PFOUS>
-        dist(i,idem).r = dist_r;
-        
-        cohorts(i,idem).N_w         = N_w           ;
-        cohorts(i,idem).N_r         = N_r           ;
-        cohorts(i,idem).Kalive      = Kalive        ;
-        cohorts(i,idem).Kdead       = Kdead         ;
-        cohorts(i,idem).ELab        = ELab          ;
-        cohorts(i,idem).Lab         = Lab           ;
-        cohorts(i,idem).Lfpr        = Lfpr          ;
-        cohorts(i,idem).Fedincome   = Fedincome     ;
-        cohorts(i,idem).Fedit       = Fedit         ;
-        cohorts(i,idem).SSrev       = SSrev         ;
-        cohorts(i,idem).Fcaptax     = Fcaptax       ;
-        cohorts(i,idem).SSexp       = SSexp         ;
-        
-    end
-    
-    for i = 1:length(birthyears)
-        
-        switch economy
-            
-            case 'steady'
-            
-                % Add aggregate values to global aggregates
-                kpr_total  = kpr_total  + sum(cohorts(i,idem).Kalive + cohorts(i,idem).Kdead);
-                beq_total  = beq_total  + sum(cohorts(i,idem).Kdead);
-                elab_total = elab_total + sum(cohorts(i,idem).ELab);
-            
-        end
-        
-    end
-    
-end
-
-
-% Calculate additional dynamic aggregates
-switch economy
-    
-    case 'steady'
-        
-        debt_total = debt;
-        
-end
 
 
 end
