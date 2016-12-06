@@ -88,7 +88,10 @@ methods (Static, Access = private)
         s = load(fullfile(param_dir, 'param_global.mat'));
         
         T_life  = s.T_life;
-        T_model = s.T_model; switch economy, case 'steady', T_model = 1; end
+        switch economy
+            case 'steady',           T_model = 1;
+            case {'open', 'closed'}, T_model = s.T_model;
+        end
         
         kgrid = s.kgrid;
         bgrid = [0; s.bgrid(2:end)];
@@ -255,7 +258,7 @@ methods (Static, Access = private)
                     SSexp     = sum(reshape(repmat(ss_benefit(:,1)', [nk,1,N_r_dist]) .* dist_r, [], N_r_dist), 1);
                     
                     
-                    % Add cohort aggregates to static aggregates, aligning to projection years
+                    % Add cohort aggregates to static aggregates, aligning to model years
                     T_shift = max(0, birthyear);
                     fedincome_static( T_shift + (1:N_w_dist+N_r_dist) ) = fedincome_static( T_shift + (1:N_w_dist+N_r_dist) ) + Fedincome;
                     fedit_static    ( T_shift + (1:N_w_dist+N_r_dist) ) = fedit_static    ( T_shift + (1:N_w_dist+N_r_dist) ) + Fedit;
@@ -317,13 +320,8 @@ methods (Static, Access = private)
             
             case 'steady'
                 
-                % Load initial estimates for steady state solution
-                s = load(fullfile(param_dir, 'solution0.mat'));
-                
-                rho0  = s.rho   ;
-                beq0  = s.beq   ;
-                kpr0  = s.kpr   ;
-                debt0 = s.DEBTss;
+                % Load neutral solution as starting solution
+                s0 = load(fullfile(param_dir, 'solution0.mat'));
                 
             case {'open', 'closed'}
                 
@@ -331,18 +329,8 @@ methods (Static, Access = private)
                 steady_generator = @() dynamicSolver.steady(basedef, callingtag);
                 steady_dir = dirFinder.save('steady', basedef);
                 
-                % Load steady state solution
-                s = hardyload('solution.mat', steady_generator, steady_dir);
-                
-                rho0        = s.rhos        ;
-                beq0        = s.beqs        ;
-                kpr0        = s.kprs        ;
-                debt0       = s.debts       ;
-                cap_share0  = s.cap_shares  ;
-                debt_share0 = s.debt_shares ;
-                rate_cap0   = s.rate_caps   ;
-                rate_gov0   = s.rate_govs   ;
-                rate_tot0   = s.rate_tots   ;
+                % Load steady state solution as starting solution
+                s0 = hardyload('solution.mat', steady_generator, steady_dir);
                 
                 % Load steady state distributions
                 s = hardyload('dist.mat', steady_generator, steady_dir);
@@ -350,6 +338,19 @@ methods (Static, Access = private)
                 dist_steady = s.dist;
                 
         end
+        
+        % Unpack starting solution
+        rho0        = s0.rhos        ;
+        beq0        = s0.beqs        ;
+        kpr0        = s0.kprs        ;
+        debt0       = s0.debts       ;
+        cap_share0  = s0.cap_shares  ;
+        debt_share0 = s0.debt_shares ;
+        rate_cap0   = s0.rate_caps   ;
+        rate_gov0   = s0.rate_govs   ;
+        rate_tot0   = s0.rate_tots   ;
+        
+        clear('s0')
         
         
         switch economy
@@ -437,7 +438,7 @@ methods (Static, Access = private)
             % Define prices
             switch economy
                 
-                case 'steady'
+                case {'steady', 'closed'}
                     
                     if (iter == 1)
                         rhos  = rho0 *ones(1,T_model);
@@ -446,22 +447,28 @@ methods (Static, Access = private)
                         debts = debt0*ones(1,T_model);
                         caps  = (kprs - debts)/q_tobin;
                     else
-                        rhos  = 0.5*rhos + 0.5*rhoprs;
+                        switch economy
+                            case 'steady'
+                                rhos  = 0.5*rhos + 0.5*rhoprs;
+                                debts = D_Y*Y_total;
+                            case 'closed'
+                                rhos  = 0.3*rhos + 0.7*rhoprs;
+                                debts = debt_total;
+                        end
                         beqs  = beq_total;
                         kprs  = kpr_total;
-                        debts = D_Y*Y_total;
                         caps  = cap_total;
                     end
-                    
-                    wages = A*(1-alp)*(rhos.^alp);
                     
                     cap_shares  = (kprs - debts) ./ kprs;
                     debt_shares = 1 - cap_shares;
                     rate_caps   = 1 + (A*alp*(rhos.^(alp-1)) - d)/q_tobin;
-                    rate_govs   = meanrate_cbo;
+                    switch economy
+                        case 'steady', rate_govs = meanrate_cbo;
+                        case 'closed', rate_govs = rate_cbos;
+                    end
                     rate_tots   = cap_shares.*rate_caps + debt_shares.*rate_govs;
                     
-                    exp_subsidys = [exp_share * max(diff(caps), 0), 0] ./ caps;
                     
                 case 'open'
                     
@@ -479,42 +486,16 @@ methods (Static, Access = private)
                         
                         rhos  = ((q_tobin*(rate_caps - 1) + d)/alp).^(1/(alp-1));
                         beqs  = beq0*ones(1,T_model);
-                        wages = A*(1-alp)*(rhos.^alp);
                         
                     else
                         beqs = beq_total;
                         caps = cap_total;
                     end
                     
-                    exp_subsidys = [exp_share * max(diff(caps), 0), 0] ./ caps;
-                    
-                case 'closed'
-                    
-                    if (iter == 1)
-                        rhos  = rho0 *ones(1,T_model);
-                        beqs  = beq0 *ones(1,T_model);
-                        kprs  = kpr0 *ones(1,T_model);
-                        debts = debt0*ones(1,T_model);
-                        caps  = (kprs - debts)/q_tobin;
-                    else
-                        rhos  = 0.3*rhos + 0.7*rhoprs;
-                        beqs  = beq_total;
-                        kprs  = kpr_total;
-                        debts = debt_total;
-                        caps  = cap_total;
-                    end
-                    
-                    wages = A*(1-alp)*(rhos.^alp);
-                    
-                    cap_shares  = (kprs - debts) ./ kprs;
-                    debt_shares = 1 - cap_shares;
-                    rate_caps   = 1 + (A*alp*(rhos.^(alp-1)) - d)/q_tobin;
-                    rate_govs   = rate_cbos;
-                    rate_tots   = cap_shares.*rate_caps + debt_shares.*rate_govs;
-                    
-                    exp_subsidys = [exp_share * max(diff(caps), 0), 0] ./ caps;
-                    
             end
+            
+            wages        = A*(1-alp)*(rhos.^alp);
+            exp_subsidys = [exp_share * max(diff(caps), 0), 0] ./ caps;
             
             
             % Initialize dynamic aggregates
@@ -529,7 +510,7 @@ methods (Static, Access = private)
             fcaptax_total   = zeros(1,T_model);
             ssexp_total     = zeros(1,T_model);
             
-            % Define birth year range
+            % Define birth years
             switch economy
         
                 case 'steady'
@@ -619,20 +600,20 @@ methods (Static, Access = private)
                     
                 end
                 
+                % Add cohort aggregates to dynamic aggregates
                 for i = 1:length(birthyears)
                     
                     switch economy
                         
                         case 'steady'
                             
-                            % Add aggregate values to global aggregates
                             kpr_total  = kpr_total  + sum(cohorts(i,idem).Kalive + cohorts(i,idem).Kdead);
                             beq_total  = beq_total  + sum(cohorts(i,idem).Kdead);
                             elab_total = elab_total + sum(cohorts(i,idem).ELab);
                             
                         case {'open', 'closed'}
                             
-                            % Add cohort aggregates to dynamic aggregates, aligning to projection years
+                            % Align aggregates to model years
                             T_shift = max(0, birthyears(i));
                             
                             N_w = cohorts(i,idem).N_w;
@@ -669,7 +650,7 @@ methods (Static, Access = private)
                     cap_total = (kpr_total - debt_total)/q_tobin;
                     Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp));
                     
-                    % Calculate convergence delta
+                    % Calculate convergence value
                     rhoprs = (max(kpr_total - debt_total, 0)/q_tobin) ./ elab_total;
                     delta = rhos - rhoprs;
                     
@@ -708,7 +689,7 @@ methods (Static, Access = private)
                     feditlab_total = fedit_total .* labinc_total ./ fedincome_total;
                     fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
                     
-                    % Calculate convergence delta
+                    % Calculate convergence value
                     delta = beqs - beq_total;
                     
                 case 'closed'
@@ -741,7 +722,7 @@ methods (Static, Access = private)
                     feditlab_total = fedit_total .* labinc_total ./ fedincome_total;
                     fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
                     
-                    % Calculate convergence delta
+                    % Calculate convergence value
                     rhoprs = (max([kpr0, kpr_total(1:end-1)] - debt_total, 0)/q_tobin) ./ elab_total;
                     delta = rhos - rhoprs;
                     
@@ -921,3 +902,4 @@ end
 pause(pause0)
 
 end
+
