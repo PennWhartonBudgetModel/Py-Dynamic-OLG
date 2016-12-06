@@ -15,17 +15,21 @@ prices.wage        = 1;
 
 
 % Solve equilibrim wage
-w_ub = 5;
+w_ub = 10;
 w_lb = 0;
 labor_supply = 1;    % Update if labor supply becomes elastically demanded.
+wage_iter = 0;
 while true
     % Update wage.
     prices.wage = (w_ub+w_lb)/2;
 
     % Solve equilibrium price of consumption.
-    pc_ub = 1;
+    pc_ub = 6;
     pc_lb = 0;
+    wage_iter = wage_iter+1;
+    goods_iter = 0;
     while true
+        goods_iter = goods_iter+1;
         % Update price.
         prices.consumption = (pc_ub + pc_lb)/2;
         
@@ -44,6 +48,7 @@ while true
         
         % Calculate error.
         goods_market_error = abs(consumption_total - output_total);
+        labor_market_error = abs(labor_demand - labor_supply);
         
         % Print values to screen.
         fprintf('\nInterest Rate = %0.4f\n',prices.rate)
@@ -54,6 +59,10 @@ while true
         fprintf('\nTotal Consumption = %0.2f\n',consumption_total)
         fprintf('\nLabor Demand = %0.2f\n',labor_demand)
         fprintf('\nLabor Supply = %0.2f\n',labor_supply)
+        fprintf('\nGoods Market Error = %0.4f\n',goods_market_error)
+        fprintf('\nLabor Market Error = %0.4f\n',labor_market_error)
+        fprintf('\nWage Iteration = %0.0f\n',wage_iter)
+        fprintf('\nGoods Iteration = %0.0f\n\n',goods_iter)
         
 
         if goods_market_error<.01, break, end
@@ -65,6 +74,9 @@ while true
         end
 
     end
+    
+    
+    if labor_market_error<.01, break, end
     
     if labor_demand>labor_supply
         w_lb = prices.wage;
@@ -88,6 +100,9 @@ while true
 end
 
 
+
+
+
 function [ex_dem] = excess_demand(x, hh_params, prices)%, rate_lb, rate_ub)
 
 
@@ -98,11 +113,17 @@ function [ex_dem] = excess_demand(x, hh_params, prices)%, rate_lb, rate_ub)
 
 prices.rate        = x;
 
-[asset_demand, output_total] = firm_quantities(prices); %#ok<ASGLU>
-[~, ~, asset_supply, consumption_total, ~] = solve_hh_optimization_mex(hh_params,prices); %#ok<ASGLU>
+[asset_demand, output_total, labor_demand] = firm_quantities(prices);
+[~, ~, asset_supply, consumption_total, ~] = solve_hh_optimization_mex(hh_params,prices);
 
 
 % ex_dem(1) = consumption_total - output_total;
 ex_dem = asset_demand - asset_supply;
+
+end
+
+
+
+
 
 end
