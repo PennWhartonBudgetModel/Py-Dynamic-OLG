@@ -206,18 +206,21 @@ while ( eps > tol && iter < itermax )
                 rho  = 0.5*rho + 0.5*rhopr;
                 beq  = beq_total;
                 kpr  = kpr_total;
-                debt = 0.74*Y;
+                debt = 0.74*Y_total;
             end
-
+            
+            cap  = (kpr - debt)/q_tobin;
+            wage = A*(1-alp)*(rho^alp);
+            
             cap_share  = (kpr-debt)/kpr;
             debt_share = 1 - cap_share;
             rate_cap   = 1 + (A*alp*(rho^(alp-1)) - d)/q_tobin;
             rate_gov   = 1 + r_cbo;
             rate_tot   = cap_share*rate_cap + debt_share*rate_gov;
             
+            exp_subsidy = 0;
+            
     end
-    
-    wage = A*(1-alp)*(rho^alp);
     
     
     % Initialize global aggregates
@@ -275,7 +278,7 @@ while ( eps > tol && iter < itermax )
                    beta, gamma, sigma, T_life, Tr, T_opt, T_dist, birthyear, ...
                    kgrid, z, tr_z, bgrid, nk, nz, nb, idem, ...
                    mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, tau_ss, v_ss_max, ...
-                   beq, wage, cap_share, debt_share, rate_cap, rate_gov, rate_tot, 0, q_tobin, q_tobin, Vbeq, ...
+                   beq, wage, cap_share, debt_share, rate_cap, rate_gov, rate_tot, exp_subsidy, q_tobin, q_tobin, Vbeq, ...
                    avg_deduc, clinton, coefs, limit, X, ben, ...
                    dist_w0, dist_r0, mu2_idem, mu3_idem);
             
@@ -325,7 +328,7 @@ while ( eps > tol && iter < itermax )
             
             % Calculate debt and output
             debt_total = debt;
-            Y = A*(max((kpr_total-debt_total)/q_tobin, 0)^alp)*(elab_total^(1-alp));
+            Y_total = A*(max((kpr_total-debt_total)/q_tobin, 0)^alp)*(elab_total^(1-alp));
             
             % Calculate convergence delta
             rhopr = (max(kpr_total-debt_total, 0)/q_tobin)/elab_total;
@@ -357,12 +360,12 @@ end
 
 % Save solution
 save(fullfile(save_dir, 'solution.mat'), ...
-     'rho', 'beq', 'kpr', 'debt', ...
-     'cap_share', 'debt_share', 'rate_cap', 'rate_gov', 'rate_tot')
+     'rho', 'beq', 'kpr', 'debt', 'cap', 'wage', ...
+     'cap_share', 'debt_share', 'rate_cap', 'rate_gov', 'rate_tot', 'exp_subsidy')
 
 
 % Calculate capital to output ratio
-K_Y = (kpr_total-debt_total)/Y;
+K_Y = (kpr_total-debt_total)/Y_total;
 
 
 

@@ -165,14 +165,11 @@ methods (Static, Access = private)
             % Load baseline solution
             s = hardyload('solution.mat', base_generator, base_dir);
             
-            wages        = s.wages      ;
-            cap_shares   = s.cap_shares ;
-            debt_shares  = s.debt_shares;
-            rate_caps    = s.rate_caps  ;
-            rate_govs    = s.rate_govs  ;
-            
-            % Load baseline aggregates
-            s = hardyload('aggregates.mat', base_generator, base_dir);
+            wages        = s.wages       ;
+            cap_shares   = s.cap_shares  ;
+            debt_shares  = s.debt_shares ;
+            rate_caps    = s.rate_caps   ;
+            rate_govs    = s.rate_govs   ;
             exp_subsidys = s.exp_subsidys;
             
             % Load optimal decision values and distributions from baseline
@@ -417,7 +414,10 @@ methods (Static, Access = private)
                 case 'open'
                     
                     if (iter == 1)
-                        cap_total = (kpr0 - debt0)*ones(1,T_model)/q_tobin0;
+                        
+                        kprs  = kpr0 *ones(1,T_model);
+                        debts = debt0*ones(1,T_model);
+                        caps  = (kprs - debts)/q_tobin0;
                         
                         cap_shares  = cap_share0 *ones(1,T_model);
                         debt_shares = debt_share0*ones(1,T_model);
@@ -425,36 +425,44 @@ methods (Static, Access = private)
                         rate_govs   = rate_gov0  *ones(1,T_model);
                         rate_tots   = rate_tot0  *ones(1,T_model);
                         
-                        rhos = ((q_tobin*(rate_caps - 1) + d)/alp).^(1/(alp-1));
-                        beqs = beq0*ones(1,T_model);
+                        rhos  = ((q_tobin*(rate_caps - 1) + d)/alp).^(1/(alp-1));
+                        beqs  = beq0*ones(1,T_model);
+                        wages = A*(1-alp)*(rhos.^alp);
+                        
                     else
                         beqs = beq_total;
+                        caps = cap_total;
                     end
+                    
+                    exp_subsidys = [exp_share * max(diff(caps), 0), 0] ./ caps;
                     
                 case 'closed'
                     
                     if (iter == 1)
-                        kpr_total  = kpr0 *ones(1,T_model);
-                        debt_total = debt0*ones(1,T_model);
-                        cap_total  = (kpr_total - debt_total)/q_tobin;
-                        
-                        rhos = rho0*ones(1,T_model);
-                        beqs = beq0*ones(1,T_model);
+                        rhos  = rho0 *ones(1,T_model);
+                        beqs  = beq0 *ones(1,T_model);
+                        kprs  = kpr0 *ones(1,T_model);
+                        debts = debt0*ones(1,T_model);
+                        caps  = (kprs - debts)/q_tobin;
                     else
-                        rhos = 0.3*rhos + 0.7*rhoprs;
-                        beqs = beq_total;
+                        rhos  = 0.3*rhos + 0.7*rhoprs;
+                        beqs  = beq_total;
+                        kprs  = kpr_total;
+                        debts = debt_total;
+                        caps  = cap_total;
                     end
                     
-                    cap_shares  = (kpr_total - debt_total) ./ kpr_total;
+                    wages = A*(1-alp)*(rhos.^alp);
+                    
+                    cap_shares  = (kprs - debts) ./ kprs;
                     debt_shares = 1 - cap_shares;
                     rate_caps   = 1 + (A*alp*(rhos.^(alp-1)) - d)/q_tobin;
                     rate_govs   = rate_govs_cbo;
                     rate_tots   = cap_shares.*rate_caps + debt_shares.*rate_govs;
                     
+                    exp_subsidys = [exp_share * max(diff(caps), 0), 0] ./ caps;
+                    
             end
-            
-            wages        = A*(1-alp)*(rhos.^alp);
-            exp_subsidys = [exp_share * max(diff(cap_total), 0), 0] ./ cap_total;
             
             
             % Initialize dynamic aggregates
@@ -672,18 +680,23 @@ methods (Static, Access = private)
         
         % Save solution
         save(fullfile(save_dir, 'solution.mat'), ...
-             'rhos', 'wages', 'cap_shares', 'debt_shares', 'rate_caps', 'rate_govs')
+             'rhos', 'beqs', 'kprs', 'debts', 'caps', 'wages', ...
+             'cap_shares', 'debt_shares', 'rate_caps', 'rate_govs', 'rate_tots', 'exp_subsidys')
         
         % Save dynamic aggregates
-        save(fullfile(save_dir, 'aggregates.mat'), ...
-             'kpr_total', 'cap_total', 'debt_total', ...
-             'Gtilde', 'Ttilde', ...
-             'domestic_cap_total', 'foreign_cap_total', ...
-             'domestic_debt_total', 'foreign_debt_total', ...
-             'domestic_fcaptax_total', 'foreign_fcaptax_total', ...
-             'beq_total', 'elab_total', 'lab_total', 'lfpr_total', ...
-             'fedincome_total', 'fedit_total', 'ssrev_total', 'fcaptax_total', 'ssexp_total', ...
-             'Y_total', 'labinc_total', 'kinc_total', 'feditlab_total', 'fcaprev_total', 'exp_subsidys')
+        switch economy
+            case {'open', 'closed'}
+                save(fullfile(save_dir, 'aggregates.mat'), ...
+                     'beq_total', 'kpr_total', ...
+                     'debt_total', 'domestic_debt_total', 'foreign_debt_total', ...
+                     'cap_total', 'domestic_cap_total', 'foreign_cap_total', ...
+                     'Y_total', ...
+                     'elab_total', 'lab_total', 'lfpr_total', ...
+                     'fedincome_total', 'fedit_total', 'ssrev_total', ...
+                     'fcaptax_total', 'domestic_fcaptax_total', 'foreign_fcaptax_total', ...
+                     'ssexp_total', 'labinc_total', 'kinc_total', 'feditlab_total', 'fcaprev_total', ...
+                     'Gtilde', 'Ttilde')
+        end
         
         
     end
