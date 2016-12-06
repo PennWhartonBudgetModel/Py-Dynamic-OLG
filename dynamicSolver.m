@@ -311,15 +311,15 @@ methods (Static, Access = private)
                 % Load steady state solution
                 s = hardyload('solution.mat', steady_generator, steady_dir);
                 
-                rho0        = s.rho         ;
-                beq0        = s.beq         ;
-                kpr0        = s.kpr         ;
-                debt0       = s.debt        ;
-                cap_share0  = s.cap_share   ;
-                debt_share0 = s.debt_share  ;
-                rate_cap0   = s.rate_cap    ;
-                rate_gov0   = s.rate_gov    ;
-                rate_tot0   = s.rate_tot    ;
+                rho0        = s.rhos        ;
+                beq0        = s.beqs        ;
+                kpr0        = s.kprs        ;
+                debt0       = s.debts       ;
+                cap_share0  = s.cap_shares  ;
+                debt_share0 = s.debt_shares ;
+                rate_cap0   = s.rate_caps   ;
+                rate_gov0   = s.rate_govs   ;
+                rate_tot0   = s.rate_tots   ;
                 
                 % Load steady state distributions
                 s = hardyload('dist.mat', steady_generator, steady_dir);
@@ -511,10 +511,10 @@ methods (Static, Access = private)
                     
                     case {'open', 'closed'}
                         % (Note that a fixed retirement age matching the one used for the steady state solution is assumed)
-                        N_w_ss = length(dist_steady(1,idem).w);
-                        N_r_ss = length(dist_steady(1,idem).r);
-                        dist_w0 = bsxfun(@rdivide, dist_steady(1,idem).w, shiftdim(mu2_idem(1:N_w_ss),          -2));
-                        dist_r0 = bsxfun(@rdivide, dist_steady(1,idem).r, shiftdim(mu2_idem(N_w_ss+(1:N_r_ss)), -1));
+                        N_w_steady = length(dist_steady(1,idem).w);
+                        N_r_steady = length(dist_steady(1,idem).r);
+                        dist_w0 = bsxfun(@rdivide, dist_steady(1,idem).w, shiftdim(mu2_idem(1:N_w_steady),              -2));
+                        dist_r0 = bsxfun(@rdivide, dist_steady(1,idem).r, shiftdim(mu2_idem(N_w_steady+(1:N_r_steady)), -1));
                         
                 end
                 

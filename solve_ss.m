@@ -65,10 +65,10 @@ if isfield(counterdef, 'gcut'), gcut = counterdef.gcut; else gcut = +0.00 ; end
 s = load(fullfile(param_dir, 'param_global.mat'));
 
 T_life  = s.T_life;
-T_model = s.T_model;
+T_model = s.T_model; switch economy, case 'steady', T_model = 1; end
 
 kgrid = s.kgrid;
-bgrid = [0; s.bgrid(2:end)];            % (Lower bound on average earnings set to 0)
+bgrid = [0; s.bgrid(2:end)];
 
 Vbeq = s.phi1.*((1+kgrid./s.phi2).^(1-s.phi3));
 
@@ -87,7 +87,7 @@ alp         = s.alp;
 d           = s.d;
 deduc_scale = s.deduc_scale;
 proddist    = s.proddist(:,1)';
-surv        = [s.surv(1:T_life-1), 0];       % (Survival probability at age T set to 0)
+surv        = [s.surv(1:T_life-1), 0];
 tr_z        = s.tr_z;
 z           = s.z;
 
@@ -107,6 +107,7 @@ v_ss_max = s.taxmax(1);
 % Load CBO parameters
 s = load(fullfile(param_dir, 'param_cbo.mat'));
 
+D_Y   = s.FederalDebtHeldbythePublic(1)/100;
 r_cbo = mean(s.r_cbo);
 
 
@@ -198,35 +199,36 @@ while ( eps > tol && iter < itermax )
         case 'steady'
             
             if (iter == 1)
-                rho  = rho0 ;
-                beq  = beq0 ;
-                kpr  = kpr0 ;
-                debt = debt0;
+                rhos  = rho0 *ones(1,T_model);
+                beqs  = beq0 *ones(1,T_model);
+                kprs  = kpr0 *ones(1,T_model);
+                debts = debt0*ones(1,T_model);
+                caps  = (kprs - debts)/q_tobin;
             else
-                rho  = 0.5*rho + 0.5*rhopr;
-                beq  = beq_total;
-                kpr  = kpr_total;
-                debt = 0.74*Y_total;
+                rhos  = 0.5*rhos + 0.5*rhoprs;
+                beqs  = beq_total;
+                kprs  = kpr_total;
+                debts = D_Y*Y_total;
+                caps  = cap_total;
             end
             
-            cap  = (kpr - debt)/q_tobin;
-            wage = A*(1-alp)*(rho^alp);
+            wages = A*(1-alp)*(rhos.^alp);
             
-            cap_share  = (kpr-debt)/kpr;
-            debt_share = 1 - cap_share;
-            rate_cap   = 1 + (A*alp*(rho^(alp-1)) - d)/q_tobin;
-            rate_gov   = 1 + r_cbo;
-            rate_tot   = cap_share*rate_cap + debt_share*rate_gov;
+            cap_shares  = (kprs - debts) ./ kprs;
+            debt_shares = 1 - cap_shares;
+            rate_caps   = 1 + (A*alp*(rhos.^(alp-1)) - d)/q_tobin;
+            rate_govs   = 1 + r_cbo;
+            rate_tots   = cap_shares.*rate_caps + debt_shares.*rate_govs;
             
-            exp_subsidy = 0;
+            exp_subsidys = [exp_share * max(diff(caps), 0), 0] ./ caps;
             
     end
     
     
     % Initialize global aggregates
-    kpr_total  = 0;
-    beq_total  = 0;
-    elab_total = 0;
+    kpr_total  = zeros(1,T_model);
+    beq_total  = zeros(1,T_model);
+    elab_total = zeros(1,T_model);
     
     % Define birth year range
     switch economy
@@ -278,7 +280,7 @@ while ( eps > tol && iter < itermax )
                    beta, gamma, sigma, T_life, Tr, T_opt, T_dist, birthyear, ...
                    kgrid, z, tr_z, bgrid, nk, nz, nb, idem, ...
                    mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, tau_ss, v_ss_max, ...
-                   beq, wage, cap_share, debt_share, rate_cap, rate_gov, rate_tot, exp_subsidy, q_tobin, q_tobin, Vbeq, ...
+                   beqs, wages, cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, q_tobin, q_tobin, Vbeq, ...
                    avg_deduc, clinton, coefs, limit, X, ben, ...
                    dist_w0, dist_r0, mu2_idem, mu3_idem);
             
@@ -326,13 +328,16 @@ while ( eps > tol && iter < itermax )
         
         case 'steady'
             
-            % Calculate debt and output
-            debt_total = debt;
-            Y_total = A*(max((kpr_total-debt_total)/q_tobin, 0)^alp)*(elab_total^(1-alp));
+            % Calculate debt
+            debt_total = debts;
+            
+            % Calculate capital and output
+            cap_total = (kpr_total - debt_total)/q_tobin;
+            Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp));
             
             % Calculate convergence delta
-            rhopr = (max(kpr_total-debt_total, 0)/q_tobin)/elab_total;
-            delta = rho - rhopr;
+            rhoprs = (max(kpr_total - debt_total, 0)/q_tobin) ./ elab_total;
+            delta = rhos - rhoprs;
             
     end
     
@@ -360,8 +365,8 @@ end
 
 % Save solution
 save(fullfile(save_dir, 'solution.mat'), ...
-     'rho', 'beq', 'kpr', 'debt', 'cap', 'wage', ...
-     'cap_share', 'debt_share', 'rate_cap', 'rate_gov', 'rate_tot', 'exp_subsidy')
+     'rhos', 'beqs', 'kprs', 'debts', 'caps', 'wages', ...
+     'cap_shares', 'debt_shares', 'rate_caps', 'rate_govs', 'rate_tots', 'exp_subsidys')
 
 
 % Calculate capital to output ratio
