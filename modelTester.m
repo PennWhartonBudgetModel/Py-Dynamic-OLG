@@ -85,13 +85,12 @@ for i = 1:length(setnames)
     outputset = output.(testname).(setname);
     targetset = target.(testname).(setname);
     
-    % Iterate over values
-    % (Note that values present in the output but not in the target are not considered)
-    valuenames = fieldnames(targetset);
+    % Iterate over target values
+    targetvaluenames = fieldnames(targetset);
     
-    for j = 1:length(valuenames)
+    for j = 1:length(targetvaluenames)
         
-        valuename = valuenames{j};
+        valuename = targetvaluenames{j};
         
         % Identify missing value
         if ~isfield(outputset, valuename)
@@ -108,6 +107,21 @@ for i = 1:length(setnames)
                 ismatch = false;
             end
             
+        end
+        
+    end
+    
+    % Iterate over output values
+    outputvaluenames = fieldnames(outputset);
+    
+    for j = 1:length(outputvaluenames)
+        
+        valuename = outputvaluenames{j};
+        
+        % Identify new value
+        if ~isfield(targetset, valuename)
+            fprintf('\t%-25sNew.\n', valuename)
+            ismatch = false;
         end
         
     end
