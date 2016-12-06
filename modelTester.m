@@ -18,7 +18,7 @@ methods (Static)
     
     % Test steady state solution and elasticities
     function [] = steady()
-        save_dir = solve_ss( modelTester.basedef );
+        save_dir = dynamicSolver.steady(modelTester.basedef);
         setnames = {'solution', 'elasticities'};
         test_output(save_dir, setnames);
     end
@@ -26,7 +26,7 @@ methods (Static)
     
     % Test open economy baseline solution, dynamic aggregates, and static aggregates
     function [] = open_base()
-        save_dir = dynamicSolver.open( modelTester.basedef );
+        save_dir = dynamicSolver.open(modelTester.basedef);
         setnames = {'solution', 'aggregates'};
         test_output(save_dir, setnames);
     end
@@ -34,7 +34,7 @@ methods (Static)
     
     % Test open economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = open_counter()
-        save_dir = dynamicSolver.open( modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.10) );
+        save_dir = dynamicSolver.open(modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.10));
         setnames = {'solution', 'aggregates', 'aggregates_static'};
         test_output(save_dir, setnames);
     end
@@ -42,7 +42,7 @@ methods (Static)
     
     % Test closed economy baseline solution, dynamic aggregates, and static aggregates
     function [] = closed_base()
-        save_dir = dynamicSolver.closed( modelTester.basedef );
+        save_dir = dynamicSolver.closed(modelTester.basedef);
         setnames = {'solution', 'aggregates'};
         test_output(save_dir, setnames);
     end
@@ -50,7 +50,7 @@ methods (Static)
     
     % Test closed economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = closed_counter()
-        save_dir = dynamicSolver.closed( modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.10) );
+        save_dir = dynamicSolver.closed(modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.10));
         setnames = {'solution', 'aggregates', 'aggregates_static'};
         test_output(save_dir, setnames);
     end

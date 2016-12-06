@@ -54,8 +54,8 @@ methods (Static)
         if ( ~exist('counterdef', 'var') || isempty(counterdef) || isempty(fields(counterdef)) )
             counterdef_tag = 'baseline';
         else
-            if isfield(counterdef, 'plan'), plan = counterdef.plan; else plan = 'base'; end
-            if isfield(counterdef, 'gcut'), gcut = counterdef.gcut; else gcut = +0.00 ; end
+            if isfield(counterdef, 'plan'), plan = counterdef.plan; else, plan = 'base'; end
+            if isfield(counterdef, 'gcut'), gcut = counterdef.gcut; else, gcut = +0.00 ; end
             counterdef_tag = sprintf('plan=%s_gcut=%+0.2f', plan, gcut);
         end
         

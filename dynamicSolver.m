@@ -9,13 +9,23 @@ classdef dynamicSolver
 methods (Static)    
     
     
+    % Solve steady state
+    function [save_dir] = steady(basedef, callertag)
+        
+        if ~exist('callertag' , 'var'), callertag  = ''; end
+        
+        save_dir = dynamicSolver.solve('steady', basedef, [], callertag);
+        
+    end
+    
+    
     % Solve open economy transition path
     function [save_dir] = open(basedef, counterdef, callertag)
         
         if ~exist('counterdef', 'var'), counterdef = []; end
         if ~exist('callertag' , 'var'), callertag  = ''; end
         
-        save_dir = dynamicSolver.transition('open', basedef, counterdef, callertag);
+        save_dir = dynamicSolver.solve('open', basedef, counterdef, callertag);
         
     end
     
@@ -26,7 +36,7 @@ methods (Static)
         if ~exist('counterdef', 'var'), counterdef = []; end
         if ~exist('callertag' , 'var'), callertag  = ''; end
         
-        save_dir = dynamicSolver.transition('closed', basedef, counterdef, callertag);
+        save_dir = dynamicSolver.solve('closed', basedef, counterdef, callertag);
         
     end
     
@@ -36,7 +46,7 @@ end
 
 methods (Static, Access = private)
     
-    function [save_dir] = transition(economy, basedef, counterdef, callertag)
+    function [save_dir] = solve(economy, basedef, counterdef, callertag)
         
         
         %% Initialization
@@ -67,8 +77,8 @@ methods (Static, Access = private)
         if isbase, counterdef = struct(); end
         
         % Unpack parameters from counterfactual definition, setting baseline values for unspecified parameters
-        if isfield(counterdef, 'plan'), plan = counterdef.plan; else plan = 'base'; end
-        if isfield(counterdef, 'gcut'), gcut = counterdef.gcut; else gcut = +0.00 ; end
+        if isfield(counterdef, 'plan'), plan = counterdef.plan; else, plan = 'base'; end
+        if isfield(counterdef, 'gcut'), gcut = counterdef.gcut; else, gcut = +0.00 ; end
         
         
         
@@ -78,10 +88,10 @@ methods (Static, Access = private)
         s = load(fullfile(param_dir, 'param_global.mat'));
         
         T_life  = s.T_life;
-        T_model = s.T_model;
+        T_model = s.T_model; switch economy, case 'steady', T_model = 1; end
         
         kgrid = s.kgrid;
-        bgrid = [0; s.bgrid(2:end)];            % (Lower bound on average earnings set to 0)
+        bgrid = [0; s.bgrid(2:end)];
         
         Vbeq = s.phi1.*((1+kgrid./s.phi2).^(1-s.phi3));
         
@@ -99,11 +109,12 @@ methods (Static, Access = private)
         alp         = s.alp;
         d           = s.d;
         deduc_scale = s.deduc_scale;
-        surv        = [s.surv(1:T_life-1), 0];       % (Survival probability at age T set to 0)
+        proddist    = s.proddist(:,1)';
+        surv        = [s.surv(1:T_life-1), 0];
         tr_z        = s.tr_z;
         z           = s.z;
         
-        MU2 = s.demdist_2015 * ( s.Mu2/sum(s.Mu2) );
+        MU2 = s.demdist_2015 * (s.Mu2/sum(s.Mu2));
         MU3 = repmat(1-surv, [ndem,1]) .* MU2;
         
         
@@ -161,7 +172,7 @@ methods (Static, Access = private)
         if ~isbase
             
             % Identify baseline generator and save directory
-            base_generator = @() dynamicSolver.transition(economy, basedef, [], callingtag);
+            base_generator = @() dynamicSolver.solve(economy, basedef, [], callingtag);
             base_dir = dirFinder.save(economy, basedef);
             
             % Load baseline solution
@@ -288,13 +299,13 @@ methods (Static, Access = private)
             
             % Save static aggregates
             save(fullfile(save_dir, 'aggregates_static.mat'), ...
-                 'cap_static', ...
-                 'domestic_cap_static', 'foreign_cap_static', ...
                  'domestic_debt_static', 'foreign_debt_static', ...
-                 'domestic_fcaptax_static', 'foreign_fcaptax_static', ...
+                 'cap_static', 'domestic_cap_static', 'foreign_cap_static', ...
+                 'Y_static', ...
                  'elab_static', 'lfpr_static', ...
-                 'fedincome_static', 'fedit_static', 'ssrev_static', 'fcaptax_static', 'ssexp_static', ...
-                 'Y_static', 'labinc_static', 'kinc_static', 'feditlab_static', 'fcaprev_static')
+                 'fedincome_static', 'fedit_static', 'ssrev_static', ...
+                 'fcaptax_static', 'domestic_fcaptax_static', 'foreign_fcaptax_static', ...
+                 'ssexp_static', 'labinc_static', 'kinc_static', 'feditlab_static', 'fcaprev_static')
             
         end
         
@@ -304,10 +315,20 @@ methods (Static, Access = private)
         
         switch economy
             
+            case 'steady'
+                
+                % Load initial estimates for steady state solution
+                s = load(fullfile(param_dir, 'solution0.mat'));
+                
+                rho0  = s.rho   ;
+                beq0  = s.beq   ;
+                kpr0  = s.kpr   ;
+                debt0 = s.DEBTss;
+                
             case {'open', 'closed'}
-        
+                
                 % Identify steady state generator and save directory
-                steady_generator = @() solve_ss(basedef, callingtag);
+                steady_generator = @() dynamicSolver.steady(basedef, callingtag);
                 steady_dir = dirFinder.save('steady', basedef);
                 
                 % Load steady state solution
@@ -334,10 +355,10 @@ methods (Static, Access = private)
         switch economy
             
             case 'open'
-            
+                
                 % Load government expenditure adjustment parameters
                 s = load(fullfile(param_dir, 'param_gtilde.mat'));
-            
+                
                 indplan = cellfun(@(str) strncmp(plan, str, length(str)), {'base'; 'trump'; 'clinton'; 'ryan'});
                 revenue_percent = s.revenue_percent(indplan,:);
                 revenue_percent = [revenue_percent, revenue_percent(end)*ones(1, max(T_model-length(revenue_percent), 0))];
@@ -393,10 +414,13 @@ methods (Static, Access = private)
         % Display header
         fprintf('\n[')
         switch economy
+    
+            case 'steady'
+                fprintf('Steady state')
             
             case {'open', 'closed'}
                 str1 = [upper(economy(1)), economy(2:end)];
-                if isbase, str2 = 'baseline'; else str2 = 'counterfactual'; end
+                if isbase, str2 = 'baseline'; else, str2 = 'counterfactual'; end
                 fprintf('%s economy %s', str1, str2)
                 
         end
@@ -413,6 +437,32 @@ methods (Static, Access = private)
             % Define prices
             switch economy
                 
+                case 'steady'
+                    
+                    if (iter == 1)
+                        rhos  = rho0 *ones(1,T_model);
+                        beqs  = beq0 *ones(1,T_model);
+                        kprs  = kpr0 *ones(1,T_model);
+                        debts = debt0*ones(1,T_model);
+                        caps  = (kprs - debts)/q_tobin;
+                    else
+                        rhos  = 0.5*rhos + 0.5*rhoprs;
+                        beqs  = beq_total;
+                        kprs  = kpr_total;
+                        debts = D_Y*Y_total;
+                        caps  = cap_total;
+                    end
+                    
+                    wages = A*(1-alp)*(rhos.^alp);
+                    
+                    cap_shares  = (kprs - debts) ./ kprs;
+                    debt_shares = 1 - cap_shares;
+                    rate_caps   = 1 + (A*alp*(rhos.^(alp-1)) - d)/q_tobin;
+                    rate_govs   = meanrate_cbo;
+                    rate_tots   = cap_shares.*rate_caps + debt_shares.*rate_govs;
+                    
+                    exp_subsidys = [exp_share * max(diff(caps), 0), 0] ./ caps;
+                    
                 case 'open'
                     
                     if (iter == 1)
@@ -481,6 +531,9 @@ methods (Static, Access = private)
             
             % Define birth year range
             switch economy
+        
+                case 'steady'
+                    birthyears = 0;
                 
                 case {'open', 'closed'}
                     birthyears = (-T_life+1):(T_model-1);
@@ -495,6 +548,10 @@ methods (Static, Access = private)
             
             % Define dynamic optimization and distribution generation time periods
             switch economy
+        
+                case 'steady'
+                    T_opt  = 1;
+                    T_dist = T_life;
                 
                 case {'open', 'closed'}
                     T_opt  = T_model;
@@ -510,6 +567,10 @@ methods (Static, Access = private)
                 
                 % Define initial distributions
                 switch economy
+            
+                    case 'steady'
+                        dist_w0 = padarray(proddist, [nk-1, 0, nb-1], 0, 'post');
+                        dist_r0 = [];
                     
                     case {'open', 'closed'}
                         % (Note that a fixed retirement age matching the one used for the steady state solution is assumed)
@@ -538,9 +599,9 @@ methods (Static, Access = private)
                            dist_w0, dist_r0, mu2_idem, mu3_idem);
                     
                     % Store values
-                    opt(i,idem).lab = labopt; %#ok<PFOUS>
+                    opt(i,idem).lab = labopt;
                     
-                    dist(i,idem).w = dist_w; %#ok<PFOUS>
+                    dist(i,idem).w = dist_w;
                     dist(i,idem).r = dist_r;
                     
                     cohorts(i,idem).N_w         = N_w           ;
@@ -562,6 +623,13 @@ methods (Static, Access = private)
                     
                     switch economy
                         
+                        case 'steady'
+                            
+                            % Add aggregate values to global aggregates
+                            kpr_total  = kpr_total  + sum(cohorts(i,idem).Kalive + cohorts(i,idem).Kdead);
+                            beq_total  = beq_total  + sum(cohorts(i,idem).Kdead);
+                            elab_total = elab_total + sum(cohorts(i,idem).ELab);
+                            
                         case {'open', 'closed'}
                             
                             % Add cohort aggregates to dynamic aggregates, aligning to projection years
@@ -592,6 +660,19 @@ methods (Static, Access = private)
             % (Note that open economy requires capital calculation before debt calculation while closed economy requires the reverse)
             switch economy
                 
+                case 'steady'
+                    
+                    % Calculate debt
+                    debt_total = debts;
+                    
+                    % Calculate capital and output
+                    cap_total = (kpr_total - debt_total)/q_tobin;
+                    Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp));
+                    
+                    % Calculate convergence delta
+                    rhoprs = (max(kpr_total - debt_total, 0)/q_tobin) ./ elab_total;
+                    delta = rhos - rhoprs;
+                    
                 case 'open'
                     
                     % Calculate capital and output
@@ -620,7 +701,14 @@ methods (Static, Access = private)
                     domestic_debt_total = (1 - cap_shares) .* kpr_total;
                     foreign_debt_total  = debt_total - domestic_debt_total; %#ok<NASGU>
                     
-                    % Calculate convergence series delta
+                    % Calculate income
+                    labinc_total = elab_total .* wages;
+                    kinc_total   = q_tobin * (rate_caps - 1) .* cap_total; %#ok<NASGU>
+                    
+                    feditlab_total = fedit_total .* labinc_total ./ fedincome_total;
+                    fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
+                    
+                    % Calculate convergence delta
                     delta = beqs - beq_total;
                     
                 case 'closed'
@@ -641,22 +729,23 @@ methods (Static, Access = private)
                     
                     % Calculate capital and output
                     cap_total = ([(kpr0 - debt0)/q_tobin0, (kpr_total(1:end-1) - debt_total(2:end))/q_tobin]);
-                    Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp)); %#ok<NASGU>
+                    Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp));
                     
                     domestic_cap_total = [q_tobin0 * cap_total(1), q_tobin * cap_total(2:end)]; %#ok<NASGU>
                     foreign_cap_total  = zeros(1,T_model); %#ok<NASGU>
                     
-                    % Calculate convergence series delta
+                    % Calculate income
+                    labinc_total = elab_total .* wages;
+                    kinc_total   = q_tobin * (rate_caps - 1) .* cap_total; %#ok<NASGU>
+                    
+                    feditlab_total = fedit_total .* labinc_total ./ fedincome_total;
+                    fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
+                    
+                    % Calculate convergence delta
                     rhoprs = (max([kpr0, kpr_total(1:end-1)] - debt_total, 0)/q_tobin) ./ elab_total;
                     delta = rhos - rhoprs;
                     
             end
-            
-            labinc_total = elab_total .* wages;
-            kinc_total   = q_tobin * (rate_caps - 1) .* cap_total; %#ok<NASGU>
-            
-            feditlab_total = fedit_total .* labinc_total ./ fedincome_total;
-            fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
             
             
             % Calculate convergence error
@@ -701,6 +790,76 @@ methods (Static, Access = private)
         end
         
         
+        
+        %% Elasticity calculation
+        
+        switch economy
+            case 'steady'
+                
+                % Calculate capital to output ratio
+                K_Y = (kpr_total-debt_total)/Y_total;
+                
+                
+                % Calculate labor elasticity
+                working_mass = 0;
+                frisch_total = 0;
+                
+                for idem = 1:ndem
+                    
+                    labopt = opt(1,idem).lab;
+                    dist_w = dist(1,idem).w;
+                    
+                    working_ind = (labopt > 0.01);  % (Labor elasticity calculation sensitive to threshold value)
+                    
+                    working_mass = working_mass + sum(dist_w(working_ind));
+                    frisch_total = frisch_total + sum(dist_w(working_ind).*(1-labopt(working_ind))./labopt(working_ind))*(1-gamma*(1-sigma))/sigma;
+                    
+                end
+                
+                labor_elas = frisch_total / working_mass;
+                
+                
+                % Calculate savings elasticity
+                
+                % % Specify percentage change in net interest rate
+                % rate_deviation = 0.005;
+                % 
+                % % Scale rates by deviation if provided
+                % rate_cap = rate_cap * (1 + rate_deviation);
+                % rate_gov = rate_gov * (1 + rate_deviation);
+                % 
+                % % Solve dynamic optimization and generate distributions
+                % [~, ~, kpr_dev, ~, ~, ~, ~, ~, ~, ~, ~, rate_tot_dev] ...
+                %  ...
+                %    = solve_and_generate(...
+                %        rho, beq, kpr, debt, ...
+                %        T, Tr, bgrid, kgrid, ndem, nb, nk, nz, ...
+                %        mpci, rpci, A, alp, cap_tax_share, d, q_tobin, Vbeq, proddist, ss_tax_cred, surv, ...
+                %        tau_cap, tau_capgain, tau_ss, tr_z, v_ss_max, z, ...
+                %        avg_deduc, clinton, coefs, limit, X, r_cbo, ben, ...
+                %        beta, gamma, sigma, MU2, MU3, ...
+                %        rate_deviation);
+                % 
+                % % Calculate savings elasticity
+                % savings_elas = ((kpr_dev - kpr)/kpr) / ((rate_tot_dev - rate_tot)/(rate_tot-1));
+                
+                savings_elas = 0;
+                
+                
+                % Package, save, and display elasticities
+                elasticities = [K_Y, labor_elas, savings_elas];
+                
+                save(fullfile(save_dir, 'elasticities.mat'), 'K_Y', 'labor_elas', 'savings_elas')
+                
+                displaynames = { 'Capital-to-output ratio', 'Labor elasticity', 'Savings elasticity' };
+                for i = 1:length(elasticities)
+                    fprintf('\t%-25s= % 7.4f\n', displaynames{i}, elasticities(i))
+                end
+                fprintf('\n')
+                
+        end
+        
+        
     end
     
 end
@@ -711,7 +870,7 @@ end
 
 
 %%
-% Check if file exists and generate if necessary before loading, handling parallel write and read conflicts.
+% Check if file exists and generate before loading if necessary, handling parallel write and read conflicts.
 % 
 %%
 
