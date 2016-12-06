@@ -118,9 +118,11 @@ methods (Static, Access = private)
         
         % Load CBO parameters
         s = load(fullfile(param_dir, 'param_cbo.mat'));
-        
-        fedgovtnis     = s.fedgovtnis(1:T_model);
-        rate_govs_cbo  = 1 + s.r_cbo(1:T_model);
+
+        D_Y          = s.FederalDebtHeldbythePublic(1)/100;
+        fedgovtnis   = s.fedgovtnis(1:T_model);
+        rate_cbos    = 1 + s.r_cbo(1:T_model);
+        meanrate_cbo = 1 + mean(s.r_cbo);
         
         
         % Load income tax parameters
@@ -457,7 +459,7 @@ methods (Static, Access = private)
                     cap_shares  = (kprs - debts) ./ kprs;
                     debt_shares = 1 - cap_shares;
                     rate_caps   = 1 + (A*alp*(rhos.^(alp-1)) - d)/q_tobin;
-                    rate_govs   = rate_govs_cbo;
+                    rate_govs   = rate_cbos;
                     rate_tots   = cap_shares.*rate_caps + debt_shares.*rate_govs;
                     
                     exp_subsidys = [exp_share * max(diff(caps), 0), 0] ./ caps;
@@ -612,7 +614,7 @@ methods (Static, Access = private)
                     netrev_total = fedit_total + ssrev_total + fcaptax_total - ssexp_total;
                     debt_total = [debt0, zeros(1,T_model-1)];
                     for t = 1:T_model-1
-                        debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*rate_govs_cbo(t);
+                        debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*rate_cbos(t);
                     end
                     
                     domestic_debt_total = (1 - cap_shares) .* kpr_total;
@@ -631,7 +633,7 @@ methods (Static, Access = private)
                     netrev_total = fedit_total + ssrev_total + fcaptax_total - ssexp_total;
                     debt_total = [debt0, zeros(1,T_model-1)];
                     for t = 1:T_model-1
-                        debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*rate_govs_cbo(t);
+                        debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*rate_cbos(t);
                     end
                     
                     domestic_debt_total = debt_total;   %#ok<NASGU>

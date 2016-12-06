@@ -98,17 +98,19 @@ MU3 = repmat(1-surv, [ndem,1]) .* MU2;
 % Load social security parameters
 s = load(fullfile(param_dir, 'param_socsec.mat'));
 
-Tr       = s.NRA(1);
-ben      = s.ss_benefit(:,1);
-tau_ss   = s.ss_tax(1);
-v_ss_max = s.taxmax(1);
+NRA        = s.NRA;
+ss_benefit = s.ss_benefit(:,1:T_model);
+ss_tax     = s.ss_tax(1:T_model);
+taxmax     = s.taxmax(1:T_model);
 
 
 % Load CBO parameters
 s = load(fullfile(param_dir, 'param_cbo.mat'));
 
-D_Y   = s.FederalDebtHeldbythePublic(1)/100;
-r_cbo = mean(s.r_cbo);
+D_Y          = s.FederalDebtHeldbythePublic(1)/100;
+fedgovtnis   = s.fedgovtnis(1:T_model);
+rate_cbos    = 1 + s.r_cbo(1:T_model);
+meanrate_cbo = 1 + mean(s.r_cbo);
 
 
 % Load income tax parameters
@@ -217,7 +219,7 @@ while ( eps > tol && iter < itermax )
             cap_shares  = (kprs - debts) ./ kprs;
             debt_shares = 1 - cap_shares;
             rate_caps   = 1 + (A*alp*(rhos.^(alp-1)) - d)/q_tobin;
-            rate_govs   = 1 + r_cbo;
+            rate_govs   = meanrate_cbo;
             rate_tots   = cap_shares.*rate_caps + debt_shares.*rate_govs;
             
             exp_subsidys = [exp_share * max(diff(caps), 0), 0] ./ caps;
@@ -270,8 +272,9 @@ while ( eps > tol && iter < itermax )
         
         parfor i = 1:length(birthyears)
             
-            % Get birth year
+            % Get birth year and retirement age
             birthyear = birthyears(i);
+            Tr = NRA(i);
             
             % Generate optimal decision values, distributions, and cohort aggregates
             [labopt, dist_w, dist_r, N_w, N_r, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...
@@ -279,9 +282,9 @@ while ( eps > tol && iter < itermax )
                = generate_distributions(...
                    beta, gamma, sigma, T_life, Tr, T_opt, T_dist, birthyear, ...
                    kgrid, z, tr_z, bgrid, nk, nz, nb, idem, ...
-                   mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, tau_ss, v_ss_max, ...
+                   mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, ss_tax, taxmax, ...
                    beqs, wages, cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, q_tobin, q_tobin, Vbeq, ...
-                   avg_deduc, clinton, coefs, limit, X, ben, ...
+                   avg_deduc, clinton, coefs, limit, X, ss_benefit, ...
                    dist_w0, dist_r0, mu2_idem, mu3_idem);
             
             % Store values
@@ -369,76 +372,74 @@ save(fullfile(save_dir, 'solution.mat'), ...
      'cap_shares', 'debt_shares', 'rate_caps', 'rate_govs', 'rate_tots', 'exp_subsidys')
 
 
-% Calculate capital to output ratio
-K_Y = (kpr_total-debt_total)/Y_total;
+ 
+%% Elasticity calculation
 
-
-
-
-%% Labor elasticity calculation
-
-working_mass = 0;
-frisch_total = 0;
-
-for idem = 1:ndem
-    
-    labopt = opt(1,idem).lab;
-    dist_w = dist(1,idem).w;
-    
-    working_ind = (labopt > 0.01);  % (Labor elasticity calculation sensitive to threshold value)
-    
-    working_mass = working_mass + sum(dist_w(working_ind));
-    frisch_total = frisch_total + sum(dist_w(working_ind).*(1-labopt(working_ind))./labopt(working_ind))*(1-gamma*(1-sigma))/sigma;
-    
+switch economy
+    case 'steady'
+        
+        % Calculate capital to output ratio
+        K_Y = (kpr_total-debt_total)/Y_total;
+        
+        
+        % Calculate labor elasticity
+        working_mass = 0;
+        frisch_total = 0;
+        
+        for idem = 1:ndem
+            
+            labopt = opt(1,idem).lab;
+            dist_w = dist(1,idem).w;
+            
+            working_ind = (labopt > 0.01);  % (Labor elasticity calculation sensitive to threshold value)
+            
+            working_mass = working_mass + sum(dist_w(working_ind));
+            frisch_total = frisch_total + sum(dist_w(working_ind).*(1-labopt(working_ind))./labopt(working_ind))*(1-gamma*(1-sigma))/sigma;
+            
+        end
+        
+        labor_elas = frisch_total / working_mass;
+        
+        
+        % Calculate savings elasticity
+        
+        % % Specify percentage change in net interest rate
+        % rate_deviation = 0.005;
+        % 
+        % % Scale rates by deviation if provided
+        % rate_cap = rate_cap * (1 + rate_deviation);
+        % rate_gov = rate_gov * (1 + rate_deviation);
+        % 
+        % % Solve dynamic optimization and generate distributions
+        % [~, ~, kpr_dev, ~, ~, ~, ~, ~, ~, ~, ~, rate_tot_dev] ...
+        %  ...
+        %    = solve_and_generate(...
+        %        rho, beq, kpr, debt, ...
+        %        T, Tr, bgrid, kgrid, ndem, nb, nk, nz, ...
+        %        mpci, rpci, A, alp, cap_tax_share, d, q_tobin, Vbeq, proddist, ss_tax_cred, surv, ...
+        %        tau_cap, tau_capgain, tau_ss, tr_z, v_ss_max, z, ...
+        %        avg_deduc, clinton, coefs, limit, X, r_cbo, ben, ...
+        %        beta, gamma, sigma, MU2, MU3, ...
+        %        rate_deviation);
+        % 
+        % % Calculate savings elasticity
+        % savings_elas = ((kpr_dev - kpr)/kpr) / ((rate_tot_dev - rate_tot)/(rate_tot-1));
+        
+        savings_elas = 0;
+        
+        
+        % Package, save, and display elasticities
+        elasticities = [K_Y, labor_elas, savings_elas];
+        
+        save(fullfile(save_dir, 'elasticities.mat'), 'K_Y', 'labor_elas', 'savings_elas')
+        
+        displaynames = { 'Capital-to-output ratio', 'Labor elasticity', 'Savings elasticity' };
+        for i = 1:length(elasticities)
+            fprintf('\t%-25s= % 7.4f\n', displaynames{i}, elasticities(i))
+        end
+        fprintf('\n')
+        
 end
-
-% Calculate labor elasticity
-labor_elas = frisch_total / working_mass;
-
-
-
-
-%% Savings elasticity calculation
-
-% % Specify percentage change in net interest rate
-% rate_deviation = 0.005;
-% 
-% % Scale rates by deviation if provided
-% rate_cap = rate_cap * (1 + rate_deviation);
-% rate_gov = rate_gov * (1 + rate_deviation);
-% 
-% % Solve dynamic optimization and generate distributions
-% [~, ~, kpr_dev, ~, ~, ~, ~, ~, ~, ~, ~, rate_tot_dev] ...
-%  ...
-%    = solve_and_generate(...
-%        rho, beq, kpr, debt, ...
-%        T, Tr, bgrid, kgrid, ndem, nb, nk, nz, ...
-%        mpci, rpci, A, alp, cap_tax_share, d, q_tobin, Vbeq, proddist, ss_tax_cred, surv, ...
-%        tau_cap, tau_capgain, tau_ss, tr_z, v_ss_max, z, ...
-%        avg_deduc, clinton, coefs, limit, X, r_cbo, ben, ...
-%        beta, gamma, sigma, MU2, MU3, ...
-%        rate_deviation);
-% 
-% % Calculate savings elasticity
-% savings_elas = ((kpr_dev - kpr)/kpr) / ((rate_tot_dev - rate_tot)/(rate_tot-1));
-
-savings_elas = 0;
-
-
-
-
-%%
-
-% Package, save, and display elasticities
-elasticities = [K_Y, labor_elas, savings_elas];
-
-save(fullfile(save_dir, 'elasticities.mat'), 'K_Y', 'labor_elas', 'savings_elas')
-
-displaynames = { 'Capital-to-output ratio', 'Labor elasticity', 'Savings elasticity' };
-for i = 1:length(elasticities)
-    fprintf('\t%-25s= % 7.4f\n', displaynames{i}, elasticities(i))
-end
-fprintf('\n')
 
 
 end
