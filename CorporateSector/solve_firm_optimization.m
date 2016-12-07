@@ -1,4 +1,4 @@
-function [capital_total, labor_total, eq_total, V_total, output_total, dist] = solve_firm_optimization( prices, firm_params) %#ok<*INUSD>
+function [capital_total, labor_total, eq_total, inv_total, V_total, output_total, dist] = solve_firm_optimization( prices, firm_params) %#ok<*INUSD>
 %#codegen
 
 %% Unload firm parameter structure
@@ -41,7 +41,7 @@ while true
 %             EVpr = reshape( sum(bsxfun(@times, prod_transprob(ip,:), Vpr' ), 2), [nk,1] );
             EVpr = prod_transprob(ip,:)*Vpr';
             revenue = revenues(ik,ip);
-            value_function([],revenue,kgrid(ik),EVpr,firm_params);
+            value_function([], revenue, kgrid(ik), EVpr, firm_params, prices.consumption);
             k_opt = 0; %#ok<NASGU>
             V_opt = 0;  %#ok<NASGU>
             [k_opt,V_opt] = fminsearch(@value_function,kgrid(ik),optim_options);
@@ -60,12 +60,12 @@ end
 
 
 % Solve stationary distribution
-[capital_total, labor_total, eq_total, V_total, output_total, dist] = solve_firm_distribution(kopt, labopt, eqopt, Vopt, revenues, firm_params);
+[capital_total, labor_total, eq_total, inv_total, V_total, output_total, dist] = solve_firm_distribution(kopt, labopt, eqopt, invopt, Vopt, revenues, firm_params);
 
 end
 
 
-function vf = value_function( k_prime, revenue_, k_ik_, EVpr_, firm_params )
+function vf = value_function( k_prime, revenue_, k_ik_, EVpr_, firm_params, price_consumption_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -80,17 +80,19 @@ persistent kgrid
 persistent depreciation
 persistent adj_cost_param 
 persistent discount_factor 
+persistent price_consumption
 
 
 % Initialize parameters
 if isempty(initialized)
-    revenue         = 0;
-	k_ik            = 0;
-	EVpr            = 0;
-    kgrid           = 0;
-	depreciation    = 0;
-	adj_cost_param  = 0;
-	discount_factor = 0;
+    revenue           = 0;
+	k_ik              = 0;
+	EVpr              = 0;
+    kgrid             = 0;
+	depreciation      = 0;
+	adj_cost_param    = 0;
+	discount_factor   = 0;
+    price_consumption = 0;
     
     initialized = true;
     
@@ -98,13 +100,14 @@ end
 
 % Set parameters if provided
 if (nargin > 1)
-    revenue         = revenue_;
-	k_ik            = k_ik_;
-	EVpr            = EVpr_;
-    kgrid           = firm_params.kgrid;
-	depreciation    = firm_params.depreciation;
-	adj_cost_param  = firm_params.adj_cost_param;
-	discount_factor = firm_params.discount_factor;
+    revenue           = revenue_;
+	k_ik              = k_ik_;
+	EVpr              = EVpr_;
+    kgrid             = firm_params.kgrid;
+	depreciation      = firm_params.depreciation;
+	adj_cost_param    = firm_params.adj_cost_param;
+	discount_factor   = firm_params.discount_factor;
+    price_consumption = price_consumption_;
     
     vf = [];
     return
@@ -120,7 +123,7 @@ end
 investment = k_prime - (1-depreciation)*k_ik;
 adjustment_costs = (adj_cost_param/2)*(investment^2);
 
-vf = revenue - investment - adjustment_costs + discount_factor*interp1(kgrid,EVpr,k_prime,'linear');
+vf = revenue - price_consumption*investment - adjustment_costs + discount_factor*interp1(kgrid,EVpr,k_prime,'linear');
 vf = -vf;
 
 
@@ -130,7 +133,7 @@ end
 
 
 
-function [capital_total, labor_total, eq_total, V_total, output_total, dist] = solve_firm_distribution(kopt, labopt, eqopt, Vopt, revenues, firm_params)
+function [capital_total, labor_total, eq_total, inv_total, V_total, output_total, dist] = solve_firm_distribution(kopt, labopt, eqopt, invopt, Vopt, revenues, firm_params)
 kgrid          = firm_params.kgrid;
 nk             = firm_params.nk;
 n_prodshocks   = firm_params.n_prodshocks;
@@ -171,11 +174,12 @@ while true
     dist = distpr;
 end
 
-capital_total = sum(dist(:).*kopt(:) );
-labor_total   = sum(dist(:).*labopt(:) );
-eq_total      = sum(dist(:).*eqopt(:));
-V_total       = sum(dist(:).*Vopt(:) );
-output_total  = sum(dist(:).*revenues(:) );
+capital_total = sum(dist(:).*kopt(:)    );
+labor_total   = sum(dist(:).*labopt(:)  );
+eq_total      = sum(dist(:).*eqopt(:)   );
+inv_total     = sum(dist(:).*invopt(:)  );
+V_total       = sum(dist(:).*Vopt(:)    );
+output_total  = sum(dist(:).*revenues(:));
 
 end
 

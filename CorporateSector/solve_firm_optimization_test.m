@@ -8,4 +8,4 @@ prices.wage        = 1;
 
 s.firm_params.discount_factor = 1/prices.rate;
 
-[capital_total, eq_total, V_total, output_total, dist] = solve_firm_optimization_mex(prices, s.firm_params);
+[capital_total, eq_total, inv_total, V_total, output_total, dist] = solve_firm_optimization_mex(prices, s.firm_params);

@@ -1,4 +1,4 @@
-function [prices, quantities] = solve_ss_equilibrium_global()
+function [prices, quantities] = solve_ss_equilibrium_global(eqm_prices,print_info) %#ok<INUSD>
 
 
 % Prepare starting points and settings for optimization routine.
@@ -25,15 +25,15 @@ labor_supply = sum(sum(dist).*s_hh.hh_params.prod_shocks');    % Update if labor
 if ~exist('eqm_prices','var')
     
     % Solve equilibrium price of consumption.
-    pc_ub = 2.5;
-    pc_lb = 2.25;
+    pc_ub = 4;
+    pc_lb = 2.5;
     pc_iter = 0;
     while true
         pc_iter = pc_iter + 1;
         prices.consumption = (pc_ub + pc_lb)/2;
         
         pw_ub = 8;
-        pw_lb = 6;
+        pw_lb = 5;
         pw_iter = 0;
         while true
             pw_iter = pw_iter + 1;
@@ -47,15 +47,16 @@ if ~exist('eqm_prices','var')
                 prices.rate = (pr_ub + pr_lb)/2;
                 
                 % Solve agent problems
-                [asset_demand, output_total, labor_demand] = firm_quantities(prices);
+                [asset_demand, output_total, labor_demand, inv_total] = firm_quantities(prices);
                 quantities.firm.value_total  = asset_demand;
                 quantities.firm.output_total = output_total;
+                quantities.firm.inv_total    = inv_total;
                 
                 [~, ~, asset_supply, consumption_total, ~] = solve_hh_optimization_mex(s_hh.hh_params,prices);
                 quantities.hh.assets_total     = asset_supply;
                 quantities.hh.consumtion_total = consumption_total;
                 
-                goods_market_error = abs(consumption_total - output_total);
+                goods_market_error = abs(inv_total + consumption_total - output_total);
                 labor_market_error = abs(labor_demand - labor_supply);
                 asset_market_error = abs(asset_demand-asset_supply);
                 
@@ -83,18 +84,35 @@ if ~exist('eqm_prices','var')
         
         if (goods_market_error<.01)||(pc_iter>20), break, end
 
-        if consumption_total>output_total
+        if (inv_total + consumption_total)>output_total
             pc_lb = prices.consumption;
-        elseif output_total>consumption_total
+        elseif output_total>(inv_total + consumption_total)
             pc_ub = prices.consumption;
         end
         
     end
-            
-            
-
-        
     
+    
+    save('results.mat','prices','quantities')
+            
+elseif exist('eqm_prices','var')
+    
+    % Give values at provided prices.
+    [asset_demand, output_total, labor_demand, inv_total] = firm_quantities(prices);
+    quantities.firm.value_total  = asset_demand;
+    quantities.firm.output_total = output_total;
+    quantities.firm.inv_total    = inv_total;
+
+    [~, ~, asset_supply, consumption_total, ~] = solve_hh_optimization_mex(s_hh.hh_params,prices);
+    quantities.hh.assets_total     = asset_supply;
+    quantities.hh.consumtion_total = consumption_total;
+
+    % Calculate error.
+    goods_market_error = abs(inv_total + consumption_total - output_total);
+    asset_market_error = abs(asset_demand - asset_supply);
+    labor_market_error = abs(labor_demand - labor_supply);
+
+
 end
 
 
@@ -105,19 +123,6 @@ end
 
 
 
-% Give values at optimal solution.
-[asset_demand, output_total, labor_demand] = firm_quantities(prices);
-quantities.firm.value_total  = asset_demand;
-quantities.firm.output_total = output_total;
-
-[~, ~, asset_supply, consumption_total, ~] = solve_hh_optimization_mex(s_hh.hh_params,prices);
-quantities.hh.assets_total     = asset_supply;
-quantities.hh.consumtion_total = consumption_total;
-
-% Calculate error.
-goods_market_error = abs(consumption_total - output_total);
-asset_market_error = abs(asset_demand - asset_supply);
-labor_market_error = abs(labor_demand - labor_supply);
 
 if ~exist('print_info','var')
     return
@@ -128,43 +133,26 @@ end
 
 
 
-function [ex_dem] = excess_demand(x, hh_params, prices, labor_supply)
-
-% prices.consumption = x(1);
-prices.rate        = x(1);
-prices.wage        = x(2);
-
-[asset_demand, output_total, labor_demand] = firm_quantities(prices);
-[~, ~, asset_supply, consumption_total, ~] = solve_hh_optimization_mex(hh_params,prices);
-
-
-% ex_dem(1) = consumption_total - output_total;
-ex_dem(1) = asset_demand - asset_supply;
-ex_dem(2) = labor_demand - labor_supply;
-
-ex_dem = norm(ex_dem,2);    % implemented for fminsearch ONLY
-
-end
-
 
 function [] = print_information()
 
 % Print values to screen.
-fprintf('\nInterest Rate = %0.4f\n'         ,prices.rate)
-fprintf('\nAsset Demand = %0.2f\n'          ,asset_demand)
-fprintf('\nAsset Supply = %0.2f\n'          ,asset_supply)
-fprintf('\nWage = %0.4f\n'                  ,prices.wage)
-fprintf('\nLabor Demand = %0.2f\n'          ,labor_demand)
-fprintf('\nLabor Supply = %0.2f\n'          ,labor_supply)
-fprintf('\nConsumption Price = %0.4f\n'     ,prices.consumption)
-fprintf('\nTotal Output = %0.2f\n'          ,output_total)
-fprintf('\nTotal Consumption = %0.2f\n'     ,consumption_total)
-fprintf('\nGoods Market Error = %0.4f\n'    ,goods_market_error)
-fprintf('\nLabor Market Error = %0.4f\n'    ,labor_market_error)
-fprintf('\nAsset Market Error = %0.4f\n'    ,asset_market_error)
-fprintf('\nGood Market Iteration = %0.0f\n' ,pc_iter)
-fprintf('\nLabor Market Iteration = %0.0f\n',pw_iter)
-fprintf('\nAsset Market Iteration = %0.0f\n',pr_iter)
+fprintf('\nInterest Rate = %0.4f\n'         , prices.rate)
+fprintf('\nAsset Demand = %0.2f\n'          , asset_demand)
+fprintf('\nAsset Supply = %0.2f\n'          , asset_supply)
+fprintf('\nWage = %0.4f\n'                  , prices.wage)
+fprintf('\nLabor Demand = %0.2f\n'          , labor_demand)
+fprintf('\nLabor Supply = %0.2f\n'          , labor_supply)
+fprintf('\nConsumption Price = %0.4f\n'     , prices.consumption)
+fprintf('\nTotal Output = %0.2f\n'          , output_total)
+fprintf('\nTotal Investment = %0.2f\n'      , inv_total)
+fprintf('\nTotal Consumption = %0.2f\n'     , consumption_total)
+fprintf('\nGoods Market Error = %0.4f\n'    , goods_market_error)
+fprintf('\nLabor Market Error = %0.4f\n'    , labor_market_error)
+fprintf('\nAsset Market Error = %0.4f\n'    , asset_market_error)
+fprintf('\nGood Market Iteration = %0.0f\n' , pc_iter)
+fprintf('\nLabor Market Iteration = %0.0f\n', pw_iter)
+fprintf('\nAsset Market Iteration = %0.0f\n', pr_iter)
 
 end
         
