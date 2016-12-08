@@ -89,8 +89,12 @@ methods (Static, Access = private)
         
         T_life  = s.T_life;
         switch economy
-            case 'steady',           T_model = 1;
-            case {'open', 'closed'}, T_model = s.T_model;
+            case 'steady'
+                T_model    = 1;
+                birthyears = 0;
+            case {'open', 'closed'}
+                T_model    = s.T_model;
+                birthyears = (-T_life+1):(T_model-1);
         end
         
         kgrid = s.kgrid;
@@ -124,7 +128,7 @@ methods (Static, Access = private)
         % Load social security parameters
         s = load(fullfile(param_dir, 'param_socsec.mat'));
         
-        NRA        = s.NRA;
+        Tr         = s.NRA(1);
         ss_benefit = s.ss_benefit(:,1:T_model);
         ss_tax     = s.ss_tax(1:T_model);
         taxmax     = s.taxmax(1:T_model);
@@ -209,22 +213,18 @@ methods (Static, Access = private)
             ssexp_static     = zeros(1,T_model);
             
             
-            for idem = 1:ndem
+            for idem = 1:ndem %#ok<FXUP>
                 
-                for birthyear = (-T_life+1):(T_model-1)
-                    
-                    % Get retirement age
-                    Tr = NRA(birthyear+T_life);
-                    
+                for i = 1:length(birthyears) %#ok<FXUP>
                     
                     % Extract optimal labor values
-                    labopt = base_opt(birthyear+T_life,idem).lab;
+                    labopt = base_opt(i,idem).lab;
                     
                     % Calculate tax terms
                     [fedincome, fedincomess, fitax, fitaxss, fsstax, fsstaxss, fcaptax, fcaptaxss] ...
                       ...
                       = calculate_static_taxes(...
-                          T_life, Tr, T_model, birthyear, ...
+                          T_life, Tr, T_model, birthyears(i), ...
                           kgrid, nb, nk, nz, idem, ...
                           mpci, rpci, cap_tax_share, ss_tax_cred, ...
                           tau_cap, tau_capgain, ss_tax, taxmax, z, ...
@@ -234,8 +234,8 @@ methods (Static, Access = private)
                     
                     
                     % Extract distributions
-                    dist_w = base_dist(birthyear+T_life,idem).w;
-                    dist_r = base_dist(birthyear+T_life,idem).r;
+                    dist_w = base_dist(i,idem).w;
+                    dist_r = base_dist(i,idem).r;
                     
                     % Redefine effective numbers of working and retirement years
                     % (Redefinition needed because distribution generator makes use of head truncation while dynamic optimization solver does not)
@@ -259,7 +259,7 @@ methods (Static, Access = private)
                     
                     
                     % Add cohort aggregates to static aggregates, aligning to model years
-                    T_shift = max(0, birthyear);
+                    T_shift = max(0, birthyears(i));
                     fedincome_static( T_shift + (1:N_w_dist+N_r_dist) ) = fedincome_static( T_shift + (1:N_w_dist+N_r_dist) ) + Fedincome;
                     fedit_static    ( T_shift + (1:N_w_dist+N_r_dist) ) = fedit_static    ( T_shift + (1:N_w_dist+N_r_dist) ) + Fedit;
                     ssrev_static    ( T_shift + (1:N_w_dist+N_r_dist) ) = ssrev_static    ( T_shift + (1:N_w_dist+N_r_dist) ) + SSrev;
@@ -428,6 +428,140 @@ methods (Static, Access = private)
         fprintf(']\n')
         
         
+        % Define dynamic aggregate generation function
+        % (Modularization necessary for steady state labor elasticity calculation)
+        function [kpr_total, beq_total, elab_total, lab_total, lfpr_total, ...
+                  fedincome_total, fedit_total, ssrev_total, fcaptax_total, ssexp_total, ...
+                  opt, dist] ...
+                  ... 
+                    = generate_aggregates(rhos, beqs, kprs, debts, caps, wages, ...
+                                          cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys) %#ok<INUSL>
+            
+            % Initialize dynamic aggregates
+            kpr_total       = zeros(1,T_model);
+            beq_total       = zeros(1,T_model);
+            elab_total      = zeros(1,T_model);
+            lab_total       = zeros(1,T_model);
+            lfpr_total      = zeros(1,T_model);
+            fedincome_total = zeros(1,T_model);
+            fedit_total     = zeros(1,T_model);
+            ssrev_total     = zeros(1,T_model);
+            fcaptax_total   = zeros(1,T_model);
+            ssexp_total     = zeros(1,T_model);
+            
+            % Initialize storage structures for optimal decision values and distributions
+            s_birthyear = struct('birthyear', num2cell(repmat(birthyears', [1,ndem])));
+            opt     = s_birthyear;
+            dist    = s_birthyear;
+            cohorts = s_birthyear;
+            
+            % Define dynamic optimization and distribution generation time periods
+            switch economy
+        
+                case 'steady'
+                    T_opt  = 1;
+                    T_dist = T_life;
+                
+                case {'open', 'closed'}
+                    T_opt  = T_model;
+                    T_dist = T_model;
+                    
+            end
+            
+            for idem = 1:ndem %#ok<FXUP>
+                
+                % Extract demographic adjustments
+                mu2_idem = MU2(idem,:);
+                mu3_idem = MU3(idem,:);
+                
+                % Define initial distributions
+                switch economy
+            
+                    case 'steady'
+                        dist_w0 = padarray(proddist, [nk-1, 0, nb-1], 0, 'post');
+                        dist_r0 = [];
+                    
+                    case {'open', 'closed'}
+                        N_w_steady = length(dist_steady(1,idem).w);
+                        N_r_steady = length(dist_steady(1,idem).r);
+                        dist_w0 = bsxfun(@rdivide, dist_steady(1,idem).w, shiftdim(mu2_idem(            1:N_w_steady ), -2));
+                        dist_r0 = bsxfun(@rdivide, dist_steady(1,idem).r, shiftdim(mu2_idem(N_w_steady+(1:N_r_steady)), -1));
+                        
+                end
+                
+                parfor i = 1:length(birthyears) %#ok<FXUP>
+                    
+                    % Generate optimal decision values, distributions, and cohort aggregates
+                    [labopt, dist_w, dist_r, N_w, N_r, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...
+                     ...
+                       = generate_distributions(...
+                           beta, gamma, sigma, T_life, Tr, T_opt, T_dist, birthyears(i), ...
+                           kgrid, z, tr_z, bgrid, nk, nz, nb, idem, ...
+                           mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, ss_tax, taxmax, ...
+                           beqs, wages, cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, q_tobin, q_tobin0, Vbeq, ...
+                           avg_deduc, clinton, coefs, limit, X, ss_benefit, ...
+                           dist_w0, dist_r0, mu2_idem, mu3_idem);
+                    
+                    % Store values
+                    opt(i,idem).lab = labopt;
+                    
+                    dist(i,idem).w = dist_w;
+                    dist(i,idem).r = dist_r;
+                    
+                    cohorts(i,idem).N_w         = N_w           ;
+                    cohorts(i,idem).N_r         = N_r           ;
+                    cohorts(i,idem).Kalive      = Kalive        ;
+                    cohorts(i,idem).Kdead       = Kdead         ;
+                    cohorts(i,idem).ELab        = ELab          ;
+                    cohorts(i,idem).Lab         = Lab           ;
+                    cohorts(i,idem).Lfpr        = Lfpr          ;
+                    cohorts(i,idem).Fedincome   = Fedincome     ;
+                    cohorts(i,idem).Fedit       = Fedit         ;
+                    cohorts(i,idem).SSrev       = SSrev         ;
+                    cohorts(i,idem).Fcaptax     = Fcaptax       ;
+                    cohorts(i,idem).SSexp       = SSexp         ;
+                    
+                end
+                
+                % Add cohort aggregates to dynamic aggregates
+                for i = 1:length(birthyears) %#ok<FXUP>
+                    
+                    switch economy
+                        
+                        case 'steady'
+                            
+                            kpr_total  = kpr_total  + sum(cohorts(i,idem).Kalive + cohorts(i,idem).Kdead);
+                            beq_total  = beq_total  + sum(cohorts(i,idem).Kdead);
+                            elab_total = elab_total + sum(cohorts(i,idem).ELab);
+                            
+                        case {'open', 'closed'}
+                            
+                            % Align aggregates to model years
+                            T_shift = max(0, birthyears(i));
+                            
+                            N_w = cohorts(i,idem).N_w;
+                            N_r = cohorts(i,idem).N_r;
+                            
+                            kpr_total      ( T_shift + (1:N_w+N_r) ) = kpr_total      ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Kalive + cohorts(i,idem).Kdead;
+                            beq_total      ( T_shift + (1:N_w+N_r) ) = beq_total      ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Kdead;
+                            elab_total     ( T_shift + (1:N_w)     ) = elab_total     ( T_shift + (1:N_w)     ) + cohorts(i,idem).ELab;
+                            lab_total      ( T_shift + (1:N_w)     ) = lab_total      ( T_shift + (1:N_w)     ) + cohorts(i,idem).Lab;
+                            lfpr_total     ( T_shift + (1:N_w)     ) = lfpr_total     ( T_shift + (1:N_w)     ) + cohorts(i,idem).Lfpr;
+                            fedincome_total( T_shift + (1:N_w+N_r) ) = fedincome_total( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fedincome;
+                            fedit_total    ( T_shift + (1:N_w+N_r) ) = fedit_total    ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fedit;
+                            ssrev_total    ( T_shift + (1:N_w+N_r) ) = ssrev_total    ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).SSrev;
+                            fcaptax_total  ( T_shift + (1:N_w+N_r) ) = fcaptax_total  ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fcaptax;
+                            ssexp_total    ( T_shift + N_w+(1:N_r) ) = ssexp_total    ( T_shift + N_w+(1:N_r) ) + cohorts(i,idem).SSexp;
+                            
+                    end
+                    
+                end
+                
+            end
+            
+        end
+        
+        
         while ( eps > tol && iter < itermax )
             
             % Increment iteration count
@@ -498,143 +632,13 @@ methods (Static, Access = private)
             exp_subsidys = [exp_share * max(diff(caps), 0), 0] ./ caps;
             
             
-            % Initialize dynamic aggregates
-            kpr_total       = zeros(1,T_model);
-            beq_total       = zeros(1,T_model);
-            elab_total      = zeros(1,T_model);
-            lab_total       = zeros(1,T_model);
-            lfpr_total      = zeros(1,T_model);
-            fedincome_total = zeros(1,T_model);
-            fedit_total     = zeros(1,T_model);
-            ssrev_total     = zeros(1,T_model);
-            fcaptax_total   = zeros(1,T_model);
-            ssexp_total     = zeros(1,T_model);
-            
-            % Define birth years
-            switch economy
-        
-                case 'steady'
-                    birthyears = 0;
-                
-                case {'open', 'closed'}
-                    birthyears = (-T_life+1):(T_model-1);
-                    
-            end
-            
-            % Initialize storage structures for optimal decision values and distributions
-            s_birthyear = struct('birthyear', num2cell(repmat(birthyears', [1,ndem])));
-            opt     = s_birthyear;
-            dist    = s_birthyear;
-            cohorts = s_birthyear;
-            
-            % Define dynamic optimization and distribution generation time periods
-            switch economy
-        
-                case 'steady'
-                    T_opt  = 1;
-                    T_dist = T_life;
-                
-                case {'open', 'closed'}
-                    T_opt  = T_model;
-                    T_dist = T_model;
-                    
-            end
-            
-            for idem = 1:ndem
-                
-                % Extract demographic adjustments
-                mu2_idem = MU2(idem,:);
-                mu3_idem = MU3(idem,:);
-                
-                % Define initial distributions
-                switch economy
-            
-                    case 'steady'
-                        dist_w0 = padarray(proddist, [nk-1, 0, nb-1], 0, 'post');
-                        dist_r0 = [];
-                    
-                    case {'open', 'closed'}
-                        % (Note that a fixed retirement age matching the one used for the steady state solution is assumed)
-                        N_w_steady = length(dist_steady(1,idem).w);
-                        N_r_steady = length(dist_steady(1,idem).r);
-                        dist_w0 = bsxfun(@rdivide, dist_steady(1,idem).w, shiftdim(mu2_idem(1:N_w_steady),              -2));
-                        dist_r0 = bsxfun(@rdivide, dist_steady(1,idem).r, shiftdim(mu2_idem(N_w_steady+(1:N_r_steady)), -1));
-                        
-                end
-                
-                parfor i = 1:length(birthyears)
-                    
-                    % Get birth year and retirement age
-                    birthyear = birthyears(i);
-                    Tr = NRA(i);
-                    
-                    % Generate optimal decision values, distributions, and cohort aggregates
-                    [labopt, dist_w, dist_r, N_w, N_r, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...
-                     ...
-                       = generate_distributions(...
-                           beta, gamma, sigma, T_life, Tr, T_opt, T_dist, birthyear, ...
-                           kgrid, z, tr_z, bgrid, nk, nz, nb, idem, ...
-                           mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, ss_tax, taxmax, ...
-                           beqs, wages, cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, q_tobin, q_tobin0, Vbeq, ...
-                           avg_deduc, clinton, coefs, limit, X, ss_benefit, ...
-                           dist_w0, dist_r0, mu2_idem, mu3_idem);
-                    
-                    % Store values
-                    opt(i,idem).lab = labopt;
-                    
-                    dist(i,idem).w = dist_w;
-                    dist(i,idem).r = dist_r;
-                    
-                    cohorts(i,idem).N_w         = N_w           ;
-                    cohorts(i,idem).N_r         = N_r           ;
-                    cohorts(i,idem).Kalive      = Kalive        ;
-                    cohorts(i,idem).Kdead       = Kdead         ;
-                    cohorts(i,idem).ELab        = ELab          ;
-                    cohorts(i,idem).Lab         = Lab           ;
-                    cohorts(i,idem).Lfpr        = Lfpr          ;
-                    cohorts(i,idem).Fedincome   = Fedincome     ;
-                    cohorts(i,idem).Fedit       = Fedit         ;
-                    cohorts(i,idem).SSrev       = SSrev         ;
-                    cohorts(i,idem).Fcaptax     = Fcaptax       ;
-                    cohorts(i,idem).SSexp       = SSexp         ;
-                    
-                end
-                
-                % Add cohort aggregates to dynamic aggregates
-                for i = 1:length(birthyears)
-                    
-                    switch economy
-                        
-                        case 'steady'
-                            
-                            kpr_total  = kpr_total  + sum(cohorts(i,idem).Kalive + cohorts(i,idem).Kdead);
-                            beq_total  = beq_total  + sum(cohorts(i,idem).Kdead);
-                            elab_total = elab_total + sum(cohorts(i,idem).ELab);
-                            
-                        case {'open', 'closed'}
-                            
-                            % Align aggregates to model years
-                            T_shift = max(0, birthyears(i));
-                            
-                            N_w = cohorts(i,idem).N_w;
-                            N_r = cohorts(i,idem).N_r;
-                            
-                            kpr_total      ( T_shift + (1:N_w+N_r) ) = kpr_total      ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Kalive + cohorts(i,idem).Kdead;
-                            beq_total      ( T_shift + (1:N_w+N_r) ) = beq_total      ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Kdead;
-                            elab_total     ( T_shift + (1:N_w)     ) = elab_total     ( T_shift + (1:N_w)     ) + cohorts(i,idem).ELab;
-                            lab_total      ( T_shift + (1:N_w)     ) = lab_total      ( T_shift + (1:N_w)     ) + cohorts(i,idem).Lab;
-                            lfpr_total     ( T_shift + (1:N_w)     ) = lfpr_total     ( T_shift + (1:N_w)     ) + cohorts(i,idem).Lfpr;
-                            fedincome_total( T_shift + (1:N_w+N_r) ) = fedincome_total( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fedincome;
-                            fedit_total    ( T_shift + (1:N_w+N_r) ) = fedit_total    ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fedit;
-                            ssrev_total    ( T_shift + (1:N_w+N_r) ) = ssrev_total    ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).SSrev;
-                            fcaptax_total  ( T_shift + (1:N_w+N_r) ) = fcaptax_total  ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fcaptax;
-                            ssexp_total    ( T_shift + N_w+(1:N_r) ) = ssexp_total    ( T_shift + N_w+(1:N_r) ) + cohorts(i,idem).SSexp;
-                            
-                    end
-                    
-                end
-                
-            end
+            % Generate dynamic aggregates
+            [kpr_total, beq_total, elab_total, lab_total, lfpr_total, ...
+             fedincome_total, fedit_total, ssrev_total, fcaptax_total, ssexp_total, ...
+             opt, dist] ...
+             ...
+               = generate_aggregates(rhos, beqs, kprs, debts, caps, wages, ...
+                                     cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys); %#ok<ASGLU>
             
             
             % Calculate additional dynamic aggregates
@@ -785,12 +789,12 @@ methods (Static, Access = private)
                 working_mass = 0;
                 frisch_total = 0;
                 
-                for idem = 1:ndem
+                for idem = 1:ndem %#ok<FXUP>
                     
                     labopt = opt(1,idem).lab;
                     dist_w = dist(1,idem).w;
                     
-                    working_ind = (labopt > 0.01);  % (Labor elasticity calculation sensitive to threshold value)
+                    working_ind = (labopt > 0.01);
                     
                     working_mass = working_mass + sum(dist_w(working_ind));
                     frisch_total = frisch_total + sum(dist_w(working_ind).*(1-labopt(working_ind))./labopt(working_ind))*(1-gamma*(1-sigma))/sigma;
@@ -801,30 +805,16 @@ methods (Static, Access = private)
                 
                 
                 % Calculate savings elasticity
+                deviation = 0.005;
                 
-                % % Specify percentage change in net interest rate
-                % rate_deviation = 0.005;
-                % 
-                % % Scale rates by deviation if provided
-                % rate_cap = rate_cap * (1 + rate_deviation);
-                % rate_gov = rate_gov * (1 + rate_deviation);
-                % 
-                % % Solve dynamic optimization and generate distributions
-                % [~, ~, kpr_dev, ~, ~, ~, ~, ~, ~, ~, ~, rate_tot_dev] ...
-                %  ...
-                %    = solve_and_generate(...
-                %        rho, beq, kpr, debt, ...
-                %        T, Tr, bgrid, kgrid, ndem, nb, nk, nz, ...
-                %        mpci, rpci, A, alp, cap_tax_share, d, q_tobin, Vbeq, proddist, ss_tax_cred, surv, ...
-                %        tau_cap, tau_capgain, tau_ss, tr_z, v_ss_max, z, ...
-                %        avg_deduc, clinton, coefs, limit, X, r_cbo, ben, ...
-                %        beta, gamma, sigma, MU2, MU3, ...
-                %        rate_deviation);
-                % 
-                % % Calculate savings elasticity
-                % savings_elas = ((kpr_dev - kpr)/kpr) / ((rate_tot_dev - rate_tot)/(rate_tot-1));
+                rate_caps_dev = rate_caps * (1 + deviation);
+                rate_govs_dev = rate_govs * (1 + deviation);
+                rate_tots_dev = rate_tots * (1 + deviation);
                 
-                savings_elas = 0;
+                [kpr_dev] = generate_aggregates(rhos, beqs, kprs, debts, caps, wages, ...
+                                                cap_shares, debt_shares, rate_caps_dev, rate_govs_dev, rate_tots_dev, exp_subsidys);
+                
+                savings_elas = ((kpr_dev - kpr_total)/kpr_total) / ((rate_tots_dev - rate_tots)/(rate_tots-1));
                 
                 
                 % Package, save, and display elasticities
@@ -833,7 +823,7 @@ methods (Static, Access = private)
                 save(fullfile(save_dir, 'elasticities.mat'), 'K_Y', 'labor_elas', 'savings_elas')
                 
                 displaynames = { 'Capital-to-output ratio', 'Labor elasticity', 'Savings elasticity' };
-                for i = 1:length(elasticities)
+                for i = 1:length(elasticities) %#ok<FXUP>
                     fprintf('\t%-25s= % 7.4f\n', displaynames{i}, elasticities(i))
                 end
                 fprintf('\n')
