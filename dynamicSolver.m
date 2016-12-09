@@ -42,19 +42,33 @@ methods (Static)
     
     
     % Generate tags for baseline and counterfactual definitions
-    function [basedef_tag, counterdef_tag] = tag(basedef, counterdef)
+    function [basedef_tag, counterdef_tag] = generate_tags(basedef, counterdef)
         
-        basedef_tag = sprintf( 'beta=%0.3f_gamma=%0.3f_sigma=%05.2f', ...
-                               basedef.beta  , ...
-                               basedef.gamma , ...
-                               basedef.sigma );
+        % Define baseline and counterfactual parameter formats
+        basedef_format    = struct( 'beta'      , '%0.3f'   , ...
+                                    'gamma'     , '%0.3f'   , ...
+                                    'sigma'     , '%05.2f'  );
         
-        if ( ~exist('counterdef', 'var') || isempty(counterdef) || isempty(fields(counterdef)) )
+        counterdef_format = struct( 'plan'      , '%s'      , ...
+                                    'gcut'      , '%+0.2f'  );
+        
+        % Define function to construct tag from definition and format specifications
+        function tag = construct_tag(def, format)
+            strs = {};
+            for field = fields(def)'
+                strs = [strs, {sprintf([field{1}, '=', format.(field{1})], def.(field{1}))}]; %#ok<AGROW>
+            end
+            tag = strjoin(strs, '_');
+        end
+        
+        % Generate baseline tag
+        basedef_tag = construct_tag(basedef, basedef_format);
+        
+        % Generate counterfactual tag
+        if (isempty(counterdef) || isempty(fields(counterdef)))
             counterdef_tag = 'baseline';
         else
-            if isfield(counterdef, 'plan'), plan = counterdef.plan; else, plan = 'base'; end
-            if isfield(counterdef, 'gcut'), gcut = counterdef.gcut; else, gcut = +0.00 ; end
-            counterdef_tag = sprintf('plan=%s_gcut=%+0.2f', plan, gcut);
+            counterdef_tag = construct_tag(dynamicSolver.fill_default(counterdef), counterdef_format);
         end
         
     end
@@ -64,6 +78,23 @@ end
 
 methods (Static, Access = private)
     
+    % Generate counterfactual definition filled with default parameter values where necessary
+    function [counterdef_filled] = fill_default(counterdef)
+        
+        % Define default counterfactual parameter values
+        % (These are the values used for a baseline run)
+        counterdef_filled = struct( 'plan'    , 'base'    , ...
+                                    'gcut'    , +0.00     );
+        
+        % Override default parameter values with values from counterfactual definition
+        for field = fields(counterdef)'
+            counterdef_filled.(field{1}) = counterdef.(field{1});
+        end
+        
+    end
+    
+    
+    % Solve dynamic model
     function [save_dir] = solve(economy, basedef, counterdef, callertag)
         
         
@@ -74,13 +105,16 @@ methods (Static, Access = private)
         gamma = basedef.gamma;
         sigma = basedef.sigma;
         
-        % Identify baseline run by absence of counterfactual definition
-        isbase = isempty(counterdef) || isempty(fields(counterdef));
-        if isbase, counterdef = struct(); end
+        % Identify baseline run by empty counterfactual definition
+        if isempty(counterdef), counterdef = struct(); end
+        isbase = isempty(fields(counterdef));
         
-        % Unpack parameters from counterfactual definition, setting baseline values for unspecified parameters
-        if isfield(counterdef, 'plan'), plan = counterdef.plan; else, plan = 'base'; end
-        if isfield(counterdef, 'gcut'), gcut = counterdef.gcut; else, gcut = +0.00 ; end
+        % Generate counterfactual definition filled with default parameter values where necessary
+        counterdef_filled = dynamicSolver.fill_default(counterdef);
+        
+        % Unpack parameters from filled counterfactual definition
+        plan = counterdef_filled.plan;
+        gcut = counterdef_filled.gcut;
         
         
         % Identify working directories

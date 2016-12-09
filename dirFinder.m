@@ -46,7 +46,7 @@ methods (Static)
     % Find save directory
     function [save_dir, basedef_tag, counterdef_tag] = save(economy, basedef, counterdef)
         if ~exist('counterdef', 'var'), counterdef = []; end
-        [basedef_tag, counterdef_tag] = dynamicSolver.tag(basedef, counterdef);
+        [basedef_tag, counterdef_tag] = dynamicSolver.generate_tags(basedef, counterdef);
         save_dir = fullfile(dirFinder.saveroot, basedef_tag, counterdef_tag, economy);
     end
     
