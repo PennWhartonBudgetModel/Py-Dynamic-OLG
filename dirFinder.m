@@ -44,24 +44,10 @@ methods (Static)
     
     
     % Find save directory
-    function [save_dir, callingtag] = save(economy, basedef, counterdef)
-        
-        basedef_tag = sprintf( 'beta=%0.3f_gamma=%0.3f_sigma=%05.2f', ...
-                               basedef.beta  , ...
-                               basedef.gamma , ...
-                               basedef.sigma );
-        
-        if ( ~exist('counterdef', 'var') || isempty(counterdef) || isempty(fields(counterdef)) )
-            counterdef_tag = 'baseline';
-        else
-            if isfield(counterdef, 'plan'), plan = counterdef.plan; else, plan = 'base'; end
-            if isfield(counterdef, 'gcut'), gcut = counterdef.gcut; else, gcut = +0.00 ; end
-            counterdef_tag = sprintf('plan=%s_gcut=%+0.2f', plan, gcut);
-        end
-        
-        save_dir   = fullfile( dirFinder.saveroot, basedef_tag, counterdef_tag, economy );
-        callingtag = sprintf('^%s_%s', counterdef_tag, economy);
-        
+    function [save_dir, basedef_tag, counterdef_tag] = save(economy, basedef, counterdef)
+        if ~exist('counterdef', 'var'), counterdef = []; end
+        [basedef_tag, counterdef_tag] = dynamicSolver.tag(basedef, counterdef);
+        save_dir = fullfile(dirFinder.saveroot, basedef_tag, counterdef_tag, economy);
     end
     
     

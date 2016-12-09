@@ -41,6 +41,24 @@ methods (Static)
     end
     
     
+    % Generate tags for baseline and counterfactual definitions
+    function [basedef_tag, counterdef_tag] = tag(basedef, counterdef)
+        
+        basedef_tag = sprintf( 'beta=%0.3f_gamma=%0.3f_sigma=%05.2f', ...
+                               basedef.beta  , ...
+                               basedef.gamma , ...
+                               basedef.sigma );
+        
+        if ( ~exist('counterdef', 'var') || isempty(counterdef) || isempty(fields(counterdef)) )
+            counterdef_tag = 'baseline';
+        else
+            if isfield(counterdef, 'plan'), plan = counterdef.plan; else, plan = 'base'; end
+            if isfield(counterdef, 'gcut'), gcut = counterdef.gcut; else, gcut = +0.00 ; end
+            counterdef_tag = sprintf('plan=%s_gcut=%+0.2f', plan, gcut);
+        end
+        
+    end
+    
 end
 
 
@@ -50,22 +68,6 @@ methods (Static, Access = private)
         
         
         %% Initialization
-        
-        % Identify working directories
-        param_dir = dirFinder.param;
-        [save_dir, callingtag] = dirFinder.save(economy, basedef, counterdef);
-        
-        % Append caller tag to save directory name and calling tag
-        % (Obviates conflicts between parallel runs)
-        save_dir   = [save_dir  , callertag];
-        callingtag = [callingtag, callertag];
-        
-        % Clear or create save directory
-        if exist(save_dir, 'dir')
-            rmdir(save_dir, 's')
-        end
-        mkdir(save_dir)
-        
         
         % Unpack parameters from baseline definition
         beta  = basedef.beta ;
@@ -79,6 +81,19 @@ methods (Static, Access = private)
         % Unpack parameters from counterfactual definition, setting baseline values for unspecified parameters
         if isfield(counterdef, 'plan'), plan = counterdef.plan; else, plan = 'base'; end
         if isfield(counterdef, 'gcut'), gcut = counterdef.gcut; else, gcut = +0.00 ; end
+        
+        
+        % Identify working directories
+        param_dir = dirFinder.param;
+        [save_dir, ~, counterdef_tag] = dirFinder.save(economy, basedef, counterdef);
+        
+        % Append caller tag to save directory name and generate calling tag
+        % (Obviates conflicts between parallel runs)
+        save_dir   = [save_dir                                  , callertag];
+        callingtag = [sprintf('^%s_%s', counterdef_tag, economy), callertag];
+        
+        % Clear or create save directory
+        if exist(save_dir, 'dir'), rmdir(save_dir, 's'), end, mkdir(save_dir)        
         
         
         

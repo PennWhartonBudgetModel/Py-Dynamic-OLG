@@ -29,14 +29,7 @@ for basedef = basedefs
         for economy = {'open', 'closed'}
             
             % Find save directory
-            save_dir = dirFinder.save(economy{1}, basedef{1}, counterdef{1});
-            
-            % Extract subdirectories
-            [basedef_dir, counterdef_tag, dec_str] = fileparts(fileparts(save_dir));
-            counterdef_tag = [counterdef_tag, dec_str];
-            
-            [~, basedef_tag, dec_str] = fileparts(basedef_dir);
-            basedef_tag = [basedef_tag, dec_str];
+            [save_dir, basedef_tag, counterdef_tag] = dirFinder.save(economy{1}, basedef{1}, counterdef{1});
             
             % Identify iterations log file
             log = fullfile(save_dir, 'iterations.csv');
