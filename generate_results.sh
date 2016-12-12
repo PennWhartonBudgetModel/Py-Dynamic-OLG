@@ -5,7 +5,7 @@
 
 
 # Build mex functions
-matlab -nojvm -nosplash -r "mexBuilder.build_all; exit"
+matlab -nojvm -nosplash -r "mexBuilder.build_all"
 
 
 # Create empty log directory
@@ -21,7 +21,7 @@ for GCUT in +0.10 +0.05 +0.00 -0.05; do
     
     qsub -N counterfactual -t 1-16 -q short.q \
          -j y -o ${LOGDIR}'/closed_inddeep=$TASK_ID_plan='${PLAN}'_gcut='${GCUT}'.log' \
-         -b y 'matlab -nojvm -nosplash -r "dynamicSolver.closed( get_basedef(${SGE_TASK_ID}), struct('\''plan'\'', '\'${PLAN}\'', '\''gcut'\'', '${GCUT}') )"'
+         -b y 'matlab -nojvm -nosplash -r "dynamicSolver.closed(get_basedef(${SGE_TASK_ID}), struct('\''plan'\'', '\'${PLAN}\'', '\''gcut'\'', '${GCUT}'))"'
 		
   done
 done
