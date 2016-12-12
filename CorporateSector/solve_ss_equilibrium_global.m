@@ -18,7 +18,7 @@ prices.wage        = 1;
 % Determine invariant distribution of productivity shocks
 [~, ~, ~, ~, dist] = solve_hh_optimization_mex(s_hh.hh_params,prices);
 
-% Solve equilibrim wage
+% Determine labor supply when inelastic
 labor_supply = sum(sum(dist).*s_hh.hh_params.prod_shocks');    % Update if labor supply becomes elastically demanded.
 
 % Solve equilibrium rate of return.
@@ -51,10 +51,12 @@ if ~exist('eqm_prices','var')
                 quantities.firm.value_total  = asset_demand;
                 quantities.firm.output_total = output_total;
                 quantities.firm.inv_total    = inv_total;
+                quantities.firm.labor_demand = labor_demand;
                 
                 [~, ~, asset_supply, consumption_total, ~] = solve_hh_optimization_mex(s_hh.hh_params,prices);
                 quantities.hh.assets_total     = asset_supply;
                 quantities.hh.consumtion_total = consumption_total;
+                quantities.hh.labor_supply     = labor_supply;
                 
                 goods_market_error = abs(inv_total + consumption_total - output_total);
                 labor_market_error = abs(labor_demand - labor_supply);
@@ -93,7 +95,7 @@ if ~exist('eqm_prices','var')
     end
     
     
-    save('results.mat','prices','quantities')
+    save(fullfile('Results','results.mat'),'prices','quantities')
             
 elseif exist('eqm_prices','var')
     
@@ -102,10 +104,12 @@ elseif exist('eqm_prices','var')
     quantities.firm.value_total  = asset_demand;
     quantities.firm.output_total = output_total;
     quantities.firm.inv_total    = inv_total;
+    quantities.firm.labor_demand = labor_demand;
 
     [~, ~, asset_supply, consumption_total, ~] = solve_hh_optimization_mex(s_hh.hh_params,prices);
-    quantities.hh.assets_total     = asset_supply;
-    quantities.hh.consumtion_total = consumption_total;
+    quantities.hh.assets_total      = asset_supply;
+    quantities.hh.consumption_total = consumption_total;
+    quantities.hh.labor_supply      = labor_supply;
 
     % Calculate error.
     goods_market_error = abs(inv_total + consumption_total - output_total);

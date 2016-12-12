@@ -1,4 +1,4 @@
-function [V, aopt, assets_total, consumption_total, dist] = solve_hh_optimization(hh_params,prices)
+function [V, aopt, assets_total, consumption_total, dist] = solve_hh_optimization(hh_params,prices, tolerance)
 %#codegen
 % This function solves the household optimization problem over the entire state space.
 
@@ -21,11 +21,9 @@ aopt = zeros(na, n_prodshocks);
 copt = zeros(na, n_prodshocks);
 Vpr  = zeros(na, n_prodshocks);
 
-tolerance = .001;
 iter = 0;
-maxiter = 10000;
+maxiter = 100000;
 while true
-    iter = iter+1;
     for ia = 1:na
         for ip = 1:n_prodshocks
 %             EVpr = sum(bsxfun(@times, prod_transprob(ip,:), Vpr),2);
@@ -118,6 +116,7 @@ if consumption<0
 end
 
 vf = (1/(1-crra))*(consumption^(1-crra)) + discount_factor*interp1(asset_grid,EVpr,a_prime,'linear');
+
 vf = -vf;
 
 end

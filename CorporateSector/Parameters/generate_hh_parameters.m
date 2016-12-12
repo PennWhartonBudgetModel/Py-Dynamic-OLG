@@ -15,8 +15,8 @@ prod_shocks   = exp(prod_shocks);
 crra = 2.5;
 discount_factor = .96;
 na = 100;
-% asset_grid = [0,logspace(-1,log(1000000)/log(10),na-1)];
-asset_grid = linspace(0,100000,na);
+% asset_grid = [0,logspace(-1,log(10000)/log(10),na-1)];
+asset_grid = linspace(0,10000,na);
 
 
 % Create structure
