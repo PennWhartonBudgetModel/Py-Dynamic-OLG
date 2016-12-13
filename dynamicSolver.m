@@ -100,6 +100,9 @@ methods (Static, Access = private)
         
         %% Initialization
         
+        % Start a parallel pool if one does not already exist and JVM is enabled
+        switch economy, case {'open', 'closed'}, if usejava('jvm'), gcp; end, end
+        
         % Unpack parameters from baseline definition
         beta  = basedef.beta ;
         gamma = basedef.gamma;
@@ -266,54 +269,30 @@ methods (Static, Access = private)
                 
                 for i = 1:length(birthyears) %#ok<FXUP>
                     
-                    % Extract optimal labor values
-                    labopt = base_opt(i,idem).lab;
+                    % Extract optimal labor values and distributions
+                    labopt_static = base_opt (i,idem).lab;
+                    dist_w_static = base_dist(i,idem).w  ;
+                    dist_r_static = base_dist(i,idem).r  ;
                     
-                    % Calculate tax terms
-                    [fedincome, fedincomess, fitax, fitaxss, fsstax, fsstaxss, fcaptax, fcaptaxss] ...
-                      ...
-                      = calculate_static_taxes(...
-                          T_life, Tr, T_model, birthyears(i), ...
-                          kgrid, nb, nk, nz, idem, ...
-                          mpci, rpci, cap_tax_share, ss_tax_cred, ...
-                          tau_cap, tau_capgain, ss_tax, taxmax, z, ...
-                          wages, cap_shares, debt_shares, rate_caps, rate_govs, exp_subsidys, q_tobin, q_tobin0, ...
-                          avg_deduc, clinton, coefs, limit, X, ss_benefit, ...
-                          labopt);
-                    
-                    
-                    % Extract distributions
-                    dist_w = base_dist(i,idem).w;
-                    dist_r = base_dist(i,idem).r;
-                    
-                    % Redefine effective numbers of working and retirement years
-                    % (Redefinition needed because distribution generator makes use of head truncation while dynamic optimization solver does not)
-                    N_w_dist = size(dist_w, 4);
-                    N_r_dist = size(dist_r, 3);
-                    
-                    % Calculate cohort aggregates
-                    Fedincome = [sum(reshape(fedincome  (:,:,:,1:N_w_dist) .* dist_w, [], N_w_dist), 1), ...
-                                 sum(reshape(fedincomess(:,:,1:N_r_dist)   .* dist_r, [], N_r_dist), 1)];
-                    
-                    Fedit     = [sum(reshape(fitax      (:,:,:,1:N_w_dist) .* dist_w, [], N_w_dist), 1), ...
-                                 sum(reshape(fitaxss    (:,:,1:N_r_dist)   .* dist_r, [], N_r_dist), 1)];
-                    
-                    SSrev     = [sum(reshape(fsstax     (:,:,:,1:N_w_dist) .* dist_w, [], N_w_dist), 1), ...
-                                 sum(reshape(fsstaxss   (:,:,1:N_r_dist)   .* dist_r, [], N_r_dist), 1)];
-                    
-                    Fcaptax   = [sum(reshape(fcaptax    (:,:,:,1:N_w_dist) .* dist_w, [], N_w_dist), 1), ...
-                                 sum(reshape(fcaptaxss  (:,:,1:N_r_dist)   .* dist_r, [], N_r_dist), 1)];
-                    
-                    SSexp     = sum(reshape(repmat(ss_benefit(:,1)', [nk,1,N_r_dist]) .* dist_r, [], N_r_dist), 1);
-                    
+                    % Generate cohort aggregates
+                    [~, ~, ~, N_w, N_r, ~, ~, ~, ~, ~, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...
+                     ...
+                       = generate_distributions(...
+                           beta, gamma, sigma, T_life, Tr, T_model, T_model, birthyears(i), ...
+                           kgrid, z, tr_z, bgrid, nk, nz, nb, idem, ...
+                           mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, ss_tax, taxmax, ...
+                           zeros(1,T_model), wages, cap_shares, debt_shares, rate_caps, rate_govs, zeros(1,T_model), exp_subsidys, q_tobin, q_tobin0, Vbeq, ...
+                           avg_deduc, clinton, coefs, limit, X, ss_benefit, ...
+                           [], [], ones(1,T_model), ones(1,T_model), ...
+                           labopt_static, dist_w_static, dist_r_static);
                     
                     % Add cohort aggregates to static aggregates, aligning to model years
                     T_shift = max(0, birthyears(i));
-                    fedincome_static( T_shift + (1:N_w_dist+N_r_dist) ) = fedincome_static( T_shift + (1:N_w_dist+N_r_dist) ) + Fedincome;
-                    fedit_static    ( T_shift + (1:N_w_dist+N_r_dist) ) = fedit_static    ( T_shift + (1:N_w_dist+N_r_dist) ) + Fedit;
-                    ssrev_static    ( T_shift + (1:N_w_dist+N_r_dist) ) = ssrev_static    ( T_shift + (1:N_w_dist+N_r_dist) ) + SSrev;
-                    fcaptax_static  ( T_shift + (1:N_w_dist+N_r_dist) ) = fcaptax_static  ( T_shift + (1:N_w_dist+N_r_dist) ) + Fcaptax;
-                    ssexp_static    ( T_shift + N_w_dist+(1:N_r_dist) ) = ssexp_static    ( T_shift + N_w_dist+(1:N_r_dist) ) + SSexp;
+                    fedincome_static( T_shift + (1:N_w+N_r) ) = fedincome_static( T_shift + (1:N_w+N_r) ) + Fedincome   ;
+                    fedit_static    ( T_shift + (1:N_w+N_r) ) = fedit_static    ( T_shift + (1:N_w+N_r) ) + Fedit       ;
+                    ssrev_static    ( T_shift + (1:N_w+N_r) ) = ssrev_static    ( T_shift + (1:N_w+N_r) ) + SSrev       ;
+                    fcaptax_static  ( T_shift + (1:N_w+N_r) ) = fcaptax_static  ( T_shift + (1:N_w+N_r) ) + Fcaptax     ;
+                    ssexp_static    ( T_shift + N_w+(1:N_r) ) = ssexp_static    ( T_shift + N_w+(1:N_r) ) + SSexp       ;
                     
                 end
                 
@@ -446,9 +425,6 @@ methods (Static, Access = private)
         
         
         
-        % Start a parallel pool if one does not already exist and JVM is enabled
-        if usejava('jvm'), gcp; end
-        
         % Define convergence tolerance and initialize error term
         tol = 1e-3;
         eps = Inf;
@@ -531,11 +507,12 @@ methods (Static, Access = private)
                         dist_r0 = [];
                     
                     case {'open', 'closed'}
+                        % if isdynamic
                         N_w_steady = length(dist_steady(1,idem).w);
                         N_r_steady = length(dist_steady(1,idem).r);
                         dist_w0 = bsxfun(@rdivide, dist_steady(1,idem).w, shiftdim(mu2_idem(            1:N_w_steady ), -2));
                         dist_r0 = bsxfun(@rdivide, dist_steady(1,idem).r, shiftdim(mu2_idem(N_w_steady+(1:N_r_steady)), -1));
-                        
+                        % else
                 end
                 
                 parfor i = 1:length(birthyears) %#ok<FXUP>
@@ -549,7 +526,8 @@ methods (Static, Access = private)
                            mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, ss_tax, taxmax, ...
                            beqs, wages, cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, q_tobin, q_tobin0, Vbeq, ...
                            avg_deduc, clinton, coefs, limit, X, ss_benefit, ...
-                           dist_w0, dist_r0, mu2_idem, mu3_idem);
+                           dist_w0, dist_r0, mu2_idem, mu3_idem, ...
+                           [], [], []);
                     
                     % Store values
                     opt(i,idem).lab = labopt;
@@ -592,15 +570,15 @@ methods (Static, Access = private)
                             N_r = cohorts(i,idem).N_r;
                             
                             kpr_total      ( T_shift + (1:N_w+N_r) ) = kpr_total      ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Kalive + cohorts(i,idem).Kdead;
-                            beq_total      ( T_shift + (1:N_w+N_r) ) = beq_total      ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Kdead;
-                            elab_total     ( T_shift + (1:N_w)     ) = elab_total     ( T_shift + (1:N_w)     ) + cohorts(i,idem).ELab;
-                            lab_total      ( T_shift + (1:N_w)     ) = lab_total      ( T_shift + (1:N_w)     ) + cohorts(i,idem).Lab;
-                            lfpr_total     ( T_shift + (1:N_w)     ) = lfpr_total     ( T_shift + (1:N_w)     ) + cohorts(i,idem).Lfpr;
-                            fedincome_total( T_shift + (1:N_w+N_r) ) = fedincome_total( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fedincome;
-                            fedit_total    ( T_shift + (1:N_w+N_r) ) = fedit_total    ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fedit;
-                            ssrev_total    ( T_shift + (1:N_w+N_r) ) = ssrev_total    ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).SSrev;
-                            fcaptax_total  ( T_shift + (1:N_w+N_r) ) = fcaptax_total  ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fcaptax;
-                            ssexp_total    ( T_shift + N_w+(1:N_r) ) = ssexp_total    ( T_shift + N_w+(1:N_r) ) + cohorts(i,idem).SSexp;
+                            beq_total      ( T_shift + (1:N_w+N_r) ) = beq_total      ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Kdead     ;
+                            elab_total     ( T_shift + (1:N_w)     ) = elab_total     ( T_shift + (1:N_w)     ) + cohorts(i,idem).ELab      ;
+                            lab_total      ( T_shift + (1:N_w)     ) = lab_total      ( T_shift + (1:N_w)     ) + cohorts(i,idem).Lab       ;
+                            lfpr_total     ( T_shift + (1:N_w)     ) = lfpr_total     ( T_shift + (1:N_w)     ) + cohorts(i,idem).Lfpr      ;
+                            fedincome_total( T_shift + (1:N_w+N_r) ) = fedincome_total( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fedincome ;
+                            fedit_total    ( T_shift + (1:N_w+N_r) ) = fedit_total    ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fedit     ;
+                            ssrev_total    ( T_shift + (1:N_w+N_r) ) = ssrev_total    ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).SSrev     ;
+                            fcaptax_total  ( T_shift + (1:N_w+N_r) ) = fcaptax_total  ( T_shift + (1:N_w+N_r) ) + cohorts(i,idem).Fcaptax   ;
+                            ssexp_total    ( T_shift + N_w+(1:N_r) ) = ssexp_total    ( T_shift + N_w+(1:N_r) ) + cohorts(i,idem).SSexp     ;
                             
                     end
                     

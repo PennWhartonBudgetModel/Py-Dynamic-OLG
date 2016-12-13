@@ -12,7 +12,6 @@ methods (Static)
     % Build all mex functions
     function [] = build_all()
         mexBuilder.build('generate_distributions')
-        mexBuilder.build('calculate_static_taxes')
     end
     
     

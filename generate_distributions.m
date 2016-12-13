@@ -12,7 +12,8 @@ function [labopt, dist_w, dist_r, N_w, N_r, Kalive, Kdead, ELab, Lab, Lfpr, Fedi
                 mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, ss_tax, taxmax, ...
                 beqs, wages, cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, q_tobin, q_tobin0, Vbeq, ...
                 avg_deduc, clinton, coefs, limit, X, ss_benefit, ...
-                dist_w0, dist_r0, mu2_idem, mu3_idem) %#codegen
+                dist_w0, dist_r0, mu2_idem, mu3_idem, ...
+                labopt_static, dist_w_static, dist_r_static) %#codegen
 
 
 % Define argument properties for C code generation
@@ -69,14 +70,21 @@ assert( isa(limit,          'double') && (size(limit,           1) == 1         
 assert( isa(X,              'double') && (size(X,               1) == 1         ) && (size(X,               2) <= 10            ) );
 assert( isa(ss_benefit,     'double') && (size(ss_benefit,      1) <= nb_max    ) && (size(ss_benefit,      2) <= T_model_max   ) );
 
-assert( isa(dist_w0,        'double') && (size(dist_w0,         1) <= nk_max    ) && (size(dist_w0,         2) <= nz_max        ) && (size(dist_w0, 3) <= nb_max) && (size(dist_w0, 4) <= T_life_max) );
-assert( isa(dist_r0,        'double') && (size(dist_r0,         1) <= nk_max    ) && (size(dist_r0,         2) <= nb_max        ) && (size(dist_r0, 3) <= T_life_max) );
+assert( isa(dist_w0,        'double') && (size(dist_w0,         1) <= nk_max    ) && (size(dist_w0,         2) <= nz_max        ) && (size(dist_w0,       3) <= nb_max) && (size(dist_w0,       4) <= T_life_max ) );
+assert( isa(dist_r0,        'double') && (size(dist_r0,         1) <= nk_max    )                                                 && (size(dist_r0,       2) <= nb_max) && (size(dist_r0,       3) <= T_life_max ) );
 assert( isa(mu2_idem,       'double') && (size(mu2_idem,        1) == 1         ) && (size(mu2_idem,        2) <= T_life_max    ) );
 assert( isa(mu3_idem,       'double') && (size(mu3_idem,        1) == 1         ) && (size(mu3_idem,        2) <= T_life_max    ) );
+
+assert( isa(labopt_static,  'double') && (size(labopt_static,   1) <= nk_max    ) && (size(labopt_static,   2) <= nz_max        ) && (size(labopt_static, 3) <= nb_max) && (size(labopt_static, 4) <= T_life_max ) );
+assert( isa(dist_w_static,  'double') && (size(dist_w_static,   1) <= nk_max    ) && (size(dist_w_static,   2) <= nz_max        ) && (size(dist_w_static, 3) <= nb_max) && (size(dist_w_static, 4) <= T_model_max) );
+assert( isa(dist_r_static,  'double') && (size(dist_r_static,   1) <= nk_max    )                                                 && (size(dist_r_static, 2) <= nb_max) && (size(dist_r_static, 3) <= T_model_max) );
 
 
 
 %% Dynamic optimization
+
+% Define dynamic aggregate generation flag
+isdynamic = isempty(dist_w_static) && isempty(dist_r_static);
 
 % Define past years and effective retirement age
 % (birthyear is defined relative to the present and can take both positive and negative values)
@@ -89,7 +97,6 @@ N_r = T_life - Tr_eff;
 
 % Initialize arrays
 V           = zeros(nk,nz,nb,N_w);
-
 kopt        = zeros(nk,nz,nb,N_w);
 labopt      = zeros(nk,nz,nb,N_w);
 bopt        = zeros(nk,nz,nb,N_w);
@@ -100,13 +107,13 @@ fsstax      = zeros(nk,nz,nb,N_w);
 fcaptax     = zeros(nk,nz,nb,N_w);
 
 Vss         = zeros(nk,nb,N_r+1);   % (1 extra time slice for initialization of backward induction)
-
 koptss      = zeros(nk,nb,N_r);
 
 fedincomess = zeros(nk,nb,N_r);
 fitaxss     = zeros(nk,nb,N_r);
 fsstaxss    = zeros(nk,nb,N_r);
 fcaptaxss   = zeros(nk,nb,N_r);
+
 
 % Specify settings for dynamic optimization subproblems
 optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
@@ -143,21 +150,24 @@ for t = N_r:-1:1
                                       avg_deduc, coefs, limit, X, mpci, rpci, 0, 0, clinton, year, q_tobin, q_tobin0, ...
                                       rate_tot, beq, ss_tax_cred);
             
-            % Call value function to set parameters
-            valfun_retire([], kgrid, resources, EV(:,ib), sigma, gamma);
+            if isdynamic
+                
+                % Call value function to set parameters
+                valfun_retire([], kgrid, resources, EV(:,ib), sigma, gamma);
+                
+                % Solve dynamic optimization subproblem
+                [k_opt, V_min] = fminsearch(@valfun_retire, kgrid(ik), optim_options);
+                
+                % Record values
+                Vss    (ik,ib,t) = -V_min   ;
+                koptss (ik,ib,t) = k_opt    ;
+                
+            end
             
-            % Solve dynamic optimization subproblem
-            [k_opt, V_min] = fminsearch(@valfun_retire, kgrid(ik), optim_options);
-            
-            % Record values
-            Vss        (ik,ib,t) = -V_min;
-            
-            koptss     (ik,ib,t) = k_opt;
-            
-            fedincomess(ik,ib,t) = fincome;
-            fitaxss    (ik,ib,t) = ftax;
-            fsstaxss   (ik,ib,t) = 0;
-            fcaptaxss  (ik,ib,t) = fcap;
+            fedincomess(ik,ib,t) = fincome  ;
+            fitaxss    (ik,ib,t) = ftax     ;
+            fsstaxss   (ik,ib,t) = 0        ;
+            fcaptaxss  (ik,ib,t) = fcap     ;
             
         end
     end
@@ -199,40 +209,46 @@ for t = N_w:-1:1
             
             for ik = 1:nk
                 
-                % Call average earnings calculation function, resource calculation function, and value function to set parameters
-                calculate_b([], age, bgrid(ib), v_ss_max)
-                
+                % Call resource calculation function to set parameters
                 calculate_resources([], kgrid(ik), ...
                                     cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, ...
                                     avg_deduc, coefs, limit, X, mpci, rpci, tau_ss, v_ss_max, clinton, year, q_tobin, q_tobin0, ...
                                     rate_tot, beq, 0);
                 
-                valfun_work([], kgrid, bgrid, eff_wage, EV, sigma, gamma)
+                if isdynamic
+                    
+                    % Call value function and average earnings calculation function to set parameters
+                    valfun_work([], kgrid, bgrid, eff_wage, EV, sigma, gamma)
+                    calculate_b([], age, bgrid(ib), v_ss_max)
+                    
+                    % Solve dynamic optimization subproblem
+                    lab0 = 0.5;
+                    k0   = max(kgrid(ik), 0.1 * eff_wage * lab0);   % (Assumes taxation will not exceed 90% of labor income)
+                    
+                    [x_opt, V_min] = fminsearch(@valfun_work, [k0, lab0], optim_options);
+                    
+                    k_opt   = x_opt(1);
+                    lab_opt = x_opt(2);
+                    
+                    % Record values
+                    V     (ik,iz,ib,t) = -V_min ;
+                    kopt  (ik,iz,ib,t) = k_opt  ;
+                    
+                else
+                    lab_opt = labopt_static(ik,iz,ib,t);
+                end
                 
-                % Solve dynamic optimization subproblem
-                lab0 = 0.5;
-                k0   = max(kgrid(ik), 0.1 * eff_wage * lab0);   % (Assumes taxation will not exceed 90% of labor income)
-                
-                [x_opt, V_min] = fminsearch(@valfun_work, [k0, lab0], optim_options);
-                
-                k_opt   = x_opt(1);
-                lab_opt = x_opt(2);
-
                 % Calculate tax terms for optimal decision values
                 fincome_lab_opt = eff_wage * lab_opt;
                 [~, fincome, ftax, sstax, fcap] = calculate_resources(fincome_lab_opt);
                 
-                % Store values
-                V        (ik,iz,ib,t) = -V_min;
+                labopt    (ik,iz,ib,t) = lab_opt;
+                bopt      (ik,iz,ib,t) = calculate_b(fincome_lab_opt);
                 
-                kopt     (ik,iz,ib,t) = k_opt;
-                labopt   (ik,iz,ib,t) = lab_opt;
-                bopt     (ik,iz,ib,t) = calculate_b(fincome_lab_opt);
-                
-                fedincome(ik,iz,ib,t) = fincome;
-                fitax    (ik,iz,ib,t) = ftax;
-                fsstax   (ik,iz,ib,t) = sstax;
-                fcaptax  (ik,iz,ib,t) = fcap;
+                fedincome (ik,iz,ib,t) = fincome;
+                fitax     (ik,iz,ib,t) = ftax   ;
+                fsstax    (ik,iz,ib,t) = sstax  ;
+                fcaptax   (ik,iz,ib,t) = fcap   ;
 
             end
         end
@@ -253,117 +269,127 @@ Tr_eff = max(min(Tr, T_eff), T_past);
 N_w = Tr_eff - T_past;
 N_r = T_eff  - Tr_eff;
 
-% Initialize distributions
-dist_w = zeros(nk,nz,nb,N_w);
-dist_r = zeros(nk,   nb,N_r);
 
-if (N_w > 0)
-    dist_w(:,:,:,1) = dist_w0(:,:,:,T_past   +1);
-else
-    dist_r(:,  :,1) = dist_r0(:,  :,T_past-Tr+1);
-end
-
-
-% Find distributions for working years
-for t = 1:N_w
+if isdynamic
     
-    % Extract optimal k and b values
-    % (Note that k and b should already bounded by the ranges of kgrid and bgrid respectively)
-    k_t = kopt(:,:,:,t);
-    b_t = bopt(:,:,:,t);
+    % Initialize distributions
+    dist_w = zeros(nk,nz,nb,N_w);
+    dist_r = zeros(nk,   nb,N_r);
     
-    % Find indices of nearest values in kgrid and bgrid series
-    % (Using arrayfun here leads to nontrivial anonymous function overhead)
-    jk_lt = ones(size(k_t));
-    for elem = 1:length(k_t(:))
-        jk_lt(elem) = find(kgrid(1:end-1) <= k_t(elem), 1, 'last');
-    end
-    jk_gt = jk_lt + 1;
-    
-    jb_lt = ones(size(b_t));
-    for elem = 1:length(b_t(:))
-        jb_lt(elem) = find(bgrid(1:end-1) <= b_t(elem), 1, 'last');
-    end
-    jb_gt = jb_lt + 1;
-    
-    % Calculate linear weights for lower and upper nearest values
-    wk_lt = (kgrid(jk_gt) - k_t) ./ (kgrid(jk_gt) - kgrid(jk_lt));
-    wk_gt = 1 - wk_lt;
-    
-    wb_lt = (bgrid(jb_gt) - b_t) ./ (bgrid(jb_gt) - bgrid(jb_lt));
-    wb_gt = 1 - wb_lt;
-    
-    if t ~= N_w
-        
-        for jz = 1:nz
-            
-            % Perform productivity transformation
-            dist_step = repmat(tr_z(:,jz)', [nk,1,nb]) .* dist_w(:,:,:,t);
-            
-            % Calculate distributions for next time step
-            for elem = 1:numel(dist_step)
-                dist_w(jk_lt(elem), jz, jb_lt(elem), t+1) = dist_w(jk_lt(elem), jz, jb_lt(elem), t+1) + wb_lt(elem) * wk_lt(elem) * dist_step(elem);
-                dist_w(jk_gt(elem), jz, jb_lt(elem), t+1) = dist_w(jk_gt(elem), jz, jb_lt(elem), t+1) + wb_lt(elem) * wk_gt(elem) * dist_step(elem);
-                dist_w(jk_lt(elem), jz, jb_gt(elem), t+1) = dist_w(jk_lt(elem), jz, jb_gt(elem), t+1) + wb_gt(elem) * wk_lt(elem) * dist_step(elem);
-                dist_w(jk_gt(elem), jz, jb_gt(elem), t+1) = dist_w(jk_gt(elem), jz, jb_gt(elem), t+1) + wb_gt(elem) * wk_gt(elem) * dist_step(elem);
-            end
-            
-        end
-        
+    if (N_w > 0)
+        dist_w(:,:,:,1) = dist_w0(:,:,:,T_past   +1);
     else
+        dist_r(:,  :,1) = dist_r0(:,  :,T_past-Tr+1);
+    end
+    
+    
+    % Find distributions for working years
+    for t = 1:N_w
         
-        % Perform transition from working years to retirement years
-        if (N_r > 0)
+        % Extract optimal k and b values
+        % (Note that k and b should already bounded by the ranges of kgrid and bgrid respectively)
+        k_t = kopt(:,:,:,t);
+        b_t = bopt(:,:,:,t);
+        
+        % Find indices of nearest values in kgrid and bgrid series
+        % (Using arrayfun here leads to nontrivial anonymous function overhead)
+        jk_lt = ones(size(k_t));
+        for elem = 1:length(k_t(:))
+            jk_lt(elem) = find(kgrid(1:end-1) <= k_t(elem), 1, 'last');
+        end
+        jk_gt = jk_lt + 1;
+        
+        jb_lt = ones(size(b_t));
+        for elem = 1:length(b_t(:))
+            jb_lt(elem) = find(bgrid(1:end-1) <= b_t(elem), 1, 'last');
+        end
+        jb_gt = jb_lt + 1;
+        
+        % Calculate linear weights for lower and upper nearest values
+        wk_lt = (kgrid(jk_gt) - k_t) ./ (kgrid(jk_gt) - kgrid(jk_lt));
+        wk_gt = 1 - wk_lt;
+        
+        wb_lt = (bgrid(jb_gt) - b_t) ./ (bgrid(jb_gt) - bgrid(jb_lt));
+        wb_gt = 1 - wb_lt;
+        
+        if t ~= N_w
             
-            dist_step = dist_w(:,:,:,N_w);
+            for jz = 1:nz
+                
+                % Perform productivity transformation
+                dist_step = repmat(tr_z(:,jz)', [nk,1,nb]) .* dist_w(:,:,:,t);
+                
+                % Calculate distributions for next time step
+                for elem = 1:numel(dist_step)
+                    dist_w(jk_lt(elem), jz, jb_lt(elem), t+1) = dist_w(jk_lt(elem), jz, jb_lt(elem), t+1) + wb_lt(elem) * wk_lt(elem) * dist_step(elem);
+                    dist_w(jk_gt(elem), jz, jb_lt(elem), t+1) = dist_w(jk_gt(elem), jz, jb_lt(elem), t+1) + wb_lt(elem) * wk_gt(elem) * dist_step(elem);
+                    dist_w(jk_lt(elem), jz, jb_gt(elem), t+1) = dist_w(jk_lt(elem), jz, jb_gt(elem), t+1) + wb_gt(elem) * wk_lt(elem) * dist_step(elem);
+                    dist_w(jk_gt(elem), jz, jb_gt(elem), t+1) = dist_w(jk_gt(elem), jz, jb_gt(elem), t+1) + wb_gt(elem) * wk_gt(elem) * dist_step(elem);
+                end
+                
+            end
             
-            for elem = 1:numel(dist_step)
-                dist_r(jk_lt(elem), jb_lt(elem), 1) = dist_r(jk_lt(elem), jb_lt(elem), 1) + wb_lt(elem) * wk_lt(elem) * dist_step(elem);
-                dist_r(jk_gt(elem), jb_lt(elem), 1) = dist_r(jk_gt(elem), jb_lt(elem), 1) + wb_lt(elem) * wk_gt(elem) * dist_step(elem);
-                dist_r(jk_lt(elem), jb_gt(elem), 1) = dist_r(jk_lt(elem), jb_gt(elem), 1) + wb_gt(elem) * wk_lt(elem) * dist_step(elem);
-                dist_r(jk_gt(elem), jb_gt(elem), 1) = dist_r(jk_gt(elem), jb_gt(elem), 1) + wb_gt(elem) * wk_gt(elem) * dist_step(elem);
+        else
+            
+            % Perform transition from working years to retirement years
+            if (N_r > 0)
+                
+                dist_step = dist_w(:,:,:,N_w);
+                
+                for elem = 1:numel(dist_step)
+                    dist_r(jk_lt(elem), jb_lt(elem), 1) = dist_r(jk_lt(elem), jb_lt(elem), 1) + wb_lt(elem) * wk_lt(elem) * dist_step(elem);
+                    dist_r(jk_gt(elem), jb_lt(elem), 1) = dist_r(jk_gt(elem), jb_lt(elem), 1) + wb_lt(elem) * wk_gt(elem) * dist_step(elem);
+                    dist_r(jk_lt(elem), jb_gt(elem), 1) = dist_r(jk_lt(elem), jb_gt(elem), 1) + wb_gt(elem) * wk_lt(elem) * dist_step(elem);
+                    dist_r(jk_gt(elem), jb_gt(elem), 1) = dist_r(jk_gt(elem), jb_gt(elem), 1) + wb_gt(elem) * wk_gt(elem) * dist_step(elem);
+                end
+                
             end
             
         end
         
     end
-
-end
-
-
-% Find distributions for retirement years
-% (0 iterations if N_r <= 1 -- i.e. if there is only 1 year or less of retirement)
-for t = 1:N_r-1
     
-    % Extract optimal k values
-    % (Note that k should already bounded by the range of kgrid by the dynamic optimization solver)
-    k_t = koptss(:,:,t);
     
-    % Find indices of nearest values in kgrid series
-    jk_lt = ones(size(k_t));
-    for elem = 1:length(k_t(:))
-        jk_lt(elem) = find(kgrid(1:end-1) <= k_t(elem), 1, 'last');
-    end
-    jk_gt = jk_lt + 1;
-    
-    % Calculate linear weights for lower and upper nearest values
-    wk_lt = (kgrid(jk_gt) - k_t) ./ (kgrid(jk_gt) - kgrid(jk_lt));
-    wk_gt = 1 - wk_lt;
-    
-    % Calculate distributions for next time step
-    for ib = 1:nb
-        for ik = 1:nk
-            dist_r(jk_lt(ik,ib), ib, t+1) = dist_r(jk_lt(ik,ib), ib, t+1) + wk_lt(ik,ib) * dist_r(ik,ib,t);
-            dist_r(jk_gt(ik,ib), ib, t+1) = dist_r(jk_gt(ik,ib), ib, t+1) + wk_gt(ik,ib) * dist_r(ik,ib,t);
+    % Find distributions for retirement years
+    % (0 iterations if N_r <= 1 -- i.e. if there is only 1 year or less of retirement)
+    for t = 1:N_r-1
+        
+        % Extract optimal k values
+        % (Note that k should already bounded by the range of kgrid by the dynamic optimization solver)
+        k_t = koptss(:,:,t);
+        
+        % Find indices of nearest values in kgrid series
+        jk_lt = ones(size(k_t));
+        for elem = 1:length(k_t(:))
+            jk_lt(elem) = find(kgrid(1:end-1) <= k_t(elem), 1, 'last');
         end
+        jk_gt = jk_lt + 1;
+        
+        % Calculate linear weights for lower and upper nearest values
+        wk_lt = (kgrid(jk_gt) - k_t) ./ (kgrid(jk_gt) - kgrid(jk_lt));
+        wk_gt = 1 - wk_lt;
+        
+        % Calculate distributions for next time step
+        for ib = 1:nb
+            for ik = 1:nk
+                dist_r(jk_lt(ik,ib), ib, t+1) = dist_r(jk_lt(ik,ib), ib, t+1) + wk_lt(ik,ib) * dist_r(ik,ib,t);
+                dist_r(jk_gt(ik,ib), ib, t+1) = dist_r(jk_gt(ik,ib), ib, t+1) + wk_gt(ik,ib) * dist_r(ik,ib,t);
+            end
+        end
+        
     end
     
+    
+    % Adjust distributions based on demographics
+    dist_w = repmat(shiftdim(mu2_idem(T_past+1:Tr_eff), -2), [nk,nz,nb]) .* dist_w;
+    dist_r = repmat(shiftdim(mu2_idem(Tr_eff+1:T_eff ), -1), [nk,   nb]) .* dist_r;
+    
+else
+    
+    dist_w = dist_w_static;
+    dist_r = dist_r_static;
+    
 end
-
-
-% Adjust distributions based on demographics
-dist_w = repmat(shiftdim(mu2_idem(T_past+1:Tr_eff), -2), [nk,nz,nb]) .* dist_w;
-dist_r = repmat(shiftdim(mu2_idem(Tr_eff+1:T_eff ), -1), [nk,   nb]) .* dist_r;
 
 
 % Calculate aggregates
@@ -392,6 +418,138 @@ Fcaptax   = [sum(reshape(fcaptax    (:,:,:,1:N_w) .* dist_w, [], N_w), 1), ...
 
 SSexp     = sum(reshape(repmat(ss_benefit(:,1)', [nk,1,N_r]) .* dist_r, [], N_r), 1);
 
+
+end
+
+
+
+
+% Resource and tax calculation function
+function [resources, fincome, ftax, sstax, fcap] ...
+    ...
+    = calculate_resources(fincome_lab, kgrid_ik_, ...
+                          cap_share_, rate_cap_, debt_share_, rate_gov_, cap_tax_share_, tau_cap_, tau_capgain_, exp_subsidy_, ...
+                          avg_deduc_, coefs_, limit_, X_, mpci_, rpci_, tau_ss_, v_ss_max_, clinton_, year_, q_tobin_, q_tobin0_, ...
+                          rate_tot_, beq_, ss_tax_cred_) %#codegen
+
+% Enforce function inlining for C code generation
+coder.inline('always');
+
+% Define parameters as persistent variables
+persistent initialized
+persistent kgrid_ik
+persistent cap_share
+persistent rate_cap
+persistent debt_share
+persistent rate_gov
+persistent cap_tax_share
+persistent tau_cap
+persistent tau_capgain
+persistent exp_subsidy
+persistent avg_deduc
+persistent coefs
+persistent limit
+persistent X
+persistent mpci
+persistent rpci
+persistent tau_ss
+persistent v_ss_max
+persistent clinton
+persistent year
+persistent q_tobin
+persistent q_tobin0
+persistent rate_tot
+persistent beq
+persistent ss_tax_cred
+
+% Initialize parameters
+if isempty(initialized)
+    
+    kgrid_ik        = 0;
+    cap_share       = 0;
+    rate_cap        = 0;
+    debt_share      = 0;
+    rate_gov        = 0;
+    cap_tax_share   = 0;
+    tau_cap         = 0;
+    tau_capgain     = 0;
+    exp_subsidy     = 0;
+    avg_deduc       = 0;
+    coefs           = 0;
+    limit           = 0;
+    X               = 0;
+    mpci            = 0;
+    rpci            = 0;
+    tau_ss          = 0;
+    v_ss_max        = 0;
+    clinton         = 0;
+    year            = 0;
+    q_tobin         = 0;
+    q_tobin0        = 0;
+    rate_tot        = 0;
+    beq             = 0;
+    ss_tax_cred     = 0;
+    
+    initialized     = true;
+    
+end
+
+% Set parameters if provided
+if (nargin > 1)
+    
+    kgrid_ik        = kgrid_ik_;
+    cap_share       = cap_share_;
+    rate_cap        = rate_cap_;
+    debt_share      = debt_share_;
+    rate_gov        = rate_gov_;
+    cap_tax_share   = cap_tax_share_;
+    tau_cap         = tau_cap_;
+    tau_capgain     = tau_capgain_;
+    exp_subsidy     = exp_subsidy_;
+    avg_deduc       = avg_deduc_;
+    coefs           = coefs_;
+    limit           = limit_;
+    X               = X_;
+    mpci            = mpci_;
+    rpci            = rpci_;
+    tau_ss          = tau_ss_;
+    v_ss_max        = v_ss_max_;
+    clinton         = clinton_;
+    year            = year_;
+    q_tobin         = q_tobin_;
+    q_tobin0        = q_tobin0_;
+    rate_tot        = rate_tot_;
+    beq             = beq_;
+    ss_tax_cred     = ss_tax_cred_;
+    
+    if isempty(fincome_lab), return, end
+    
+end
+
+% Calculate taxable income
+fincome     =   cap_share *(rate_cap-1)*kgrid_ik*(1-cap_tax_share) ...
+              + debt_share*(rate_gov-1)*kgrid_ik ...
+              + (1-ss_tax_cred)*fincome_lab;
+fincome     = max(0, (rpci/mpci)*fincome);
+deduc       = max(0, avg_deduc + coefs(1)*fincome + coefs(2)*fincome^0.5);
+fincome_eff = max(fincome - deduc, 0);
+fincome     = (mpci/rpci)*fincome;
+
+% Calculate personal income tax (PIT)
+ftax = limit*(fincome_eff - (fincome_eff.^(-X(1)) + (X(2))).^(-1/X(1)));
+mtr  = limit - (limit*(fincome_eff^(-X(1)) + X(2))^(-1/X(1))) / (X(2)*(fincome_eff^(X(1)+1)) + fincome_eff);
+ftax = (mpci/rpci)*(ftax + clinton*max(0, mtr-0.28)*deduc);
+
+% Calculate Social Security tax
+sstax = tau_ss*min(fincome_lab, v_ss_max);
+
+% Calculate capital income tax (CIT)
+fcap = cap_share*kgrid_ik*( tau_cap*((rate_cap-1) - exp_subsidy)*cap_tax_share ...
+       + tau_capgain*(year == 1)*(q_tobin - q_tobin0)/q_tobin0 );
+
+% Calculate available resources
+resources = rate_tot*kgrid_ik + fincome_lab - (ftax + sstax + fcap) + beq ...
+            + (year == 1)*kgrid_ik*cap_share*(q_tobin - q_tobin0)/q_tobin0;
 
 end
 
