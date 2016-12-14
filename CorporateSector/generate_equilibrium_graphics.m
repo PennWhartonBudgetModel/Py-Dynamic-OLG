@@ -80,7 +80,7 @@ xlabel('Wage')
     
 
 
-display('pause here')
+desktop
 
 
 

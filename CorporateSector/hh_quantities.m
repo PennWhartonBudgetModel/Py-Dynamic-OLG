@@ -1,8 +1,9 @@
 function [assets_supplied, consumption_total] = hh_quantities(prices)
 
 s_hh = load(fullfile('Parameters','hh_parameters.mat'));
+hh_tolerance = 0.0001;
 
-[V, aopt, assets_supplied, consumption_total, dist] = solve_hh_optimization_mex(s_hh.hh_params,prices); %#ok<ASGLU>
+[V, aopt, assets_supplied, consumption_total, dist] = solve_hh_optimization_mex(s_hh.hh_params, prices, hh_tolerance); %#ok<ASGLU>
 if max(dist(end,:))>1.0e-8
     % Prevent solving constrained optimization problem.
     warning('Distribution endpoint has non-zero mass.  Increase grid upper bound.')

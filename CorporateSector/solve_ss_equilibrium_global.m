@@ -5,6 +5,7 @@ function [prices, quantities] = solve_ss_equilibrium_global(eqm_prices,print_inf
 s_hh = load(fullfile('Parameters','hh_parameters.mat'));
 rate_ub = (s_hh.hh_params.discount_factor)^(-1);
 rate_lb = 1;
+hh_tolerance = 0.0001;
 % optim_options1 = optimset('Display', 'off', 'TolFun', 1e-6, 'TolX', 1e-6); %#ok<NASGU>
 % optim_options2 = optimset('TolFun', 1e-6, 'TolX', 1e-6,'MaxFunEvals',10000); %#ok<NASGU>
 % optim_options3 = optimoptions(@fmincon,'UseParallel',true);
@@ -16,7 +17,7 @@ prices.rate        = 1.02;
 prices.wage        = 1;
 
 % Determine invariant distribution of productivity shocks
-[~, ~, ~, ~, dist] = solve_hh_optimization_mex(s_hh.hh_params,prices);
+[~, ~, ~, ~, dist] = solve_hh_optimization_mex(s_hh.hh_params, prices, .1);
 
 % Determine labor supply when inelastic
 labor_supply = sum(sum(dist).*s_hh.hh_params.prod_shocks');    % Update if labor supply becomes elastically demanded.
@@ -26,7 +27,7 @@ if ~exist('eqm_prices','var')
     
     % Solve equilibrium price of consumption.
     pc_ub = 4;
-    pc_lb = 2.5;
+    pc_lb = 2;
     pc_iter = 0;
     while true
         pc_iter = pc_iter + 1;
@@ -53,7 +54,7 @@ if ~exist('eqm_prices','var')
                 quantities.firm.inv_total    = inv_total;
                 quantities.firm.labor_demand = labor_demand;
                 
-                [~, ~, asset_supply, consumption_total, ~] = solve_hh_optimization_mex(s_hh.hh_params,prices);
+                [~, ~, asset_supply, consumption_total, ~] = solve_hh_optimization_mex(s_hh.hh_params, prices, hh_tolerance);
                 quantities.hh.assets_total     = asset_supply;
                 quantities.hh.consumtion_total = consumption_total;
                 quantities.hh.labor_supply     = labor_supply;
@@ -106,7 +107,7 @@ elseif exist('eqm_prices','var')
     quantities.firm.inv_total    = inv_total;
     quantities.firm.labor_demand = labor_demand;
 
-    [~, ~, asset_supply, consumption_total, ~] = solve_hh_optimization_mex(s_hh.hh_params,prices);
+    [~, ~, asset_supply, consumption_total, ~] = solve_hh_optimization_mex(s_hh.hh_params, prices, hh_tolerance);
     quantities.hh.assets_total      = asset_supply;
     quantities.hh.consumption_total = consumption_total;
     quantities.hh.labor_supply      = labor_supply;
