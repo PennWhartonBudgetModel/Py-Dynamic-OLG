@@ -1,4 +1,5 @@
-function [capital_total, labor_total, eq_total, inv_total, V_total, output_total, dist] = solve_firm_optimization( prices, firm_params) %#ok<*INUSD>
+function [capital_total, labor_total, eq_total, inv_total, adjcost_total, V_total, output_total, dist] =...
+        solve_firm_optimization( prices, firm_params) %#ok<*INUSD>
 %#codegen
 
 %% Unload firm parameter structure
@@ -14,16 +15,19 @@ kgrid           = firm_params.kgrid; %#ok<*STRNU>
 
 
 %% Initiate arrays
-Vopt   = zeros( nk, n_prodshocks);
-kopt   = zeros( nk, n_prodshocks);
-Vpr    = zeros( nk, n_prodshocks);
-invopt = zeros( nk, n_prodshocks);
-eqopt  = zeros( nk, n_prodshocks);
+Vopt        = zeros( nk, n_prodshocks);
+kopt        = zeros( nk, n_prodshocks);
+Vpr         = zeros( nk, n_prodshocks);
+invopt      = zeros( nk, n_prodshocks);
+eqopt       = zeros( nk, n_prodshocks);
+adjcostopt  = zeros( nk, n_prodshocks);
+
 
 %% Presolve quantities
-capital_production =  prices.consumption*(prod_shocks*(kgrid.^capital_share))';
+capital_production =  (prod_shocks*(kgrid.^capital_share))';
 labopt             = (prices.wage./(labor_share*capital_production)).^(1/(labor_share-1));
 revenues           = capital_production.*labopt.^labor_share - prices.wage.*labopt;
+outputs            = ((prod_shocks*((kgrid.^capital_share)).*(labopt'.^labor_share)))';
 
 
 % Specify settings for dynamic optimization subproblems
@@ -31,8 +35,8 @@ optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
 
 
 %% Solve firm optimization problem
-tolerance = .01;
-max_iter = 200;
+tolerance = .001;
+max_iter = 2000;
 iter=0;
 while true
     iter = iter+1;
@@ -41,14 +45,16 @@ while true
 %             EVpr = reshape( sum(bsxfun(@times, prod_transprob(ip,:), Vpr' ), 2), [nk,1] );
             EVpr = prod_transprob(ip,:)*Vpr';
             revenue = revenues(ik,ip);
-            value_function([], revenue, kgrid(ik), EVpr, firm_params, prices.consumption);
+            value_function([], revenue, kgrid(ik), EVpr, firm_params);
             k_opt = 0; %#ok<NASGU>
             V_opt = 0;  %#ok<NASGU>
             [k_opt,V_opt] = fminsearch(@value_function,kgrid(ik),optim_options);
-            Vopt  (ik,ip) = -V_opt;
-            kopt  (ik,ip) = k_opt;
-            invopt(ik,ip) = k_opt - (1-depreciation)*kgrid(ik);
-            eqopt (ik,ip) = revenue - invopt(ik,ip) - (adj_cost_param/2)*(invopt(ik,ip)^2);
+            Vopt      (ik,ip) = -V_opt;
+            kopt      (ik,ip) = k_opt;
+            invopt    (ik,ip) = k_opt - (1-depreciation)*kgrid(ik);
+            eqopt     (ik,ip) = revenue - invopt(ik,ip) - (adj_cost_param/2)*(invopt(ik,ip)^2);
+            adjcostopt(ik,ip) = (adj_cost_param/2)*(invopt(ik,ip)^2);
+            
         end
     end
     error = max(max(max(abs(Vopt-Vpr))));
@@ -60,12 +66,13 @@ end
 
 
 % Solve stationary distribution
-[capital_total, labor_total, eq_total, inv_total, V_total, output_total, dist] = solve_firm_distribution(kopt, labopt, eqopt, invopt, Vopt, revenues, firm_params);
+[capital_total, labor_total, eq_total, inv_total, adjcost_total, V_total, output_total, dist] = solve_firm_distribution(kopt, labopt,...
+                                                        eqopt, invopt, adjcostopt, Vopt, revenues, outputs, firm_params);
 
 end
 
 
-function vf = value_function( k_prime, revenue_, k_ik_, EVpr_, firm_params, price_consumption_)
+function vf = value_function( k_prime, revenue_, k_ik_, EVpr_, firm_params)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -80,7 +87,6 @@ persistent kgrid
 persistent depreciation
 persistent adj_cost_param 
 persistent discount_factor 
-persistent price_consumption
 
 
 % Initialize parameters
@@ -92,7 +98,6 @@ if isempty(initialized)
 	depreciation      = 0;
 	adj_cost_param    = 0;
 	discount_factor   = 0;
-    price_consumption = 0;
     
     initialized = true;
     
@@ -107,7 +112,6 @@ if (nargin > 1)
 	depreciation      = firm_params.depreciation;
 	adj_cost_param    = firm_params.adj_cost_param;
 	discount_factor   = firm_params.discount_factor;
-    price_consumption = price_consumption_;
     
     vf = [];
     return
@@ -123,7 +127,7 @@ end
 investment = k_prime - (1-depreciation)*k_ik;
 adjustment_costs = (adj_cost_param/2)*(investment^2);
 
-vf = revenue - price_consumption*investment - adjustment_costs + discount_factor*interp1(kgrid,EVpr,k_prime,'linear');
+vf = revenue - investment - adjustment_costs + discount_factor*interp1(kgrid,EVpr,k_prime,'linear');
 vf = -vf;
 
 
@@ -133,7 +137,8 @@ end
 
 
 
-function [capital_total, labor_total, eq_total, inv_total, V_total, output_total, dist] = solve_firm_distribution(kopt, labopt, eqopt, invopt, Vopt, revenues, firm_params)
+function [capital_total, labor_total, eq_total, inv_total, adjcost_total, V_total, output_total, dist] =...
+         solve_firm_distribution(kopt, labopt, eqopt, invopt, adjcostopt, Vopt, revenues, outputs, firm_params) %#ok<INUSL>
 kgrid          = firm_params.kgrid;
 nk             = firm_params.nk;
 n_prodshocks   = firm_params.n_prodshocks;
@@ -174,12 +179,13 @@ while true
     dist = distpr;
 end
 
-capital_total = sum(dist(:).*kopt(:)    );
-labor_total   = sum(dist(:).*labopt(:)  );
-eq_total      = sum(dist(:).*eqopt(:)   );
-inv_total     = sum(dist(:).*invopt(:)  );
-V_total       = sum(dist(:).*Vopt(:)    );
-output_total  = sum(dist(:).*revenues(:));
+capital_total = sum(dist(:).*kopt(:)      );
+labor_total   = sum(dist(:).*labopt(:)    );
+eq_total      = sum(dist(:).*eqopt(:)     );
+inv_total     = sum(dist(:).*invopt(:)    );
+adjcost_total = sum(dist(:).*adjcostopt(:));
+V_total       = sum(dist(:).*Vopt(:)      );
+output_total  = sum(dist(:).*outputs(:)   );
 
 end
 

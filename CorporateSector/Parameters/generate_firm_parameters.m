@@ -14,12 +14,13 @@ prod_shocks   = exp(prod_shocks);
 depreciation                = .03; %#ok<*NASGU>
 adj_cost_param              = .15;
 returns_to_scale_adjustment = .9;    % Want: f(k,n) = [(k^a)*(n^(1-a))]^b = (k^(a*b))*(n^((1-a)*b)).
-capital_share               = .3;
+capital_share               = .4;
 capital_share               = capital_share*returns_to_scale_adjustment;
 labor_share                 = (1-capital_share)*returns_to_scale_adjustment;
 discount_factor             = .95;
 nk                          = 15;
-kgrid                       = linspace(.1,1500,nk);
+% kgrid                       = linspace(.1,2000,nk);
+kgrid                       = logspace(log(.1)/log(10),log(2000)/log(10),nk);
 
 
 % Create structure

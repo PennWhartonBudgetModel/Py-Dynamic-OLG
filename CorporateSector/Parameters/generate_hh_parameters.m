@@ -14,9 +14,9 @@ prod_shocks   = exp(prod_shocks);
 % Other parameters
 crra = 2.5;
 discount_factor = .96;
-na = 100;
-% asset_grid = [0,logspace(-1,log(10000)/log(10),na-1)];
-asset_grid = linspace(0,10000,na);
+ns = 100;
+shares_grid = [0,logspace(-1,log(10000)/log(10),ns-1)];
+% shares_grid = linspace(0,10000,ns);
 
 
 % Create structure
@@ -25,8 +25,8 @@ hh_params.prod_transprob   = prod_transprob;
 hh_params.prod_shocks      = prod_shocks;
 hh_params.crra             = crra;
 hh_params.discount_factor  = discount_factor; 
-hh_params.na               = na; 
-hh_params.asset_grid        = asset_grid; %#ok<*STRNU>
+hh_params.ns               = ns; 
+hh_params.shares_grid      = shares_grid; %#ok<*STRNU>
 
 save('hh_parameters.mat','hh_params')
 

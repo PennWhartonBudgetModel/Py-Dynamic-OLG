@@ -1,9 +1,13 @@
 % solve_hh_optimization_test
 s = load(fullfile('Parameters','hh_parameters.mat'));
 
-prices.consumption = 1;
-prices.rate        = 1.03;
+% Prices
+prices.fund        = 10;
 prices.wage        = 1;
-tolerance = 0.0001;
+prices.rate        = 1.03;
 
-[V, aopt, assets_total, consumption_total, dist] = solve_hh_optimization_mex(s.hh_params,prices, tolerance);
+% Other inputs
+dividend  = .1;
+tolerance = 1;
+
+[V, sopt, shares_total, consumption_total, dist] = solve_hh_optimization(s.hh_params, prices, dividend, tolerance);
