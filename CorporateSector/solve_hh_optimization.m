@@ -1,8 +1,8 @@
-function [V, sopt, shares_total, consumption_total, dist] = solve_hh_optimization(hh_params, prices, dividend, tolerance)
+function [V, sopt, shares_total, consumption_total, tax_total, V_total, dist] = solve_hh_optimization(hh_params, prices, taxes, dividend, tolerance)
 %#codegen
 % This function solves the household optimization problem over the entire state space.
 
-% Unload structure
+%% Unload structure
 n_prodshocks    = hh_params.n_prodshocks;
 prod_transprob  = hh_params.prod_transprob;
 prod_shocks     = hh_params.prod_shocks;
@@ -11,33 +11,38 @@ discount_factor = hh_params.discount_factor;  %#ok<NASGU>
 ns              = hh_params.ns; 
 shares_grid     = hh_params.shares_grid; 
 
-% Specify settings for dynamic optimization subproblems
+%% Specify settings for dynamic optimization subproblems
 optim_options = optimset('Display', 'off', 'TolFun', 1e-8, 'TolX', 1e-6);
 
 
-% Initialize arrays
-V    = zeros(ns, n_prodshocks);
-sopt = zeros(ns, n_prodshocks);
-copt = zeros(ns, n_prodshocks);
-Vpr  = zeros(ns, n_prodshocks);
+%% Initialize arrays
+V      = zeros(ns, n_prodshocks);
+sopt   = zeros(ns, n_prodshocks);
+copt   = zeros(ns, n_prodshocks);
+taxopt = zeros(ns, n_prodshocks);
+Vpr    = zeros(ns, n_prodshocks);
 
+%% Solve household optimization
 iter = 0;
 maxiter = 100000;
 while true
     for ia = 1:ns
         for ip = 1:n_prodshocks
-%             EVpr = sum(bsxfun(@times, prod_transprob(ip,:), Vpr),2);
             EVpr = prod_transprob(ip,:)*Vpr';
-            financial_resources = shares_grid(ia)*(prices.fund + dividend) + prices.wage*prod_shocks(ip);
+            taxable_income = prices.wage*prod_shocks(ip) + shares_grid(ia)*dividend*taxes.hh.div_inc_share;
+            income_taxbill = taxable_income - taxes.hh.inc_scale*taxable_income^(1 - taxes.hh.inc_prog);
+            taxbill = taxes.hh.dividend*shares_grid(ia)*dividend*(1-taxes.hh.div_inc_share) + income_taxbill;
+            financial_resources = shares_grid(ia)*(prices.fund + dividend) + prices.wage*prod_shocks(ip) - taxbill;
             
             % Call valfunc to intiate parameters
             value_function([], hh_params, EVpr, financial_resources, prices);
             a0 = shares_grid(ia);
             [x_opt, V_opt, exitflag] = fminsearch(@value_function, a0, optim_options);
             if exitflag~=1, break, end
-            sopt(ia,ip) = x_opt;
-            copt(ia,ip) = financial_resources - prices.fund*x_opt;
-            V   (ia,ip) = -V_opt;
+            sopt  (ia,ip) = x_opt;
+            copt  (ia,ip) = financial_resources - prices.fund*x_opt;
+            taxopt(ia,ip) = taxbill;
+            V     (ia,ip) = -V_opt;
         end
     end
     error = max(abs(V(:)-Vpr(:)));
@@ -45,13 +50,15 @@ while true
     Vpr = V;
 end
 
-% Solve HH distribution
+%% Solve HH distribution
 if n_prodshocks>1
-    [shares_total, consumption_total, dist] = solve_hh_distribution(sopt, copt, hh_params);
+    [shares_total, consumption_total, tax_total, V_total, dist] = solve_hh_distribution(sopt, copt, taxopt, V, hh_params);
 else
-    shares_total = NaN;
+    shares_total      = NaN;
     consumption_total = NaN;
-    dist = NaN;
+    tax_total         = NaN;
+    V_total           = NaN;
+    dist              = NaN;
 end
 
 
@@ -124,7 +131,7 @@ end
 
 
 
-function [shares_total, consumption_total, dist] = solve_hh_distribution(sopt, copt, hh_params)
+function [shares_total, consumption_total, tax_total, V_total, dist] = solve_hh_distribution(sopt, copt, taxopt, V, hh_params)
 shares_grid     = hh_params.shares_grid;
 ns             = hh_params.ns;
 n_prodshocks   = hh_params.n_prodshocks;
@@ -165,19 +172,16 @@ while true
     dist = distpr;
 end
 
-shares_total      = sum(dist(:).*sopt(:));
-consumption_total = sum(dist(:).*copt(:));
+shares_total      = sum(dist(:).*sopt  (:));
+consumption_total = sum(dist(:).*copt  (:));
+tax_total         = sum(dist(:).*taxopt(:));
+V_total           = sum(dist(:).*V     (:));
 
 end
 
 
 
-            
-            
-            
-            
-            
-            
+
 
 
 

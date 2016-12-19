@@ -1,5 +1,5 @@
-function [capital_total, labor_total, eq_total, inv_total, adjcost_total, V_total, output_total, dist] =...
-        solve_firm_optimization( prices, firm_params) %#ok<*INUSD>
+function [capital_total, labor_total, eq_total, inv_total, adjcost_total, V_total, output_total, tax_total, dist] =...
+        solve_firm_optimization( prices, taxes, firm_params) %#ok<*INUSD>
 %#codegen
 
 %% Unload firm parameter structure
@@ -21,6 +21,7 @@ Vpr         = zeros( nk, n_prodshocks);
 invopt      = zeros( nk, n_prodshocks);
 eqopt       = zeros( nk, n_prodshocks);
 adjcostopt  = zeros( nk, n_prodshocks);
+taxopt      = zeros( nk, n_prodshocks);
 
 
 %% Presolve quantities
@@ -45,15 +46,16 @@ while true
 %             EVpr = reshape( sum(bsxfun(@times, prod_transprob(ip,:), Vpr' ), 2), [nk,1] );
             EVpr = prod_transprob(ip,:)*Vpr';
             revenue = revenues(ik,ip);
-            value_function([], revenue, kgrid(ik), EVpr, firm_params);
+            value_function([], revenue, kgrid(ik), EVpr, taxes, firm_params);
             k_opt = 0; %#ok<NASGU>
             V_opt = 0;  %#ok<NASGU>
             [k_opt,V_opt] = fminsearch(@value_function,kgrid(ik),optim_options);
             Vopt      (ik,ip) = -V_opt;
             kopt      (ik,ip) = k_opt;
             invopt    (ik,ip) = k_opt - (1-depreciation)*kgrid(ik);
-            eqopt     (ik,ip) = revenue - invopt(ik,ip) - (adj_cost_param/2)*(invopt(ik,ip)^2);
             adjcostopt(ik,ip) = (adj_cost_param/2)*(invopt(ik,ip)^2);
+            taxopt    (ik,ip) = taxes.firm.income*(revenue - adjcostopt(ik,ip) - taxes.firm.exp_share*invopt(ik,ip));
+            eqopt     (ik,ip) = revenue - invopt(ik,ip) - (adj_cost_param/2)*(invopt(ik,ip)^2) - taxopt(ik,ip);
             
         end
     end
@@ -66,13 +68,13 @@ end
 
 
 % Solve stationary distribution
-[capital_total, labor_total, eq_total, inv_total, adjcost_total, V_total, output_total, dist] = solve_firm_distribution(kopt, labopt,...
-                                                        eqopt, invopt, adjcostopt, Vopt, revenues, outputs, firm_params);
+[capital_total, labor_total, eq_total, inv_total, adjcost_total, V_total, output_total, tax_total, dist] = solve_firm_distribution(kopt, labopt,...
+                                                        eqopt, invopt, adjcostopt, taxopt, Vopt, revenues, outputs, firm_params);
 
 end
 
 
-function vf = value_function( k_prime, revenue_, k_ik_, EVpr_, firm_params)
+function vf = value_function( k_prime, revenue_, k_ik_, EVpr_, taxes, firm_params)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -87,6 +89,8 @@ persistent kgrid
 persistent depreciation
 persistent adj_cost_param 
 persistent discount_factor 
+persistent corp_inc_tax
+persistent exp_share
 
 
 % Initialize parameters
@@ -98,6 +102,8 @@ if isempty(initialized)
 	depreciation      = 0;
 	adj_cost_param    = 0;
 	discount_factor   = 0;
+    corp_inc_tax      = 0;
+    exp_share         = 0;
     
     initialized = true;
     
@@ -112,6 +118,8 @@ if (nargin > 1)
 	depreciation      = firm_params.depreciation;
 	adj_cost_param    = firm_params.adj_cost_param;
 	discount_factor   = firm_params.discount_factor;
+    corp_inc_tax      = taxes.firm.income;
+    exp_share         = taxes.firm.exp_share;
     
     vf = [];
     return
@@ -127,7 +135,8 @@ end
 investment = k_prime - (1-depreciation)*k_ik;
 adjustment_costs = (adj_cost_param/2)*(investment^2);
 
-vf = revenue - investment - adjustment_costs + discount_factor*interp1(kgrid,EVpr,k_prime,'linear');
+taxbill = corp_inc_tax*(revenue - exp_share*investment - adjustment_costs);
+vf = revenue - investment - adjustment_costs - taxbill + discount_factor*interp1(kgrid,EVpr,k_prime,'linear');
 vf = -vf;
 
 
@@ -137,8 +146,8 @@ end
 
 
 
-function [capital_total, labor_total, eq_total, inv_total, adjcost_total, V_total, output_total, dist] =...
-         solve_firm_distribution(kopt, labopt, eqopt, invopt, adjcostopt, Vopt, revenues, outputs, firm_params) %#ok<INUSL>
+function [capital_total, labor_total, eq_total, inv_total, adjcost_total, V_total, output_total, tax_total, dist] =...
+         solve_firm_distribution(kopt, labopt, eqopt, invopt, adjcostopt, taxopt, Vopt, revenues, outputs, firm_params) %#ok<INUSL>
 kgrid          = firm_params.kgrid;
 nk             = firm_params.nk;
 n_prodshocks   = firm_params.n_prodshocks;
@@ -186,6 +195,7 @@ inv_total     = sum(dist(:).*invopt(:)    );
 adjcost_total = sum(dist(:).*adjcostopt(:));
 V_total       = sum(dist(:).*Vopt(:)      );
 output_total  = sum(dist(:).*outputs(:)   );
+tax_total     = sum(dist(:).*taxopt(:)    );
 
 end
 

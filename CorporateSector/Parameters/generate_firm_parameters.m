@@ -3,18 +3,18 @@ function [] = generate_firm_parameters()
 
 % Determine productivity shock process
 n_prodshocks = 5;
-ar1_coef     = .85;
-var_innov    = .1;
+ar1_coef     = .9;
+var_innov    = .118;
 addpath('..')
 [prod_shocks, prod_transprob, ~] = cooper_mex(n_prodshocks,0,ar1_coef,sqrt(var_innov));
 prod_shocks   = exp(prod_shocks);
 
 
 % Other parameters
-depreciation                = .03; %#ok<*NASGU>
-adj_cost_param              = .15;
-returns_to_scale_adjustment = .9;    % Want: f(k,n) = [(k^a)*(n^(1-a))]^b = (k^(a*b))*(n^((1-a)*b)).
-capital_share               = .4;
+depreciation                = .085; %#ok<*NASGU>
+adj_cost_param              = .05;
+returns_to_scale_adjustment = .85;    % Want: f(k,n) = [(k^a)*(n^(1-a))]^b = (k^(a*b))*(n^((1-a)*b)).
+capital_share               = .33;
 capital_share               = capital_share*returns_to_scale_adjustment;
 labor_share                 = (1-capital_share)*returns_to_scale_adjustment;
 discount_factor             = .95;
