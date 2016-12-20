@@ -6,7 +6,7 @@
 
 classdef dynamicSolver
 
-methods (Static)    
+methods (Static)
     
     
     % Solve steady state
@@ -130,7 +130,7 @@ methods (Static, Access = private)
         callingtag = [sprintf('^%s_%s', counterdef_tag, economy), callertag];
         
         % Clear or create save directory
-        if exist(save_dir, 'dir'), rmdir(save_dir, 's'), end, mkdir(save_dir)        
+        if exist(save_dir, 'dir'), rmdir(save_dir, 's'), end, mkdir(save_dir)
         
         
         
@@ -226,7 +226,7 @@ methods (Static, Access = private)
         
         
         
-        %% Aggregate generation function definition
+        %% Aggregate generation function
         
         function [kpr_total, beq_total, elab_total, lab_total, lfpr_total, ...
                   fedincome_total, fedit_total, ssrev_total, fcaptax_total, ssexp_total, ...
@@ -814,7 +814,7 @@ methods (Static, Access = private)
             case 'steady'
                 
                 % Calculate capital to output ratio
-                K_Y = (kpr_total-debt_total)/Y_total;
+                K_Y = (kpr_total - debt_total) / Y_total;
                 
                 
                 % Calculate labor elasticity
@@ -850,14 +850,14 @@ methods (Static, Access = private)
                 savings_elas = ((kpr_dev - kpr_total)/kpr_total) / ((rate_tots_dev - rate_tots)/(rate_tots-1));
                 
                 
-                % Package, save, and display elasticities
-                elasticities = [K_Y, labor_elas, savings_elas];
-                
+                % Save and display elasticities
                 save(fullfile(save_dir, 'elasticities.mat'), 'K_Y', 'labor_elas', 'savings_elas')
                 
-                displaynames = { 'Capital-to-output ratio', 'Labor elasticity', 'Savings elasticity' };
-                for i = 1:length(elasticities) %#ok<FXUP>
-                    fprintf('\t%-25s= % 7.4f\n', displaynames{i}, elasticities(i))
+                elasticities = { K_Y,          'Capital-to-output ratio' ;
+                                 labor_elas,   'Labor elasticity'        ;
+                                 savings_elas, 'Savings elasticity'      };
+                for i = 1:size(elasticities, 1) %#ok<FXUP>
+                    fprintf('\t%-25s= % 7.4f\n', elasticities{i, 2}, elasticities{i, 1})
                 end
                 fprintf('\n')
                 
