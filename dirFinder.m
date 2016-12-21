@@ -17,7 +17,7 @@ methods (Static)
     
     % Find model root directory
     function [modelroot_dir] = modelroot()
-        modelroot_dir = fileparts(fileparts(dirFinder.source));
+        modelroot_dir = fileparts(fileparts(fileparts(dirFinder.source)));
     end
     
     
@@ -104,7 +104,7 @@ end
 function [flag] = isproductionready()
     
     % Get source code stage
-    [~, stage] = fileparts(fileparts(dirFinder.source));
+    [~, stage] = fileparts(dirFinder.source);
     
     if ~strcmp(stage, 'Production')
         flag = false;
