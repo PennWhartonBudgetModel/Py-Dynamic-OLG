@@ -4,16 +4,16 @@
 %%
 
 
-function [labopt, dist_w, dist_r, N_w, N_r, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...
+function [labopt, dist, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...
           ...
             = generate_distributions(...
-                beta, gamma, sigma, T_life, Tr, T_opt, T_dist, birthyear, ...
+                beta, gamma, sigma, T_life, T_work, T_model_opt, T_model_dist, birthyear, ...
                 kgrid, z, tr_z, bgrid, nk, nz, nb, idem, ...
                 mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, ss_tax, taxmax, ...
                 beqs, wages, cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, q_tobin, q_tobin0, Vbeq, ...
                 avg_deduc, clinton, coefs, limit, X, ss_benefit, ...
-                dist_w0, dist_r0, mu2_idem, mu3_idem, ...
-                labopt_static, dist_w_static, dist_r_static) %#codegen
+                dist0, mu2_idem, mu3_idem, ...
+                labopt_static, dist_static) %#codegen
 
 
 % Define argument properties for C code generation
@@ -27,9 +27,9 @@ assert( isa(beta,           'double') && (size(beta,            1) == 1         
 assert( isa(gamma,          'double') && (size(gamma,           1) == 1         ) && (size(gamma,           2) == 1             ) );
 assert( isa(sigma,          'double') && (size(sigma,           1) == 1         ) && (size(sigma,           2) == 1             ) );
 assert( isa(T_life,         'double') && (size(T_life,          1) == 1         ) && (size(T_life,          2) == 1             ) );
-assert( isa(Tr,             'double') && (size(Tr,              1) == 1         ) && (size(Tr,              2) == 1             ) );
-assert( isa(T_dist,         'double') && (size(T_dist,          1) == 1         ) && (size(T_dist,          2) == 1             ) );
-assert( isa(T_opt,          'double') && (size(T_opt,           1) == 1         ) && (size(T_opt,           2) == 1             ) );
+assert( isa(T_work,         'double') && (size(T_work,          1) == 1         ) && (size(T_work,          2) == 1             ) );
+assert( isa(T_model_dist,   'double') && (size(T_model_dist,    1) == 1         ) && (size(T_model_dist,    2) == 1             ) );
+assert( isa(T_model_opt,    'double') && (size(T_model_opt,     1) == 1         ) && (size(T_model_opt,     2) == 1             ) );
 assert( isa(birthyear,      'double') && (size(birthyear,       1) == 1         ) && (size(birthyear,       2) == 1             ) );
 
 assert( isa(kgrid,          'double') && (size(kgrid,           1) <= nk_max    ) && (size(kgrid,           2) == 1             ) );
@@ -70,61 +70,48 @@ assert( isa(limit,          'double') && (size(limit,           1) == 1         
 assert( isa(X,              'double') && (size(X,               1) == 1         ) && (size(X,               2) <= 10            ) );
 assert( isa(ss_benefit,     'double') && (size(ss_benefit,      1) <= nb_max    ) && (size(ss_benefit,      2) <= T_model_max   ) );
 
-assert( isa(dist_w0,        'double') && (size(dist_w0,         1) <= nk_max    ) && (size(dist_w0,         2) <= nz_max        ) && (size(dist_w0,       3) <= nb_max) && (size(dist_w0,       4) <= T_life_max ) );
-assert( isa(dist_r0,        'double') && (size(dist_r0,         1) <= nk_max    )                                                 && (size(dist_r0,       2) <= nb_max) && (size(dist_r0,       3) <= T_life_max ) );
+assert( isa(dist0,          'double') && (size(dist0,           1) <= nk_max    ) && (size(dist0,           2) <= nz_max        ) && (size(dist0,         3) <= nb_max) && (size(dist0,         4) <= T_life_max ) );
 assert( isa(mu2_idem,       'double') && (size(mu2_idem,        1) == 1         ) && (size(mu2_idem,        2) <= T_life_max    ) );
 assert( isa(mu3_idem,       'double') && (size(mu3_idem,        1) == 1         ) && (size(mu3_idem,        2) <= T_life_max    ) );
 
 assert( isa(labopt_static,  'double') && (size(labopt_static,   1) <= nk_max    ) && (size(labopt_static,   2) <= nz_max        ) && (size(labopt_static, 3) <= nb_max) && (size(labopt_static, 4) <= T_life_max ) );
-assert( isa(dist_w_static,  'double') && (size(dist_w_static,   1) <= nk_max    ) && (size(dist_w_static,   2) <= nz_max        ) && (size(dist_w_static, 3) <= nb_max) && (size(dist_w_static, 4) <= T_model_max) );
-assert( isa(dist_r_static,  'double') && (size(dist_r_static,   1) <= nk_max    )                                                 && (size(dist_r_static, 2) <= nb_max) && (size(dist_r_static, 3) <= T_model_max) );
+assert( isa(dist_static,    'double') && (size(dist_static,     1) <= nk_max    ) && (size(dist_static,     2) <= nz_max        ) && (size(dist_static,   3) <= nb_max) && (size(dist_static,   4) <= T_model_max) );
 
 
 
 %% Dynamic optimization
 
 % Define dynamic aggregate generation flag
-isdynamic = isempty(dist_w_static) && isempty(dist_r_static);
+isdynamic = isempty(dist_static);
 
-% Define past years and effective retirement age
-% (birthyear is defined relative to the present and can take both positive and negative values)
-T_past = -min(0, birthyear);
-Tr_eff = max(Tr, T_past);
-
-% Find effective numbers of working and retirement years
-N_w = Tr_eff - T_past;
-N_r = T_life - Tr_eff;
+% Find number of past years, effective living years, and effective working years
+T_past     = max(0, -birthyear);
+T_life_eff = T_life - T_past;
+T_work_eff = max(T_work - T_past, 0);
 
 % Initialize arrays
-V           = zeros(nk,nz,nb,N_w);
-kopt        = zeros(nk,nz,nb,N_w);
-labopt      = zeros(nk,nz,nb,N_w);
-bopt        = zeros(nk,nz,nb,N_w);
+V           = zeros(nk,nz,nb,T_life_eff+1);  % (1 extra time slice for initialization of backward induction)
 
-fedincome   = zeros(nk,nz,nb,N_w);
-fitax       = zeros(nk,nz,nb,N_w);
-fsstax      = zeros(nk,nz,nb,N_w);
-fcaptax     = zeros(nk,nz,nb,N_w);
+kopt        = zeros(nk,nz,nb,T_life_eff);
+labopt      = zeros(nk,nz,nb,T_life_eff);
+bopt        = zeros(nk,nz,nb,T_life_eff);
 
-Vss         = zeros(nk,nb,N_r+1);   % (1 extra time slice for initialization of backward induction)
-koptss      = zeros(nk,nb,N_r);
-
-fedincomess = zeros(nk,nb,N_r);
-fitaxss     = zeros(nk,nb,N_r);
-fsstaxss    = zeros(nk,nb,N_r);
-fcaptaxss   = zeros(nk,nb,N_r);
-
+fedincome   = zeros(nk,nz,nb,T_life_eff);
+fitax       = zeros(nk,nz,nb,T_life_eff);
+fsstax      = zeros(nk,nz,nb,T_life_eff);
+fcaptax     = zeros(nk,nz,nb,T_life_eff);
+benefits    = zeros(nk,nz,nb,T_life_eff);
 
 % Specify settings for dynamic optimization subproblems
 optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
 
 
 % Solve retirement age dynamic optimization problem
-for t = N_r:-1:1
+for t = T_life_eff : -1 : T_work_eff+1
     
     % Determine age and year, bounded by projection period
-    age  = t + Tr_eff;
-    year = max(1, min(age + birthyear, T_opt));
+    age  = t + T_past;
+    year = max(1, min(age + birthyear, T_model_opt));
     
     % Extract annual parameters
     ben         = ss_benefit(:,  year);
@@ -136,7 +123,7 @@ for t = N_r:-1:1
     rate_tot    = rate_tots     (year);
     exp_subsidy = exp_subsidys  (year);
     
-    EV = (1-surv(age))*Vbeq*ones(1,nb) + surv(age)*beta*Vss(:,:,t+1);
+    EV = (1-surv(age))*Vbeq*ones(1,nb) + surv(age)*beta*reshape(V(:,1,:,t+1), [nk,nb]);
     
     for ib = 1:nb
         for ik = 1:nk
@@ -159,15 +146,19 @@ for t = N_r:-1:1
                 [k_opt, V_min] = fminsearch(@valfun_retire, kgrid(ik), optim_options);
                 
                 % Record values
-                Vss    (ik,ib,t) = -V_min   ;
-                koptss (ik,ib,t) = k_opt    ;
+                V    (ik,:,ib,t) = -V_min     ;
+                kopt (ik,:,ib,t) = k_opt      ;
                 
             end
             
-            fedincomess(ik,ib,t) = fincome  ;
-            fitaxss    (ik,ib,t) = ftax     ;
-            fsstaxss   (ik,ib,t) = 0        ;
-            fcaptaxss  (ik,ib,t) = fcap     ;
+            labopt   (ik,:,ib,t) = 0          ;
+            bopt     (ik,:,ib,t) = 0          ;
+            
+            fedincome(ik,:,ib,t) = fincome    ;
+            fitax    (ik,:,ib,t) = ftax       ;
+            fsstax   (ik,:,ib,t) = 0          ;
+            fcaptax  (ik,:,ib,t) = fcap       ;
+            benefits (ik,:,ib,t) = fincome_lab;
             
         end
     end
@@ -175,12 +166,12 @@ end
 
 
 % Solve working age dynamic optimization problem
-% (0 iterations if T_past >= Tr -- i.e. if there is no working period)
-for t = N_w:-1:1
+% (0 iterations if T_past >= T_work)
+for t = T_work_eff : -1 : 1
     
     % Determine age and year, bounded by projection period
     age  = t + T_past;
-    year = max(1, min(age + birthyear, T_opt));
+    year = max(1, min(age + birthyear, T_model_opt));
     
     % Extract annual parameters
     v_ss_max    = taxmax        (year);
@@ -200,12 +191,7 @@ for t = N_w:-1:1
             eff_wage = wage * z(iz,age,idem);
             
             % Calculate expected value curve using values for next time step
-            if (age == Tr_eff)
-                V_step = Vss(:,:,1);
-            else
-                V_step = reshape( sum(repmat(tr_z(iz,:), [nk,1,nb]) .* V(:,:,:,t+1), 2), [nk,nb] );
-            end
-            EV = (1-surv(age))*repmat(Vbeq, [1,nb]) + surv(age)*beta*V_step;
+            EV = (1-surv(age))*repmat(Vbeq, [1,nb]) + surv(age)*beta*reshape( sum(repmat(tr_z(iz,:), [nk,1,nb]) .* V(:,:,:,t+1), 2), [nk,nb] );
             
             for ik = 1:nk
                 
@@ -249,7 +235,8 @@ for t = N_w:-1:1
                 fitax     (ik,iz,ib,t) = ftax   ;
                 fsstax    (ik,iz,ib,t) = sstax  ;
                 fcaptax   (ik,iz,ib,t) = fcap   ;
-
+                benefits  (ik,iz,ib,t) = 0      ;
+                
             end
         end
     end
@@ -259,104 +246,20 @@ end
 
 %% Distribution generation
 
-% Define past years, effective lifespan, and effective retirement age
-% (Unlike dynamic optimization, projections truncated at year Tss)
-T_past = -min(0, birthyear);
-T_eff  = min(T_life, T_dist - birthyear);
-Tr_eff = max(min(Tr, T_eff), T_past);
-
-% Find effective numbers of working and retirement years
-N_w = Tr_eff - T_past;
-N_r = T_eff  - Tr_eff;
-
-
 if isdynamic
     
     % Initialize distributions
-    dist_w = zeros(nk,nz,nb,N_w);
-    dist_r = zeros(nk,   nb,N_r);
+    T_dist      = min(birthyear+T_life, T_model_dist) - max(birthyear, 0);
+    T_work_dist = min(birthyear+T_work, T_model_dist) - max(birthyear, 0);
     
-    if (N_w > 0)
-        dist_w(:,:,:,1) = dist_w0(:,:,:,T_past   +1);
-    else
-        dist_r(:,  :,1) = dist_r0(:,  :,T_past-Tr+1);
-    end
+    dist = zeros(nk,nz,nb,T_dist);
+    dist(:,:,:,1) = dist0(:,:,:,T_past+1);
     
-    
-    % Find distributions for working years
-    for t = 1:N_w
-        
-        % Extract optimal k and b values
-        % (Note that k and b should already bounded by the ranges of kgrid and bgrid respectively)
-        k_t = kopt(:,:,:,t);
-        b_t = bopt(:,:,:,t);
-        
-        % Find indices of nearest values in kgrid and bgrid series
-        % (Using arrayfun here leads to nontrivial anonymous function overhead)
-        jk_lt = ones(size(k_t));
-        for elem = 1:length(k_t(:))
-            jk_lt(elem) = find(kgrid(1:end-1) <= k_t(elem), 1, 'last');
-        end
-        jk_gt = jk_lt + 1;
-        
-        jb_lt = ones(size(b_t));
-        for elem = 1:length(b_t(:))
-            jb_lt(elem) = find(bgrid(1:end-1) <= b_t(elem), 1, 'last');
-        end
-        jb_gt = jb_lt + 1;
-        
-        % Calculate linear weights for lower and upper nearest values
-        wk_lt = (kgrid(jk_gt) - k_t) ./ (kgrid(jk_gt) - kgrid(jk_lt));
-        wk_gt = 1 - wk_lt;
-        
-        wb_lt = (bgrid(jb_gt) - b_t) ./ (bgrid(jb_gt) - bgrid(jb_lt));
-        wb_gt = 1 - wb_lt;
-        
-        if t ~= N_w
-            
-            for jz = 1:nz
-                
-                % Perform productivity transformation
-                dist_step = repmat(tr_z(:,jz)', [nk,1,nb]) .* dist_w(:,:,:,t);
-                
-                % Calculate distributions for next time step
-                for elem = 1:numel(dist_step)
-                    dist_w(jk_lt(elem), jz, jb_lt(elem), t+1) = dist_w(jk_lt(elem), jz, jb_lt(elem), t+1) + wb_lt(elem) * wk_lt(elem) * dist_step(elem);
-                    dist_w(jk_gt(elem), jz, jb_lt(elem), t+1) = dist_w(jk_gt(elem), jz, jb_lt(elem), t+1) + wb_lt(elem) * wk_gt(elem) * dist_step(elem);
-                    dist_w(jk_lt(elem), jz, jb_gt(elem), t+1) = dist_w(jk_lt(elem), jz, jb_gt(elem), t+1) + wb_gt(elem) * wk_lt(elem) * dist_step(elem);
-                    dist_w(jk_gt(elem), jz, jb_gt(elem), t+1) = dist_w(jk_gt(elem), jz, jb_gt(elem), t+1) + wb_gt(elem) * wk_gt(elem) * dist_step(elem);
-                end
-                
-            end
-            
-        else
-            
-            % Perform transition from working years to retirement years
-            if (N_r > 0)
-                
-                dist_step = dist_w(:,:,:,N_w);
-                
-                for elem = 1:numel(dist_step)
-                    dist_r(jk_lt(elem), jb_lt(elem), 1) = dist_r(jk_lt(elem), jb_lt(elem), 1) + wb_lt(elem) * wk_lt(elem) * dist_step(elem);
-                    dist_r(jk_gt(elem), jb_lt(elem), 1) = dist_r(jk_gt(elem), jb_lt(elem), 1) + wb_lt(elem) * wk_gt(elem) * dist_step(elem);
-                    dist_r(jk_lt(elem), jb_gt(elem), 1) = dist_r(jk_lt(elem), jb_gt(elem), 1) + wb_gt(elem) * wk_lt(elem) * dist_step(elem);
-                    dist_r(jk_gt(elem), jb_gt(elem), 1) = dist_r(jk_gt(elem), jb_gt(elem), 1) + wb_gt(elem) * wk_gt(elem) * dist_step(elem);
-                end
-                
-            end
-            
-        end
-        
-    end
-    
-    
-    % Find distributions for retirement years
-    % (0 iterations if N_r <= 1 -- i.e. if there is only 1 year or less of retirement)
-    for t = 1:N_r-1
+    % Find distributions through forward propagation
+    for t = 1:T_dist-1
         
         % Extract optimal k values
-        % (Note that k should already bounded by the range of kgrid by the dynamic optimization solver)
-        k_t = koptss(:,:,t);
+        k_t = kopt(:,:,:,t);
         
         % Find indices of nearest values in kgrid series
         jk_lt = ones(size(k_t));
@@ -365,58 +268,93 @@ if isdynamic
         end
         jk_gt = jk_lt + 1;
         
-        % Calculate linear weights for lower and upper nearest values
+        % Calculate linear weights for nearest values
         wk_lt = (kgrid(jk_gt) - k_t) ./ (kgrid(jk_gt) - kgrid(jk_lt));
         wk_gt = 1 - wk_lt;
         
-        % Calculate distributions for next time step
-        for ib = 1:nb
-            for ik = 1:nk
-                dist_r(jk_lt(ik,ib), ib, t+1) = dist_r(jk_lt(ik,ib), ib, t+1) + wk_lt(ik,ib) * dist_r(ik,ib,t);
-                dist_r(jk_gt(ik,ib), ib, t+1) = dist_r(jk_gt(ik,ib), ib, t+1) + wk_gt(ik,ib) * dist_r(ik,ib,t);
+        if (t <= T_work_dist)
+            
+            % Extract optimal b values
+            b_t = bopt(:,:,:,t);
+            
+            % Find indices of nearest values in bgrid series
+            jb_lt = ones(size(b_t));
+            for elem = 1:length(b_t(:))
+                jb_lt(elem) = find(bgrid(1:end-1) <= b_t(elem), 1, 'last');
             end
+            jb_gt = jb_lt + 1;
+            
+            % Calculate linear weights for nearest values
+            wb_lt = (bgrid(jb_gt) - b_t) ./ (bgrid(jb_gt) - bgrid(jb_lt));
+            wb_gt = 1 - wb_lt;
+            
+            for jz = 1:nz
+                
+                % Perform productivity transformation
+                dist_step = repmat(tr_z(:,jz)', [nk,1,nb]) .* dist(:,:,:,t);
+                
+                % Calculate distributions for next time step
+                for elem = 1:numel(dist_step)
+                    dist(jk_lt(elem), jz, jb_lt(elem), t+1) = dist(jk_lt(elem), jz, jb_lt(elem), t+1) + wb_lt(elem) * wk_lt(elem) * dist_step(elem);
+                    dist(jk_gt(elem), jz, jb_lt(elem), t+1) = dist(jk_gt(elem), jz, jb_lt(elem), t+1) + wb_lt(elem) * wk_gt(elem) * dist_step(elem);
+                    dist(jk_lt(elem), jz, jb_gt(elem), t+1) = dist(jk_lt(elem), jz, jb_gt(elem), t+1) + wb_gt(elem) * wk_lt(elem) * dist_step(elem);
+                    dist(jk_gt(elem), jz, jb_gt(elem), t+1) = dist(jk_gt(elem), jz, jb_gt(elem), t+1) + wb_gt(elem) * wk_gt(elem) * dist_step(elem);
+                end
+                
+            end
+            
+        else
+            
+            if (t == T_work_dist+1)
+                dist(:,1,:,t) = sum(dist(:,:,:,t), 2);
+                for jz = 2:nz
+                    dist(:,jz,:,t) = 0;
+                end
+            end
+            
+            % Calculate distributions for next time step
+            for ib = 1:nb
+                for ik = 1:nk
+                    dist(jk_lt(ik,1,ib), 1, ib, t+1) = dist(jk_lt(ik,1,ib), 1, ib, t+1) + wk_lt(ik,1,ib) * dist(ik,1,ib,t);
+                    dist(jk_gt(ik,1,ib), 1, ib, t+1) = dist(jk_gt(ik,1,ib), 1, ib, t+1) + wk_gt(ik,1,ib) * dist(ik,1,ib,t);
+                end
+            end
+            
         end
         
     end
     
-    
     % Adjust distributions based on demographics
-    dist_w = repmat(shiftdim(mu2_idem(T_past+1:Tr_eff), -2), [nk,nz,nb]) .* dist_w;
-    dist_r = repmat(shiftdim(mu2_idem(Tr_eff+1:T_eff ), -1), [nk,   nb]) .* dist_r;
+    dist = repmat(shiftdim(mu2_idem(T_past+(1:T_dist)), -2), [nk,nz,nb]) .* dist;
     
 else
     
-    dist_w = dist_w_static;
-    dist_r = dist_r_static;
+    dist = dist_static;
+    T_dist = size(dist, 4);
     
 end
 
 
 % Calculate aggregates
-Kalive    = [sum(reshape(kopt  (:,:,:,1:N_w) .* dist_w, [], N_w), 1), ...
-             sum(reshape(koptss(:,  :,1:N_r) .* dist_r, [], N_r), 1)];
+Kalive    = sum(reshape(kopt            (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
-Kdead     = Kalive .* mu3_idem(T_past+1:T_eff) ./ mu2_idem(T_past+1:T_eff);
+Kdead     = Kalive .* mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist));
 
-ELab      = sum(reshape(labopt(:,:,:,1:N_w) .* repmat(reshape(z(:,T_past+1:Tr_eff,idem), [1,nz,1,N_w]), [nk,1,nb,1]) .* dist_w, [], N_w), 1);
+ELab      = sum(reshape(labopt(:,:,:,1:T_dist) .* repmat(reshape(z(:,T_past+(1:T_dist),idem), [1,nz,1,T_dist]), [nk,1,nb,1]) .* dist, [], T_dist), 1);
 
-Lab       = sum(reshape(labopt(:,:,:,1:N_w) .* dist_w, [], N_w), 1);
+Lab       = sum(reshape(labopt          (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
-Lfpr      = sum(reshape((labopt(:,:,:,1:N_w) >= 0.01) .* dist_w, [], N_w), 1);
+Lfpr      = sum(reshape((labopt(:,:,:,1:T_dist) >= 0.01) .* dist, [], T_dist), 1);
 
-Fedincome = [sum(reshape(fedincome  (:,:,:,1:N_w) .* dist_w, [], N_w), 1), ...
-             sum(reshape(fedincomess(:,  :,1:N_r) .* dist_r, [], N_r), 1)];
+Fedincome = sum(reshape(fedincome       (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
-Fedit     = [sum(reshape(fitax      (:,:,:,1:N_w) .* dist_w, [], N_w), 1), ...
-             sum(reshape(fitaxss    (:,  :,1:N_r) .* dist_r, [], N_r), 1)];
+Fedit     = sum(reshape(fitax           (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
-SSrev     = [sum(reshape(fsstax     (:,:,:,1:N_w) .* dist_w, [], N_w), 1), ...
-             sum(reshape(fsstaxss   (:,  :,1:N_r) .* dist_r, [], N_r), 1)];
+SSrev     = sum(reshape(fsstax          (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
-Fcaptax   = [sum(reshape(fcaptax    (:,:,:,1:N_w) .* dist_w, [], N_w), 1), ...
-             sum(reshape(fcaptaxss  (:,  :,1:N_r) .* dist_r, [], N_r), 1)];
+Fcaptax   = sum(reshape(fcaptax         (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
-SSexp     = sum(reshape(repmat(ss_benefit(:,1)', [nk,1,N_r]) .* dist_r, [], N_r), 1);
+SSexp     = sum(reshape(benefits        (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
 
 end
