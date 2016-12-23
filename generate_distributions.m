@@ -85,11 +85,11 @@ assert( isa(dist_static,    'double') && (size(dist_static,     1) <= nk_max    
 isdynamic = isempty(dist_static);
 
 % Find number of past years, effective living years, and effective working years
-T_past     = max(0, -birthyear);
-T_life_eff = T_life - T_past;
+T_past     = max(-birthyear,      0);
+T_life_eff = max(T_life - T_past, 0);
 T_work_eff = max(T_work - T_past, 0);
 
-% Initialize arrays
+% Initialize optimal decision value arrays
 V           = zeros(nk,nz,nb,T_life_eff+1);  % (1 extra time slice for initialization of backward induction)
 
 kopt        = zeros(nk,nz,nb,T_life_eff);
@@ -152,7 +152,7 @@ for t = T_life_eff : -1 : T_work_eff+1
             end
             
             labopt   (ik,:,ib,t) = 0          ;
-            bopt     (ik,:,ib,t) = 0          ;
+            bopt     (ik,:,ib,t) = bgrid(ib)  ;
             
             fedincome(ik,:,ib,t) = fincome    ;
             fitax    (ik,:,ib,t) = ftax       ;
@@ -249,8 +249,7 @@ end
 if isdynamic
     
     % Initialize distributions
-    T_dist      = min(birthyear+T_life, T_model_dist) - max(birthyear, 0);
-    T_work_dist = min(birthyear+T_work, T_model_dist) - max(birthyear, 0);
+    T_dist = min(birthyear+T_life, T_model_dist) - max(birthyear, 0);
     
     dist = zeros(nk,nz,nb,T_dist);
     dist(:,:,:,1) = dist0(:,:,:,T_past+1);
@@ -258,68 +257,43 @@ if isdynamic
     % Find distributions through forward propagation
     for t = 1:T_dist-1
         
-        % Extract optimal k values
+        % Extract optimal k and b values
         k_t = kopt(:,:,:,t);
+        b_t = bopt(:,:,:,t);
         
-        % Find indices of nearest values in kgrid series
+        % Find indices of nearest values in kgrid and bgrid series
         jk_lt = ones(size(k_t));
         for elem = 1:length(k_t(:))
             jk_lt(elem) = find(kgrid(1:end-1) <= k_t(elem), 1, 'last');
         end
         jk_gt = jk_lt + 1;
         
+        jb_lt = ones(size(b_t));
+        for elem = 1:length(b_t(:))
+            jb_lt(elem) = find(bgrid(1:end-1) <= b_t(elem), 1, 'last');
+        end
+        jb_gt = jb_lt + 1;
+        
         % Calculate linear weights for nearest values
         wk_lt = (kgrid(jk_gt) - k_t) ./ (kgrid(jk_gt) - kgrid(jk_lt));
         wk_gt = 1 - wk_lt;
         
-        if (t <= T_work_dist)
+        wb_lt = (bgrid(jb_gt) - b_t) ./ (bgrid(jb_gt) - bgrid(jb_lt));
+        wb_gt = 1 - wb_lt;
+        
+        for jz = 1:nz
             
-            % Extract optimal b values
-            b_t = bopt(:,:,:,t);
-            
-            % Find indices of nearest values in bgrid series
-            jb_lt = ones(size(b_t));
-            for elem = 1:length(b_t(:))
-                jb_lt(elem) = find(bgrid(1:end-1) <= b_t(elem), 1, 'last');
-            end
-            jb_gt = jb_lt + 1;
-            
-            % Calculate linear weights for nearest values
-            wb_lt = (bgrid(jb_gt) - b_t) ./ (bgrid(jb_gt) - bgrid(jb_lt));
-            wb_gt = 1 - wb_lt;
-            
-            for jz = 1:nz
-                
-                % Perform productivity transformation
-                dist_step = repmat(tr_z(:,jz)', [nk,1,nb]) .* dist(:,:,:,t);
-                
-                % Calculate distributions for next time step
-                for elem = 1:numel(dist_step)
-                    dist(jk_lt(elem), jz, jb_lt(elem), t+1) = dist(jk_lt(elem), jz, jb_lt(elem), t+1) + wb_lt(elem) * wk_lt(elem) * dist_step(elem);
-                    dist(jk_gt(elem), jz, jb_lt(elem), t+1) = dist(jk_gt(elem), jz, jb_lt(elem), t+1) + wb_lt(elem) * wk_gt(elem) * dist_step(elem);
-                    dist(jk_lt(elem), jz, jb_gt(elem), t+1) = dist(jk_lt(elem), jz, jb_gt(elem), t+1) + wb_gt(elem) * wk_lt(elem) * dist_step(elem);
-                    dist(jk_gt(elem), jz, jb_gt(elem), t+1) = dist(jk_gt(elem), jz, jb_gt(elem), t+1) + wb_gt(elem) * wk_gt(elem) * dist_step(elem);
-                end
-                
-            end
-            
-        else
-            
-            if (t == T_work_dist+1)
-                dist(:,1,:,t) = sum(dist(:,:,:,t), 2);
-                for jz = 2:nz
-                    dist(:,jz,:,t) = 0;
-                end
-            end
+            % Perform productivity transformation
+            dist_step = repmat(tr_z(:,jz)', [nk,1,nb]) .* dist(:,:,:,t);
             
             % Calculate distributions for next time step
-            for ib = 1:nb
-                for ik = 1:nk
-                    dist(jk_lt(ik,1,ib), 1, ib, t+1) = dist(jk_lt(ik,1,ib), 1, ib, t+1) + wk_lt(ik,1,ib) * dist(ik,1,ib,t);
-                    dist(jk_gt(ik,1,ib), 1, ib, t+1) = dist(jk_gt(ik,1,ib), 1, ib, t+1) + wk_gt(ik,1,ib) * dist(ik,1,ib,t);
-                end
+            for elem = 1:numel(dist_step)
+                dist(jk_lt(elem), jz, jb_lt(elem), t+1) = dist(jk_lt(elem), jz, jb_lt(elem), t+1) + wb_lt(elem) * wk_lt(elem) * dist_step(elem);
+                dist(jk_gt(elem), jz, jb_lt(elem), t+1) = dist(jk_gt(elem), jz, jb_lt(elem), t+1) + wb_lt(elem) * wk_gt(elem) * dist_step(elem);
+                dist(jk_lt(elem), jz, jb_gt(elem), t+1) = dist(jk_lt(elem), jz, jb_gt(elem), t+1) + wb_gt(elem) * wk_lt(elem) * dist_step(elem);
+                dist(jk_gt(elem), jz, jb_gt(elem), t+1) = dist(jk_gt(elem), jz, jb_gt(elem), t+1) + wb_gt(elem) * wk_gt(elem) * dist_step(elem);
             end
-            
+        
         end
         
     end
@@ -335,7 +309,9 @@ else
 end
 
 
-% Calculate aggregates
+
+%% Aggregate generation
+
 Kalive    = sum(reshape(kopt            (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
 Kdead     = Kalive .* mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist));
