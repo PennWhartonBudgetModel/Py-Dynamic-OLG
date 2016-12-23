@@ -8,47 +8,39 @@ classdef mexBuilder
 
 methods (Static)
     
+    
     % Build all mex functions
     function [] = build_all()
-        mexBuilder.build_solve_dynamic_optimization
-        mexBuilder.build_calculate_static_taxes
+        mexBuilder.build('generate_distributions')
     end
     
-    % Build dynamic optimization solver mex function
-    function [] = build_solve_dynamic_optimization()
-        build_mex('solve_dynamic_optimization')
+    
+    % Build mex function according to source function name
+    function [] = build(fname)
+        
+        fprintf('\nBuilding mex function for %s.', fname)
+        
+        % Specify code generation directory
+        codegen_dir = sprintf('%s_codegen', fname);
+        
+        % Configure code generation
+        mex_cfg = coder.config('mex');
+        
+        mex_cfg.ExtrinsicCalls            = false;
+        mex_cfg.IntegrityChecks           = false;
+        mex_cfg.SaturateOnIntegerOverflow = false;
+        
+        % Generate mex function
+        codegen('-d', codegen_dir, '-config', 'mex_cfg', '-o', fname, fname)
+        
+        % Clean up code generation directory
+        rmdir(codegen_dir, 's')
+        
+        fprintf('\nBuild complete.\n\n')
+        
     end
     
-    % Build static aggregate tax calculator mex function
-    function [] = build_calculate_static_taxes()
-        build_mex('calculate_static_taxes')
-    end
     
 end
-
-end
-
-
-function [] = build_mex(funstr)
-
-fprintf('\nBuilding mex function for %s.', funstr)
-
-% Specify code generation directory
-codegen_dir = sprintf('%s_codegen', funstr);
-
-% Configure code generation
-mex_cfg = coder.config('mex');
-
-mex_cfg.ExtrinsicCalls            = false;
-mex_cfg.IntegrityChecks           = false;
-mex_cfg.SaturateOnIntegerOverflow = false;
-
-% Generate mex function
-codegen('-d', codegen_dir, '-config', 'mex_cfg', funstr)
-
-% Clean up code generation directory
-rmdir(codegen_dir, 's')
-
-fprintf('\nBuild complete.\n')
 
 end
