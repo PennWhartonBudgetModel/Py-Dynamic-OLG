@@ -1,5 +1,5 @@
 function [capital_total, labor_total, eq_total, inv_total, adjcost_total, V_total, output_total, tax_total, dist] =...
-        solve_firm_optimization( prices, taxes, firm_params) %#ok<*INUSD>
+        solve_firm_optimization( prices, taxes, firm_params, tolerance) %#ok<*INUSD>
 %#codegen
 
 %% Unload firm parameter structure
@@ -36,8 +36,7 @@ optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
 
 
 %% Solve firm optimization problem
-tolerance = .001;
-max_iter = 2000;
+max_iter = 20000;
 iter=0;
 while true
     iter = iter+1;
@@ -79,7 +78,6 @@ function vf = value_function( k_prime, revenue_, k_ik_, EVpr_, taxes, firm_param
 % Enforce function inlining for C code generation
 coder.inline('always');
 
-% Define parameters as persistent variables
 % Define parameters as persistent variables
 persistent initialized   
 persistent revenue

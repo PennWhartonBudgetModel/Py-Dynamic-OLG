@@ -1,10 +1,7 @@
-function [] = solve_optimal_taxes()
+function [] = solve_experiment1()
+%  Dividend tax versus dividend income share
 
-
-% [prices, quantities] = solve_ss_equilibrium_global(prices, taxes, print_info);
-
-
-% Find the level of government expenditures for the given taxes.
+%% Find the level of government expenditures for the given taxes.
 
 s_tax = load(fullfile('Parameters','tax_parameters.mat'));
 taxes = s_tax.taxes;
@@ -15,7 +12,7 @@ clear('s_quantities')
 
 % For a fixed policy instrument, find the tax that clears the government budget constraint.
 
-% Solving optimal income vs dividend tax
+%% Solving optimal income vs dividend tax
 div_tax_ub = taxes.hh.dividend;
 div_tax_lb = 0;
 n_divs = 20;
@@ -70,11 +67,6 @@ taxes.hh.div_inc_share = dividend_income_shares(max_location);
 [prices, quantities] = solve_ss_equilibrium_global([], taxes);
 dividend_experiment_results.prices     = prices;
 dividend_experiment_results.quantities = quantities; %#ok<STRNU>
-
-
-
-
-
 
 plot(dividend_income_shares,welfares,'LineWidth',4)
     

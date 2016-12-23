@@ -24,15 +24,19 @@ if ~exist('prices','var')||isempty(prices)
     dividend           = .2;
 
     % Determine invariant distribution of productivity shocks
-    [~, ~, ~, ~, ~, ~, dist] = solve_hh_optimization_mex(s_hh.hh_params, prices, taxes, dividend, .1);
+    if s_hh.hh_params.n_prodshocks>1
+        [~, ~, ~, ~, ~, ~, ~, ~, dist] = solve_hh_optimization_mex(s_hh.hh_params, prices, taxes, dividend, .1);
+    elseif s_hh.hh_params.n_prodshocks==1
+        dist = 1;
+    end
 
     % Determine labor supply when inelastic
     labor_supply = sum(sum(dist).*s_hh.hh_params.prod_shocks);    % Update if labor supply becomes elastically demanded.
 
     % Solve equilibrium rate of return.
 
-    pw_ub = 3;
-    pw_lb = 2;
+    pw_ub = 2.25;
+    pw_lb = 2.075;
     pw_iter = 0;
     while true
         pw_iter = pw_iter + 1;
@@ -57,8 +61,16 @@ if ~exist('prices','var')||isempty(prices)
             quantities.firm.tax_total           = firm_tax_total;
 
             prices.fund = asset_value;
-
-            [~, ~, shares_total, consumption_total, hh_tax_total, V_total, ~] = solve_hh_optimization_mex(s_hh.hh_params, prices, taxes, dividend, hh_tolerance);
+            if s_hh.hh_params.n_prodshocks>1
+                [~, ~, ~, ~, shares_total, consumption_total, hh_tax_total, V_total, ~]    = solve_hh_optimization_mex(s_hh.hh_params, prices, taxes, dividend, hh_tolerance);
+            elseif s_hh.hh_params.n_prodshocks==1
+                [V, sopt, copt, taxopt, ~, ~, ~, ~, ~] = solve_hh_optimization_mex(s_hh.hh_params, prices, taxes, dividend, hh_tolerance);
+                shares_total = fsolve(@(x) find_shares_fixedpoint(x,sopt',s_hh.hh_params.shares_grid),1);
+                V_total           = interp1(s_hh.hh_params.shares_grid, V     , shares_total, 'linear', 'extrap');
+                consumption_total = interp1(s_hh.hh_params.shares_grid, copt  , shares_total, 'linear', 'extrap');
+                hh_tax_total      = interp1(s_hh.hh_params.shares_grid, taxopt, shares_total, 'linear', 'extrap');
+            end
+            
             quantities.hh.assets_total     = shares_total;
             quantities.hh.consumtion_total = consumption_total;
             quantities.hh.labor_supply     = labor_supply;
@@ -84,7 +96,7 @@ if ~exist('prices','var')||isempty(prices)
                 print_information
             end
 
-            if (asset_market_error<.0001)||(pr_iter>30), break, end
+            if (asset_market_error<.00001)||(pr_iter>30), break, end
 
             if shares_outstanding > shares_total
                 pr_ub = prices.rate;
@@ -94,7 +106,7 @@ if ~exist('prices','var')||isempty(prices)
 
         end
 
-        if (labor_market_error<.001)||(pw_iter>50), break, end
+        if (labor_market_error<.0001)||(pw_iter>50), break, end
 
         if labor_demand>labor_supply
             pw_lb = prices.wage;
@@ -147,6 +159,10 @@ elseif exist('prices','var')&&~isempty('prices')
 end
 
 
+
+function error = find_shares_fixedpoint(x,sopt,shares_grid)
+    error = interp1(shares_grid, sopt - shares_grid, x, 'linear', 'extrap');
+end
 
 
 

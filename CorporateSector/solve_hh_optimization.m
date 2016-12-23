@@ -1,4 +1,4 @@
-function [V, sopt, shares_total, consumption_total, tax_total, V_total, dist] = solve_hh_optimization(hh_params, prices, taxes, dividend, tolerance)
+function [V, sopt, copt, taxopt, shares_total, consumption_total, tax_total, V_total, dist] = solve_hh_optimization(hh_params, prices, taxes, dividend, tolerance)
 %#codegen
 % This function solves the household optimization problem over the entire state space.
 

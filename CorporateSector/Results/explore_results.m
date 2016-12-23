@@ -40,9 +40,9 @@ tolerance = 0.0001;
 [~, ~, ~, ~, ~, ~, dist] = solve_hh_optimization_mex(s_hh.hh_params, prices, taxes, quantities.firm.dividend, tolerance);
     
 if strcmp(gini_variable,'income')    
-    inc = repmat(s_hh.hh_params.prod_shocks',[1,s_hh.hh_params.ns])'...
-            + repmat(s_hh.hh_params.shares_grid',[1,s_hh.hh_params.n_prodshocks])...
-            .*quantities.firm.dividend;
+    inc = prices.wage*repmat(s_hh.hh_params.prod_shocks',[1,s_hh.hh_params.ns])';
+%             + repmat(s_hh.hh_params.shares_grid',[1,s_hh.hh_params.n_prodshocks])...
+%             .*quantities.firm.dividend;
         
     gini_var = inc;
     
@@ -66,7 +66,7 @@ end
 gini_var = gini_var(1:end-ub_index);
 dist     = dist    (1:end-ub_index);
 
-n_bins = 25;
+n_bins = 10000;
 var_grid = linspace(gini_var(1),gini_var(end),n_bins);
 
 lorenz = zeros(1,n_bins);
@@ -78,8 +78,8 @@ for ib = 1:n_bins
     measure(ib) = sum(dist(1:varlim_index));
 end
 
-lorenz  = [0, lorenz];
-measure = [0, measure];
+lorenz  = [0, lorenz, 1];
+measure = [0, measure, 1];
 
 figure
 plot(measure,lorenz,measure,measure,'LineWidth',4)
@@ -87,18 +87,26 @@ title(gini_variable)
 
 
 % Solve gini
+% Fix repitition of x-axis values
+[measure, unique_index] = unique(measure);
+lorenz = lorenz(unique_index);
+
+[lorenz, unique_index] = unique(lorenz);
+measure = measure(unique_index);
 
 
-gini = 2*integral(@(x) gini_diff(x,lorenz,measure),0,1);
+gini = 2*integral(@(x) gini_diff(x,lorenz,measure),0,.99999);
 
 
 function diff = gini_diff(x,lorenz,measure)
-    diff = interp1(measure-lorenz,measure,x,'linear');
+    
+
+    
+    % Calculate difference
+    diff = interp1(measure,measure-lorenz,x,'linear');
 end
 
 end
-
-
 
 
 

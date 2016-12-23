@@ -9,7 +9,7 @@ if tauchen
     var_innov    = .20;
     addpath('..')
     [prod_shocks, prod_transprob, ~] = cooper_mex(n_prodshocks,0,ar1_coef,sqrt(var_innov));
-    prod_shocks   = exp(prod_shocks);
+    prod_shocks   = exp(prod_shocks)';
 end
 if heathcote
     n_prodshocks = 3;

@@ -11,4 +11,4 @@ prices.rate        = 1.03;
 dividend  = .1;
 tolerance = 1;
 
-[V, sopt, shares_total, consumption_total, tax_total, V_total, dist] = solve_hh_optimization_mex(s.hh_params, prices, s_tax.taxes,  dividend, tolerance);
+[V, sopt, copt, taxopt, shares_total, consumption_total, tax_total, V_total, dist] = solve_hh_optimization(s.hh_params, prices, s_tax.taxes,  dividend, tolerance);
