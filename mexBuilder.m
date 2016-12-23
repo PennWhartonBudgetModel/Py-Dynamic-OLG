@@ -36,7 +36,7 @@ methods (Static)
         % Clean up code generation directory
         rmdir(codegen_dir, 's')
         
-        fprintf('\nBuild complete.\n')
+        fprintf('\nBuild complete.\n\n')
         
     end
     

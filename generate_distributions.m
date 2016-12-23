@@ -201,7 +201,7 @@ for t = N_w:-1:1
             
             % Calculate expected value curve using values for next time step
             if (age == Tr_eff)
-                V_step = sum(tr_z(:))*Vss(:,:,1);
+                V_step = Vss(:,:,1);
             else
                 V_step = reshape( sum(repmat(tr_z(iz,:), [nk,1,nb]) .* V(:,:,:,t+1), 2), [nk,nb] );
             end
