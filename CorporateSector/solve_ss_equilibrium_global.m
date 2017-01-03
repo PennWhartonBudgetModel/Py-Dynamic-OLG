@@ -2,14 +2,14 @@ function [prices, quantities] = solve_ss_equilibrium_global(prices, taxes, print
 
 
 %% Prepare starting points and settings for optimization routine.
-s_hh = load(fullfile('Parameters','hh_parameters.mat'));
+hh_params = paramGenerator.hh(false,true);
+firm_params = paramGenerator.firm;
 
 if ~exist('taxes','var')||isempty(taxes)
-    s_tax = load(fullfile('Parameters','tax_parameters.mat'));
-    taxes = s_tax.taxes;
+    taxes = paramGenerator.tax;
 end
 
-rate_lb = s_hh.hh_params.discount_factor;
+rate_lb = hh_params.discount_factor;
 rate_ub = 1;
 hh_tolerance = 0.0001;
 
@@ -24,14 +24,14 @@ if ~exist('prices','var')||isempty(prices)
     dividend           = .2;
 
     % Determine invariant distribution of productivity shocks
-    if s_hh.hh_params.n_prodshocks>1
-        [~, ~, ~, ~, ~, ~, ~, ~, dist] = solve_hh_optimization_mex(s_hh.hh_params, prices, taxes, dividend, .1);
-    elseif s_hh.hh_params.n_prodshocks==1
+    if hh_params.n_prodshocks>1
+        [~, ~, ~, ~, ~, ~, ~, ~, dist] = solve_hh_optimization_mex(hh_params, prices, taxes, dividend, .1);
+    elseif hh_params.n_prodshocks==1
         dist = 1;
     end
 
     % Determine labor supply when inelastic
-    labor_supply = sum(sum(dist).*s_hh.hh_params.prod_shocks);    % Update if labor supply becomes elastically demanded.
+    labor_supply = sum(sum(dist).*hh_params.prod_shocks);    % Update if labor supply becomes elastically demanded.
 
     % Solve equilibrium rate of return.
 
@@ -50,7 +50,7 @@ if ~exist('prices','var')||isempty(prices)
             prices.rate = (pr_ub + pr_lb)/2;
 
             % Solve agent problems
-            [asset_value, output_total, capital_total, labor_demand, dividend, inv_total, adjcost_total, firm_tax_total] = firm_quantities(prices, taxes);
+            [asset_value, output_total, capital_total, labor_demand, dividend, inv_total, adjcost_total, firm_tax_total] = firm_quantities(prices, taxes, firm_params);
             quantities.firm.ex_div_value_total  = asset_value;
             quantities.firm.output_total        = output_total;
             quantities.firm.capital_total       = capital_total;
@@ -61,14 +61,14 @@ if ~exist('prices','var')||isempty(prices)
             quantities.firm.tax_total           = firm_tax_total;
 
             prices.fund = asset_value;
-            if s_hh.hh_params.n_prodshocks>1
-                [~, ~, ~, ~, shares_total, consumption_total, hh_tax_total, V_total, ~]    = solve_hh_optimization_mex(s_hh.hh_params, prices, taxes, dividend, hh_tolerance);
-            elseif s_hh.hh_params.n_prodshocks==1
-                [V, sopt, copt, taxopt, ~, ~, ~, ~, ~] = solve_hh_optimization_mex(s_hh.hh_params, prices, taxes, dividend, hh_tolerance);
-                shares_total = fsolve(@(x) find_shares_fixedpoint(x,sopt',s_hh.hh_params.shares_grid),1);
-                V_total           = interp1(s_hh.hh_params.shares_grid, V     , shares_total, 'linear', 'extrap');
-                consumption_total = interp1(s_hh.hh_params.shares_grid, copt  , shares_total, 'linear', 'extrap');
-                hh_tax_total      = interp1(s_hh.hh_params.shares_grid, taxopt, shares_total, 'linear', 'extrap');
+            if hh_params.n_prodshocks>1
+                [~, ~, ~, ~, shares_total, consumption_total, hh_tax_total, V_total, ~]    = solve_hh_optimization_mex(hh_params, prices, taxes, dividend, hh_tolerance);
+            elseif hh_params.n_prodshocks==1
+                [V, sopt, copt, taxopt, ~, ~, ~, ~, ~] = solve_hh_optimization_mex(hh_params, prices, taxes, dividend, hh_tolerance);
+                shares_total = fsolve(@(x) find_shares_fixedpoint(x,sopt',hh_params.shares_grid),1);
+                V_total           = interp1(hh_params.shares_grid, V     , shares_total, 'linear', 'extrap');
+                consumption_total = interp1(hh_params.shares_grid, copt  , shares_total, 'linear', 'extrap');
+                hh_tax_total      = interp1(hh_params.shares_grid, taxopt, shares_total, 'linear', 'extrap');
             end
             
             quantities.hh.assets_total     = shares_total;
@@ -136,7 +136,7 @@ elseif exist('prices','var')&&~isempty('prices')
     
     prices.fund = asset_value;
 
-    [~, ~, shares_total, consumption_total, hh_tax_total, V_total, ~] = solve_hh_optimization_mex(s_hh.hh_params, prices, taxes, dividend, hh_tolerance);
+    [~, ~, shares_total, consumption_total, hh_tax_total, V_total, ~] = solve_hh_optimization_mex(hh_params, prices, taxes, dividend, hh_tolerance);
     quantities.hh.assets_total      = shares_total;
     quantities.hh.consumption_total = consumption_total;
     quantities.hh.labor_supply      = labor_supply;

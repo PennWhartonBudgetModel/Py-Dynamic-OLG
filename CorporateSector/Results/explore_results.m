@@ -3,12 +3,11 @@ function [] = explore_results()
 addpath('..')
 
 % Load taxes and equilibrium results
-s_tax = load(fullfile('..','Parameters','tax_parameters.mat'));
-taxes = s_tax.taxes;
+taxes = paramGenerator.tax;
 s = load('results.mat');
 prices = s.prices;
 quantities = s.quantities;
-s_hh = load(fullfile('..','Parameters','hh_parameters.mat'));
+hh_params = paramGenerator.hh(false,true);
 
 
 
@@ -37,17 +36,15 @@ fprintf('\nWealth Gini  = %0.4f\n', wealth_gini)
 
 function gini = calculate_gini(gini_variable)
 tolerance = 0.0001;
-[~, ~, ~, ~, ~, ~, dist] = solve_hh_optimization_mex(s_hh.hh_params, prices, taxes, quantities.firm.dividend, tolerance);
+[~, ~, ~, ~, ~, ~, ~, ~, dist] = solve_hh_optimization_mex(hh_params, prices, taxes, quantities.firm.dividend, tolerance);
     
 if strcmp(gini_variable,'income')    
-    inc = prices.wage*repmat(s_hh.hh_params.prod_shocks',[1,s_hh.hh_params.ns])';
-%             + repmat(s_hh.hh_params.shares_grid',[1,s_hh.hh_params.n_prodshocks])...
-%             .*quantities.firm.dividend;
+    inc = prices.wage*repmat(hh_params.prod_shocks',[1,hh_params.ns])';
         
     gini_var = inc;
     
 elseif strcmp(gini_variable,'wealth')
-    wth = repmat(s_hh.hh_params.shares_grid',[1,s_hh.hh_params.n_prodshocks]).*prices.fund;
+    wth = repmat(hh_params.shares_grid',[1,hh_params.n_prodshocks]).*prices.fund;
     
     gini_var = wth;
    
@@ -63,8 +60,8 @@ if dist(end)<10e-8
 elseif dist(end)>=10e-8
     ub_index = 0;
 end
-gini_var = gini_var(1:end-ub_index);
-dist     = dist    (1:end-ub_index);
+gini_var  = gini_var (1:end-ub_index);
+dist = dist(1:end-ub_index);
 
 n_bins = 10000;
 var_grid = linspace(gini_var(1),gini_var(end),n_bins);
@@ -93,9 +90,13 @@ lorenz = lorenz(unique_index);
 
 [lorenz, unique_index] = unique(lorenz);
 measure = measure(unique_index);
+% Force error correction.
+if measure(end)<1
+    measure(end) = 1;
+end
 
 
-gini = 2*integral(@(x) gini_diff(x,lorenz,measure),0,.99999);
+gini = 2*integral(@(x) gini_diff(x,lorenz,measure),0,1);
 
 
 function diff = gini_diff(x,lorenz,measure)

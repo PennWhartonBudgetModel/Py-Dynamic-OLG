@@ -5,9 +5,9 @@
 % 
 %     firm()
 %     
-%     hh()
+%     hh(tauchen, heathcote)
 %     
-%     tax()
+%     tax(no_tax)
     
     
 classdef paramGenerator
@@ -21,7 +21,6 @@ methods (Static)
         n_prodshocks = 5;
         ar1_coef     = .9;
         var_innov    = .118;
-        addpath('..')
         [prod_shocks, prod_transprob, ~] = cooper_mex(n_prodshocks,0,ar1_coef,sqrt(var_innov));
         prod_shocks   = exp(prod_shocks);
 
@@ -65,7 +64,6 @@ methods (Static)
             n_prodshocks = 2;
             ar1_coef     = .75;
             var_innov    = .20;
-            addpath('..')
             [prod_shocks, prod_transprob, ~] = cooper_mex(n_prodshocks,0,ar1_coef,sqrt(var_innov));
             prod_shocks   = exp(prod_shocks)';
         end
@@ -106,7 +104,7 @@ methods (Static)
     
     
     
-    function [taxes] = generate_tax_parameters(no_tax) %#ok<INUSD>
+    function [taxes] = tax(no_tax) %#ok<INUSD>
 
 
         if ~exist('no_tax','var')
