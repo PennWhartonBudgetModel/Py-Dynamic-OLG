@@ -62,7 +62,7 @@ assert( isa(qtobin0,        'double') && (size(qtobin0,         1) == 1         
 assert( isa(Vbeq,           'double') && (size(Vbeq,            1) <= nk_max    ) && (size(Vbeq,            2) == 1             ) );
 
 assert( isa(deduc_coefs,    'double') && (size(deduc_coefs,     1) == 1         ) && (size(deduc_coefs,     2) == 3             ) );
-assert( isa(pit_coefs,      'double') && (size(pit_coefs,       1) == 1         ) && (size(pit_coefs,       2) <= 10            ) );
+assert( isa(pit_coefs,      'double') && (size(pit_coefs,       1) == 1         ) && (size(pit_coefs,       2) == 3             ) );
 assert( isa(ssbenefits,     'double') && (size(ssbenefits,      1) <= nb_max    ) && (size(ssbenefits,      2) <= T_model_max   ) );
 
 assert( isa(D0,             'double') && (size(D0,              1) <= nz_max    ) && (size(D0,              2) <= nk_max        ) && (size(D0,       3) <= nb_max) && (size(D0,       4) <= T_life_max ) );
