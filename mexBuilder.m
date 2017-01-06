@@ -11,7 +11,7 @@ methods (Static)
     
     % Build all mex functions
     function [] = build_all()
-        mexBuilder.build('generate_distributions')
+        mexBuilder.build('solve_cohort')
     end
     
     
