@@ -4,10 +4,10 @@
 %%
 
 
-function [W, dist, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...
+function [W, dist, cohort] ...
           ...
             = generate_distributions(...
-                beta, gamma, sigma, T_life, T_work, T_model_opt, T_model_dist, birthyear, ...
+                beta, gamma, sigma, T_life, T_work, T_model_opt, T_model_dist, startyear, ...
                 zs, ztrans, kv, bv, nz, nk, nb, idem, ...
                 mpci, rpci, captaxshare, sstaxcredit, surv, taucap, taucapgain, sstaxs, ssincmaxs, ...
                 beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, qtobin, qtobin0, Vbeq, ...
@@ -30,7 +30,7 @@ assert( isa(T_life,         'double') && (size(T_life,          1) == 1         
 assert( isa(T_work,         'double') && (size(T_work,          1) == 1         ) && (size(T_work,          2) == 1             ) );
 assert( isa(T_model_dist,   'double') && (size(T_model_dist,    1) == 1         ) && (size(T_model_dist,    2) == 1             ) );
 assert( isa(T_model_opt,    'double') && (size(T_model_opt,     1) == 1         ) && (size(T_model_opt,     2) == 1             ) );
-assert( isa(birthyear,      'double') && (size(birthyear,       1) == 1         ) && (size(birthyear,       2) == 1             ) );
+assert( isa(startyear,      'double') && (size(startyear,       1) == 1         ) && (size(startyear,       2) == 1             ) );
 
 assert( isa(zs,              'double') && (size(zs,               1) <= nz_max    ) && (size(zs,               2) <= T_life_max    ) && (size(zs, 3) == 2) );
 assert( isa(ztrans,           'double') && (size(ztrans,            1) <= nz_max    ) && (size(ztrans,            2) <= nz_max        ) );
@@ -82,7 +82,7 @@ assert( isa(dist_static,    'double') && (size(dist_static,     1) <= nz_max    
 isdynamic = isempty(dist_static);
 
 % Find number of past years, effective living years, and effective working years
-T_past = max(-birthyear     , 0);
+T_past = max(-startyear     , 0);
 S_life = max(T_life - T_past, 0);
 S_work = max(T_work - T_past, 0);
 
@@ -108,7 +108,7 @@ for t = S_life:-1:1
     
     % Determine age and year, bounded by projection period
     age  = t + T_past;
-    year = max(1, min(age + birthyear, T_model_opt));
+    year = max(1, min(age + startyear, T_model_opt));
     
     % Extract annual parameters
     ssbenefit         = ssbenefits(:,  year);
@@ -231,7 +231,7 @@ end
 if isdynamic
     
     % Find number of distribution years
-    T_dist = min(birthyear+T_life, T_model_dist) - max(birthyear, 0);
+    T_dist = min(startyear+T_life, T_model_dist) - max(startyear, 0);
     
     % Initialize distributions
     dist = zeros(nz,nk,nb,T_dist);
@@ -295,25 +295,16 @@ end
 
 %% Aggregate generation
 
-Kalive    = sum(reshape(K            (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
-
-Kdead     = Kalive .* mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist));
-
-ELab      = sum(reshape(W(:,:,:,1:T_dist) .* repmat(reshape(zs(:,T_past+(1:T_dist),idem), [nz,1,1,T_dist]), [1,nk,nb,1]) .* dist, [], T_dist), 1);
-
-Lab       = sum(reshape(W          (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
-
-Lfpr      = sum(reshape((W(:,:,:,1:T_dist) >= 0.01) .* dist, [], T_dist), 1);
-
-Fedincome = sum(reshape(INC       (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
-
-Fedit     = sum(reshape(PIT           (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
-
-SSrev     = sum(reshape(SST          (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
-
-Fcaptax   = sum(reshape(CIT         (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
-
-SSexp     = sum(reshape(BEN        (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+cohort.k_alive = sum(reshape(K  (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+cohort.k_dead  = sum(reshape(K  (:,:,:,1:T_dist) .* dist, [], T_dist), 1) .* mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist));
+cohort.w_eff   = sum(reshape(W  (:,:,:,1:T_dist) .* repmat(reshape(zs(:,T_past+(1:T_dist),idem), [nz,1,1,T_dist]), [1,nk,nb,1]) .* dist, [], T_dist), 1);
+cohort.w       = sum(reshape(W  (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+cohort.lfpr    = sum(reshape((W(:,:,:,1:T_dist) >= 0.01) .* dist, [], T_dist), 1);
+cohort.inc     = sum(reshape(INC(:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+cohort.pit     = sum(reshape(PIT(:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+cohort.sst     = sum(reshape(SST(:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+cohort.cit     = sum(reshape(CIT(:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+cohort.ben     = sum(reshape(BEN(:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
 
 end

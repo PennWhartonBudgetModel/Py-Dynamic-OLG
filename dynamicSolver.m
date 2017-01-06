@@ -143,11 +143,12 @@ methods (Static, Access = private)
         switch economy
             case 'steady'
                 T_model    = 1;
-                birthyears = 0;
+                startyears = 0;
             case {'open', 'closed'}
                 T_model    = s.T_model;
-                birthyears = (-T_life+1):(T_model-1);
+                startyears = (-T_life+1):(T_model-1);
         end
+        nstartyears = length(startyears);
         
         kgrid = s.kgrid;
         bgrid = [0; s.bgrid(2:end)];
@@ -246,9 +247,9 @@ methods (Static, Access = private)
             ssexp_total     = zeros(1,T_model);
             
             % Initialize data storage arrays
-            cohorts = struct('birthyear', num2cell(repmat(birthyears', [1,ndem])));
-            labopts = cell(size(cohorts));
-            dists   = cell(size(cohorts));
+            labopts = cell(nstartyears, ndem);
+            dists   = cell(nstartyears, ndem);
+            cohorts = cell(nstartyears, ndem);
             
             % Set empty values for static optimal decision values and distributions if not provided
             if isempty(labopts_static)
@@ -292,17 +293,17 @@ methods (Static, Access = private)
                 end
                 
                 
-                parfor i = 1:length(birthyears) %#ok<FXUP>
+                parfor i = 1:nstartyears %#ok<FXUP>
                     
                     % Extract static optimal decision values and distributions if available
                     labopt_static = labopts_static{i,idem};
                     dist_static   = dists_static  {i,idem};
                     
                     % Generate optimal decision values, distributions, and cohort aggregates
-                    [labopt, dist, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...
+                    [labopt, dist, cohort] ...
                      ...
                        = generate_distributions(...
-                           beta, gamma, sigma, T_life, Tr, T_model_opt, T_model_dist, birthyears(i), ...
+                           beta, gamma, sigma, T_life, Tr, T_model_opt, T_model_dist, startyears(i), ...
                            z, tr_z, kgrid, bgrid, nz, nk, nb, idem, ...
                            mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, ss_tax, taxmax, ...
                            beqs, wages, cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, q_tobin, q_tobin0, Vbeq, ...
@@ -313,47 +314,37 @@ methods (Static, Access = private)
                     % Store values
                     labopts{i,idem} = labopt;
                     dists  {i,idem} = dist  ;
-                    
-                    cohorts(i,idem).Kalive      = Kalive        ;
-                    cohorts(i,idem).Kdead       = Kdead         ;
-                    cohorts(i,idem).ELab        = ELab          ;
-                    cohorts(i,idem).Lab         = Lab           ;
-                    cohorts(i,idem).Lfpr        = Lfpr          ;
-                    cohorts(i,idem).Fedincome   = Fedincome     ;
-                    cohorts(i,idem).Fedit       = Fedit         ;
-                    cohorts(i,idem).SSrev       = SSrev         ;
-                    cohorts(i,idem).Fcaptax     = Fcaptax       ;
-                    cohorts(i,idem).SSexp       = SSexp         ;
+                    cohorts{i,idem} = cohort;
                     
                 end
                 
                 % Add cohort aggregates to total aggregates
-                for i = 1:length(birthyears) %#ok<FXUP>
+                for i = 1:nstartyears %#ok<FXUP>
                     
                     switch economy
                         
                         case 'steady'
                             
-                            kpr_total  = kpr_total  + sum(cohorts(i,idem).Kalive + cohorts(i,idem).Kdead);
-                            beq_total  = beq_total  + sum(cohorts(i,idem).Kdead);
-                            elab_total = elab_total + sum(cohorts(i,idem).ELab) ;
+                            kpr_total  = kpr_total  + sum(cohorts{i,idem}.k_alive + cohorts{i,idem}.k_dead);
+                            beq_total  = beq_total  + sum(cohorts{i,idem}.k_dead);
+                            elab_total = elab_total + sum(cohorts{i,idem}.w_eff );
                             
                         case {'open', 'closed'}
                             
                             % Align aggregates to model years
-                            T_shift = max(0, birthyears(i));
+                            T_shift = max(0, startyears(i));
                             T_dist = size(dists{i,idem}, 4);
                             
-                            kpr_total      (T_shift+(1:T_dist)) = kpr_total      (T_shift+(1:T_dist)) + cohorts(i,idem).Kalive + cohorts(i,idem).Kdead;
-                            beq_total      (T_shift+(1:T_dist)) = beq_total      (T_shift+(1:T_dist)) + cohorts(i,idem).Kdead       ;
-                            elab_total     (T_shift+(1:T_dist)) = elab_total     (T_shift+(1:T_dist)) + cohorts(i,idem).ELab        ;
-                            lab_total      (T_shift+(1:T_dist)) = lab_total      (T_shift+(1:T_dist)) + cohorts(i,idem).Lab         ;
-                            lfpr_total     (T_shift+(1:T_dist)) = lfpr_total     (T_shift+(1:T_dist)) + cohorts(i,idem).Lfpr        ;
-                            fedincome_total(T_shift+(1:T_dist)) = fedincome_total(T_shift+(1:T_dist)) + cohorts(i,idem).Fedincome   ;
-                            fedit_total    (T_shift+(1:T_dist)) = fedit_total    (T_shift+(1:T_dist)) + cohorts(i,idem).Fedit       ;
-                            ssrev_total    (T_shift+(1:T_dist)) = ssrev_total    (T_shift+(1:T_dist)) + cohorts(i,idem).SSrev       ;
-                            fcaptax_total  (T_shift+(1:T_dist)) = fcaptax_total  (T_shift+(1:T_dist)) + cohorts(i,idem).Fcaptax     ;
-                            ssexp_total    (T_shift+(1:T_dist)) = ssexp_total    (T_shift+(1:T_dist)) + cohorts(i,idem).SSexp       ;
+                            kpr_total      (T_shift+(1:T_dist)) = kpr_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.k_alive + cohorts{i,idem}.k_dead;
+                            beq_total      (T_shift+(1:T_dist)) = beq_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.k_dead;
+                            elab_total     (T_shift+(1:T_dist)) = elab_total     (T_shift+(1:T_dist)) + cohorts{i,idem}.w_eff ;
+                            lab_total      (T_shift+(1:T_dist)) = lab_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.w     ;
+                            lfpr_total     (T_shift+(1:T_dist)) = lfpr_total     (T_shift+(1:T_dist)) + cohorts{i,idem}.lfpr  ;
+                            fedincome_total(T_shift+(1:T_dist)) = fedincome_total(T_shift+(1:T_dist)) + cohorts{i,idem}.inc   ;
+                            fedit_total    (T_shift+(1:T_dist)) = fedit_total    (T_shift+(1:T_dist)) + cohorts{i,idem}.pit   ;
+                            ssrev_total    (T_shift+(1:T_dist)) = ssrev_total    (T_shift+(1:T_dist)) + cohorts{i,idem}.sst   ;
+                            fcaptax_total  (T_shift+(1:T_dist)) = fcaptax_total  (T_shift+(1:T_dist)) + cohorts{i,idem}.cit   ;
+                            ssexp_total    (T_shift+(1:T_dist)) = ssexp_total    (T_shift+(1:T_dist)) + cohorts{i,idem}.ben   ;
                             
                     end
                     
