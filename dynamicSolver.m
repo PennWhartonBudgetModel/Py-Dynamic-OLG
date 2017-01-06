@@ -150,10 +150,10 @@ methods (Static, Access = private)
         end
         nstartyears = length(startyears);
         
-        kgrid = s.kgrid;
-        bgrid = [0; s.bgrid(2:end)];
+        kv = s.kgrid;
+        bv = [0; s.bgrid(2:end)];
         
-        Vbeq = s.phi1.*((1+kgrid./s.phi2).^(1-s.phi3));
+        Vbeq = s.phi1.*((1+kv./s.phi2).^(1-s.phi3));
         
         ndem = s.ndem;
         nb   = s.nb;
@@ -163,16 +163,16 @@ methods (Static, Access = private)
         mpci = s.mpci;
         rpci = s.rpci;
         
-        ss_tax_cred = s.ss_tax_cred;
+        sstaxcredit = s.ss_tax_cred;
         
         A           = s.A;
         alp         = s.alp;
         d           = s.d;
         deduc_scale = s.deduc_scale;
-        proddist    = s.proddist(:,1)';
+        Dz          = s.proddist(:,1)';
         surv        = [s.surv(1:T_life-1), 0];
-        tr_z        = s.tr_z;
-        z           = s.z;
+        ztrans      = s.tr_z;
+        zs          = s.z;
         
         MU2 = s.demdist_2015 * (s.Mu2/sum(s.Mu2));
         MU3 = repmat(1-surv, [ndem,1]) .* MU2;
@@ -181,41 +181,41 @@ methods (Static, Access = private)
         % Load social security parameters
         s = load(fullfile(param_dir, 'param_socsec.mat'));
         
-        Tr         = s.NRA(1);
-        ss_benefit = s.ss_benefit(:,1:T_model);
-        ss_tax     = s.ss_tax(1:T_model);
-        taxmax     = s.taxmax(1:T_model);
+        T_work     = s.NRA(1);
+        ssbenefits = s.ss_benefit(:,1:T_model);
+        sstaxs     = s.ss_tax(1:T_model);
+        ssincmaxs  = s.taxmax(1:T_model);
         
         
         % Load CBO parameters
         s = load(fullfile(param_dir, 'param_cbo.mat'));
-
-        D_Y          = s.FederalDebtHeldbythePublic(1)/100;
-        fedgovtnis   = s.fedgovtnis(1:T_model);
-        rate_cbos    = 1 + s.r_cbo(1:T_model);
-        meanrate_cbo = 1 + mean(s.r_cbo);
+        
+        D_Y         = s.FederalDebtHeldbythePublic(1)/100;
+        fedgovtnis  = s.fedgovtnis(1:T_model);
+        cborates    = 1 + s.r_cbo(1:T_model);
+        cbomeanrate = 1 + mean(s.r_cbo);
         
         
         % Load income tax parameters
         s = load(fullfile(param_dir, sprintf('param_inctax_%s.mat', taxplan)));
         
-        deduction_coefs = [deduc_scale * s.avg_deduc, s.coefs(1:2)];
-        pit_coefs       = [s.limit, s.X];
+        deduc_coefs = [deduc_scale * s.avg_deduc, s.coefs(1:2)];
+        pit_coefs   = [s.limit, s.X];
         
         
         % Load business tax parameters
         s = load(fullfile(param_dir, sprintf('param_bustax_%s.mat', taxplan)));
         
-        cap_tax_share = s.cap_tax_share;
-        exp_share     = s.exp_share;
-        tau_cap       = s.tau_cap;
-        tau_capgain   = s.tau_capgain;
+        captaxshare = s.cap_tax_share;
+        expshare    = s.exp_share;
+        taucap      = s.tau_cap;
+        taucapgain  = s.tau_capgain;
         
-        q_tobin = 1 - tau_cap * exp_share;
+        qtobin = 1 - taucap * expshare;
         
         s_base = load(fullfile(param_dir, 'param_bustax_base.mat'));
-        tau_cap_base = s_base.tau_cap;
-        q_tobin0     = 1 - tau_cap_base * s_base.exp_share;
+        taucap_base = s_base.tau_cap;
+        qtobin0 = 1 - taucap_base * s_base.exp_share;
         clear('s_base')
         
         
@@ -228,11 +228,11 @@ methods (Static, Access = private)
         
         function [kpr_total, beq_total, elab_total, lab_total, lfpr_total, ...
                   fedincome_total, fedit_total, ssrev_total, fcaptax_total, ssexp_total, ...
-                  labopts, dists] ...
+                  Ws, Ds] ...
                   ...
                     = generate_aggregates(rhos, beqs, kprs, debts, caps, wages, ...
-                                          cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, ...
-                                          dists_steady, labopts_static, dists_static) %#ok<INUSL>
+                                          capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+                                          Ds_steady, Ws_static, Ds_static) %#ok<INUSL>
             
             % Initialize aggregates
             kpr_total       = zeros(1,T_model);
@@ -247,14 +247,14 @@ methods (Static, Access = private)
             ssexp_total     = zeros(1,T_model);
             
             % Initialize data storage arrays
-            labopts = cell(nstartyears, ndem);
-            dists   = cell(nstartyears, ndem);
+            Ws      = cell(nstartyears, ndem);
+            Ds      = cell(nstartyears, ndem);
             cohorts = cell(nstartyears, ndem);
             
             % Set empty values for static optimal decision values and distributions if not provided
-            if isempty(labopts_static)
-                labopts_static = labopts;
-                dists_static   = dists  ;
+            if isempty(Ws_static)
+                Ws_static = Ws;
+                Ds_static = Ds;
             end
             
             % Define dynamic optimization and distribution generation model time periods
@@ -281,13 +281,13 @@ methods (Static, Access = private)
                 switch economy
                     
                     case 'steady'
-                        dist0 = padarray(proddist', [0, nk-1, nb-1], 0, 'post');
+                        D0 = padarray(Dz', [0, nk-1, nb-1], 0, 'post');
                         
                     case {'open', 'closed'}
-                        if ~isempty(dists_steady)
-                            dist0 = bsxfun(@rdivide, dists_steady{1,idem}, shiftdim(mu2_idem(1:size(dists_steady{1,idem}, 4)), -2));
+                        if ~isempty(Ds_steady)
+                            D0 = bsxfun(@rdivide, Ds_steady{1,idem}, shiftdim(mu2_idem(1:size(Ds_steady{1,idem}, 4)), -2));
                         else
-                            dist0 = [];
+                            D0 = [];
                         end
                         
                 end
@@ -296,24 +296,24 @@ methods (Static, Access = private)
                 parfor i = 1:nstartyears %#ok<FXUP>
                     
                     % Extract static optimal decision values and distributions if available
-                    labopt_static = labopts_static{i,idem};
-                    dist_static   = dists_static  {i,idem};
+                    W_static = Ws_static{i,idem};
+                    D_static = Ds_static{i,idem};
                     
                     % Generate optimal decision values, distributions, and cohort aggregates
-                    [labopt, dist, cohort] ...
+                    [W, D, cohort] ...
                      ...
                        = generate_distributions(...
-                           beta, gamma, sigma, T_life, Tr, T_model_opt, T_model_dist, startyears(i), ...
-                           z, tr_z, kgrid, bgrid, nz, nk, nb, idem, ...
-                           mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, ss_tax, taxmax, ...
-                           beqs, wages, cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, q_tobin, q_tobin0, Vbeq, ...
-                           deduction_coefs, pit_coefs, ss_benefit, ...
-                           dist0, mu2_idem, mu3_idem, ...
-                           labopt_static, dist_static);
+                           beta, gamma, sigma, T_life, T_work, T_model_opt, T_model_dist, startyears(i), ...
+                           zs, ztrans, kv, bv, nz, nk, nb, idem, ...
+                           mpci, rpci, captaxshare, sstaxcredit, surv, taucap, taucapgain, sstaxs, ssincmaxs, ...
+                           beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, qtobin, qtobin0, Vbeq, ...
+                           deduc_coefs, pit_coefs, ssbenefits, ...
+                           D0, mu2_idem, mu3_idem, ...
+                           W_static, D_static);
                     
                     % Store values
-                    labopts{i,idem} = labopt;
-                    dists  {i,idem} = dist  ;
+                    Ws     {i,idem} = W     ;
+                    Ds     {i,idem} = D     ;
                     cohorts{i,idem} = cohort;
                     
                 end
@@ -333,7 +333,7 @@ methods (Static, Access = private)
                             
                             % Align aggregates to model years
                             T_shift = max(0, startyears(i));
-                            T_dist = size(dists{i,idem}, 4);
+                            T_dist  = size(Ds{i,idem}, 4);
                             
                             kpr_total      (T_shift+(1:T_dist)) = kpr_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.k_alive + cohorts{i,idem}.k_dead;
                             beq_total      (T_shift+(1:T_dist)) = beq_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.k_dead;
@@ -367,19 +367,19 @@ methods (Static, Access = private)
             % Load baseline solution
             s = hardyload('solution.mat', base_generator, base_dir);
             
-            wages        = s.wages       ;
-            cap_shares   = s.cap_shares  ;
-            debt_shares  = s.debt_shares ;
-            rate_caps    = s.rate_caps   ;
-            rate_govs    = s.rate_govs   ;
-            exp_subsidys = s.exp_subsidys;
+            wages       = s.wages       ;
+            capshares   = s.capshares   ;
+            debtshares  = s.debtshares  ;
+            caprates    = s.caprates    ;
+            govrates    = s.govrates    ;
+            expsubsidys = s.expsubsidys ;
             
             % Load optimal decision values and distributions from baseline
-            s = hardyload('labopts.mat' , base_generator, base_dir);
-            labopts_static = s.labopts;
+            s = hardyload('Ws.mat', base_generator, base_dir);
+            Ws_static = s.Ws;
             
-            s = hardyload('dists.mat'   , base_generator, base_dir);
-            dists_static   = s.dists  ;
+            s = hardyload('Ds.mat', base_generator, base_dir);
+            Ds_static = s.Ds;
             
             
             % Clear parameter loading structure
@@ -387,12 +387,12 @@ methods (Static, Access = private)
             
             
             % Set null prices
-            rhos      = zeros(1,T_model);
-            beqs      = zeros(1,T_model);
-            kprs      = zeros(1,T_model);
-            debts     = zeros(1,T_model);
-            caps      = zeros(1,T_model);
-            rate_tots = zeros(1,T_model);
+            rhos     = zeros(1,T_model);
+            beqs     = zeros(1,T_model);
+            kprs     = zeros(1,T_model);
+            debts    = zeros(1,T_model);
+            caps     = zeros(1,T_model);
+            totrates = zeros(1,T_model);
             
             
             % Generate static aggregates
@@ -401,8 +401,8 @@ methods (Static, Access = private)
              ~, ~] ...
              ...
                = generate_aggregates(rhos, beqs, kprs, debts, caps, wages, ...
-                                     cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, ...
-                                     {}, labopts_static, dists_static); %#ok<ASGLU>
+                                     capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+                                     {}, Ws_static, Ds_static); %#ok<ASGLU>
             
             
             % Copy additional static aggregates from baseline aggregates
@@ -457,7 +457,7 @@ methods (Static, Access = private)
                 % Load neutral solution as starting solution
                 s0 = load(fullfile(param_dir, 'solution0.mat'));
                 
-                dists_steady = {};
+                Ds_steady = {};
                 
             case {'open', 'closed'}
                 
@@ -469,22 +469,22 @@ methods (Static, Access = private)
                 s0 = hardyload('solution.mat', steady_generator, steady_dir);
                 
                 % Load steady state distributions
-                s  = hardyload('dists.mat'   , steady_generator, steady_dir);
+                s  = hardyload('Ds.mat'      , steady_generator, steady_dir);
                 
-                dists_steady = s.dists;
+                Ds_steady = s.Ds;
                 
         end
         
         % Unpack starting solution
-        rho0        = s0.rhos        ;
-        beq0        = s0.beqs        ;
-        kpr0        = s0.kprs        ;
-        debt0       = s0.debts       ;
-        cap_share0  = s0.cap_shares  ;
-        debt_share0 = s0.debt_shares ;
-        rate_cap0   = s0.rate_caps   ;
-        rate_gov0   = s0.rate_govs   ;
-        rate_tot0   = s0.rate_tots   ;
+        rho0       = s0.rhos       ;
+        beq0       = s0.beqs       ;
+        kpr0       = s0.kprs       ;
+        debt0      = s0.debts      ;
+        capshare0  = s0.capshares  ;
+        debtshare0 = s0.debtshares ;
+        caprate0   = s0.caprates   ;
+        govrate0   = s0.govrates   ;
+        totrate0   = s0.totrates   ;
         
         clear('s0')
         
@@ -532,7 +532,6 @@ methods (Static, Access = private)
         clear('s')
         
         
-        
         % Define convergence tolerance and initialize error term
         tol = 1e-3;
         eps = Inf;
@@ -578,7 +577,7 @@ methods (Static, Access = private)
                         beqs  = beq0 *ones(1,T_model);
                         kprs  = kpr0 *ones(1,T_model);
                         debts = debt0*ones(1,T_model);
-                        caps  = (kprs - debts)/q_tobin;
+                        caps  = (kprs - debts)/qtobin;
                     else
                         switch economy
                             case 'steady'
@@ -593,14 +592,14 @@ methods (Static, Access = private)
                         caps  = cap_total;
                     end
                     
-                    cap_shares  = (kprs - debts) ./ kprs;
-                    debt_shares = 1 - cap_shares;
-                    rate_caps   = 1 + (A*alp*(rhos.^(alp-1)) - d)/q_tobin;
+                    capshares  = (kprs - debts) ./ kprs;
+                    debtshares = 1 - capshares;
+                    caprates   = 1 + (A*alp*(rhos.^(alp-1)) - d)/qtobin;
                     switch economy
-                        case 'steady', rate_govs = meanrate_cbo;
-                        case 'closed', rate_govs = rate_cbos;
+                        case 'steady', govrates = cbomeanrate;
+                        case 'closed', govrates = cborates   ;
                     end
-                    rate_tots   = cap_shares.*rate_caps + debt_shares.*rate_govs;
+                    totrates   = capshares.*caprates + debtshares.*govrates;
                     
                     
                 case 'open'
@@ -609,15 +608,15 @@ methods (Static, Access = private)
                         
                         kprs  = kpr0 *ones(1,T_model);
                         debts = debt0*ones(1,T_model);
-                        caps  = (kprs - debts)/q_tobin0;
+                        caps  = (kprs - debts)/qtobin0;
                         
-                        cap_shares  = cap_share0 *ones(1,T_model);
-                        debt_shares = debt_share0*ones(1,T_model);
-                        rate_caps   = (((1 - tau_cap_base)/(1 - tau_cap))*(rate_cap0 - 1) + 1)*ones(1,T_model);
-                        rate_govs   = rate_gov0  *ones(1,T_model);
-                        rate_tots   = rate_tot0  *ones(1,T_model);
+                        capshares  = capshare0 *ones(1,T_model);
+                        debtshares = debtshare0*ones(1,T_model);
+                        caprates   = (((1 - taucap_base)/(1 - taucap))*(caprate0 - 1) + 1)*ones(1,T_model);
+                        govrates   = govrate0  *ones(1,T_model);
+                        totrates   = totrate0  *ones(1,T_model);
                         
-                        rhos  = ((q_tobin*(rate_caps - 1) + d)/alp).^(1/(alp-1));
+                        rhos  = ((qtobin*(caprates - 1) + d)/alp).^(1/(alp-1));
                         beqs  = beq0*ones(1,T_model);
                         
                     else
@@ -628,17 +627,17 @@ methods (Static, Access = private)
             end
             
             wages        = A*(1-alp)*(rhos.^alp);
-            exp_subsidys = [exp_share * max(diff(caps), 0), 0] ./ caps;
+            expsubsidys = [expshare * max(diff(caps), 0), 0] ./ caps;
             
             
             % Generate dynamic aggregates
             [kpr_total, beq_total, elab_total, lab_total, lfpr_total, ...
              fedincome_total, fedit_total, ssrev_total, fcaptax_total, ssexp_total, ...
-             labopts, dists] ...
+             Ws, Ds] ...
              ...
                = generate_aggregates(rhos, beqs, kprs, debts, caps, wages, ...
-                                     cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, ...
-                                     dists_steady, {}, {}); %#ok<ASGLU>
+                                     capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+                                     Ds_steady, {}, {}); %#ok<ASGLU>
             
             
             % Calculate additional dynamic aggregates
@@ -651,11 +650,11 @@ methods (Static, Access = private)
                     debt_total = debts;
                     
                     % Calculate capital and output
-                    cap_total = (kpr_total - debt_total)/q_tobin;
+                    cap_total = (kpr_total - debt_total)/qtobin;
                     Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp));
                     
                     % Calculate convergence value
-                    rhoprs = (max(kpr_total - debt_total, 0)/q_tobin) ./ elab_total;
+                    rhoprs = (max(kpr_total - debt_total, 0)/qtobin) ./ elab_total;
                     delta = rhos - rhoprs;
                     
                 case 'open'
@@ -664,12 +663,12 @@ methods (Static, Access = private)
                     cap_total = rhos .* elab_total;
                     Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp));
                     
-                    domestic_cap_total = cap_shares .* [kpr0, kpr_total(1:end-1)];
-                    foreign_cap_total  = q_tobin*cap_total - domestic_cap_total;
+                    domestic_cap_total = capshares .* [kpr0, kpr_total(1:end-1)];
+                    foreign_cap_total  = qtobin*cap_total - domestic_cap_total;
                     
                     % Calculate debt
                     domestic_fcaptax_total = fcaptax_total;
-                    foreign_fcaptax_total  = tau_cap.*(rate_caps - 1).*cap_tax_share.*foreign_cap_total;
+                    foreign_fcaptax_total  = taucap.*(caprates - 1).*captaxshare.*foreign_cap_total;
                     fcaptax_total          = domestic_fcaptax_total + foreign_fcaptax_total;
                     
                     if isbase
@@ -680,15 +679,15 @@ methods (Static, Access = private)
                     netrev_total = fedit_total + ssrev_total + fcaptax_total - ssexp_total;
                     debt_total = [debt0, zeros(1,T_model-1)];
                     for t = 1:T_model-1
-                        debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*rate_cbos(t);
+                        debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*cborates(t);
                     end
                     
-                    domestic_debt_total = (1 - cap_shares) .* kpr_total;
+                    domestic_debt_total = (1 - capshares) .* kpr_total;
                     foreign_debt_total  = debt_total - domestic_debt_total; %#ok<NASGU>
                     
                     % Calculate income
                     labinc_total = elab_total .* wages;
-                    kinc_total   = q_tobin * (rate_caps - 1) .* cap_total; %#ok<NASGU>
+                    kinc_total   = qtobin * (caprates - 1) .* cap_total; %#ok<NASGU>
                     
                     feditlab_total = fedit_total .* labinc_total ./ fedincome_total;
                     fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
@@ -706,28 +705,28 @@ methods (Static, Access = private)
                     netrev_total = fedit_total + ssrev_total + fcaptax_total - ssexp_total;
                     debt_total = [debt0, zeros(1,T_model-1)];
                     for t = 1:T_model-1
-                        debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*rate_cbos(t);
+                        debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*cborates(t);
                     end
                     
                     domestic_debt_total = debt_total;   %#ok<NASGU>
                     foreign_debt_total  = zeros(1,T_model); %#ok<NASGU>
                     
                     % Calculate capital and output
-                    cap_total = ([(kpr0 - debt0)/q_tobin0, (kpr_total(1:end-1) - debt_total(2:end))/q_tobin]);
+                    cap_total = ([(kpr0 - debt0)/qtobin0, (kpr_total(1:end-1) - debt_total(2:end))/qtobin]);
                     Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp));
                     
-                    domestic_cap_total = [q_tobin0 * cap_total(1), q_tobin * cap_total(2:end)]; %#ok<NASGU>
+                    domestic_cap_total = [qtobin0 * cap_total(1), qtobin * cap_total(2:end)]; %#ok<NASGU>
                     foreign_cap_total  = zeros(1,T_model); %#ok<NASGU>
                     
                     % Calculate income
                     labinc_total = elab_total .* wages;
-                    kinc_total   = q_tobin * (rate_caps - 1) .* cap_total; %#ok<NASGU>
+                    kinc_total   = qtobin * (caprates - 1) .* cap_total; %#ok<NASGU>
                     
                     feditlab_total = fedit_total .* labinc_total ./ fedincome_total;
                     fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
                     
                     % Calculate convergence value
-                    rhoprs = (max([kpr0, kpr_total(1:end-1)] - debt_total, 0)/q_tobin) ./ elab_total;
+                    rhoprs = (max([kpr0, kpr_total(1:end-1)] - debt_total, 0)/qtobin) ./ elab_total;
                     delta = rhos - rhoprs;
                     
             end
@@ -750,14 +749,14 @@ methods (Static, Access = private)
         
         % Save optimal decision values and distributions for baseline
         if isbase
-            save(fullfile(save_dir, 'labopts.mat'), 'labopts')
-            save(fullfile(save_dir, 'dists.mat'  ), 'dists'  )
+            save(fullfile(save_dir, 'Ws.mat'), 'Ws')
+            save(fullfile(save_dir, 'Ds.mat'), 'Ds')
         end
         
         % Save solution
         save(fullfile(save_dir, 'solution.mat'), ...
              'rhos', 'beqs', 'kprs', 'debts', 'caps', 'wages', ...
-             'cap_shares', 'debt_shares', 'rate_caps', 'rate_govs', 'rate_tots', 'exp_subsidys')
+             'capshares', 'debtshares', 'caprates', 'govrates', 'totrates', 'expsubsidys')
         
         % Save dynamic aggregates
         switch economy
@@ -791,13 +790,13 @@ methods (Static, Access = private)
                 
                 for idem = 1:ndem %#ok<FXUP>
                     
-                    labopt = labopts{1,idem};
-                    dist   = dists  {1,idem};
+                    W = Ws{1,idem};
+                    D = Ds{1,idem};
                     
-                    working_ind = (labopt > 0.01);
+                    working_ind = (W > 0.01);
                     
-                    working_mass = working_mass + sum(dist(working_ind));
-                    frisch_total = frisch_total + sum(dist(working_ind).*(1-labopt(working_ind))./labopt(working_ind))*(1-gamma*(1-sigma))/sigma;
+                    working_mass = working_mass + sum(D(working_ind));
+                    frisch_total = frisch_total + sum(D(working_ind).*(1-W(working_ind))./W(working_ind))*(1-gamma*(1-sigma))/sigma;
                     
                 end
                 
@@ -807,15 +806,15 @@ methods (Static, Access = private)
                 % Calculate savings elasticity
                 deviation = 0.005;
                 
-                rate_caps_dev = rate_caps * (1 + deviation);
-                rate_govs_dev = rate_govs * (1 + deviation);
-                rate_tots_dev = rate_tots * (1 + deviation);
+                caprates_dev = caprates * (1 + deviation);
+                govrates_dev = govrates * (1 + deviation);
+                totrates_dev = totrates * (1 + deviation);
                 
                 [kpr_dev] = generate_aggregates(rhos, beqs, kprs, debts, caps, wages, ...
-                                                cap_shares, debt_shares, rate_caps_dev, rate_govs_dev, rate_tots_dev, exp_subsidys, ...
-                                                dists_steady, {}, {});
+                                                capshares, debtshares, caprates_dev, govrates_dev, totrates_dev, expsubsidys, ...
+                                                Ds_steady, {}, {});
                 
-                savings_elas = ((kpr_dev - kpr_total)/kpr_total) / ((rate_tots_dev - rate_tots)/(rate_tots-1));
+                savings_elas = ((kpr_dev - kpr_total)/kpr_total) / ((totrates_dev - totrates)/(totrates-1));
                 
                 
                 % Save and display elasticities
