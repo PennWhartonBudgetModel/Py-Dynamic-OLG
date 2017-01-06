@@ -4,16 +4,16 @@
 %%
 
 
-function [labopt, dist, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...
+function [W, dist, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcaptax, SSexp] ...
           ...
             = generate_distributions(...
                 beta, gamma, sigma, T_life, T_work, T_model_opt, T_model_dist, birthyear, ...
-                z, tr_z, kgrid, bgrid, nz, nk, nb, idem, ...
-                mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, ss_tax, taxmax, ...
-                beqs, wages, cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, q_tobin, q_tobin0, Vbeq, ...
-                avg_deduc, clinton, coefs, limit, X, ss_benefit, ...
+                zs, ztrans, kv, bv, nz, nk, nb, idem, ...
+                mpci, rpci, captaxshare, sstaxcredit, surv, taucap, taucapgain, sstaxs, ssincmaxs, ...
+                beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, qtobin, qtobin0, Vbeq, ...
+                avg_deduc, clinton, coefs, limit, X, ssbenefits, ...
                 dist0, mu2_idem, mu3_idem, ...
-                labopt_static, dist_static) %#codegen
+                W_static, dist_static) %#codegen
 
 
 % Define argument properties for C code generation
@@ -32,10 +32,10 @@ assert( isa(T_model_dist,   'double') && (size(T_model_dist,    1) == 1         
 assert( isa(T_model_opt,    'double') && (size(T_model_opt,     1) == 1         ) && (size(T_model_opt,     2) == 1             ) );
 assert( isa(birthyear,      'double') && (size(birthyear,       1) == 1         ) && (size(birthyear,       2) == 1             ) );
 
-assert( isa(z,              'double') && (size(z,               1) <= nz_max    ) && (size(z,               2) <= T_life_max    ) && (size(z, 3) == 2) );
-assert( isa(tr_z,           'double') && (size(tr_z,            1) <= nz_max    ) && (size(tr_z,            2) <= nz_max        ) );
-assert( isa(kgrid,          'double') && (size(kgrid,           1) <= nk_max    ) && (size(kgrid,           2) == 1             ) );
-assert( isa(bgrid,          'double') && (size(bgrid,           1) <= nb_max    ) && (size(bgrid,           2) == 1             ) );
+assert( isa(zs,              'double') && (size(zs,               1) <= nz_max    ) && (size(zs,               2) <= T_life_max    ) && (size(zs, 3) == 2) );
+assert( isa(ztrans,           'double') && (size(ztrans,            1) <= nz_max    ) && (size(ztrans,            2) <= nz_max        ) );
+assert( isa(kv,          'double') && (size(kv,           1) <= nk_max    ) && (size(kv,           2) == 1             ) );
+assert( isa(bv,          'double') && (size(bv,           1) <= nb_max    ) && (size(bv,           2) == 1             ) );
 assert( isa(nz,             'double') && (size(nz,              1) == 1         ) && (size(nz,              2) == 1             ) );
 assert( isa(nk,             'double') && (size(nk,              1) == 1         ) && (size(nk,              2) == 1             ) );
 assert( isa(nb,             'double') && (size(nb,              1) == 1         ) && (size(nb,              2) == 1             ) );
@@ -43,24 +43,24 @@ assert( isa(idem,           'double') && (size(idem,            1) == 1         
 
 assert( isa(mpci,           'double') && (size(mpci,            1) == 1         ) && (size(mpci,            2) == 1             ) );
 assert( isa(rpci,           'double') && (size(rpci,            1) == 1         ) && (size(rpci,            2) == 1             ) );
-assert( isa(cap_tax_share,  'double') && (size(cap_tax_share,   1) == 1         ) && (size(cap_tax_share,   2) == 1             ) );
-assert( isa(ss_tax_cred,    'double') && (size(ss_tax_cred,     1) == 1         ) && (size(ss_tax_cred,     2) == 1             ) );
+assert( isa(captaxshare,  'double') && (size(captaxshare,   1) == 1         ) && (size(captaxshare,   2) == 1             ) );
+assert( isa(sstaxcredit,    'double') && (size(sstaxcredit,     1) == 1         ) && (size(sstaxcredit,     2) == 1             ) );
 assert( isa(surv,           'double') && (size(surv,            1) == 1         ) && (size(surv,            2) <= T_life_max    ) );
-assert( isa(tau_cap,        'double') && (size(tau_cap,         1) == 1         ) && (size(tau_cap,         2) == 1             ) );
-assert( isa(tau_capgain,    'double') && (size(tau_capgain,     1) == 1         ) && (size(tau_capgain,     2) == 1             ) );
-assert( isa(ss_tax,         'double') && (size(ss_tax,          1) == 1         ) && (size(ss_tax,          2) <= T_model_max   ) );
-assert( isa(taxmax,         'double') && (size(taxmax,          1) == 1         ) && (size(taxmax,          2) <= T_model_max   ) );
+assert( isa(taucap,        'double') && (size(taucap,         1) == 1         ) && (size(taucap,         2) == 1             ) );
+assert( isa(taucapgain,    'double') && (size(taucapgain,     1) == 1         ) && (size(taucapgain,     2) == 1             ) );
+assert( isa(sstaxs,         'double') && (size(sstaxs,          1) == 1         ) && (size(sstaxs,          2) <= T_model_max   ) );
+assert( isa(ssincmaxs,         'double') && (size(ssincmaxs,          1) == 1         ) && (size(ssincmaxs,          2) <= T_model_max   ) );
 
 assert( isa(beqs,           'double') && (size(beqs,            1) == 1         ) && (size(beqs,            2) <= T_model_max   ) );
 assert( isa(wages,          'double') && (size(wages,           1) == 1         ) && (size(wages,           2) <= T_model_max   ) );
-assert( isa(cap_shares,     'double') && (size(cap_shares,      1) == 1         ) && (size(cap_shares,      2) <= T_model_max   ) );
-assert( isa(debt_shares,    'double') && (size(debt_shares,     1) == 1         ) && (size(debt_shares,     2) <= T_model_max   ) );
-assert( isa(rate_caps,      'double') && (size(rate_caps,       1) == 1         ) && (size(rate_caps,       2) <= T_model_max   ) );
-assert( isa(rate_govs,      'double') && (size(rate_govs,       1) == 1         ) && (size(rate_govs,       2) <= T_model_max   ) );
-assert( isa(rate_tots,      'double') && (size(rate_tots,       1) == 1         ) && (size(rate_tots,       2) <= T_model_max   ) );
-assert( isa(exp_subsidys,   'double') && (size(exp_subsidys,    1) == 1         ) && (size(exp_subsidys,    2) <= T_model_max   ) );
-assert( isa(q_tobin,        'double') && (size(q_tobin,         1) == 1         ) && (size(q_tobin,         2) == 1             ) );
-assert( isa(q_tobin0,       'double') && (size(q_tobin0,        1) == 1         ) && (size(q_tobin0,        2) == 1             ) );
+assert( isa(capshares,     'double') && (size(capshares,      1) == 1         ) && (size(capshares,      2) <= T_model_max   ) );
+assert( isa(debtshares,    'double') && (size(debtshares,     1) == 1         ) && (size(debtshares,     2) <= T_model_max   ) );
+assert( isa(caprates,      'double') && (size(caprates,       1) == 1         ) && (size(caprates,       2) <= T_model_max   ) );
+assert( isa(govrates,      'double') && (size(govrates,       1) == 1         ) && (size(govrates,       2) <= T_model_max   ) );
+assert( isa(totrates,      'double') && (size(totrates,       1) == 1         ) && (size(totrates,       2) <= T_model_max   ) );
+assert( isa(expsubsidys,   'double') && (size(expsubsidys,    1) == 1         ) && (size(expsubsidys,    2) <= T_model_max   ) );
+assert( isa(qtobin,        'double') && (size(qtobin,         1) == 1         ) && (size(qtobin,         2) == 1             ) );
+assert( isa(qtobin0,       'double') && (size(qtobin0,        1) == 1         ) && (size(qtobin0,        2) == 1             ) );
 assert( isa(Vbeq,           'double') && (size(Vbeq,            1) <= nk_max    ) && (size(Vbeq,            2) == 1             ) );
 
 assert( isa(avg_deduc,      'double') && (size(avg_deduc,       1) == 1         ) && (size(avg_deduc,       2) == 1             ) );
@@ -68,13 +68,13 @@ assert( isa(clinton,        'double') && (size(clinton,         1) == 1         
 assert( isa(coefs,          'double') && (size(coefs,           1) == 1         ) && (size(coefs,           2) <= 10            ) );
 assert( isa(limit,          'double') && (size(limit,           1) == 1         ) && (size(limit,           2) == 1             ) );
 assert( isa(X,              'double') && (size(X,               1) == 1         ) && (size(X,               2) <= 10            ) );
-assert( isa(ss_benefit,     'double') && (size(ss_benefit,      1) <= nb_max    ) && (size(ss_benefit,      2) <= T_model_max   ) );
+assert( isa(ssbenefits,     'double') && (size(ssbenefits,      1) <= nb_max    ) && (size(ssbenefits,      2) <= T_model_max   ) );
 
 assert( isa(dist0,          'double') && (size(dist0,           1) <= nz_max    ) && (size(dist0,           2) <= nk_max        ) && (size(dist0,         3) <= nb_max) && (size(dist0,         4) <= T_life_max ) );
 assert( isa(mu2_idem,       'double') && (size(mu2_idem,        1) == 1         ) && (size(mu2_idem,        2) <= T_life_max    ) );
 assert( isa(mu3_idem,       'double') && (size(mu3_idem,        1) == 1         ) && (size(mu3_idem,        2) <= T_life_max    ) );
 
-assert( isa(labopt_static,  'double') && (size(labopt_static,   1) <= nz_max    ) && (size(labopt_static,   2) <= nk_max        ) && (size(labopt_static, 3) <= nb_max) && (size(labopt_static, 4) <= T_life_max ) );
+assert( isa(W_static,  'double') && (size(W_static,   1) <= nz_max    ) && (size(W_static,   2) <= nk_max        ) && (size(W_static, 3) <= nb_max) && (size(W_static, 4) <= T_life_max ) );
 assert( isa(dist_static,    'double') && (size(dist_static,     1) <= nz_max    ) && (size(dist_static,     2) <= nk_max        ) && (size(dist_static,   3) <= nb_max) && (size(dist_static,   4) <= T_model_max) );
 
 
@@ -85,139 +85,139 @@ assert( isa(dist_static,    'double') && (size(dist_static,     1) <= nz_max    
 isdynamic = isempty(dist_static);
 
 % Find number of past years, effective living years, and effective working years
-T_past     = max(-birthyear,      0);
-T_life_eff = max(T_life - T_past, 0);
-T_work_eff = max(T_work - T_past, 0);
+T_past = max(-birthyear     , 0);
+S_life = max(T_life - T_past, 0);
+S_work = max(T_work - T_past, 0);
 
 % Initialize optimal decision value arrays
-V           = zeros(nz,nk,nb,T_life_eff+1);  % (1 extra time slice for initialization of backward induction)
+V           = zeros(nz,nk,nb,S_life+1);  % (1 extra time slice for initialization of backward induction)
 
-kopt        = zeros(nz,nk,nb,T_life_eff);
-labopt      = zeros(nz,nk,nb,T_life_eff);
-bopt        = zeros(nz,nk,nb,T_life_eff);
+K        = zeros(nz,nk,nb,S_life);
+W      = zeros(nz,nk,nb,S_life);
+B        = zeros(nz,nk,nb,S_life);
 
-fedincome   = zeros(nz,nk,nb,T_life_eff);
-fitax       = zeros(nz,nk,nb,T_life_eff);
-fsstax      = zeros(nz,nk,nb,T_life_eff);
-fcaptax     = zeros(nz,nk,nb,T_life_eff);
-benefits    = zeros(nz,nk,nb,T_life_eff);
+INC   = zeros(nz,nk,nb,S_life);
+PIT       = zeros(nz,nk,nb,S_life);
+SST      = zeros(nz,nk,nb,S_life);
+CIT     = zeros(nz,nk,nb,S_life);
+BEN    = zeros(nz,nk,nb,S_life);
 
 % Specify settings for dynamic optimization subproblems
 optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
 
 
 % Solve dynamic optimization problem through backward induction
-for t = T_life_eff:-1:1
+for t = S_life:-1:1
     
     % Determine age and year, bounded by projection period
     age  = t + T_past;
     year = max(1, min(age + birthyear, T_model_opt));
     
     % Extract annual parameters
-    ben         = ss_benefit(:,  year);
-    v_ss_max    = taxmax        (year);
-    tau_ss      = ss_tax        (year);
+    ssbenefit         = ssbenefits(:,  year);
+    ssincmax    = ssincmaxs        (year);
+    sstax      = sstaxs        (year);
     beq         = beqs          (year);
     wage        = wages         (year);
-    rate_cap    = rate_caps     (year);
-    rate_gov    = rate_govs     (year);
-    cap_share   = cap_shares    (year);
-    debt_share  = debt_shares   (year);
-    rate_tot    = rate_tots     (year);
-    exp_subsidy = exp_subsidys  (year);
+    caprate    = caprates     (year);
+    govrate    = govrates     (year);
+    capshare   = capshares    (year);
+    debtshare  = debtshares   (year);
+    totrate    = totrates     (year);
+    expsubsidy = expsubsidys  (year);
     
     
     for ib = 1:nb
         for ik = 1:nk
             
-            if (t > T_work_eff)
+            if (t > S_work)
                 
                 % Calculate expected value curve using values for next time step
                 EV = (1-surv(age))*repmat(Vbeq, [1,nb]) + surv(age)*beta*reshape(V(1,:,:,t+1), [nk,nb]);
                 
                 % Calculate available resources and tax terms
-                fincome_lab = ben(ib);
-                [resources, fincome, ftax, ~, fcap] ...
+                inc_w = ssbenefit(ib);
+                [resources, inc, pit, ~, cit] ...
                     ...
-                    = calculate_resources(fincome_lab, kgrid(ik), ...
-                                          cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy,...
-                                          avg_deduc, coefs, limit, X, mpci, rpci, 0, 0, clinton, year, q_tobin, q_tobin0, ...
-                                          rate_tot, beq, ss_tax_cred);
+                    = calculate_resources(inc_w, kv(ik), ...
+                                          capshare, caprate, debtshare, govrate, captaxshare, taucap, taucapgain, expsubsidy,...
+                                          avg_deduc, coefs, limit, X, mpci, rpci, 0, 0, clinton, year, qtobin, qtobin0, ...
+                                          totrate, beq, sstaxcredit);
                 
                 if isdynamic
                     
                     % Call retirement age value function to set parameters
-                    valfun_retire([], kgrid, resources, EV(:,ib), sigma, gamma);
+                    value_retirement([], kv, resources, EV(:,ib), sigma, gamma);
                     
                     % Solve dynamic optimization subproblem
-                    [k_opt, V_min] = fminsearch(@valfun_retire, kgrid(ik), optim_options);
+                    [k, v] = fminsearch(@value_retirement, kv(ik), optim_options);
                     
                     % Record values
-                    V    (:,ik,ib,t) = -V_min     ;
-                    kopt (:,ik,ib,t) = k_opt      ;
+                    V    (:,ik,ib,t) = -v     ;
+                    K (:,ik,ib,t) = k      ;
                     
                 end
                 
-                labopt   (:,ik,ib,t) = 0          ;
-                bopt     (:,ik,ib,t) = bgrid(ib)  ;
+                W   (:,ik,ib,t) = 0          ;
+                B     (:,ik,ib,t) = bv(ib)  ;
                 
-                fedincome(:,ik,ib,t) = fincome    ;
-                fitax    (:,ik,ib,t) = ftax       ;
-                fsstax   (:,ik,ib,t) = 0          ;
-                fcaptax  (:,ik,ib,t) = fcap       ;
-                benefits (:,ik,ib,t) = fincome_lab;
+                INC(:,ik,ib,t) = inc    ;
+                PIT    (:,ik,ib,t) = pit       ;
+                SST   (:,ik,ib,t) = 0          ;
+                CIT  (:,ik,ib,t) = cit       ;
+                BEN (:,ik,ib,t) = inc_w;
                 
             else
                 
                 for iz = 1:nz
                     
                     % Calculate expected value curve using values for next time step
-                    EV = (1-surv(age))*repmat(Vbeq, [1,nb]) + surv(age)*beta*reshape(sum(repmat(tr_z(iz,:)', [1,nk,nb]) .* V(:,:,:,t+1), 1), [nk,nb]);
+                    EV = (1-surv(age))*repmat(Vbeq, [1,nb]) + surv(age)*beta*reshape(sum(repmat(ztrans(iz,:)', [1,nk,nb]) .* V(:,:,:,t+1), 1), [nk,nb]);
                     
                     % Calculate effective wage
-                    eff_wage = wage * z(iz,age,idem);
+                    wage_z = wage * zs(iz,age,idem);
                     
                     % Call resource calculation function to set parameters
-                    calculate_resources([], kgrid(ik), ...
-                                        cap_share, rate_cap, debt_share, rate_gov, cap_tax_share, tau_cap, tau_capgain, exp_subsidy, ...
-                                        avg_deduc, coefs, limit, X, mpci, rpci, tau_ss, v_ss_max, clinton, year, q_tobin, q_tobin0, ...
-                                        rate_tot, beq, 0);
+                    calculate_resources([], kv(ik), ...
+                                        capshare, caprate, debtshare, govrate, captaxshare, taucap, taucapgain, expsubsidy, ...
+                                        avg_deduc, coefs, limit, X, mpci, rpci, sstax, ssincmax, clinton, year, qtobin, qtobin0, ...
+                                        totrate, beq, 0);
                     
                     if isdynamic
 
                         % Call working age value function and average earnings calculation function to set parameters
-                        valfun_work([], kgrid, bgrid, eff_wage, EV, sigma, gamma)
-                        calculate_b([], age, bgrid(ib), v_ss_max)
+                        value_working([], kv, bv, wage_z, EV, sigma, gamma)
+                        calculate_b([], age, bv(ib), ssincmax)
                         
                         % Solve dynamic optimization subproblem
                         lab0 = 0.5;
-                        k0   = max(kgrid(ik), 0.1 * eff_wage * lab0);   % (Assumes taxation will not exceed 90% of labor income)
+                        k0   = max(kv(ik), 0.1 * wage_z * lab0);   % (Assumes taxation will not exceed 90% of labor income)
                         
-                        [x_opt, V_min] = fminsearch(@valfun_work, [k0, lab0], optim_options);
+                        [x, v] = fminsearch(@value_working, [k0, lab0], optim_options);
                         
-                        k_opt   = x_opt(1);
-                        lab_opt = x_opt(2);
+                        k   = x(1);
+                        w = x(2);
                         
                         % Record values
-                        V     (iz,ik,ib,t) = -V_min ;
-                        kopt  (iz,ik,ib,t) = k_opt  ;
+                        V     (iz,ik,ib,t) = -v ;
+                        K  (iz,ik,ib,t) = k  ;
                         
                     else
-                        lab_opt = labopt_static(iz,ik,ib,t);
+                        w = W_static(iz,ik,ib,t);
                     end
                     
                     % Calculate tax terms for optimal decision values
-                    fincome_lab_opt = eff_wage * lab_opt;
-                    [~, fincome, ftax, sstax, fcap] = calculate_resources(fincome_lab_opt);
+                    inc_w = wage_z * w;
+                    [~, inc, pit, sst, cit] = calculate_resources(inc_w);
                     
-                    labopt    (iz,ik,ib,t) = lab_opt;
-                    bopt      (iz,ik,ib,t) = calculate_b(fincome_lab_opt);
+                    W    (iz,ik,ib,t) = w;
+                    B      (iz,ik,ib,t) = calculate_b(inc_w);
                     
-                    fedincome (iz,ik,ib,t) = fincome;
-                    fitax     (iz,ik,ib,t) = ftax   ;
-                    fsstax    (iz,ik,ib,t) = sstax  ;
-                    fcaptax   (iz,ik,ib,t) = fcap   ;
-                    benefits  (iz,ik,ib,t) = 0      ;
+                    INC (iz,ik,ib,t) = inc;
+                    PIT     (iz,ik,ib,t) = pit   ;
+                    SST    (iz,ik,ib,t) = sst  ;
+                    CIT   (iz,ik,ib,t) = cit   ;
+                    BEN  (iz,ik,ib,t) = 0      ;
                     
                 end
                 
@@ -244,33 +244,33 @@ if isdynamic
     for t = 1:T_dist-1
         
         % Extract optimal k and b values
-        k_t = kopt(:,:,:,t);
-        b_t = bopt(:,:,:,t);
+        k_t = K(:,:,:,t);
+        b_t = B(:,:,:,t);
         
-        % Find indices of nearest values in kgrid and bgrid series
+        % Find indices of nearest values in kv and bv series
         jk_lt = ones(size(k_t));
         for elem = 1:length(k_t(:))
-            jk_lt(elem) = find(kgrid(1:end-1) <= k_t(elem), 1, 'last');
+            jk_lt(elem) = find(kv(1:end-1) <= k_t(elem), 1, 'last');
         end
         jk_gt = jk_lt + 1;
         
         jb_lt = ones(size(b_t));
         for elem = 1:length(b_t(:))
-            jb_lt(elem) = find(bgrid(1:end-1) <= b_t(elem), 1, 'last');
+            jb_lt(elem) = find(bv(1:end-1) <= b_t(elem), 1, 'last');
         end
         jb_gt = jb_lt + 1;
         
         % Calculate linear weights for nearest values
-        wk_lt = (kgrid(jk_gt) - k_t) ./ (kgrid(jk_gt) - kgrid(jk_lt));
+        wk_lt = (kv(jk_gt) - k_t) ./ (kv(jk_gt) - kv(jk_lt));
         wk_gt = 1 - wk_lt;
         
-        wb_lt = (bgrid(jb_gt) - b_t) ./ (bgrid(jb_gt) - bgrid(jb_lt));
+        wb_lt = (bv(jb_gt) - b_t) ./ (bv(jb_gt) - bv(jb_lt));
         wb_gt = 1 - wb_lt;
         
         for jz = 1:nz
             
             % Perform productivity transformation
-            dist_step = repmat(tr_z(:,jz), [1,nk,nb]) .* dist(:,:,:,t);
+            dist_step = repmat(ztrans(:,jz), [1,nk,nb]) .* dist(:,:,:,t);
             
             % Calculate distributions for next time step
             for elem = 1:numel(dist_step)
@@ -298,25 +298,25 @@ end
 
 %% Aggregate generation
 
-Kalive    = sum(reshape(kopt            (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+Kalive    = sum(reshape(K            (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
 Kdead     = Kalive .* mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist));
 
-ELab      = sum(reshape(labopt(:,:,:,1:T_dist) .* repmat(reshape(z(:,T_past+(1:T_dist),idem), [nz,1,1,T_dist]), [1,nk,nb,1]) .* dist, [], T_dist), 1);
+ELab      = sum(reshape(W(:,:,:,1:T_dist) .* repmat(reshape(zs(:,T_past+(1:T_dist),idem), [nz,1,1,T_dist]), [1,nk,nb,1]) .* dist, [], T_dist), 1);
 
-Lab       = sum(reshape(labopt          (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+Lab       = sum(reshape(W          (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
-Lfpr      = sum(reshape((labopt(:,:,:,1:T_dist) >= 0.01) .* dist, [], T_dist), 1);
+Lfpr      = sum(reshape((W(:,:,:,1:T_dist) >= 0.01) .* dist, [], T_dist), 1);
 
-Fedincome = sum(reshape(fedincome       (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+Fedincome = sum(reshape(INC       (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
-Fedit     = sum(reshape(fitax           (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+Fedit     = sum(reshape(PIT           (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
-SSrev     = sum(reshape(fsstax          (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+SSrev     = sum(reshape(SST          (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
-Fcaptax   = sum(reshape(fcaptax         (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+Fcaptax   = sum(reshape(CIT         (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
-SSexp     = sum(reshape(benefits        (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
+SSexp     = sum(reshape(BEN        (:,:,:,1:T_dist) .* dist, [], T_dist), 1);
 
 
 end
@@ -325,70 +325,70 @@ end
 
 
 % Resource and tax calculation function
-function [resources, fincome, ftax, sstax, fcap] ...
+function [resources, inc, pit, sst, cit] ...
     ...
-    = calculate_resources(fincome_lab, kgrid_ik_, ...
-                          cap_share_, rate_cap_, debt_share_, rate_gov_, cap_tax_share_, tau_cap_, tau_capgain_, exp_subsidy_, ...
-                          avg_deduc_, coefs_, limit_, X_, mpci_, rpci_, tau_ss_, v_ss_max_, clinton_, year_, q_tobin_, q_tobin0_, ...
-                          rate_tot_, beq_, ss_tax_cred_) %#codegen
+    = calculate_resources(inc_w, kv_ik_, ...
+                          capshare_, caprate_, debtshare_, govrate_, captaxshare_, taucap_, taucapgain_, expsubsidy_, ...
+                          avg_deduc_, coefs_, limit_, X_, mpci_, rpci_, sstax_, ssincmax_, clinton_, year_, qtobin_, qtobin0_, ...
+                          totrate_, beq_, sstaxcredit_) %#codegen
 
 % Enforce function inlining for C code generation
 coder.inline('always');
 
 % Define parameters as persistent variables
 persistent initialized
-persistent kgrid_ik
-persistent cap_share
-persistent rate_cap
-persistent debt_share
-persistent rate_gov
-persistent cap_tax_share
-persistent tau_cap
-persistent tau_capgain
-persistent exp_subsidy
+persistent kv_ik
+persistent capshare
+persistent caprate
+persistent debtshare
+persistent govrate
+persistent captaxshare
+persistent taucap
+persistent taucapgain
+persistent expsubsidy
 persistent avg_deduc
 persistent coefs
 persistent limit
 persistent X
 persistent mpci
 persistent rpci
-persistent tau_ss
-persistent v_ss_max
+persistent sstax
+persistent ssincmax
 persistent clinton
 persistent year
-persistent q_tobin
-persistent q_tobin0
-persistent rate_tot
+persistent qtobin
+persistent qtobin0
+persistent totrate
 persistent beq
-persistent ss_tax_cred
+persistent sstaxcredit
 
 % Initialize parameters
 if isempty(initialized)
     
-    kgrid_ik        = 0;
-    cap_share       = 0;
-    rate_cap        = 0;
-    debt_share      = 0;
-    rate_gov        = 0;
-    cap_tax_share   = 0;
-    tau_cap         = 0;
-    tau_capgain     = 0;
-    exp_subsidy     = 0;
+    kv_ik        = 0;
+    capshare       = 0;
+    caprate        = 0;
+    debtshare      = 0;
+    govrate        = 0;
+    captaxshare   = 0;
+    taucap         = 0;
+    taucapgain     = 0;
+    expsubsidy     = 0;
     avg_deduc       = 0;
     coefs           = 0;
     limit           = 0;
     X               = 0;
     mpci            = 0;
     rpci            = 0;
-    tau_ss          = 0;
-    v_ss_max        = 0;
+    sstax          = 0;
+    ssincmax        = 0;
     clinton         = 0;
     year            = 0;
-    q_tobin         = 0;
-    q_tobin0        = 0;
-    rate_tot        = 0;
+    qtobin         = 0;
+    qtobin0        = 0;
+    totrate        = 0;
     beq             = 0;
-    ss_tax_cred     = 0;
+    sstaxcredit     = 0;
     
     initialized     = true;
     
@@ -397,59 +397,59 @@ end
 % Set parameters if provided
 if (nargin > 1)
     
-    kgrid_ik        = kgrid_ik_;
-    cap_share       = cap_share_;
-    rate_cap        = rate_cap_;
-    debt_share      = debt_share_;
-    rate_gov        = rate_gov_;
-    cap_tax_share   = cap_tax_share_;
-    tau_cap         = tau_cap_;
-    tau_capgain     = tau_capgain_;
-    exp_subsidy     = exp_subsidy_;
+    kv_ik        = kv_ik_;
+    capshare       = capshare_;
+    caprate        = caprate_;
+    debtshare      = debtshare_;
+    govrate        = govrate_;
+    captaxshare   = captaxshare_;
+    taucap         = taucap_;
+    taucapgain     = taucapgain_;
+    expsubsidy     = expsubsidy_;
     avg_deduc       = avg_deduc_;
     coefs           = coefs_;
     limit           = limit_;
     X               = X_;
     mpci            = mpci_;
     rpci            = rpci_;
-    tau_ss          = tau_ss_;
-    v_ss_max        = v_ss_max_;
+    sstax          = sstax_;
+    ssincmax        = ssincmax_;
     clinton         = clinton_;
     year            = year_;
-    q_tobin         = q_tobin_;
-    q_tobin0        = q_tobin0_;
-    rate_tot        = rate_tot_;
+    qtobin         = qtobin_;
+    qtobin0        = qtobin0_;
+    totrate        = totrate_;
     beq             = beq_;
-    ss_tax_cred     = ss_tax_cred_;
+    sstaxcredit     = sstaxcredit_;
     
-    if isempty(fincome_lab), return, end
+    if isempty(inc_w), return, end
     
 end
 
 % Calculate taxable income
-fincome     =   cap_share *(rate_cap-1)*kgrid_ik*(1-cap_tax_share) ...
-              + debt_share*(rate_gov-1)*kgrid_ik ...
-              + (1-ss_tax_cred)*fincome_lab;
-fincome     = max(0, (rpci/mpci)*fincome);
-deduc       = max(0, avg_deduc + coefs(1)*fincome + coefs(2)*fincome^0.5);
-fincome_eff = max(fincome - deduc, 0);
-fincome     = (mpci/rpci)*fincome;
+inc     =   capshare *(caprate-1)*kv_ik*(1-captaxshare) ...
+              + debtshare*(govrate-1)*kv_ik ...
+              + (1-sstaxcredit)*inc_w;
+inc     = max(0, (rpci/mpci)*inc);
+deduc       = max(0, avg_deduc + coefs(1)*inc + coefs(2)*inc^0.5);
+inc_eff = max(inc - deduc, 0);
+inc     = (mpci/rpci)*inc;
 
 % Calculate personal income tax (PIT)
-ftax = limit*(fincome_eff - (fincome_eff.^(-X(1)) + (X(2))).^(-1/X(1)));
-mtr  = limit - (limit*(fincome_eff^(-X(1)) + X(2))^(-1/X(1))) / (X(2)*(fincome_eff^(X(1)+1)) + fincome_eff);
-ftax = (mpci/rpci)*(ftax + clinton*max(0, mtr-0.28)*deduc);
+pit = limit*(inc_eff - (inc_eff.^(-X(1)) + (X(2))).^(-1/X(1)));
+mtr  = limit - (limit*(inc_eff^(-X(1)) + X(2))^(-1/X(1))) / (X(2)*(inc_eff^(X(1)+1)) + inc_eff);
+pit = (mpci/rpci)*(pit + clinton*max(0, mtr-0.28)*deduc);
 
 % Calculate Social Security tax
-sstax = tau_ss*min(fincome_lab, v_ss_max);
+sst = sstax*min(inc_w, ssincmax);
 
 % Calculate capital income tax (CIT)
-fcap = cap_share*kgrid_ik*( tau_cap*((rate_cap-1) - exp_subsidy)*cap_tax_share ...
-       + tau_capgain*(year == 1)*(q_tobin - q_tobin0)/q_tobin0 );
+cit = capshare*kv_ik*( taucap*((caprate-1) - expsubsidy)*captaxshare ...
+       + taucapgain*(year == 1)*(qtobin - qtobin0)/qtobin0 );
 
 % Calculate available resources
-resources = rate_tot*kgrid_ik + fincome_lab - (ftax + sstax + fcap) + beq ...
-            + (year == 1)*kgrid_ik*cap_share*(q_tobin - q_tobin0)/q_tobin0;
+resources = totrate*kv_ik + inc_w - (pit + sst + cit) + beq ...
+            + (year == 1)*kv_ik*capshare*(qtobin - qtobin0)/qtobin0;
 
 end
 
@@ -457,14 +457,14 @@ end
 
 
 % Retirement age value function
-function V_tilde = valfun_retire(k_prime, kgrid_, resources_, EV_ib_, sigma_, gamma_)
+function v = value_retirement(k, kv_, resources_, EV_ib_, sigma_, gamma_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
 
 % Define parameters as persistent variables
 persistent initialized
-persistent kgrid
+persistent kv
 persistent resources
 persistent EV_ib
 persistent sigma
@@ -473,7 +473,7 @@ persistent gamma
 % Initialize parameters
 if isempty(initialized)
     
-    kgrid           = 0;
+    kv           = 0;
     resources       = 0;
     EV_ib           = 0;
     sigma           = 0;
@@ -486,7 +486,7 @@ end
 % Set parameters if provided
 if (nargin > 1)
     
-    kgrid           = kgrid_;
+    kv           = kv_;
     resources       = resources_;
     EV_ib           = EV_ib_;
     sigma           = sigma_;
@@ -497,22 +497,19 @@ if (nargin > 1)
 end
 
 % Calculate consumption
-consumption = resources - k_prime;
+consumption = resources - k;
 
 % Perform bound checks
-if (kgrid(1) <= k_prime) && (k_prime <= kgrid(end)) && (0 <= consumption)
+if (kv(1) <= k) && (k <= kv(end)) && (0 <= consumption)
     
-    % Perform linear interpolation
-    V_star = interp1(kgrid, EV_ib, k_prime, 'linear');
-    
-    % Calculate value function
-    V_tilde = V_star + (consumption^(gamma*(1-sigma)))/(1-sigma);
+    % Calculate value
+    v = interp1(kv, EV_ib, k, 'linear') + (consumption^(gamma*(1-sigma)))/(1-sigma);
     
     % Negate for minimization and force to scalar for C code generation
-    V_tilde = -V_tilde(1);
+    v = -v(1);
     
 else
-    V_tilde = Inf;
+    v = Inf;
 end
 
 
@@ -522,16 +519,16 @@ end
 
 
 % Working age value function
-function V_tilde = valfun_work(x_prime, kgrid_, bgrid_, eff_wage_, EV_, sigma_, gamma_)
+function v = value_working(x, kv_, bv_, wage_z_, EV_, sigma_, gamma_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
 
 % Define parameters as persistent variables
 persistent initialized
-persistent kgrid
-persistent bgrid
-persistent eff_wage
+persistent kv
+persistent bv
+persistent wage_z
 persistent EV
 persistent sigma
 persistent gamma
@@ -539,9 +536,9 @@ persistent gamma
 % Initialize parameters
 if isempty(initialized)
     
-    kgrid           = 0;
-    bgrid           = 0;
-    eff_wage        = 0;
+    kv           = 0;
+    bv           = 0;
+    wage_z        = 0;
     EV              = 0;
     sigma           = 0;
     gamma           = 0;
@@ -553,9 +550,9 @@ end
 % Set parameters if provided
 if (nargin > 1)
     
-    kgrid           = kgrid_;
-    bgrid           = bgrid_;
-    eff_wage        = eff_wage_;
+    kv           = kv_;
+    bv           = bv_;
+    wage_z        = wage_z_;
     EV              = EV_;
     sigma           = sigma_;
     gamma           = gamma_;
@@ -565,40 +562,37 @@ if (nargin > 1)
 end
 
 % Define decision variables and perform bound checks
-k_prime   = x_prime(1);
-lab_prime = x_prime(2);
+k   = x(1);
+w = x(2);
 
-fincome_lab = eff_wage * lab_prime;
-b_prime     = calculate_b(fincome_lab);
+inc_w = wage_z * w;
+b     = calculate_b(inc_w);
 
-if ~((0 <= lab_prime) && (lab_prime <= 1) ...
-     && (kgrid(1) <= k_prime) && (k_prime <= kgrid(end)) ...
-     && (bgrid(1) <= b_prime) && (b_prime <= bgrid(end)))
+if ~((0 <= w) && (w <= 1) ...
+     && (kv(1) <= k) && (k <= kv(end)) ...
+     && (bv(1) <= b) && (b <= bv(end)))
     
-    V_tilde = Inf;
+    v = Inf;
     return
     
 end
 
 % Calculate available resources
-resources = calculate_resources(fincome_lab);
+resources = calculate_resources(inc_w);
 
 % Calculate consumption and perform bound check
-consumption = resources - k_prime;
+consumption = resources - k;
 
 if ~(0 <= consumption)
-    V_tilde = Inf;
+    v = Inf;
     return
 end
 
-% Perform linear interpolation on expected value curve
-V_star = interp2(kgrid', bgrid, EV', k_prime, b_prime, 'linear');
-
-% Calculate value function
-V_tilde = V_star + (1/(1-sigma))*((consumption^gamma)*((1-lab_prime)^(1-gamma)))^(1-sigma);
+% Calculate value
+v = interp2(kv', bv, EV', k, b, 'linear') + (1/(1-sigma))*((consumption^gamma)*((1-w)^(1-gamma)))^(1-sigma);
 
 % Negate for minimization and force to scalar for C code generation
-V_tilde = -V_tilde(1);
+v = -v(1);
 
 end
 
@@ -606,20 +600,20 @@ end
 
 
 % Average earnings calculation function
-function [b_prime] = calculate_b(fincome_lab, age_, bgrid_ib_, v_ss_max_)
+function [b] = calculate_b(inc_w, age_, bv_ib_, ssincmax_)
 
 % Define parameters as persistent variables
 persistent initialized
-persistent v_ss_max
+persistent ssincmax
 persistent age
-persistent bgrid_ib
+persistent bv_ib
 
 % Initialize parameters
 if isempty(initialized)
     
-    v_ss_max        = 0;
+    ssincmax        = 0;
     age             = 0;
-    bgrid_ib        = 0;
+    bv_ib        = 0;
     
     initialized     = true;
     
@@ -628,9 +622,9 @@ end
 % Set parameters if provided
 if (nargin > 1)
     
-    v_ss_max        = v_ss_max_;
+    ssincmax        = ssincmax_;
     age             = age_;
-    bgrid_ib        = bgrid_ib_;
+    bv_ib        = bv_ib_;
     
     return
     
@@ -639,7 +633,7 @@ end
 % Enforce function inlining for C code generation
 coder.inline('always');
 
-b_prime = (1/age)*(bgrid_ib*(age-1) + min(fincome_lab, v_ss_max));
+b = (1/age)*(bv_ib*(age-1) + min(inc_w, ssincmax));
 
 end
 
