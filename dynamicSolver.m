@@ -49,7 +49,7 @@ methods (Static)
                                     'gamma'     , '%0.3f'   , ...
                                     'sigma'     , '%05.2f'  );
         
-        counterdef_format = struct( 'plan'      , '%s'      , ...
+        counterdef_format = struct( 'taxplan'   , '%s'      , ...
                                     'gcut'      , '%+0.2f'  );
         
         % Define function to construct tag from definition and format specifications
@@ -83,7 +83,7 @@ methods (Static, Access = private)
         
         % Define default counterfactual parameter values
         % (These are the values used for a baseline run)
-        counterdef_filled = struct( 'plan'    , 'base'    , ...
+        counterdef_filled = struct( 'taxplan' , 'base'    , ...
                                     'gcut'    , +0.00     );
         
         % Override default parameter values with values from counterfactual definition
@@ -116,8 +116,8 @@ methods (Static, Access = private)
         counterdef_filled = dynamicSolver.fill_default(counterdef);
         
         % Unpack parameters from filled counterfactual definition
-        plan = counterdef_filled.plan;
-        gcut = counterdef_filled.gcut;
+        taxplan = counterdef_filled.taxplan;
+        gcut    = counterdef_filled.gcut   ;
         
         
         % Identify working directories
@@ -196,17 +196,14 @@ methods (Static, Access = private)
         
         
         % Load income tax parameters
-        s = load(fullfile(param_dir, sprintf('param_inctax_%s.mat', plan)));
+        s = load(fullfile(param_dir, sprintf('param_inctax_%s.mat', taxplan)));
         
-        avg_deduc = deduc_scale * s.avg_deduc;
-        clinton   = s.clinton;
-        coefs     = s.coefs;
-        limit     = s.limit;
-        X         = s.X;
+        deduction_coefs = [deduc_scale * s.avg_deduc, s.coefs(1:2)];
+        pit_coefs       = [s.limit, s.X];
         
         
         % Load business tax parameters
-        s = load(fullfile(param_dir, sprintf('param_bustax_%s.mat', plan)));
+        s = load(fullfile(param_dir, sprintf('param_bustax_%s.mat', taxplan)));
         
         cap_tax_share = s.cap_tax_share;
         exp_share     = s.exp_share;
@@ -309,7 +306,7 @@ methods (Static, Access = private)
                            z, tr_z, kgrid, bgrid, nz, nk, nb, idem, ...
                            mpci, rpci, cap_tax_share, ss_tax_cred, surv, tau_cap, tau_capgain, ss_tax, taxmax, ...
                            beqs, wages, cap_shares, debt_shares, rate_caps, rate_govs, rate_tots, exp_subsidys, q_tobin, q_tobin0, Vbeq, ...
-                           avg_deduc, clinton, coefs, limit, X, ss_benefit, ...
+                           deduction_coefs, pit_coefs, ss_benefit, ...
                            dist0, mu2_idem, mu3_idem, ...
                            labopt_static, dist_static);
                     
@@ -508,8 +505,8 @@ methods (Static, Access = private)
                 % Load government expenditure adjustment parameters
                 s = load(fullfile(param_dir, 'param_gtilde.mat'));
                 
-                indplan = cellfun(@(str) strncmp(plan, str, length(str)), {'base'; 'trump'; 'clinton'; 'ryan'});
-                revenue_percent = s.revenue_percent(indplan,:);
+                indtaxplan = cellfun(@(str) strncmp(taxplan, str, length(str)), {'base'; 'trump'; 'clinton'; 'ryan'});
+                revenue_percent = s.revenue_percent(indtaxplan,:);
                 revenue_percent = [revenue_percent, revenue_percent(end)*ones(1, max(T_model-length(revenue_percent), 0))];
                 
                 if ~isbase

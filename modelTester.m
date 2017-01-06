@@ -34,7 +34,7 @@ methods (Static)
     
     % Test open economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = open_counter()
-        save_dir = dynamicSolver.open(modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.10));
+        save_dir = dynamicSolver.open(modelTester.basedef, struct('taxplan', 'ryan', 'gcut', +0.10));
         setnames = {'solution', 'aggregates', 'aggregates_static'};
         test_output(save_dir, setnames);
     end
@@ -50,7 +50,7 @@ methods (Static)
     
     % Test closed economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = closed_counter()
-        save_dir = dynamicSolver.closed(modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.10));
+        save_dir = dynamicSolver.closed(modelTester.basedef, struct('taxplan', 'ryan', 'gcut', +0.10));
         setnames = {'solution', 'aggregates', 'aggregates_static'};
         test_output(save_dir, setnames);
     end

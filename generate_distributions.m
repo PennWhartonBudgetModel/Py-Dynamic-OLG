@@ -11,7 +11,7 @@ function [W, dist, Kalive, Kdead, ELab, Lab, Lfpr, Fedincome, Fedit, SSrev, Fcap
                 zs, ztrans, kv, bv, nz, nk, nb, idem, ...
                 mpci, rpci, captaxshare, sstaxcredit, surv, taucap, taucapgain, sstaxs, ssincmaxs, ...
                 beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, qtobin, qtobin0, Vbeq, ...
-                avg_deduc, clinton, coefs, limit, X, ssbenefits, ...
+                deduction_coefs, pit_coefs, ssbenefits, ...
                 dist0, mu2_idem, mu3_idem, ...
                 W_static, dist_static) %#codegen
 
@@ -63,11 +63,8 @@ assert( isa(qtobin,        'double') && (size(qtobin,         1) == 1         ) 
 assert( isa(qtobin0,       'double') && (size(qtobin0,        1) == 1         ) && (size(qtobin0,        2) == 1             ) );
 assert( isa(Vbeq,           'double') && (size(Vbeq,            1) <= nk_max    ) && (size(Vbeq,            2) == 1             ) );
 
-assert( isa(avg_deduc,      'double') && (size(avg_deduc,       1) == 1         ) && (size(avg_deduc,       2) == 1             ) );
-assert( isa(clinton,        'double') && (size(clinton,         1) == 1         ) && (size(clinton,         2) == 1             ) );
-assert( isa(coefs,          'double') && (size(coefs,           1) == 1         ) && (size(coefs,           2) <= 10            ) );
-assert( isa(limit,          'double') && (size(limit,           1) == 1         ) && (size(limit,           2) == 1             ) );
-assert( isa(X,              'double') && (size(X,               1) == 1         ) && (size(X,               2) <= 10            ) );
+assert( isa(deduction_coefs,          'double') && (size(deduction_coefs,           1) == 1         ) && (size(deduction_coefs,           2) == 3            ) );
+assert( isa(pit_coefs,              'double') && (size(pit_coefs,               1) == 1         ) && (size(pit_coefs,               2) <= 10            ) );
 assert( isa(ssbenefits,     'double') && (size(ssbenefits,      1) <= nb_max    ) && (size(ssbenefits,      2) <= T_model_max   ) );
 
 assert( isa(dist0,          'double') && (size(dist0,           1) <= nz_max    ) && (size(dist0,           2) <= nk_max        ) && (size(dist0,         3) <= nb_max) && (size(dist0,         4) <= T_life_max ) );
@@ -141,7 +138,7 @@ for t = S_life:-1:1
                     ...
                     = calculate_resources(inc_w, kv(ik), ...
                                           capshare, caprate, debtshare, govrate, captaxshare, taucap, taucapgain, expsubsidy,...
-                                          avg_deduc, coefs, limit, X, mpci, rpci, 0, 0, clinton, year, qtobin, qtobin0, ...
+                                          deduction_coefs, pit_coefs, mpci, rpci, 0, 0, year, qtobin, qtobin0, ...
                                           totrate, beq, sstaxcredit);
                 
                 if isdynamic
@@ -175,39 +172,39 @@ for t = S_life:-1:1
                     EV = (1-surv(age))*repmat(Vbeq, [1,nb]) + surv(age)*beta*reshape(sum(repmat(ztrans(iz,:)', [1,nk,nb]) .* V(:,:,:,t+1), 1), [nk,nb]);
                     
                     % Calculate effective wage
-                    wage_z = wage * zs(iz,age,idem);
+                    wage_eff = wage * zs(iz,age,idem);
                     
                     % Call resource calculation function to set parameters
                     calculate_resources([], kv(ik), ...
                                         capshare, caprate, debtshare, govrate, captaxshare, taucap, taucapgain, expsubsidy, ...
-                                        avg_deduc, coefs, limit, X, mpci, rpci, sstax, ssincmax, clinton, year, qtobin, qtobin0, ...
+                                        deduction_coefs, pit_coefs, mpci, rpci, sstax, ssincmax, year, qtobin, qtobin0, ...
                                         totrate, beq, 0);
                     
                     if isdynamic
 
                         % Call working age value function and average earnings calculation function to set parameters
-                        value_working([], kv, bv, wage_z, EV, sigma, gamma)
-                        calculate_b([], age, bv(ib), ssincmax)
+                        value_working([], kv, bv, wage_eff, EV, sigma, gamma)
+                        calculate_b  ([], age, bv(ib), ssincmax)
                         
                         % Solve dynamic optimization subproblem
-                        lab0 = 0.5;
-                        k0   = max(kv(ik), 0.1 * wage_z * lab0);   % (Assumes taxation will not exceed 90% of labor income)
+                        w0 = 0.5;
+                        k0 = max(kv(ik), 0.1 * wage_eff * w0);   % (Assumes taxation will not exceed 90% of labor income)
                         
-                        [x, v] = fminsearch(@value_working, [k0, lab0], optim_options);
+                        [x, v] = fminsearch(@value_working, [k0, w0], optim_options);
                         
-                        k   = x(1);
+                        k = x(1);
                         w = x(2);
                         
                         % Record values
-                        V     (iz,ik,ib,t) = -v ;
-                        K  (iz,ik,ib,t) = k  ;
+                        V (iz,ik,ib,t) = -v ;
+                        K (iz,ik,ib,t) = k  ;
                         
                     else
                         w = W_static(iz,ik,ib,t);
                     end
                     
                     % Calculate tax terms for optimal decision values
-                    inc_w = wage_z * w;
+                    inc_w = wage_eff * w;
                     [~, inc, pit, sst, cit] = calculate_resources(inc_w);
                     
                     W    (iz,ik,ib,t) = w;
@@ -329,7 +326,7 @@ function [resources, inc, pit, sst, cit] ...
     ...
     = calculate_resources(inc_w, kv_ik_, ...
                           capshare_, caprate_, debtshare_, govrate_, captaxshare_, taucap_, taucapgain_, expsubsidy_, ...
-                          avg_deduc_, coefs_, limit_, X_, mpci_, rpci_, sstax_, ssincmax_, clinton_, year_, qtobin_, qtobin0_, ...
+                          deduction_coefs_, pit_coefs_, mpci_, rpci_, sstax_, ssincmax_, year_, qtobin_, qtobin0_, ...
                           totrate_, beq_, sstaxcredit_) %#codegen
 
 % Enforce function inlining for C code generation
@@ -346,15 +343,12 @@ persistent captaxshare
 persistent taucap
 persistent taucapgain
 persistent expsubsidy
-persistent avg_deduc
-persistent coefs
-persistent limit
-persistent X
+persistent deduction_coefs
+persistent pit_coefs
 persistent mpci
 persistent rpci
 persistent sstax
 persistent ssincmax
-persistent clinton
 persistent year
 persistent qtobin
 persistent qtobin0
@@ -374,15 +368,12 @@ if isempty(initialized)
     taucap         = 0;
     taucapgain     = 0;
     expsubsidy     = 0;
-    avg_deduc       = 0;
-    coefs           = 0;
-    limit           = 0;
-    X               = 0;
+    deduction_coefs = 0;
+    pit_coefs       = 0;
     mpci            = 0;
     rpci            = 0;
     sstax          = 0;
     ssincmax        = 0;
-    clinton         = 0;
     year            = 0;
     qtobin         = 0;
     qtobin0        = 0;
@@ -406,15 +397,12 @@ if (nargin > 1)
     taucap         = taucap_;
     taucapgain     = taucapgain_;
     expsubsidy     = expsubsidy_;
-    avg_deduc       = avg_deduc_;
-    coefs           = coefs_;
-    limit           = limit_;
-    X               = X_;
+    deduction_coefs = deduction_coefs_;
+    pit_coefs       = pit_coefs_;
     mpci            = mpci_;
     rpci            = rpci_;
     sstax          = sstax_;
     ssincmax        = ssincmax_;
-    clinton         = clinton_;
     year            = year_;
     qtobin         = qtobin_;
     qtobin0        = qtobin0_;
@@ -427,29 +415,22 @@ if (nargin > 1)
 end
 
 % Calculate taxable income
-inc     =   capshare *(caprate-1)*kv_ik*(1-captaxshare) ...
-              + debtshare*(govrate-1)*kv_ik ...
-              + (1-sstaxcredit)*inc_w;
-inc     = max(0, (rpci/mpci)*inc);
-deduc       = max(0, avg_deduc + coefs(1)*inc + coefs(2)*inc^0.5);
-inc_eff = max(inc - deduc, 0);
-inc     = (mpci/rpci)*inc;
+inc       = (rpci/mpci)*max(0, capshare*(caprate-1)*kv_ik*(1-captaxshare) + debtshare*(govrate-1)*kv_ik + (1-sstaxcredit)*inc_w);
+deduction = max(0, deduction_coefs*inc.^[0; 1; 0.5]);
+inc_eff   = max(inc - deduction, 0);
+inc       = (mpci/rpci)*inc;
 
 % Calculate personal income tax (PIT)
-pit = limit*(inc_eff - (inc_eff.^(-X(1)) + (X(2))).^(-1/X(1)));
-mtr  = limit - (limit*(inc_eff^(-X(1)) + X(2))^(-1/X(1))) / (X(2)*(inc_eff^(X(1)+1)) + inc_eff);
-pit = (mpci/rpci)*(pit + clinton*max(0, mtr-0.28)*deduc);
+pit = (mpci/rpci)*pit_coefs(1)*(inc_eff - (inc_eff.^(-pit_coefs(2)) + (pit_coefs(3))).^(-1/pit_coefs(2)));
 
 % Calculate Social Security tax
 sst = sstax*min(inc_w, ssincmax);
 
 % Calculate capital income tax (CIT)
-cit = capshare*kv_ik*( taucap*((caprate-1) - expsubsidy)*captaxshare ...
-       + taucapgain*(year == 1)*(qtobin - qtobin0)/qtobin0 );
+cit = capshare*kv_ik*(taucap*((caprate-1) - expsubsidy)*captaxshare + taucapgain*(year == 1)*(qtobin - qtobin0)/qtobin0);
 
 % Calculate available resources
-resources = totrate*kv_ik + inc_w - (pit + sst + cit) + beq ...
-            + (year == 1)*kv_ik*capshare*(qtobin - qtobin0)/qtobin0;
+resources = totrate*kv_ik + inc_w - (pit + sst + cit) + beq + (year == 1)*kv_ik*capshare*(qtobin - qtobin0)/qtobin0;
 
 end
 
@@ -519,7 +500,7 @@ end
 
 
 % Working age value function
-function v = value_working(x, kv_, bv_, wage_z_, EV_, sigma_, gamma_)
+function v = value_working(x, kv_, bv_, wage_eff_, EV_, sigma_, gamma_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -528,7 +509,7 @@ coder.inline('always');
 persistent initialized
 persistent kv
 persistent bv
-persistent wage_z
+persistent wage_eff
 persistent EV
 persistent sigma
 persistent gamma
@@ -538,7 +519,7 @@ if isempty(initialized)
     
     kv           = 0;
     bv           = 0;
-    wage_z        = 0;
+    wage_eff        = 0;
     EV              = 0;
     sigma           = 0;
     gamma           = 0;
@@ -552,7 +533,7 @@ if (nargin > 1)
     
     kv           = kv_;
     bv           = bv_;
-    wage_z        = wage_z_;
+    wage_eff        = wage_eff_;
     EV              = EV_;
     sigma           = sigma_;
     gamma           = gamma_;
@@ -565,7 +546,7 @@ end
 k   = x(1);
 w = x(2);
 
-inc_w = wage_z * w;
+inc_w = wage_eff * w;
 b     = calculate_b(inc_w);
 
 if ~((0 <= w) && (w <= 1) ...
