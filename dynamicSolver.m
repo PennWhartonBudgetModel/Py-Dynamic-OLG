@@ -150,24 +150,23 @@ methods (Static, Access = private)
         end
         nstartyears = length(startyears);
         
-        kv = s.kgrid;
-        bv = [0; s.bgrid(2:end)];
-        
         nz   = s.nz;
         nk   = s.nk;
         nb   = s.nb;
         ndem = s.ndem;
         
         zs     = s.z;
-        ztrans = s.tr_z;
+        transz = s.tr_z;
         Dz     = s.proddist(:,1)';
+        ks     = s.kgrid;
+        bs     = [0; s.bgrid(2:end)];
         
         A   = s.A;
         alp = s.alp;
         d   = s.d;
         
         surv = [s.surv(1:T_life-1), 0];
-        V_beq = s.phi1.*((1+kv./s.phi2).^(1-s.phi3));
+        V_beq = s.phi1.*((1+ks./s.phi2).^(1-s.phi3));
         
         mu2 = s.demdist_2015 * (s.Mu2/sum(s.Mu2));
         mu3 = repmat(1-surv, [ndem,1]) .* mu2;
@@ -175,7 +174,7 @@ methods (Static, Access = private)
         mpci = s.mpci;
         rpci = s.rpci;
         
-        deduc_scale = s.deduc_scale;
+        deducscale  = s.deduc_scale;
         sstaxcredit = s.ss_tax_cred;
         
         
@@ -200,7 +199,7 @@ methods (Static, Access = private)
         % Load income tax parameters
         s = load(fullfile(param_dir, sprintf('param_inctax_%s.mat', taxplan)));
         
-        deduc_coefs = [deduc_scale * s.avg_deduc, s.coefs(1:2)];
+        deduc_coefs = [deducscale * s.avg_deduc, s.coefs(1:2)];
         pit_coefs   = [s.limit, s.X];
         
         
@@ -301,7 +300,7 @@ methods (Static, Access = private)
                     
                     % Generate cohort optimal decision values, distributions, and aggregates
                     [W, D, cohort] = solve_cohort(...
-                                       startyears(i), T_life, T_work, T_model_opt, T_model_dist, kv, bv, nz, nk, nb, idem, zs, ztrans, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
+                                       startyears(i), T_life, T_work, T_model_opt, T_model_dist, nz, nk, nb, idem, zs, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
                                        mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                                        beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
                                        D0, W_static, D_static);
