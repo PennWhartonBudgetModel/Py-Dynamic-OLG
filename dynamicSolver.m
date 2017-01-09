@@ -190,7 +190,7 @@ methods (Static, Access = private)
         % Load CBO parameters
         s = load(fullfile(param_dir, 'param_cbo.mat'));
         
-        D_Y         = s.FederalDebtHeldbythePublic(1)/100;
+        debtout     = s.FederalDebtHeldbythePublic(1)/100;
         fedgovtnis  = s.fedgovtnis(1:T_model);
         cborates    = 1 + s.r_cbo(1:T_model);
         cbomeanrate = 1 + mean(s.r_cbo);
@@ -226,24 +226,15 @@ methods (Static, Access = private)
         
         %% Aggregate generation function
         
-        function [kpr_total, beq_total, elab_total, lab_total, lfpr_total, ...
-                  fedincome_total, fedit_total, ssrev_total, fcaptax_total, ssexp_total, ...
-                  LABs, DISTs] ...
-                  ...
-                    = generate_aggregates(beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
-                                          DISTs_steady, LABs_static, DISTs_static) 
+        function [Aggregate, LABs, DISTs] = generate_aggregates(...
+                     beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+                     DISTs_steady, LABs_static, DISTs_static) 
             
             % Initialize aggregates
-            kpr_total       = zeros(1,T_model);
-            beq_total       = zeros(1,T_model);
-            elab_total      = zeros(1,T_model);
-            lab_total       = zeros(1,T_model);
-            lfpr_total      = zeros(1,T_model);
-            fedincome_total = zeros(1,T_model);
-            fedit_total     = zeros(1,T_model);
-            ssrev_total     = zeros(1,T_model);
-            fcaptax_total   = zeros(1,T_model);
-            ssexp_total     = zeros(1,T_model);
+            series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'incs', 'pits', 'ssts', 'cits', 'bens'};
+            for i = 1:length(series) %#ok<FXUP>
+                Aggregate.(series{i}) = zeros(1,T_model);
+            end
             
             % Initialize data storage arrays
             LABs    = cell(nstartyears, ndem);
@@ -318,9 +309,9 @@ methods (Static, Access = private)
                         
                         case 'steady'
                             
-                            kpr_total  = kpr_total  + sum(cohorts{i,idem}.kalive + cohorts{i,idem}.kdead);
-                            beq_total  = beq_total  + sum(cohorts{i,idem}.kdead  );
-                            elab_total = elab_total + sum(cohorts{i,idem}.labeff );
+                            Aggregate.assets  = Aggregate.assets  + sum(cohorts{i,idem}.kalive + cohorts{i,idem}.kdead);
+                            Aggregate.beqs    = Aggregate.beqs    + sum(cohorts{i,idem}.kdead );
+                            Aggregate.labeffs = Aggregate.labeffs + sum(cohorts{i,idem}.labeff);
                             
                         case {'open', 'closed'}
                             
@@ -328,16 +319,16 @@ methods (Static, Access = private)
                             T_shift = max(0, startyears(i));
                             T_dist  = size(DISTs{i,idem}, 4);
                             
-                            kpr_total      (T_shift+(1:T_dist)) = kpr_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.kalive + cohorts{i,idem}.kdead;
-                            beq_total      (T_shift+(1:T_dist)) = beq_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.kdead ;
-                            elab_total     (T_shift+(1:T_dist)) = elab_total     (T_shift+(1:T_dist)) + cohorts{i,idem}.labeff;
-                            lab_total      (T_shift+(1:T_dist)) = lab_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.lab   ;
-                            lfpr_total     (T_shift+(1:T_dist)) = lfpr_total     (T_shift+(1:T_dist)) + cohorts{i,idem}.lfpr  ;
-                            fedincome_total(T_shift+(1:T_dist)) = fedincome_total(T_shift+(1:T_dist)) + cohorts{i,idem}.inc   ;
-                            fedit_total    (T_shift+(1:T_dist)) = fedit_total    (T_shift+(1:T_dist)) + cohorts{i,idem}.pit   ;
-                            ssrev_total    (T_shift+(1:T_dist)) = ssrev_total    (T_shift+(1:T_dist)) + cohorts{i,idem}.sst   ;
-                            fcaptax_total  (T_shift+(1:T_dist)) = fcaptax_total  (T_shift+(1:T_dist)) + cohorts{i,idem}.cit   ;
-                            ssexp_total    (T_shift+(1:T_dist)) = ssexp_total    (T_shift+(1:T_dist)) + cohorts{i,idem}.ben   ;
+                            Aggregate.assets (T_shift+(1:T_dist)) = Aggregate.assets (T_shift+(1:T_dist)) + cohorts{i,idem}.kalive + cohorts{i,idem}.kdead;
+                            Aggregate.beqs   (T_shift+(1:T_dist)) = Aggregate.beqs   (T_shift+(1:T_dist)) + cohorts{i,idem}.kdead ;
+                            Aggregate.labeffs(T_shift+(1:T_dist)) = Aggregate.labeffs(T_shift+(1:T_dist)) + cohorts{i,idem}.labeff;
+                            Aggregate.labs   (T_shift+(1:T_dist)) = Aggregate.labs   (T_shift+(1:T_dist)) + cohorts{i,idem}.lab   ;
+                            Aggregate.lfprs  (T_shift+(1:T_dist)) = Aggregate.lfprs  (T_shift+(1:T_dist)) + cohorts{i,idem}.lfpr  ;
+                            Aggregate.incs   (T_shift+(1:T_dist)) = Aggregate.incs   (T_shift+(1:T_dist)) + cohorts{i,idem}.inc   ;
+                            Aggregate.pits   (T_shift+(1:T_dist)) = Aggregate.pits   (T_shift+(1:T_dist)) + cohorts{i,idem}.pit   ;
+                            Aggregate.ssts   (T_shift+(1:T_dist)) = Aggregate.ssts   (T_shift+(1:T_dist)) + cohorts{i,idem}.sst   ;
+                            Aggregate.cits   (T_shift+(1:T_dist)) = Aggregate.cits   (T_shift+(1:T_dist)) + cohorts{i,idem}.cit   ;
+                            Aggregate.bens   (T_shift+(1:T_dist)) = Aggregate.bens   (T_shift+(1:T_dist)) + cohorts{i,idem}.ben   ;
                             
                     end
                     
@@ -383,52 +374,46 @@ methods (Static, Access = private)
             
             
             % Generate static aggregates
-            [~, ~, ~, ~, ~, ...
-             fedincome_static, fedit_static, ssrev_static, fcaptax_static, ssexp_static, ...
-             ~, ~] ...
-             ...
-               = generate_aggregates(beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
-                                     {}, LABs_static, DISTs_static); %#ok<ASGLU>
+            % (Intermediary structure used to filter out extraneous fields)
+            [Static_] = generate_aggregates(...
+                beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+                {}, LABs_static, DISTs_static);
+            
+            Static.incs = Static_.incs;
+            Static.pits = Static_.pits;
+            Static.ssts = Static_.ssts;
+            Static.cits = Static_.cits;
+            Static.bens = Static_.bens;
             
             
             % Copy additional static aggregates from baseline aggregates
-            s_base = hardyload('aggregates.mat', base_generator, base_dir);
+            Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
             
-            elab_static             = s_base.elab_total             ; %#ok<NASGU>
-            cap_static              = s_base.cap_total              ; %#ok<NASGU>
-            lfpr_static             = s_base.lfpr_total             ; %#ok<NASGU>
-            labinc_static           = s_base.labinc_total           ;
-            kinc_static             = s_base.kinc_total             ; %#ok<NASGU>
+            Static.labeffs        = Dynamic_base.labeffs       ;
+            Static.caps           = Dynamic_base.caps          ;
+            Static.lfprs          = Dynamic_base.lfprs         ;
+            Static.labincs        = Dynamic_base.labincs       ;
+            Static.capincs        = Dynamic_base.capincs       ;
+            Static.outs           = Dynamic_base.outs          ;
+            Static.caps_domestic  = Dynamic_base.caps_domestic ;
+            Static.caps_foreign   = Dynamic_base.caps_foreign  ;
+            Static.debts_domestic = Dynamic_base.debts_domestic;
+            Static.debts_foreign  = Dynamic_base.debts_foreign ;
             
-            Y_static                = s_base.Y_total                ; %#ok<NASGU>
-            
-            domestic_cap_static     = s_base.domestic_cap_total     ; %#ok<NASGU>
-            foreign_cap_static      = s_base.foreign_cap_total      ; %#ok<NASGU>
-            
-            domestic_debt_static    = s_base.domestic_debt_total    ; %#ok<NASGU>
-            foreign_debt_static     = s_base.foreign_debt_total     ; %#ok<NASGU>
-            
-            clear('s_base')
+            clear('Dynamic_base')
             
             
             % Calculate additional static aggregates
-            feditlab_static         = fedit_static .* labinc_static ./ fedincome_static;
+            Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
             
-            domestic_fcaptax_static = fcaptax_static + fedit_static - feditlab_static;
-            foreign_fcaptax_static  = zeros(1,T_model); %#ok<NASGU>
+            Static.cits_domestic = Static.cits + Static.pits - Static.labpits;
+            Static.cits_foreign  = zeros(1,T_model);
             
-            fcaprev_static          = domestic_fcaptax_static; %#ok<NASGU>
+            Static.caprevs       = Static.cits_domestic;
             
             
             % Save static aggregates
-            save(fullfile(save_dir, 'aggregates_static.mat'), ...
-                 'domestic_debt_static', 'foreign_debt_static', ...
-                 'cap_static', 'domestic_cap_static', 'foreign_cap_static', ...
-                 'Y_static', ...
-                 'elab_static', 'lfpr_static', ...
-                 'fedincome_static', 'fedit_static', 'ssrev_static', ...
-                 'fcaptax_static', 'domestic_fcaptax_static', 'foreign_fcaptax_static', ...
-                 'ssexp_static', 'labinc_static', 'kinc_static', 'feditlab_static', 'fcaprev_static')
+            save(fullfile(save_dir, 'statics.mat'), '-struct', 'Static')
             
         end
         
@@ -464,7 +449,7 @@ methods (Static, Access = private)
         % Unpack starting solution
         rho0       = s0.rhos       ;
         beq0       = s0.beqs       ;
-        kpr0       = s0.kprs       ;
+        asset0     = s0.assets     ;
         debt0      = s0.debts      ;
         capshare0  = s0.capshares  ;
         debtshare0 = s0.debtshares ;
@@ -483,21 +468,22 @@ methods (Static, Access = private)
                 s = load(fullfile(param_dir, 'param_gtilde.mat'));
                 
                 indtaxplan = cellfun(@(str) strncmp(taxplan, str, length(str)), {'base'; 'trump'; 'clinton'; 'ryan'});
-                revenue_percent = s.revenue_percent(indtaxplan,:);
-                revenue_percent = [revenue_percent, revenue_percent(end)*ones(1, max(T_model-length(revenue_percent), 0))];
+                revperc = s.revenue_percent(indtaxplan,:);
+                revperc = [revperc, revperc(end)*ones(1, max(T_model-length(revperc), 0))];
                 
                 if ~isbase
                     
                     % Calculate government expenditure adjustments
-                    s_base = hardyload('aggregates.mat', base_generator, base_dir);
+                    Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
                     
-                    Y_base = s_base.Y_total;
-                    Gtilde = s_base.Gtilde - gcut * s.GEXP_percent(1:T_model) .* Y_base;
-                    Ttilde = revenue_percent .* Y_base - fedit_static - ssrev_static - fcaptax_static;
+                    Gtilde = Dynamic_base.Gtilde - gcut * s.GEXP_percent(1:T_model) .* Dynamic_base.outs;
+                    Ttilde = revperc .* Dynamic_base.outs - Static.pits - Static.ssts - Static.cits;
                     
-                    clear('s_base')
+                    clear('Dynamic_base')
                     
                 end
+                
+                clear('s')
                 
             case 'closed'
                 
@@ -506,16 +492,14 @@ methods (Static, Access = private)
                 open_dir = dirFinder.save('open', basedef, counterdef);
                 
                 % Load government expenditure adjustments
-                s = hardyload('aggregates.mat', open_generator, open_dir);
+                Dynamic_open = hardyload('dynamics.mat', open_generator, open_dir);
                 
-                Gtilde = s.Gtilde;
-                Ttilde = s.Ttilde;
+                Gtilde = Dynamic_open.Gtilde;
+                Ttilde = Dynamic_open.Ttilde;
+                
+                clear('Dynamic_open')
                 
         end
-        
-        
-        % Clear parameter loading structure
-        clear('s')
         
         
         % Define convergence tolerance and initialize error term
@@ -546,7 +530,7 @@ methods (Static, Access = private)
         fprintf(']\n')
         
         
-        while ( eps > tol && iter < itermax )
+        while (eps > tol && iter < itermax)
             
             % Increment iteration count
             iter = iter + 1;
@@ -559,26 +543,26 @@ methods (Static, Access = private)
                 case {'steady', 'closed'}
                     
                     if (iter == 1)
-                        rhos  = rho0 *ones(1,T_model);
-                        beqs  = beq0 *ones(1,T_model);
-                        kprs  = kpr0 *ones(1,T_model);
-                        debts = debt0*ones(1,T_model);
-                        caps  = (kprs - debts)/qtobin;
+                        rhos   = rho0  *ones(1,T_model);
+                        beqs   = beq0  *ones(1,T_model);
+                        assets = asset0*ones(1,T_model);
+                        debts  = debt0 *ones(1,T_model);
+                        caps   = (assets - debts)/qtobin;
                     else
                         switch economy
                             case 'steady'
-                                rhos  = 0.5*rhos + 0.5*rhoprs;
-                                debts = D_Y*Y_total;
+                                rhos  = 0.5*rhos + 0.5*Dynamic.rhos;
+                                debts = debtout*Dynamic.outs;
                             case 'closed'
-                                rhos  = 0.3*rhos + 0.7*rhoprs;
-                                debts = debt_total;
+                                rhos  = 0.3*rhos + 0.7*Dynamic.rhos;
+                                debts = Dynamic.debts;
                         end
-                        beqs  = beq_total;
-                        kprs  = kpr_total;
-                        caps  = cap_total;
+                        beqs   = Dynamic.beqs  ;
+                        assets = Dynamic.assets;
+                        caps   = Dynamic.caps  ;
                     end
                     
-                    capshares  = (kprs - debts) ./ kprs;
+                    capshares  = (assets - debts) ./ assets;
                     debtshares = 1 - capshares;
                     caprates   = 1 + (A*alp*(rhos.^(alp-1)) - d)/qtobin;
                     switch economy
@@ -592,9 +576,9 @@ methods (Static, Access = private)
                     
                     if (iter == 1)
                         
-                        kprs  = kpr0 *ones(1,T_model);
-                        debts = debt0*ones(1,T_model);
-                        caps  = (kprs - debts)/qtobin0;
+                        assets = asset0*ones(1,T_model);
+                        debts  = debt0 *ones(1,T_model);
+                        caps   = (assets - debts)/qtobin0;
                         
                         capshares  = capshare0 *ones(1,T_model);
                         debtshares = debtshare0*ones(1,T_model);
@@ -602,27 +586,24 @@ methods (Static, Access = private)
                         govrates   = govrate0  *ones(1,T_model);
                         totrates   = totrate0  *ones(1,T_model);
                         
-                        rhos  = ((qtobin*(caprates - 1) + d)/alp).^(1/(alp-1));
-                        beqs  = beq0*ones(1,T_model);
+                        rhos   = ((qtobin*(caprates - 1) + d)/alp).^(1/(alp-1));
+                        beqs   = beq0*ones(1,T_model);
                         
                     else
-                        beqs = beq_total;
-                        caps = cap_total;
+                        beqs   = Dynamic.beqs;
+                        caps   = Dynamic.caps;
                     end
                     
             end
             
-            wages        = A*(1-alp)*(rhos.^alp);
+            wages       = A*(1-alp)*(rhos.^alp);
             expsubsidys = [expshare * max(diff(caps), 0), 0] ./ caps;
             
             
             % Generate dynamic aggregates
-            [kpr_total, beq_total, elab_total, lab_total, lfpr_total, ...
-             fedincome_total, fedit_total, ssrev_total, fcaptax_total, ssexp_total, ...
-             LABs, DISTs] ...
-             ...
-               = generate_aggregates(beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
-                                     DISTs_steady, {}, {}); %#ok<ASGLU>
+            [Dynamic, LABs, DISTs] = generate_aggregates(...
+                beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+                DISTs_steady, {}, {});
             
             
             % Calculate additional dynamic aggregates
@@ -632,87 +613,92 @@ methods (Static, Access = private)
                 case 'steady'
                     
                     % Calculate debt
-                    debt_total = debts;
+                    Dynamic.debts = debts;
                     
                     % Calculate capital and output
-                    cap_total = (kpr_total - debt_total)/qtobin;
-                    Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp));
+                    Dynamic.caps = (Dynamic.assets - Dynamic.debts)/qtobin;
+                    Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
                     
                     % Calculate convergence value
-                    rhoprs = (max(kpr_total - debt_total, 0)/qtobin) ./ elab_total;
-                    delta = rhos - rhoprs;
+                    Dynamic.rhos = (max(Dynamic.assets - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
+                    delta = rhos - Dynamic.rhos;
                     
                 case 'open'
                     
                     % Calculate capital and output
-                    cap_total = rhos .* elab_total;
-                    Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp));
+                    Dynamic.caps = rhos .* Dynamic.labeffs;
+                    Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
                     
-                    domestic_cap_total = capshares .* [kpr0, kpr_total(1:end-1)];
-                    foreign_cap_total  = qtobin*cap_total - domestic_cap_total;
+                    Dynamic.caps_domestic = capshares .* [asset0, Dynamic.assets(1:end-1)];
+                    Dynamic.caps_foreign  = qtobin*Dynamic.caps - Dynamic.caps_domestic;
                     
                     % Calculate debt
-                    domestic_fcaptax_total = fcaptax_total;
-                    foreign_fcaptax_total  = taucap.*(caprates - 1).*captaxshare.*foreign_cap_total;
-                    fcaptax_total          = domestic_fcaptax_total + foreign_fcaptax_total;
+                    Dynamic.cits_domestic = Dynamic.cits;
+                    Dynamic.cits_foreign  = taucap.*(caprates - 1).*captaxshare.*Dynamic.caps_foreign;
+                    Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
                     
                     if isbase
-                        Gtilde = (revenue_percent - fedgovtnis).*Y_total - ssexp_total;
-                        Ttilde = revenue_percent.*Y_total - fedit_total - ssrev_total - fcaptax_total;
+                        Gtilde = (revperc - fedgovtnis).*Dynamic.outs - Dynamic.bens;
+                        Ttilde = revperc.*Dynamic.outs - Dynamic.pits - Dynamic.ssts - Dynamic.cits;
                     end
                     
-                    netrev_total = fedit_total + ssrev_total + fcaptax_total - ssexp_total;
-                    debt_total = [debt0, zeros(1,T_model-1)];
+                    Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
+                    Dynamic.debts = [debt0, zeros(1,T_model-1)];
                     for t = 1:T_model-1
-                        debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*cborates(t);
+                        Dynamic.debts(t+1) = Gtilde(t) - Ttilde(t) - Dynamic.revs(t) + Dynamic.debts(t)*cborates(t);
                     end
+                    Dynamic.Gtilde = Gtilde;
+                    Dynamic.Ttilde = Ttilde;
                     
-                    domestic_debt_total = (1 - capshares) .* kpr_total;
-                    foreign_debt_total  = debt_total - domestic_debt_total; %#ok<NASGU>
+                    Dynamic.debts_domestic = (1 - capshares) .* Dynamic.assets;
+                    Dynamic.debts_foreign  = Dynamic.debts - Dynamic.debts_domestic;
                     
                     % Calculate income
-                    labinc_total = elab_total .* wages;
-                    kinc_total   = qtobin * (caprates - 1) .* cap_total; %#ok<NASGU>
+                    Dynamic.labincs = Dynamic.labeffs .* wages;
+                    Dynamic.capincs   = qtobin * (caprates - 1) .* Dynamic.caps;
                     
-                    feditlab_total = fedit_total .* labinc_total ./ fedincome_total;
-                    fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
+                    Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
+                    Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate convergence value
-                    delta = beqs - beq_total;
+                    Dynamic.rhos = rhos;
+                    delta = beqs - Dynamic.beqs;
                     
                 case 'closed'
                     
                     % Calculate debt
-                    domestic_fcaptax_total = fcaptax_total;
-                    foreign_fcaptax_total  = zeros(1,T_model);
-                    fcaptax_total          = domestic_fcaptax_total + foreign_fcaptax_total;
+                    Dynamic.cits_domestic = Dynamic.cits;
+                    Dynamic.cits_foreign  = zeros(1,T_model);
+                    Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
                     
-                    netrev_total = fedit_total + ssrev_total + fcaptax_total - ssexp_total;
-                    debt_total = [debt0, zeros(1,T_model-1)];
+                    Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
+                    Dynamic.debts = [debt0, zeros(1,T_model-1)];
                     for t = 1:T_model-1
-                        debt_total(t+1) = Gtilde(t) - Ttilde(t) - netrev_total(t) + debt_total(t)*cborates(t);
+                        Dynamic.debts(t+1) = Gtilde(t) - Ttilde(t) - Dynamic.revs(t) + Dynamic.debts(t)*cborates(t);
                     end
+                    Dynamic.Gtilde = Gtilde;
+                    Dynamic.Ttilde = Ttilde;
                     
-                    domestic_debt_total = debt_total;   %#ok<NASGU>
-                    foreign_debt_total  = zeros(1,T_model); %#ok<NASGU>
+                    Dynamic.debts_domestic = Dynamic.debts;
+                    Dynamic.debts_foreign  = zeros(1,T_model);
                     
                     % Calculate capital and output
-                    cap_total = ([(kpr0 - debt0)/qtobin0, (kpr_total(1:end-1) - debt_total(2:end))/qtobin]);
-                    Y_total   = A*(max(cap_total, 0).^alp).*(elab_total.^(1-alp));
+                    Dynamic.caps = ([(asset0 - debt0)/qtobin0, (Dynamic.assets(1:end-1) - Dynamic.debts(2:end))/qtobin]);
+                    Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
                     
-                    domestic_cap_total = [qtobin0 * cap_total(1), qtobin * cap_total(2:end)]; %#ok<NASGU>
-                    foreign_cap_total  = zeros(1,T_model); %#ok<NASGU>
+                    Dynamic.caps_domestic = [qtobin0 * Dynamic.caps(1), qtobin * Dynamic.caps(2:end)];
+                    Dynamic.caps_foreign  = zeros(1,T_model);
                     
                     % Calculate income
-                    labinc_total = elab_total .* wages;
-                    kinc_total   = qtobin * (caprates - 1) .* cap_total; %#ok<NASGU>
+                    Dynamic.labincs = Dynamic.labeffs .* wages;
+                    Dynamic.capincs = qtobin * (caprates - 1) .* Dynamic.caps;
                     
-                    feditlab_total = fedit_total .* labinc_total ./ fedincome_total;
-                    fcaprev_total  = fcaptax_total + fedit_total - feditlab_total; %#ok<NASGU>
+                    Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
+                    Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate convergence value
-                    rhoprs = (max([kpr0, kpr_total(1:end-1)] - debt_total, 0)/qtobin) ./ elab_total;
-                    delta = rhos - rhoprs;
+                    Dynamic.rhos = (max([asset0, Dynamic.assets(1:end-1)] - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
+                    delta = rhos - Dynamic.rhos;
                     
             end
             
@@ -740,22 +726,12 @@ methods (Static, Access = private)
         
         % Save solution
         save(fullfile(save_dir, 'solution.mat'), ...
-             'rhos', 'beqs', 'kprs', 'debts', 'caps', 'wages', ...
-             'capshares', 'debtshares', 'caprates', 'govrates', 'totrates', 'expsubsidys')
+            'rhos', 'beqs', 'assets', 'debts', 'caps', 'wages', 'capshares', 'debtshares', 'caprates', 'govrates', 'totrates', 'expsubsidys')
         
         % Save dynamic aggregates
         switch economy
             case {'open', 'closed'}
-                save(fullfile(save_dir, 'aggregates.mat'), ...
-                     'beq_total', 'kpr_total', ...
-                     'debt_total', 'domestic_debt_total', 'foreign_debt_total', ...
-                     'cap_total', 'domestic_cap_total', 'foreign_cap_total', ...
-                     'Y_total', ...
-                     'elab_total', 'lab_total', 'lfpr_total', ...
-                     'fedincome_total', 'fedit_total', 'ssrev_total', ...
-                     'fcaptax_total', 'domestic_fcaptax_total', 'foreign_fcaptax_total', ...
-                     'ssexp_total', 'labinc_total', 'kinc_total', 'feditlab_total', 'fcaprev_total', ...
-                     'Gtilde', 'Ttilde')
+                save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic')
         end
         
         
@@ -766,12 +742,12 @@ methods (Static, Access = private)
             case 'steady'
                 
                 % Calculate capital to output ratio
-                K_Y = (kpr_total - debt_total) / Y_total;
+                capout = (Dynamic.assets - Dynamic.debts) / Dynamic.outs;
                 
                 
                 % Calculate labor elasticity
-                working_mass = 0;
-                frisch_total = 0;
+                workmass = 0;
+                frisch   = 0;
                 
                 for idem = 1:ndem %#ok<FXUP>
                     
@@ -780,12 +756,12 @@ methods (Static, Access = private)
                     
                     working_ind = (LAB > 0.01);
                     
-                    working_mass = working_mass + sum(DIST(working_ind));
-                    frisch_total = frisch_total + sum(DIST(working_ind).*(1-LAB(working_ind))./LAB(working_ind))*(1-gamma*(1-sigma))/sigma;
+                    workmass = workmass + sum(DIST(working_ind));
+                    frisch   = frisch + sum(DIST(working_ind).*(1-LAB(working_ind))./LAB(working_ind))*(1-gamma*(1-sigma))/sigma;
                     
                 end
                 
-                labor_elas = frisch_total / working_mass;
+                labelas = frisch / workmass;
                 
                 
                 % Calculate savings elasticity
@@ -795,18 +771,19 @@ methods (Static, Access = private)
                 govrates_dev = govrates * (1 + deviation);
                 totrates_dev = totrates * (1 + deviation);
                 
-                [kpr_dev] = generate_aggregates(beqs, wages, capshares, debtshares, caprates_dev, govrates_dev, totrates_dev, expsubsidys, ...
-                                                DISTs_steady, {}, {});
+                [Dynamic_dev] = generate_aggregates(...
+                    beqs, wages, capshares, debtshares, caprates_dev, govrates_dev, totrates_dev, expsubsidys, ...
+                    DISTs_steady, {}, {});
                 
-                savings_elas = ((kpr_dev - kpr_total)/kpr_total) / ((totrates_dev - totrates)/(totrates-1));
+                savelas = ((Dynamic_dev.assets - Dynamic.assets)/Dynamic.assets) / ((totrates_dev - totrates)/(totrates-1));
                 
                 
                 % Save and display elasticities
-                save(fullfile(save_dir, 'elasticities.mat'), 'K_Y', 'labor_elas', 'savings_elas')
+                save(fullfile(save_dir, 'elasticities.mat'), 'capout', 'labelas', 'savelas')
                 
-                elasticities = { K_Y,          'Capital-to-output ratio' ;
-                                 labor_elas,   'Labor elasticity'        ;
-                                 savings_elas, 'Savings elasticity'      };
+                elasticities = { capout , 'Capital to output ratio' ;
+                                 labelas, 'Labor elasticity'        ;
+                                 savelas, 'Savings elasticity'      };
                 for i = 1:size(elasticities, 1) %#ok<FXUP>
                     fprintf('\t%-25s= % 7.4f\n', elasticities{i, 2}, elasticities{i, 1})
                 end
