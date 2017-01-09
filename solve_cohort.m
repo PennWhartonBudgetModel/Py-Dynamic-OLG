@@ -5,13 +5,10 @@
 
 
 function [W, D, cohort] = solve_cohort(...
-                            beta, gamma, sigma, T_life, T_work, T_model_opt, T_model_dist, startyear, ...
-                            zs, ztrans, kv, bv, nz, nk, nb, idem, ...
-                            mpci, rpci, captaxshare, sstaxcredit, surv, taucap, taucapgain, sstaxs, ssincmaxs, ...
-                            beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, qtobin, qtobin0, Vbeq, ...
-                            deduc_coefs, pit_coefs, ssbenefits, ...
-                            D0, mu2_idem, mu3_idem, ...
-                            W_static, D_static) %#codegen
+                            startyear, T_life, T_work, T_model_opt, T_model_dist, kv, bv, nz, nk, nb, idem, zs, ztrans, beta, gamma, sigma, surv, Vbeq, mu2_idem, mu3_idem, ...
+                            mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                            beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+                            D0, W_static, D_static) %#codegen
 
 
 % Define argument properties for C code generation
@@ -21,33 +18,40 @@ nz_max      =  50;
 nk_max      =  50;
 nb_max      =  50;
 
-assert( isa(beta,           'double') && (size(beta,            1) == 1         ) && (size(beta,            2) == 1             ) );
-assert( isa(gamma,          'double') && (size(gamma,           1) == 1         ) && (size(gamma,           2) == 1             ) );
-assert( isa(sigma,          'double') && (size(sigma,           1) == 1         ) && (size(sigma,           2) == 1             ) );
+assert( isa(startyear,      'double') && (size(startyear,       1) == 1         ) && (size(startyear,       2) == 1             ) );
 assert( isa(T_life,         'double') && (size(T_life,          1) == 1         ) && (size(T_life,          2) == 1             ) );
 assert( isa(T_work,         'double') && (size(T_work,          1) == 1         ) && (size(T_work,          2) == 1             ) );
 assert( isa(T_model_dist,   'double') && (size(T_model_dist,    1) == 1         ) && (size(T_model_dist,    2) == 1             ) );
 assert( isa(T_model_opt,    'double') && (size(T_model_opt,     1) == 1         ) && (size(T_model_opt,     2) == 1             ) );
-assert( isa(startyear,      'double') && (size(startyear,       1) == 1         ) && (size(startyear,       2) == 1             ) );
-
-assert( isa(zs,             'double') && (size(zs,              1) <= nz_max    ) && (size(zs,              2) <= T_life_max    ) && (size(zs, 3) == 2) );
-assert( isa(ztrans,         'double') && (size(ztrans,          1) <= nz_max    ) && (size(ztrans,          2) <= nz_max        ) );
 assert( isa(kv,             'double') && (size(kv,              1) <= nk_max    ) && (size(kv,              2) == 1             ) );
 assert( isa(bv,             'double') && (size(bv,              1) <= nb_max    ) && (size(bv,              2) == 1             ) );
 assert( isa(nz,             'double') && (size(nz,              1) == 1         ) && (size(nz,              2) == 1             ) );
 assert( isa(nk,             'double') && (size(nk,              1) == 1         ) && (size(nk,              2) == 1             ) );
 assert( isa(nb,             'double') && (size(nb,              1) == 1         ) && (size(nb,              2) == 1             ) );
 assert( isa(idem,           'double') && (size(idem,            1) == 1         ) && (size(idem,            2) == 1             ) );
+assert( isa(zs,             'double') && (size(zs,              1) <= nz_max    ) && (size(zs,              2) <= T_life_max    ) && (size(zs, 3) == 2) );
+assert( isa(ztrans,         'double') && (size(ztrans,          1) <= nz_max    ) && (size(ztrans,          2) <= nz_max        ) );
+assert( isa(beta,           'double') && (size(beta,            1) == 1         ) && (size(beta,            2) == 1             ) );
+assert( isa(gamma,          'double') && (size(gamma,           1) == 1         ) && (size(gamma,           2) == 1             ) );
+assert( isa(sigma,          'double') && (size(sigma,           1) == 1         ) && (size(sigma,           2) == 1             ) );
+assert( isa(surv,           'double') && (size(surv,            1) == 1         ) && (size(surv,            2) <= T_life_max    ) );
+assert( isa(Vbeq,           'double') && (size(Vbeq,            1) <= nk_max    ) && (size(Vbeq,            2) == 1             ) );
+assert( isa(mu2_idem,       'double') && (size(mu2_idem,        1) == 1         ) && (size(mu2_idem,        2) <= T_life_max    ) );
+assert( isa(mu3_idem,       'double') && (size(mu3_idem,        1) == 1         ) && (size(mu3_idem,        2) <= T_life_max    ) );
 
 assert( isa(mpci,           'double') && (size(mpci,            1) == 1         ) && (size(mpci,            2) == 1             ) );
 assert( isa(rpci,           'double') && (size(rpci,            1) == 1         ) && (size(rpci,            2) == 1             ) );
-assert( isa(captaxshare,    'double') && (size(captaxshare,     1) == 1         ) && (size(captaxshare,     2) == 1             ) );
 assert( isa(sstaxcredit,    'double') && (size(sstaxcredit,     1) == 1         ) && (size(sstaxcredit,     2) == 1             ) );
-assert( isa(surv,           'double') && (size(surv,            1) == 1         ) && (size(surv,            2) <= T_life_max    ) );
-assert( isa(taucap,         'double') && (size(taucap,          1) == 1         ) && (size(taucap,          2) == 1             ) );
-assert( isa(taucapgain,     'double') && (size(taucapgain,      1) == 1         ) && (size(taucapgain,      2) == 1             ) );
+assert( isa(ssbenefits,     'double') && (size(ssbenefits,      1) <= nb_max    ) && (size(ssbenefits,      2) <= T_model_max   ) );
 assert( isa(sstaxs,         'double') && (size(sstaxs,          1) == 1         ) && (size(sstaxs,          2) <= T_model_max   ) );
 assert( isa(ssincmaxs,      'double') && (size(ssincmaxs,       1) == 1         ) && (size(ssincmaxs,       2) <= T_model_max   ) );
+assert( isa(deduc_coefs,    'double') && (size(deduc_coefs,     1) == 1         ) && (size(deduc_coefs,     2) == 3             ) );
+assert( isa(pit_coefs,      'double') && (size(pit_coefs,       1) == 1         ) && (size(pit_coefs,       2) == 3             ) );
+assert( isa(captaxshare,    'double') && (size(captaxshare,     1) == 1         ) && (size(captaxshare,     2) == 1             ) );
+assert( isa(taucap,         'double') && (size(taucap,          1) == 1         ) && (size(taucap,          2) == 1             ) );
+assert( isa(taucapgain,     'double') && (size(taucapgain,      1) == 1         ) && (size(taucapgain,      2) == 1             ) );
+assert( isa(qtobin,         'double') && (size(qtobin,          1) == 1         ) && (size(qtobin,          2) == 1             ) );
+assert( isa(qtobin0,        'double') && (size(qtobin0,         1) == 1         ) && (size(qtobin0,         2) == 1             ) );
 
 assert( isa(beqs,           'double') && (size(beqs,            1) == 1         ) && (size(beqs,            2) <= T_model_max   ) );
 assert( isa(wages,          'double') && (size(wages,           1) == 1         ) && (size(wages,           2) <= T_model_max   ) );
@@ -57,18 +61,8 @@ assert( isa(caprates,       'double') && (size(caprates,        1) == 1         
 assert( isa(govrates,       'double') && (size(govrates,        1) == 1         ) && (size(govrates,        2) <= T_model_max   ) );
 assert( isa(totrates,       'double') && (size(totrates,        1) == 1         ) && (size(totrates,        2) <= T_model_max   ) );
 assert( isa(expsubsidys,    'double') && (size(expsubsidys,     1) == 1         ) && (size(expsubsidys,     2) <= T_model_max   ) );
-assert( isa(qtobin,         'double') && (size(qtobin,          1) == 1         ) && (size(qtobin,          2) == 1             ) );
-assert( isa(qtobin0,        'double') && (size(qtobin0,         1) == 1         ) && (size(qtobin0,         2) == 1             ) );
-assert( isa(Vbeq,           'double') && (size(Vbeq,            1) <= nk_max    ) && (size(Vbeq,            2) == 1             ) );
-
-assert( isa(deduc_coefs,    'double') && (size(deduc_coefs,     1) == 1         ) && (size(deduc_coefs,     2) == 3             ) );
-assert( isa(pit_coefs,      'double') && (size(pit_coefs,       1) == 1         ) && (size(pit_coefs,       2) == 3             ) );
-assert( isa(ssbenefits,     'double') && (size(ssbenefits,      1) <= nb_max    ) && (size(ssbenefits,      2) <= T_model_max   ) );
 
 assert( isa(D0,             'double') && (size(D0,              1) <= nz_max    ) && (size(D0,              2) <= nk_max        ) && (size(D0,       3) <= nb_max) && (size(D0,       4) <= T_life_max ) );
-assert( isa(mu2_idem,       'double') && (size(mu2_idem,        1) == 1         ) && (size(mu2_idem,        2) <= T_life_max    ) );
-assert( isa(mu3_idem,       'double') && (size(mu3_idem,        1) == 1         ) && (size(mu3_idem,        2) <= T_life_max    ) );
-
 assert( isa(W_static,       'double') && (size(W_static,        1) <= nz_max    ) && (size(W_static,        2) <= nk_max        ) && (size(W_static, 3) <= nb_max) && (size(W_static, 4) <= T_life_max ) );
 assert( isa(D_static,       'double') && (size(D_static,        1) <= nz_max    ) && (size(D_static,        2) <= nk_max        ) && (size(D_static, 3) <= nb_max) && (size(D_static, 4) <= T_model_max) );
 

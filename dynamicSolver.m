@@ -153,29 +153,30 @@ methods (Static, Access = private)
         kv = s.kgrid;
         bv = [0; s.bgrid(2:end)];
         
+        nz   = s.nz;
+        nk   = s.nk;
+        nb   = s.nb;
+        ndem = s.ndem;
+        
+        zs     = s.z;
+        ztrans = s.tr_z;
+        Dz     = s.proddist(:,1)';
+        
+        A   = s.A;
+        alp = s.alp;
+        d   = s.d;
+        
+        surv = [s.surv(1:T_life-1), 0];
         Vbeq = s.phi1.*((1+kv./s.phi2).^(1-s.phi3));
         
-        ndem = s.ndem;
-        nb   = s.nb;
-        nk   = s.nk;
-        nz   = s.nz;
+        MU2 = s.demdist_2015 * (s.Mu2/sum(s.Mu2));
+        MU3 = repmat(1-surv, [ndem,1]) .* MU2;
         
         mpci = s.mpci;
         rpci = s.rpci;
         
-        sstaxcredit = s.ss_tax_cred;
-        
-        A           = s.A;
-        alp         = s.alp;
-        d           = s.d;
         deduc_scale = s.deduc_scale;
-        Dz          = s.proddist(:,1)';
-        surv        = [s.surv(1:T_life-1), 0];
-        ztrans      = s.tr_z;
-        zs          = s.z;
-        
-        MU2 = s.demdist_2015 * (s.Mu2/sum(s.Mu2));
-        MU3 = repmat(1-surv, [ndem,1]) .* MU2;
+        sstaxcredit = s.ss_tax_cred;
         
         
         % Load social security parameters
@@ -230,9 +231,8 @@ methods (Static, Access = private)
                   fedincome_total, fedit_total, ssrev_total, fcaptax_total, ssexp_total, ...
                   Ws, Ds] ...
                   ...
-                    = generate_aggregates(rhos, beqs, kprs, debts, caps, wages, ...
-                                          capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
-                                          Ds_steady, Ws_static, Ds_static) %#ok<INUSL>
+                    = generate_aggregates(beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+                                          Ds_steady, Ws_static, Ds_static) 
             
             % Initialize aggregates
             kpr_total       = zeros(1,T_model);
@@ -301,13 +301,10 @@ methods (Static, Access = private)
                     
                     % Generate cohort optimal decision values, distributions, and aggregates
                     [W, D, cohort] = solve_cohort(...
-                                       beta, gamma, sigma, T_life, T_work, T_model_opt, T_model_dist, startyears(i), ...
-                                       zs, ztrans, kv, bv, nz, nk, nb, idem, ...
-                                       mpci, rpci, captaxshare, sstaxcredit, surv, taucap, taucapgain, sstaxs, ssincmaxs, ...
-                                       beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, qtobin, qtobin0, Vbeq, ...
-                                       deduc_coefs, pit_coefs, ssbenefits, ...
-                                       D0, mu2_idem, mu3_idem, ...
-                                       W_static, D_static);
+                                       startyears(i), T_life, T_work, T_model_opt, T_model_dist, kv, bv, nz, nk, nb, idem, zs, ztrans, beta, gamma, sigma, surv, Vbeq, mu2_idem, mu3_idem, ...
+                                       mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                                       beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+                                       D0, W_static, D_static);
                     
                     % Store values
                     Ws     {i,idem} = W     ;
@@ -372,6 +369,9 @@ methods (Static, Access = private)
             govrates    = s.govrates    ;
             expsubsidys = s.expsubsidys ;
             
+            beqs        = zeros(1,T_model);
+            totrates    = zeros(1,T_model);
+            
             % Load optimal decision values and distributions from baseline
             s = hardyload('decisions.mat'    , base_generator, base_dir);
             Ws_static = s.Ws;
@@ -384,22 +384,12 @@ methods (Static, Access = private)
             clear('s')
             
             
-            % Set null prices
-            rhos     = zeros(1,T_model);
-            beqs     = zeros(1,T_model);
-            kprs     = zeros(1,T_model);
-            debts    = zeros(1,T_model);
-            caps     = zeros(1,T_model);
-            totrates = zeros(1,T_model);
-            
-            
             % Generate static aggregates
             [~, ~, ~, ~, ~, ...
              fedincome_static, fedit_static, ssrev_static, fcaptax_static, ssexp_static, ...
              ~, ~] ...
              ...
-               = generate_aggregates(rhos, beqs, kprs, debts, caps, wages, ...
-                                     capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+               = generate_aggregates(beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
                                      {}, Ws_static, Ds_static); %#ok<ASGLU>
             
             
@@ -633,8 +623,7 @@ methods (Static, Access = private)
              fedincome_total, fedit_total, ssrev_total, fcaptax_total, ssexp_total, ...
              Ws, Ds] ...
              ...
-               = generate_aggregates(rhos, beqs, kprs, debts, caps, wages, ...
-                                     capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+               = generate_aggregates(beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
                                      Ds_steady, {}, {}); %#ok<ASGLU>
             
             
@@ -808,8 +797,7 @@ methods (Static, Access = private)
                 govrates_dev = govrates * (1 + deviation);
                 totrates_dev = totrates * (1 + deviation);
                 
-                [kpr_dev] = generate_aggregates(rhos, beqs, kprs, debts, caps, wages, ...
-                                                capshares, debtshares, caprates_dev, govrates_dev, totrates_dev, expsubsidys, ...
+                [kpr_dev] = generate_aggregates(beqs, wages, capshares, debtshares, caprates_dev, govrates_dev, totrates_dev, expsubsidys, ...
                                                 Ds_steady, {}, {});
                 
                 savings_elas = ((kpr_dev - kpr_total)/kpr_total) / ((totrates_dev - totrates)/(totrates-1));
