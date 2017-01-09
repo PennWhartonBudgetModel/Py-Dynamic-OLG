@@ -8,15 +8,17 @@ classdef mexBuilder
 
 methods (Static)
     
-    
     % Build all mex functions
-    function [] = build_all()
-        mexBuilder.build('solve_cohort')
+    function [] = build()
+        mexBuilder.build_function('solve_cohort')
     end
     
+end
+
+methods (Static, Access = private)
     
     % Build mex function according to source function name
-    function [] = build(fname)
+    function [] = build_function(fname)
         
         fprintf('\nBuilding mex function for %s.', fname)
         
@@ -39,7 +41,6 @@ methods (Static)
         fprintf('\nBuild complete.\n\n')
         
     end
-    
     
 end
 
