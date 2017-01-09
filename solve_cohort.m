@@ -126,12 +126,10 @@ for t = S_life:-1:1
                 
                 % Calculate available resources and tax terms
                 labinc = ssbenefit(ib);
-                [resources, inc, pit, ~, cit] ...
-                    ...
-                    = calculate_resources(labinc, ks(ik), ...
-                                          capshare, caprate, debtshare, govrate, captaxshare, taucap, taucapgain, expsubsidy,...
-                                          deduc_coefs, pit_coefs, mpci, rpci, 0, 0, year, qtobin, qtobin0, ...
-                                          totrate, beq, sstaxcredit);
+                [resources, inc, pit, ~, cit] = calculate_resources(...
+                    labinc, ks(ik), year, ...
+                    mpci, rpci, sstaxcredit, 0, 0, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                    beq, capshare, debtshare, caprate, govrate, totrate, expsubsidy);
                 
                 if isdynamic
                     
@@ -167,10 +165,10 @@ for t = S_life:-1:1
                     wage_eff = wage * zs(iz,age,idem);
                     
                     % Call resource calculation function to set parameters
-                    calculate_resources([], ks(ik), ...
-                                        capshare, caprate, debtshare, govrate, captaxshare, taucap, taucapgain, expsubsidy, ...
-                                        deduc_coefs, pit_coefs, mpci, rpci, sstax, ssincmax, year, qtobin, qtobin0, ...
-                                        totrate, beq, 0);
+                    calculate_resources(...
+                        [], ks(ik), year, ...
+                        mpci, rpci, 0, sstax, ssincmax, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                        beq, capshare, debtshare, caprate, govrate, totrate, expsubsidy);
                     
                     if isdynamic
 
@@ -305,12 +303,10 @@ end
 
 
 % Resource and tax calculation function
-function [resources, inc, pit, sst, cit] ...
-    ...
-    = calculate_resources(labinc, ks_ik_, ...
-                          capshare_, caprate_, debtshare_, govrate_, captaxshare_, taucap_, taucapgain_, expsubsidy_, ...
-                          deduc_coefs_, pit_coefs_, mpci_, rpci_, sstax_, ssincmax_, year_, qtobin_, qtobin0_, ...
-                          totrate_, beq_, sstaxcredit_) %#codegen
+function [resources, inc, pit, sst, cit] = calculate_resources(...
+             labinc, ks_ik_, year_, ...
+             mpci_, rpci_, sstaxcredit_, sstax_, ssincmax_, deduc_coefs_, pit_coefs_, captaxshare_, taucap_, taucapgain_, qtobin_, qtobin0_, ...
+             beq_, capshare_, debtshare_, caprate_, govrate_, totrate_, expsubsidy_) %#codegen
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -318,51 +314,51 @@ coder.inline('always');
 % Define parameters as persistent variables
 persistent initialized
 persistent ks_ik
-persistent capshare
-persistent caprate
-persistent debtshare
-persistent govrate
+persistent year
+persistent mpci
+persistent rpci
+persistent sstaxcredit
+persistent sstax
+persistent ssincmax
+persistent deduc_coefs
+persistent pit_coefs
 persistent captaxshare
 persistent taucap
 persistent taucapgain
-persistent expsubsidy
-persistent deduc_coefs
-persistent pit_coefs
-persistent mpci
-persistent rpci
-persistent sstax
-persistent ssincmax
-persistent year
 persistent qtobin
 persistent qtobin0
-persistent totrate
 persistent beq
-persistent sstaxcredit
+persistent capshare
+persistent debtshare
+persistent caprate
+persistent govrate
+persistent totrate
+persistent expsubsidy
 
 % Initialize parameters
 if isempty(initialized)
     
     ks_ik           = 0;
-    capshare        = 0;
-    caprate         = 0;
-    debtshare       = 0;
-    govrate         = 0;
+    year            = 0;
+    mpci            = 0;
+    rpci            = 0;
+    sstaxcredit     = 0;
+    sstax           = 0;
+    ssincmax        = 0;
+    deduc_coefs     = 0;
+    pit_coefs       = 0;
     captaxshare     = 0;
     taucap          = 0;
     taucapgain      = 0;
-    expsubsidy      = 0;
-    deduc_coefs     = 0;
-    pit_coefs       = 0;
-    mpci            = 0;
-    rpci            = 0;
-    sstax           = 0;
-    ssincmax        = 0;
-    year            = 0;
     qtobin          = 0;
     qtobin0         = 0;
-    totrate         = 0;
     beq             = 0;
-    sstaxcredit     = 0;
+    capshare        = 0;
+    debtshare       = 0;
+    caprate         = 0;
+    govrate         = 0;
+    totrate         = 0;
+    expsubsidy      = 0;
     
     initialized     = true;
     
@@ -371,27 +367,27 @@ end
 % Set parameters if provided
 if (nargin > 1)
     
-    ks_ik           = ks_ik_        ;
-    capshare        = capshare_     ;
-    caprate         = caprate_      ;
-    debtshare       = debtshare_    ;
-    govrate         = govrate_      ;
-    captaxshare     = captaxshare_  ;
-    taucap          = taucap_       ;
-    taucapgain      = taucapgain_   ;
-    expsubsidy      = expsubsidy_   ;
-    deduc_coefs     = deduc_coefs_  ;
-    pit_coefs       = pit_coefs_    ;
-    mpci            = mpci_         ;
-    rpci            = rpci_         ;
-    sstax           = sstax_        ;
-    ssincmax        = ssincmax_     ;
-    year            = year_         ;
-    qtobin          = qtobin_       ;
-    qtobin0         = qtobin0_      ;
-    totrate         = totrate_      ;
-    beq             = beq_          ;
-    sstaxcredit     = sstaxcredit_  ;
+    ks_ik           = ks_ik_      ;
+    year            = year_       ;
+    mpci            = mpci_       ;
+    rpci            = rpci_       ;
+    sstaxcredit     = sstaxcredit_;
+    sstax           = sstax_      ;
+    ssincmax        = ssincmax_   ;
+    deduc_coefs     = deduc_coefs_;
+    pit_coefs       = pit_coefs_  ;
+    captaxshare     = captaxshare_;
+    taucap          = taucap_     ;
+    taucapgain      = taucapgain_ ;
+    qtobin          = qtobin_     ;
+    qtobin0         = qtobin0_    ;
+    beq             = beq_        ;
+    capshare        = capshare_   ;
+    debtshare       = debtshare_  ;
+    caprate         = caprate_    ;
+    govrate         = govrate_    ;
+    totrate         = totrate_    ;
+    expsubsidy      = expsubsidy_ ;
     
     if isempty(labinc), return, end
     
