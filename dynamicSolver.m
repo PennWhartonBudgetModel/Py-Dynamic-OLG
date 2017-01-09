@@ -363,7 +363,7 @@ methods (Static, Access = private)
             base_dir = dirFinder.save(economy, basedef);
             
             % Load baseline solution
-            s = hardyload('solution.mat', base_generator, base_dir);
+            s = hardyload('solution.mat'     , base_generator, base_dir);
             
             wages       = s.wages       ;
             capshares   = s.capshares   ;
@@ -373,10 +373,10 @@ methods (Static, Access = private)
             expsubsidys = s.expsubsidys ;
             
             % Load optimal decision values and distributions from baseline
-            s = hardyload('Ws.mat', base_generator, base_dir);
+            s = hardyload('decisions.mat'    , base_generator, base_dir);
             Ws_static = s.Ws;
             
-            s = hardyload('Ds.mat', base_generator, base_dir);
+            s = hardyload('distributions.mat', base_generator, base_dir);
             Ds_static = s.Ds;
             
             
@@ -464,10 +464,10 @@ methods (Static, Access = private)
                 steady_dir = dirFinder.save('steady', basedef);
                 
                 % Load steady state solution as starting solution
-                s0 = hardyload('solution.mat', steady_generator, steady_dir);
+                s0 = hardyload('solution.mat'     , steady_generator, steady_dir);
                 
                 % Load steady state distributions
-                s  = hardyload('Ds.mat'      , steady_generator, steady_dir);
+                s  = hardyload('distributions.mat', steady_generator, steady_dir);
                 
                 Ds_steady = s.Ds;
                 
@@ -747,8 +747,8 @@ methods (Static, Access = private)
         
         % Save optimal decision values and distributions for baseline
         if isbase
-            save(fullfile(save_dir, 'Ws.mat'), 'Ws')
-            save(fullfile(save_dir, 'Ds.mat'), 'Ds')
+            save(fullfile(save_dir, 'decisions.mat'    ), 'Ws')
+            save(fullfile(save_dir, 'distributions.mat'), 'Ds')
         end
         
         % Save solution
