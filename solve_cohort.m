@@ -4,11 +4,11 @@
 %%
 
 
-function [W, D, cohort] = solve_cohort(...
-                            startyear, T_life, T_work, T_model_opt, T_model_dist, nz, nk, nb, idem, zs, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
-                            mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-                            beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
-                            D0, W_static, D_static) %#codegen
+function [LAB, DIST, cohort] = solve_cohort(...
+             startyear, T_life, T_work, T_model_opt, T_model_dist, nz, nk, nb, idem, zs, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
+             mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+             beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+             DIST0, LAB_static, DIST_static) %#codegen
 
 
 % Define argument properties for C code generation
@@ -62,16 +62,16 @@ assert( isa(govrates,       'double') && (size(govrates,        1) == 1         
 assert( isa(totrates,       'double') && (size(totrates,        1) == 1         ) && (size(totrates,        2) <= T_model_max   ) );
 assert( isa(expsubsidys,    'double') && (size(expsubsidys,     1) == 1         ) && (size(expsubsidys,     2) <= T_model_max   ) );
 
-assert( isa(D0,             'double') && (size(D0,              1) <= nz_max    ) && (size(D0,              2) <= nk_max        ) && (size(D0,       3) <= nb_max) && (size(D0,       4) <= T_life_max ) );
-assert( isa(W_static,       'double') && (size(W_static,        1) <= nz_max    ) && (size(W_static,        2) <= nk_max        ) && (size(W_static, 3) <= nb_max) && (size(W_static, 4) <= T_life_max ) );
-assert( isa(D_static,       'double') && (size(D_static,        1) <= nz_max    ) && (size(D_static,        2) <= nk_max        ) && (size(D_static, 3) <= nb_max) && (size(D_static, 4) <= T_model_max) );
+assert( isa(DIST0,          'double') && (size(DIST0,           1) <= nz_max    ) && (size(DIST0,           2) <= nk_max        ) && (size(DIST0,       3) <= nb_max) && (size(DIST0,       4) <= T_life_max ) );
+assert( isa(LAB_static,     'double') && (size(LAB_static,      1) <= nz_max    ) && (size(LAB_static,      2) <= nk_max        ) && (size(LAB_static,  3) <= nb_max) && (size(LAB_static,  4) <= T_life_max ) );
+assert( isa(DIST_static,    'double') && (size(DIST_static,     1) <= nz_max    ) && (size(DIST_static,     2) <= nk_max        ) && (size(DIST_static, 3) <= nb_max) && (size(DIST_static, 4) <= T_model_max) );
 
 
 
 %% Dynamic optimization
 
 % Define dynamic aggregate generation flag
-isdynamic = isempty(D_static);
+isdynamic = isempty(DIST_static);
 
 % Find number of past years, effective living years, and effective working years
 T_past = max(-startyear,      0);
@@ -82,7 +82,7 @@ S_work = max(T_work - T_past, 0);
 V   = zeros(nz,nk,nb,S_life+1); % Utility
 
 K   = zeros(nz,nk,nb,S_life);   % Savings
-W   = zeros(nz,nk,nb,S_life);   % Labor level
+LAB = zeros(nz,nk,nb,S_life);   % Labor level
 B   = zeros(nz,nk,nb,S_life);   % Average earnings
 
 INC = zeros(nz,nk,nb,S_life);   % Taxable income
@@ -125,10 +125,10 @@ for t = S_life:-1:1
                 EV = (1-surv(age))*repmat(V_beq, [1,nb]) + surv(age)*beta*reshape(V(1,:,:,t+1), [nk,nb]);
                 
                 % Calculate available resources and tax terms
-                inc_w = ssbenefit(ib);
+                labinc = ssbenefit(ib);
                 [resources, inc, pit, ~, cit] ...
                     ...
-                    = calculate_resources(inc_w, ks(ik), ...
+                    = calculate_resources(labinc, ks(ik), ...
                                           capshare, caprate, debtshare, govrate, captaxshare, taucap, taucapgain, expsubsidy,...
                                           deduc_coefs, pit_coefs, mpci, rpci, 0, 0, year, qtobin, qtobin0, ...
                                           totrate, beq, sstaxcredit);
@@ -147,14 +147,14 @@ for t = S_life:-1:1
                     
                 end
                 
-                W  (:,ik,ib,t) = 0     ;
+                LAB(:,ik,ib,t) = 0     ;
                 B  (:,ik,ib,t) = bs(ib);
                 
                 INC(:,ik,ib,t) = inc   ;
                 PIT(:,ik,ib,t) = pit   ;
                 SST(:,ik,ib,t) = 0     ;
                 CIT(:,ik,ib,t) = cit   ;
-                BEN(:,ik,ib,t) = inc_w ;
+                BEN(:,ik,ib,t) = labinc;
                 
             else
                 
@@ -179,28 +179,28 @@ for t = S_life:-1:1
                         calculate_b  ([], age, bs(ib), ssincmax)
                         
                         % Solve dynamic optimization subproblem
-                        w0 = 0.5;
-                        k0 = max(ks(ik), 0.1 * wage_eff * w0);   % (Assumes taxation will not exceed 90% of labor income)
+                        lab0 = 0.5;
+                        k0   = max(ks(ik), 0.1 * wage_eff * lab0);   % (Assumes taxation will not exceed 90% of labor income)
                         
-                        [x, v] = fminsearch(@value_working, [k0, w0], optim_options);
+                        [x, v] = fminsearch(@value_working, [k0, lab0], optim_options);
                         
-                        k = x(1);
-                        w = x(2);
+                        k   = x(1);
+                        lab = x(2);
                         
                         % Record values
                         V(iz,ik,ib,t) = -v;
                         K(iz,ik,ib,t) = k ;
                         
                     else
-                        w = W_static(iz,ik,ib,t);
+                        lab = LAB_static(iz,ik,ib,t);
                     end
                     
                     % Calculate tax terms for optimal decision values
-                    inc_w = wage_eff * w;
-                    [~, inc, pit, sst, cit] = calculate_resources(inc_w);
+                    labinc = wage_eff * lab;
+                    [~, inc, pit, sst, cit] = calculate_resources(labinc);
                     
-                    W  (iz,ik,ib,t) = w;
-                    B  (iz,ik,ib,t) = calculate_b(inc_w);
+                    LAB(iz,ik,ib,t) = lab;
+                    B  (iz,ik,ib,t) = calculate_b(labinc);
                     
                     INC(iz,ik,ib,t) = inc;
                     PIT(iz,ik,ib,t) = pit;
@@ -226,8 +226,8 @@ if isdynamic
     T_dist = min(startyear+T_life, T_model_dist) - max(startyear, 0);
     
     % Initialize distributions
-    D = zeros(nz,nk,nb,T_dist);
-    D(:,:,:,1) = D0(:,:,:,T_past+1);
+    DIST = zeros(nz,nk,nb,T_dist);
+    DIST(:,:,:,1) = DIST0(:,:,:,T_past+1);
     
     % Find distributions through forward propagation
     for t = 1:T_dist-1
@@ -259,27 +259,27 @@ if isdynamic
         for jz = 1:nz
             
             % Perform productivity transformation
-            D_step = repmat(transz(:,jz), [1,nk,nb]) .* D(:,:,:,t);
+            DIST_step = repmat(transz(:,jz), [1,nk,nb]) .* DIST(:,:,:,t);
             
             % Calculate distributions for next time step
-            for elem = 1:numel(D_step)
-                D(jz, jk_lt(elem), jb_lt(elem), t+1) = D(jz, jk_lt(elem), jb_lt(elem), t+1) + wb_lt(elem) * wk_lt(elem) * D_step(elem);
-                D(jz, jk_gt(elem), jb_lt(elem), t+1) = D(jz, jk_gt(elem), jb_lt(elem), t+1) + wb_lt(elem) * wk_gt(elem) * D_step(elem);
-                D(jz, jk_lt(elem), jb_gt(elem), t+1) = D(jz, jk_lt(elem), jb_gt(elem), t+1) + wb_gt(elem) * wk_lt(elem) * D_step(elem);
-                D(jz, jk_gt(elem), jb_gt(elem), t+1) = D(jz, jk_gt(elem), jb_gt(elem), t+1) + wb_gt(elem) * wk_gt(elem) * D_step(elem);
+            for elem = 1:numel(DIST_step)
+                DIST(jz, jk_lt(elem), jb_lt(elem), t+1) = DIST(jz, jk_lt(elem), jb_lt(elem), t+1) + wb_lt(elem) * wk_lt(elem) * DIST_step(elem);
+                DIST(jz, jk_gt(elem), jb_lt(elem), t+1) = DIST(jz, jk_gt(elem), jb_lt(elem), t+1) + wb_lt(elem) * wk_gt(elem) * DIST_step(elem);
+                DIST(jz, jk_lt(elem), jb_gt(elem), t+1) = DIST(jz, jk_lt(elem), jb_gt(elem), t+1) + wb_gt(elem) * wk_lt(elem) * DIST_step(elem);
+                DIST(jz, jk_gt(elem), jb_gt(elem), t+1) = DIST(jz, jk_gt(elem), jb_gt(elem), t+1) + wb_gt(elem) * wk_gt(elem) * DIST_step(elem);
             end
-        
+            
         end
         
     end
     
     % Adjust distributions based on demographics
-    D = repmat(shiftdim(mu2_idem(T_past+(1:T_dist)), -2), [nz,nk,nb]) .* D;
+    DIST = repmat(shiftdim(mu2_idem(T_past+(1:T_dist)), -2), [nz,nk,nb,1]) .* DIST;
     
 else
     
-    D = D_static;
-    T_dist = size(D, 4);
+    DIST = DIST_static;
+    T_dist = size(DIST, 4);
     
 end
 
@@ -287,16 +287,16 @@ end
 
 %% Aggregate generation
 
-cohort.k_alive = sum(reshape(K  (:,:,:,1:T_dist) .* D, [], T_dist), 1);
-cohort.k_dead  = sum(reshape(K  (:,:,:,1:T_dist) .* D, [], T_dist), 1) .* mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist));
-cohort.w_eff   = sum(reshape(W  (:,:,:,1:T_dist) .* repmat(reshape(zs(:,T_past+(1:T_dist),idem), [nz,1,1,T_dist]), [1,nk,nb,1]) .* D, [], T_dist), 1);
-cohort.w       = sum(reshape(W  (:,:,:,1:T_dist) .* D, [], T_dist), 1);
-cohort.lfpr    = sum(reshape((W(:,:,:,1:T_dist) >= 0.01) .* D, [], T_dist), 1);
-cohort.inc     = sum(reshape(INC(:,:,:,1:T_dist) .* D, [], T_dist), 1);
-cohort.pit     = sum(reshape(PIT(:,:,:,1:T_dist) .* D, [], T_dist), 1);
-cohort.sst     = sum(reshape(SST(:,:,:,1:T_dist) .* D, [], T_dist), 1);
-cohort.cit     = sum(reshape(CIT(:,:,:,1:T_dist) .* D, [], T_dist), 1);
-cohort.ben     = sum(reshape(BEN(:,:,:,1:T_dist) .* D, [], T_dist), 1);
+cohort.kalive = sum(reshape(K  (:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+cohort.kdead  = sum(reshape(K  (:,:,:,1:T_dist) .* DIST, [], T_dist), 1) .* mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist));
+cohort.labeff = sum(reshape(LAB(:,:,:,1:T_dist) .* repmat(reshape(zs(:,T_past+(1:T_dist),idem), [nz,1,1,T_dist]), [1,nk,nb,1]) .* DIST, [], T_dist), 1);
+cohort.lab    = sum(reshape(LAB(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+cohort.lfpr   = sum(reshape((LAB(:,:,:,1:T_dist) >= 0.01) .* DIST, [], T_dist), 1);
+cohort.inc    = sum(reshape(INC(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+cohort.pit    = sum(reshape(PIT(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+cohort.sst    = sum(reshape(SST(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+cohort.cit    = sum(reshape(CIT(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+cohort.ben    = sum(reshape(BEN(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
 
 
 end
@@ -307,7 +307,7 @@ end
 % Resource and tax calculation function
 function [resources, inc, pit, sst, cit] ...
     ...
-    = calculate_resources(inc_w, ks_ik_, ...
+    = calculate_resources(labinc, ks_ik_, ...
                           capshare_, caprate_, debtshare_, govrate_, captaxshare_, taucap_, taucapgain_, expsubsidy_, ...
                           deduc_coefs_, pit_coefs_, mpci_, rpci_, sstax_, ssincmax_, year_, qtobin_, qtobin0_, ...
                           totrate_, beq_, sstaxcredit_) %#codegen
@@ -393,12 +393,12 @@ if (nargin > 1)
     beq             = beq_          ;
     sstaxcredit     = sstaxcredit_  ;
     
-    if isempty(inc_w), return, end
+    if isempty(labinc), return, end
     
 end
 
 % Calculate taxable income
-inc     = (rpci/mpci)*max(0, capshare*(caprate-1)*ks_ik*(1-captaxshare) + debtshare*(govrate-1)*ks_ik + (1-sstaxcredit)*inc_w);
+inc     = (rpci/mpci)*max(0, capshare*(caprate-1)*ks_ik*(1-captaxshare) + debtshare*(govrate-1)*ks_ik + (1-sstaxcredit)*labinc);
 deduc   = max(0, deduc_coefs*inc.^[0; 1; 0.5]);
 inc_eff = max(inc - deduc, 0);
 inc     = (mpci/rpci)*inc;
@@ -407,13 +407,13 @@ inc     = (mpci/rpci)*inc;
 pit = (mpci/rpci)*pit_coefs(1)*(inc_eff - (inc_eff.^(-pit_coefs(2)) + (pit_coefs(3))).^(-1/pit_coefs(2)));
 
 % Calculate Social Security tax
-sst = sstax*min(inc_w, ssincmax);
+sst = sstax*min(labinc, ssincmax);
 
 % Calculate capital income tax (CIT)
 cit = capshare*ks_ik*(taucap*((caprate-1) - expsubsidy)*captaxshare + taucapgain*(year == 1)*(qtobin - qtobin0)/qtobin0);
 
 % Calculate available resources
-resources = totrate*ks_ik + inc_w - (pit + sst + cit) + beq + (year == 1)*ks_ik*capshare*(qtobin - qtobin0)/qtobin0;
+resources = totrate*ks_ik + labinc - (pit + sst + cit) + beq + (year == 1)*ks_ik*capshare*(qtobin - qtobin0)/qtobin0;
 
 end
 
@@ -527,12 +527,12 @@ end
 
 % Define decision variables and perform bound checks
 k   = x(1);
-w = x(2);
+lab = x(2);
 
-inc_w = wage_eff * w;
-b     = calculate_b(inc_w);
+labinc = wage_eff * lab;
+b      = calculate_b(labinc);
 
-if ~((0 <= w) && (w <= 1) ...
+if ~((0 <= lab) && (lab <= 1) ...
      && (ks(1) <= k) && (k <= ks(end)) ...
      && (bs(1) <= b) && (b <= bs(end)))
     
@@ -542,7 +542,7 @@ if ~((0 <= w) && (w <= 1) ...
 end
 
 % Calculate available resources
-resources = calculate_resources(inc_w);
+resources = calculate_resources(labinc);
 
 % Calculate consumption and perform bound check
 consumption = resources - k;
@@ -553,7 +553,7 @@ if ~(0 <= consumption)
 end
 
 % Calculate value
-v = interp2(ks', bs, EV', k, b, 'linear') + (1/(1-sigma))*((consumption^gamma)*((1-w)^(1-gamma)))^(1-sigma);
+v = interp2(ks', bs, EV', k, b, 'linear') + (1/(1-sigma))*((consumption^gamma)*((1-lab)^(1-gamma)))^(1-sigma);
 
 % Negate for minimization and force to scalar for C code generation
 v = -v(1);
@@ -564,7 +564,7 @@ end
 
 
 % Average earnings calculation function
-function [b] = calculate_b(inc_w, age_, bs_ib_, ssincmax_)
+function [b] = calculate_b(labinc, age_, bs_ib_, ssincmax_)
 
 % Define parameters as persistent variables
 persistent initialized
@@ -597,7 +597,7 @@ end
 % Enforce function inlining for C code generation
 coder.inline('always');
 
-b = (1/age)*(bs_ib*(age-1) + min(inc_w, ssincmax));
+b = (bs_ib*(age-1) + min(labinc, ssincmax))/age;
 
 end
 

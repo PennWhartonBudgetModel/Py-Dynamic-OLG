@@ -157,7 +157,7 @@ methods (Static, Access = private)
         
         zs     = s.z;
         transz = s.tr_z;
-        Dz     = s.proddist(:,1)';
+        DISTz  = s.proddist(:,1)';
         ks     = s.kgrid;
         bs     = [0; s.bgrid(2:end)];
         
@@ -228,10 +228,10 @@ methods (Static, Access = private)
         
         function [kpr_total, beq_total, elab_total, lab_total, lfpr_total, ...
                   fedincome_total, fedit_total, ssrev_total, fcaptax_total, ssexp_total, ...
-                  Ws, Ds] ...
+                  LABs, DISTs] ...
                   ...
                     = generate_aggregates(beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
-                                          Ds_steady, Ws_static, Ds_static) 
+                                          DISTs_steady, LABs_static, DISTs_static) 
             
             % Initialize aggregates
             kpr_total       = zeros(1,T_model);
@@ -246,14 +246,14 @@ methods (Static, Access = private)
             ssexp_total     = zeros(1,T_model);
             
             % Initialize data storage arrays
-            Ws      = cell(nstartyears, ndem);
-            Ds      = cell(nstartyears, ndem);
+            LABs    = cell(nstartyears, ndem);
+            DISTs   = cell(nstartyears, ndem);
             cohorts = cell(nstartyears, ndem);
             
             % Set empty values for static optimal decision values and distributions if not provided
-            if isempty(Ws_static)
-                Ws_static = Ws;
-                Ds_static = Ds;
+            if isempty(LABs_static)
+                LABs_static  = LABs ;
+                DISTs_static = DISTs;
             end
             
             % Define dynamic optimization and distribution generation model time periods
@@ -280,34 +280,33 @@ methods (Static, Access = private)
                 switch economy
                     
                     case 'steady'
-                        D0 = padarray(Dz', [0, nk-1, nb-1], 0, 'post');
+                        DIST0 = padarray(DISTz', [0, nk-1, nb-1], 0, 'post');
                         
                     case {'open', 'closed'}
-                        if ~isempty(Ds_steady)
-                            D0 = Ds_steady{1,idem} ./ repmat(shiftdim(mu2_idem(1:size(Ds_steady{1,idem}, 4)), -2), [nz,nk,nb,1]);
+                        if ~isempty(DISTs_steady)
+                            DIST0 = DISTs_steady{1,idem} ./ repmat(shiftdim(mu2_idem(1:size(DISTs_steady{1,idem}, 4)), -2), [nz,nk,nb,1]);
                         else
-                            D0 = [];
+                            DIST0 = [];
                         end
                         
                 end
                 
-                
                 parfor i = 1:nstartyears %#ok<FXUP>
                     
                     % Extract static optimal decision values and distributions if available
-                    W_static = Ws_static{i,idem};
-                    D_static = Ds_static{i,idem};
+                    LAB_static  = LABs_static {i,idem};
+                    DIST_static = DISTs_static{i,idem};
                     
                     % Generate cohort optimal decision values, distributions, and aggregates
-                    [W, D, cohort] = solve_cohort(...
-                                       startyears(i), T_life, T_work, T_model_opt, T_model_dist, nz, nk, nb, idem, zs, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
-                                       mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-                                       beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
-                                       D0, W_static, D_static);
+                    [LAB, DIST, cohort] = solve_cohort(...
+                        startyears(i), T_life, T_work, T_model_opt, T_model_dist, nz, nk, nb, idem, zs, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
+                        mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                        beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+                        DIST0, LAB_static, DIST_static);
                     
                     % Store values
-                    Ws     {i,idem} = W     ;
-                    Ds     {i,idem} = D     ;
+                    LABs   {i,idem} = LAB   ;
+                    DISTs  {i,idem} = DIST  ;
                     cohorts{i,idem} = cohort;
                     
                 end
@@ -319,20 +318,20 @@ methods (Static, Access = private)
                         
                         case 'steady'
                             
-                            kpr_total  = kpr_total  + sum(cohorts{i,idem}.k_alive + cohorts{i,idem}.k_dead);
-                            beq_total  = beq_total  + sum(cohorts{i,idem}.k_dead);
-                            elab_total = elab_total + sum(cohorts{i,idem}.w_eff );
+                            kpr_total  = kpr_total  + sum(cohorts{i,idem}.kalive + cohorts{i,idem}.kdead);
+                            beq_total  = beq_total  + sum(cohorts{i,idem}.kdead  );
+                            elab_total = elab_total + sum(cohorts{i,idem}.labeff );
                             
                         case {'open', 'closed'}
                             
                             % Align aggregates to model years
                             T_shift = max(0, startyears(i));
-                            T_dist  = size(Ds{i,idem}, 4);
+                            T_dist  = size(DISTs{i,idem}, 4);
                             
-                            kpr_total      (T_shift+(1:T_dist)) = kpr_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.k_alive + cohorts{i,idem}.k_dead;
-                            beq_total      (T_shift+(1:T_dist)) = beq_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.k_dead;
-                            elab_total     (T_shift+(1:T_dist)) = elab_total     (T_shift+(1:T_dist)) + cohorts{i,idem}.w_eff ;
-                            lab_total      (T_shift+(1:T_dist)) = lab_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.w     ;
+                            kpr_total      (T_shift+(1:T_dist)) = kpr_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.kalive + cohorts{i,idem}.kdead;
+                            beq_total      (T_shift+(1:T_dist)) = beq_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.kdead ;
+                            elab_total     (T_shift+(1:T_dist)) = elab_total     (T_shift+(1:T_dist)) + cohorts{i,idem}.labeff;
+                            lab_total      (T_shift+(1:T_dist)) = lab_total      (T_shift+(1:T_dist)) + cohorts{i,idem}.lab   ;
                             lfpr_total     (T_shift+(1:T_dist)) = lfpr_total     (T_shift+(1:T_dist)) + cohorts{i,idem}.lfpr  ;
                             fedincome_total(T_shift+(1:T_dist)) = fedincome_total(T_shift+(1:T_dist)) + cohorts{i,idem}.inc   ;
                             fedit_total    (T_shift+(1:T_dist)) = fedit_total    (T_shift+(1:T_dist)) + cohorts{i,idem}.pit   ;
@@ -373,10 +372,10 @@ methods (Static, Access = private)
             
             % Load optimal decision values and distributions from baseline
             s = hardyload('decisions.mat'    , base_generator, base_dir);
-            Ws_static = s.Ws;
+            LABs_static  = s.LABs ;
             
             s = hardyload('distributions.mat', base_generator, base_dir);
-            Ds_static = s.Ds;
+            DISTs_static = s.DISTs;
             
             
             % Clear parameter loading structure
@@ -389,7 +388,7 @@ methods (Static, Access = private)
              ~, ~] ...
              ...
                = generate_aggregates(beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
-                                     {}, Ws_static, Ds_static); %#ok<ASGLU>
+                                     {}, LABs_static, DISTs_static); %#ok<ASGLU>
             
             
             % Copy additional static aggregates from baseline aggregates
@@ -444,7 +443,7 @@ methods (Static, Access = private)
                 % Load neutral solution as starting solution
                 s0 = load(fullfile(param_dir, 'solution0.mat'));
                 
-                Ds_steady = {};
+                DISTs_steady = {};
                 
             case {'open', 'closed'}
                 
@@ -458,7 +457,7 @@ methods (Static, Access = private)
                 % Load steady state distributions
                 s  = hardyload('distributions.mat', steady_generator, steady_dir);
                 
-                Ds_steady = s.Ds;
+                DISTs_steady = s.DISTs;
                 
         end
         
@@ -620,10 +619,10 @@ methods (Static, Access = private)
             % Generate dynamic aggregates
             [kpr_total, beq_total, elab_total, lab_total, lfpr_total, ...
              fedincome_total, fedit_total, ssrev_total, fcaptax_total, ssexp_total, ...
-             Ws, Ds] ...
+             LABs, DISTs] ...
              ...
                = generate_aggregates(beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
-                                     Ds_steady, {}, {}); %#ok<ASGLU>
+                                     DISTs_steady, {}, {}); %#ok<ASGLU>
             
             
             % Calculate additional dynamic aggregates
@@ -735,8 +734,8 @@ methods (Static, Access = private)
         
         % Save optimal decision values and distributions for baseline
         if isbase
-            save(fullfile(save_dir, 'decisions.mat'    ), 'Ws')
-            save(fullfile(save_dir, 'distributions.mat'), 'Ds')
+            save(fullfile(save_dir, 'decisions.mat'    ), 'LABs' )
+            save(fullfile(save_dir, 'distributions.mat'), 'DISTs')
         end
         
         % Save solution
@@ -776,13 +775,13 @@ methods (Static, Access = private)
                 
                 for idem = 1:ndem %#ok<FXUP>
                     
-                    W = Ws{1,idem};
-                    D = Ds{1,idem};
+                    LAB  = LABs {1,idem};
+                    DIST = DISTs{1,idem};
                     
-                    working_ind = (W > 0.01);
+                    working_ind = (LAB > 0.01);
                     
-                    working_mass = working_mass + sum(D(working_ind));
-                    frisch_total = frisch_total + sum(D(working_ind).*(1-W(working_ind))./W(working_ind))*(1-gamma*(1-sigma))/sigma;
+                    working_mass = working_mass + sum(DIST(working_ind));
+                    frisch_total = frisch_total + sum(DIST(working_ind).*(1-LAB(working_ind))./LAB(working_ind))*(1-gamma*(1-sigma))/sigma;
                     
                 end
                 
@@ -797,7 +796,7 @@ methods (Static, Access = private)
                 totrates_dev = totrates * (1 + deviation);
                 
                 [kpr_dev] = generate_aggregates(beqs, wages, capshares, debtshares, caprates_dev, govrates_dev, totrates_dev, expsubsidys, ...
-                                                Ds_steady, {}, {});
+                                                DISTs_steady, {}, {});
                 
                 savings_elas = ((kpr_dev - kpr_total)/kpr_total) / ((totrates_dev - totrates)/(totrates-1));
                 
