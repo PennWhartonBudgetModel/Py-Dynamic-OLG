@@ -5,7 +5,7 @@
 
 
 function [W, D, cohort] = solve_cohort(...
-                            startyear, T_life, T_work, T_model_opt, T_model_dist, kv, bv, nz, nk, nb, idem, zs, ztrans, beta, gamma, sigma, surv, Vbeq, mu2_idem, mu3_idem, ...
+                            startyear, T_life, T_work, T_model_opt, T_model_dist, kv, bv, nz, nk, nb, idem, zs, ztrans, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
                             mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                             beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
                             D0, W_static, D_static) %#codegen
@@ -35,7 +35,7 @@ assert( isa(beta,           'double') && (size(beta,            1) == 1         
 assert( isa(gamma,          'double') && (size(gamma,           1) == 1         ) && (size(gamma,           2) == 1             ) );
 assert( isa(sigma,          'double') && (size(sigma,           1) == 1         ) && (size(sigma,           2) == 1             ) );
 assert( isa(surv,           'double') && (size(surv,            1) == 1         ) && (size(surv,            2) <= T_life_max    ) );
-assert( isa(Vbeq,           'double') && (size(Vbeq,            1) <= nk_max    ) && (size(Vbeq,            2) == 1             ) );
+assert( isa(V_beq,          'double') && (size(V_beq,           1) <= nk_max    ) && (size(V_beq,           2) == 1             ) );
 assert( isa(mu2_idem,       'double') && (size(mu2_idem,        1) == 1         ) && (size(mu2_idem,        2) <= T_life_max    ) );
 assert( isa(mu3_idem,       'double') && (size(mu3_idem,        1) == 1         ) && (size(mu3_idem,        2) <= T_life_max    ) );
 
@@ -122,7 +122,7 @@ for t = S_life:-1:1
             if (t > S_work)
                 
                 % Calculate expected value curve using values for next time step
-                EV = (1-surv(age))*repmat(Vbeq, [1,nb]) + surv(age)*beta*reshape(V(1,:,:,t+1), [nk,nb]);
+                EV = (1-surv(age))*repmat(V_beq, [1,nb]) + surv(age)*beta*reshape(V(1,:,:,t+1), [nk,nb]);
                 
                 % Calculate available resources and tax terms
                 inc_w = ssbenefit(ib);
@@ -161,7 +161,7 @@ for t = S_life:-1:1
                 for iz = 1:nz
                     
                     % Calculate expected value curve using values for next time step
-                    EV = (1-surv(age))*repmat(Vbeq, [1,nb]) + surv(age)*beta*reshape(sum(repmat(ztrans(iz,:)', [1,nk,nb]) .* V(:,:,:,t+1), 1), [nk,nb]);
+                    EV = (1-surv(age))*repmat(V_beq, [1,nb]) + surv(age)*beta*reshape(sum(repmat(ztrans(iz,:)', [1,nk,nb]) .* V(:,:,:,t+1), 1), [nk,nb]);
                     
                     % Calculate effective wage
                     wage_eff = wage * zs(iz,age,idem);

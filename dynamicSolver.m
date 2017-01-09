@@ -167,10 +167,10 @@ methods (Static, Access = private)
         d   = s.d;
         
         surv = [s.surv(1:T_life-1), 0];
-        Vbeq = s.phi1.*((1+kv./s.phi2).^(1-s.phi3));
+        V_beq = s.phi1.*((1+kv./s.phi2).^(1-s.phi3));
         
-        MU2 = s.demdist_2015 * (s.Mu2/sum(s.Mu2));
-        MU3 = repmat(1-surv, [ndem,1]) .* MU2;
+        mu2 = s.demdist_2015 * (s.Mu2/sum(s.Mu2));
+        mu3 = repmat(1-surv, [ndem,1]) .* mu2;
         
         mpci = s.mpci;
         rpci = s.rpci;
@@ -274,8 +274,8 @@ methods (Static, Access = private)
             for idem = 1:ndem %#ok<FXUP>
                 
                 % Extract demographic adjustments
-                mu2_idem = MU2(idem,:);
-                mu3_idem = MU3(idem,:);
+                mu2_idem = mu2(idem,:);
+                mu3_idem = mu3(idem,:);
                 
                 % Define initial distributions
                 switch economy
@@ -285,7 +285,7 @@ methods (Static, Access = private)
                         
                     case {'open', 'closed'}
                         if ~isempty(Ds_steady)
-                            D0 = bsxfun(@rdivide, Ds_steady{1,idem}, shiftdim(mu2_idem(1:size(Ds_steady{1,idem}, 4)), -2));
+                            D0 = Ds_steady{1,idem} ./ repmat(shiftdim(mu2_idem(1:size(Ds_steady{1,idem}, 4)), -2), [nz,nk,nb,1]);
                         else
                             D0 = [];
                         end
@@ -301,7 +301,7 @@ methods (Static, Access = private)
                     
                     % Generate cohort optimal decision values, distributions, and aggregates
                     [W, D, cohort] = solve_cohort(...
-                                       startyears(i), T_life, T_work, T_model_opt, T_model_dist, kv, bv, nz, nk, nb, idem, zs, ztrans, beta, gamma, sigma, surv, Vbeq, mu2_idem, mu3_idem, ...
+                                       startyears(i), T_life, T_work, T_model_opt, T_model_dist, kv, bv, nz, nk, nb, idem, zs, ztrans, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
                                        mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                                        beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
                                        D0, W_static, D_static);
