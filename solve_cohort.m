@@ -4,10 +4,10 @@
 %%
 
 
-function [LAB, DIST, cohort] = solve_cohort(...
+function [LAB, DIST, Cohort] = solve_cohort(...
              startyear, T_life, T_work, T_model_opt, T_model_dist, nz, nk, nb, idem, zs, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
              mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-             beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
+             beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubs, ...
              DIST0, LAB_static, DIST_static) %#codegen
 
 
@@ -60,7 +60,7 @@ assert( isa(debtshares,     'double') && (size(debtshares,      1) == 1         
 assert( isa(caprates,       'double') && (size(caprates,        1) == 1         ) && (size(caprates,        2) <= T_model_max   ) );
 assert( isa(govrates,       'double') && (size(govrates,        1) == 1         ) && (size(govrates,        2) <= T_model_max   ) );
 assert( isa(totrates,       'double') && (size(totrates,        1) == 1         ) && (size(totrates,        2) <= T_model_max   ) );
-assert( isa(expsubsidys,    'double') && (size(expsubsidys,     1) == 1         ) && (size(expsubsidys,     2) <= T_model_max   ) );
+assert( isa(expsubs,        'double') && (size(expsubs,         1) == 1         ) && (size(expsubs,         2) <= T_model_max   ) );
 
 assert( isa(DIST0,          'double') && (size(DIST0,           1) <= nz_max    ) && (size(DIST0,           2) <= nk_max        ) && (size(DIST0,       3) <= nb_max) && (size(DIST0,       4) <= T_life_max ) );
 assert( isa(LAB_static,     'double') && (size(LAB_static,      1) <= nz_max    ) && (size(LAB_static,      2) <= nk_max        ) && (size(LAB_static,  3) <= nb_max) && (size(LAB_static,  4) <= T_life_max ) );
@@ -113,7 +113,7 @@ for t = S_life:-1:1
     capshare   = capshares    (year);
     debtshare  = debtshares   (year);
     totrate    = totrates     (year);
-    expsubsidy = expsubsidys  (year);
+    expsub     = expsubs      (year);
     
     
     for ib = 1:nb
@@ -129,7 +129,7 @@ for t = S_life:-1:1
                 [resources, inc, pit, ~, cit] = calculate_resources(...
                     labinc, ks(ik), year, ...
                     mpci, rpci, sstaxcredit, 0, 0, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-                    beq, capshare, debtshare, caprate, govrate, totrate, expsubsidy);
+                    beq, capshare, debtshare, caprate, govrate, totrate, expsub);
                 
                 if isdynamic
                     
@@ -168,7 +168,7 @@ for t = S_life:-1:1
                     calculate_resources(...
                         [], ks(ik), year, ...
                         mpci, rpci, 0, sstax, ssincmax, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-                        beq, capshare, debtshare, caprate, govrate, totrate, expsubsidy);
+                        beq, capshare, debtshare, caprate, govrate, totrate, expsub);
                     
                     if isdynamic
 
@@ -285,16 +285,16 @@ end
 
 %% Aggregate generation
 
-cohort.kalive = sum(reshape(K  (:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
-cohort.kdead  = sum(reshape(K  (:,:,:,1:T_dist) .* DIST, [], T_dist), 1) .* mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist));
-cohort.labeff = sum(reshape(LAB(:,:,:,1:T_dist) .* repmat(reshape(zs(:,T_past+(1:T_dist),idem), [nz,1,1,T_dist]), [1,nk,nb,1]) .* DIST, [], T_dist), 1);
-cohort.lab    = sum(reshape(LAB(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
-cohort.lfpr   = sum(reshape((LAB(:,:,:,1:T_dist) >= 0.01) .* DIST, [], T_dist), 1);
-cohort.inc    = sum(reshape(INC(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
-cohort.pit    = sum(reshape(PIT(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
-cohort.sst    = sum(reshape(SST(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
-cohort.cit    = sum(reshape(CIT(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
-cohort.ben    = sum(reshape(BEN(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+Cohort.kalive = sum(reshape(K  (:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+Cohort.kdead  = sum(reshape(K  (:,:,:,1:T_dist) .* DIST, [], T_dist), 1) .* mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist));
+Cohort.labeff = sum(reshape(LAB(:,:,:,1:T_dist) .* repmat(reshape(zs(:,T_past+(1:T_dist),idem), [nz,1,1,T_dist]), [1,nk,nb,1]) .* DIST, [], T_dist), 1);
+Cohort.lab    = sum(reshape(LAB(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+Cohort.lfpr   = sum(reshape((LAB(:,:,:,1:T_dist) >= 0.01) .* DIST, [], T_dist), 1);
+Cohort.inc    = sum(reshape(INC(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+Cohort.pit    = sum(reshape(PIT(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+Cohort.sst    = sum(reshape(SST(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+Cohort.cit    = sum(reshape(CIT(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+Cohort.ben    = sum(reshape(BEN(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
 
 
 end
@@ -306,13 +306,14 @@ end
 function [resources, inc, pit, sst, cit] = calculate_resources(...
              labinc, ks_ik_, year_, ...
              mpci_, rpci_, sstaxcredit_, sstax_, ssincmax_, deduc_coefs_, pit_coefs_, captaxshare_, taucap_, taucapgain_, qtobin_, qtobin0_, ...
-             beq_, capshare_, debtshare_, caprate_, govrate_, totrate_, expsubsidy_) %#codegen
+             beq_, capshare_, debtshare_, caprate_, govrate_, totrate_, expsub_) %#codegen
 
 % Enforce function inlining for C code generation
 coder.inline('always');
 
 % Define parameters as persistent variables
 persistent initialized
+
 persistent ks_ik
 persistent year
 persistent mpci
@@ -333,7 +334,7 @@ persistent debtshare
 persistent caprate
 persistent govrate
 persistent totrate
-persistent expsubsidy
+persistent expsub
 
 % Initialize parameters
 if isempty(initialized)
@@ -358,7 +359,7 @@ if isempty(initialized)
     caprate         = 0;
     govrate         = 0;
     totrate         = 0;
-    expsubsidy      = 0;
+    expsub          = 0;
     
     initialized     = true;
     
@@ -387,7 +388,7 @@ if (nargin > 1)
     caprate         = caprate_    ;
     govrate         = govrate_    ;
     totrate         = totrate_    ;
-    expsubsidy      = expsubsidy_ ;
+    expsub          = expsub_     ;
     
     if isempty(labinc), return, end
     
@@ -406,7 +407,7 @@ pit = (mpci/rpci)*pit_coefs(1)*(inc_eff - (inc_eff.^(-pit_coefs(2)) + (pit_coefs
 sst = sstax*min(labinc, ssincmax);
 
 % Calculate capital income tax (CIT)
-cit = capshare*ks_ik*(taucap*((caprate-1) - expsubsidy)*captaxshare + taucapgain*(year == 1)*(qtobin - qtobin0)/qtobin0);
+cit = capshare*ks_ik*(taucap*((caprate-1) - expsub)*captaxshare + taucapgain*(year == 1)*(qtobin - qtobin0)/qtobin0);
 
 % Calculate available resources
 resources = totrate*ks_ik + labinc - (pit + sst + cit) + beq + (year == 1)*ks_ik*capshare*(qtobin - qtobin0)/qtobin0;
@@ -424,6 +425,7 @@ coder.inline('always');
 
 % Define parameters as persistent variables
 persistent initialized
+
 persistent ks
 persistent resources
 persistent EV_ib
@@ -486,6 +488,7 @@ coder.inline('always');
 
 % Define parameters as persistent variables
 persistent initialized
+
 persistent ks
 persistent bs
 persistent wage_eff
@@ -510,12 +513,12 @@ end
 % Set parameters if provided
 if (nargin > 1)
     
-    ks          = ks_       ;
-    bs          = bs_       ;
-    wage_eff    = wage_eff_ ;
-    EV          = EV_       ;
-    sigma       = sigma_    ;
-    gamma       = gamma_    ;
+    ks          = ks_      ;
+    bs          = bs_      ;
+    wage_eff    = wage_eff_;
+    EV          = EV_      ;
+    sigma       = sigma_   ;
+    gamma       = gamma_   ;
     
     return
     
@@ -564,6 +567,7 @@ function [b] = calculate_b(labinc, age_, bs_ib_, ssincmax_)
 
 % Define parameters as persistent variables
 persistent initialized
+
 persistent ssincmax
 persistent age
 persistent bs_ib
@@ -582,9 +586,9 @@ end
 % Set parameters if provided
 if (nargin > 1)
     
-    ssincmax    = ssincmax_ ;
-    age         = age_      ;
-    bs_ib       = bs_ib_    ;
+    ssincmax    = ssincmax_;
+    age         = age_     ;
+    bs_ib       = bs_ib_   ;
     
     return
     

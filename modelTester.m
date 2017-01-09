@@ -19,7 +19,7 @@ methods (Static)
     % Test steady state solution and elasticities
     function [] = steady()
         save_dir = dynamicSolver.steady(modelTester.basedef);
-        setnames = {'solution', 'elasticities'};
+        setnames = {'market', 'elasticities'};
         test_output(save_dir, setnames);
     end
     
@@ -27,7 +27,7 @@ methods (Static)
     % Test open economy baseline solution, dynamic aggregates, and static aggregates
     function [] = open_base()
         save_dir = dynamicSolver.open(modelTester.basedef);
-        setnames = {'solution', 'dynamics'};
+        setnames = {'market', 'dynamics'};
         test_output(save_dir, setnames);
     end
     
@@ -35,7 +35,7 @@ methods (Static)
     % Test open economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = open_counter()
         save_dir = dynamicSolver.open(modelTester.basedef, struct('taxplan', 'ryan', 'gcut', +0.10));
-        setnames = {'solution', 'dynamics', 'statics'};
+        setnames = {'market', 'dynamics', 'statics'};
         test_output(save_dir, setnames);
     end
     
@@ -43,7 +43,7 @@ methods (Static)
     % Test closed economy baseline solution, dynamic aggregates, and static aggregates
     function [] = closed_base()
         save_dir = dynamicSolver.closed(modelTester.basedef);
-        setnames = {'solution', 'dynamics'};
+        setnames = {'market', 'dynamics'};
         test_output(save_dir, setnames);
     end
     
@@ -51,7 +51,7 @@ methods (Static)
     % Test closed economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = closed_counter()
         save_dir = dynamicSolver.closed(modelTester.basedef, struct('taxplan', 'ryan', 'gcut', +0.10));
-        setnames = {'solution', 'dynamics', 'statics'};
+        setnames = {'market', 'dynamics', 'statics'};
         test_output(save_dir, setnames);
     end
     

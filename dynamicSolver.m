@@ -226,9 +226,7 @@ methods (Static, Access = private)
         
         %% Aggregate generation function
         
-        function [Aggregate, LABs, DISTs] = generate_aggregates(...
-                     beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
-                     DISTs_steady, LABs_static, DISTs_static) 
+        function [Aggregate, LABs, DISTs] = generate_aggregates(Market, DISTs_steady, LABs_static, DISTs_static) 
             
             % Initialize aggregates
             series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'incs', 'pits', 'ssts', 'cits', 'bens'};
@@ -239,7 +237,7 @@ methods (Static, Access = private)
             % Initialize data storage arrays
             LABs    = cell(nstartyears, ndem);
             DISTs   = cell(nstartyears, ndem);
-            cohorts = cell(nstartyears, ndem);
+            Cohorts = cell(nstartyears, ndem);
             
             % Set empty values for static optimal decision values and distributions if not provided
             if isempty(LABs_static)
@@ -289,16 +287,16 @@ methods (Static, Access = private)
                     DIST_static = DISTs_static{i,idem};
                     
                     % Generate cohort optimal decision values, distributions, and aggregates
-                    [LAB, DIST, cohort] = solve_cohort(...
+                    [LAB, DIST, Cohort] = solve_cohort(...
                         startyears(i), T_life, T_work, T_model_opt, T_model_dist, nz, nk, nb, idem, zs, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
                         mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-                        beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
-                        DIST0, LAB_static, DIST_static);
+                        Market.beqs, Market.wages, Market.capshares, Market.debtshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs, ...
+                        DIST0, LAB_static, DIST_static); %#ok<PFBNS>
                     
                     % Store values
                     LABs   {i,idem} = LAB   ;
                     DISTs  {i,idem} = DIST  ;
-                    cohorts{i,idem} = cohort;
+                    Cohorts{i,idem} = Cohort;
                     
                 end
                 
@@ -309,9 +307,9 @@ methods (Static, Access = private)
                         
                         case 'steady'
                             
-                            Aggregate.assets  = Aggregate.assets  + sum(cohorts{i,idem}.kalive + cohorts{i,idem}.kdead);
-                            Aggregate.beqs    = Aggregate.beqs    + sum(cohorts{i,idem}.kdead );
-                            Aggregate.labeffs = Aggregate.labeffs + sum(cohorts{i,idem}.labeff);
+                            Aggregate.assets  = Aggregate.assets  + sum(Cohorts{i,idem}.kalive + Cohorts{i,idem}.kdead);
+                            Aggregate.beqs    = Aggregate.beqs    + sum(Cohorts{i,idem}.kdead );
+                            Aggregate.labeffs = Aggregate.labeffs + sum(Cohorts{i,idem}.labeff);
                             
                         case {'open', 'closed'}
                             
@@ -319,16 +317,16 @@ methods (Static, Access = private)
                             T_shift = max(0, startyears(i));
                             T_dist  = size(DISTs{i,idem}, 4);
                             
-                            Aggregate.assets (T_shift+(1:T_dist)) = Aggregate.assets (T_shift+(1:T_dist)) + cohorts{i,idem}.kalive + cohorts{i,idem}.kdead;
-                            Aggregate.beqs   (T_shift+(1:T_dist)) = Aggregate.beqs   (T_shift+(1:T_dist)) + cohorts{i,idem}.kdead ;
-                            Aggregate.labeffs(T_shift+(1:T_dist)) = Aggregate.labeffs(T_shift+(1:T_dist)) + cohorts{i,idem}.labeff;
-                            Aggregate.labs   (T_shift+(1:T_dist)) = Aggregate.labs   (T_shift+(1:T_dist)) + cohorts{i,idem}.lab   ;
-                            Aggregate.lfprs  (T_shift+(1:T_dist)) = Aggregate.lfprs  (T_shift+(1:T_dist)) + cohorts{i,idem}.lfpr  ;
-                            Aggregate.incs   (T_shift+(1:T_dist)) = Aggregate.incs   (T_shift+(1:T_dist)) + cohorts{i,idem}.inc   ;
-                            Aggregate.pits   (T_shift+(1:T_dist)) = Aggregate.pits   (T_shift+(1:T_dist)) + cohorts{i,idem}.pit   ;
-                            Aggregate.ssts   (T_shift+(1:T_dist)) = Aggregate.ssts   (T_shift+(1:T_dist)) + cohorts{i,idem}.sst   ;
-                            Aggregate.cits   (T_shift+(1:T_dist)) = Aggregate.cits   (T_shift+(1:T_dist)) + cohorts{i,idem}.cit   ;
-                            Aggregate.bens   (T_shift+(1:T_dist)) = Aggregate.bens   (T_shift+(1:T_dist)) + cohorts{i,idem}.ben   ;
+                            Aggregate.assets (T_shift+(1:T_dist)) = Aggregate.assets (T_shift+(1:T_dist)) + Cohorts{i,idem}.kalive + Cohorts{i,idem}.kdead;
+                            Aggregate.beqs   (T_shift+(1:T_dist)) = Aggregate.beqs   (T_shift+(1:T_dist)) + Cohorts{i,idem}.kdead ;
+                            Aggregate.labeffs(T_shift+(1:T_dist)) = Aggregate.labeffs(T_shift+(1:T_dist)) + Cohorts{i,idem}.labeff;
+                            Aggregate.labs   (T_shift+(1:T_dist)) = Aggregate.labs   (T_shift+(1:T_dist)) + Cohorts{i,idem}.lab   ;
+                            Aggregate.lfprs  (T_shift+(1:T_dist)) = Aggregate.lfprs  (T_shift+(1:T_dist)) + Cohorts{i,idem}.lfpr  ;
+                            Aggregate.incs   (T_shift+(1:T_dist)) = Aggregate.incs   (T_shift+(1:T_dist)) + Cohorts{i,idem}.inc   ;
+                            Aggregate.pits   (T_shift+(1:T_dist)) = Aggregate.pits   (T_shift+(1:T_dist)) + Cohorts{i,idem}.pit   ;
+                            Aggregate.ssts   (T_shift+(1:T_dist)) = Aggregate.ssts   (T_shift+(1:T_dist)) + Cohorts{i,idem}.sst   ;
+                            Aggregate.cits   (T_shift+(1:T_dist)) = Aggregate.cits   (T_shift+(1:T_dist)) + Cohorts{i,idem}.cit   ;
+                            Aggregate.bens   (T_shift+(1:T_dist)) = Aggregate.bens   (T_shift+(1:T_dist)) + Cohorts{i,idem}.ben   ;
                             
                     end
                     
@@ -348,18 +346,8 @@ methods (Static, Access = private)
             base_generator = @() dynamicSolver.solve(economy, basedef, [], callingtag);
             base_dir = dirFinder.save(economy, basedef);
             
-            % Load baseline solution
-            s = hardyload('solution.mat'     , base_generator, base_dir);
-            
-            wages       = s.wages       ;
-            capshares   = s.capshares   ;
-            debtshares  = s.debtshares  ;
-            caprates    = s.caprates    ;
-            govrates    = s.govrates    ;
-            expsubsidys = s.expsubsidys ;
-            
-            beqs        = zeros(1,T_model);
-            totrates    = zeros(1,T_model);
+            % Load baseline market conditions
+            Market = hardyload('market.mat'  , base_generator, base_dir);
             
             % Load optimal decision values and distributions from baseline
             s = hardyload('decisions.mat'    , base_generator, base_dir);
@@ -375,9 +363,7 @@ methods (Static, Access = private)
             
             % Generate static aggregates
             % (Intermediary structure used to filter out extraneous fields)
-            [Static_] = generate_aggregates(...
-                beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
-                {}, LABs_static, DISTs_static);
+            [Static_] = generate_aggregates(Market, {}, LABs_static, DISTs_static);
             
             Static.incs = Static_.incs;
             Static.pits = Static_.pits;
@@ -425,8 +411,8 @@ methods (Static, Access = private)
             
             case 'steady'
                 
-                % Load neutral solution as starting solution
-                s0 = load(fullfile(param_dir, 'solution0.mat'));
+                % Load neutral market conditions as initial conditions
+                Market0 = load(fullfile(param_dir, 'market0.mat'));
                 
                 DISTs_steady = {};
                 
@@ -436,28 +422,15 @@ methods (Static, Access = private)
                 steady_generator = @() dynamicSolver.steady(basedef, callingtag);
                 steady_dir = dirFinder.save('steady', basedef);
                 
-                % Load steady state solution as starting solution
-                s0 = hardyload('solution.mat'     , steady_generator, steady_dir);
+                % Load steady state market conditions as initial conditions
+                Market0 = hardyload('market.mat'       , steady_generator, steady_dir);
                 
                 % Load steady state distributions
-                s  = hardyload('distributions.mat', steady_generator, steady_dir);
+                s       = hardyload('distributions.mat', steady_generator, steady_dir);
                 
                 DISTs_steady = s.DISTs;
                 
         end
-        
-        % Unpack starting solution
-        rho0       = s0.rhos       ;
-        beq0       = s0.beqs       ;
-        asset0     = s0.assets     ;
-        debt0      = s0.debts      ;
-        capshare0  = s0.capshares  ;
-        debtshare0 = s0.debtshares ;
-        caprate0   = s0.caprates   ;
-        govrate0   = s0.govrates   ;
-        totrate0   = s0.totrates   ;
-        
-        clear('s0')
         
         
         switch economy
@@ -543,67 +516,65 @@ methods (Static, Access = private)
                 case {'steady', 'closed'}
                     
                     if (iter == 1)
-                        rhos   = rho0  *ones(1,T_model);
-                        beqs   = beq0  *ones(1,T_model);
-                        assets = asset0*ones(1,T_model);
-                        debts  = debt0 *ones(1,T_model);
-                        caps   = (assets - debts)/qtobin;
+                        Market.rhos   = Market0.rhos  *ones(1,T_model);
+                        Market.beqs   = Market0.beqs  *ones(1,T_model);
+                        Market.assets = Market0.assets*ones(1,T_model);
+                        Market.debts  = Market0.debts *ones(1,T_model);
+                        Market.caps   = (Market.assets - Market.debts)/qtobin;
                     else
                         switch economy
                             case 'steady'
-                                rhos  = 0.5*rhos + 0.5*Dynamic.rhos;
-                                debts = debtout*Dynamic.outs;
+                                Market.rhos  = 0.5*Market.rhos + 0.5*Dynamic.rhos;
+                                Market.debts = debtout*Dynamic.outs;
                             case 'closed'
-                                rhos  = 0.3*rhos + 0.7*Dynamic.rhos;
-                                debts = Dynamic.debts;
+                                Market.rhos  = 0.3*Market.rhos + 0.7*Dynamic.rhos;
+                                Market.debts = Dynamic.debts;
                         end
-                        beqs   = Dynamic.beqs  ;
-                        assets = Dynamic.assets;
-                        caps   = Dynamic.caps  ;
+                        Market.beqs   = Dynamic.beqs  ;
+                        Market.assets = Dynamic.assets;
+                        Market.caps   = Dynamic.caps  ;
                     end
                     
-                    capshares  = (assets - debts) ./ assets;
-                    debtshares = 1 - capshares;
-                    caprates   = 1 + (A*alp*(rhos.^(alp-1)) - d)/qtobin;
+                    Market.capshares  = (Market.assets - Market.debts) ./ Market.assets;
+                    Market.debtshares = 1 - Market.capshares;
+                    Market.caprates   = 1 + (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
                     switch economy
-                        case 'steady', govrates = cbomeanrate;
-                        case 'closed', govrates = cborates   ;
+                        case 'steady', Market.govrates = cbomeanrate;
+                        case 'closed', Market.govrates = cborates   ;
                     end
-                    totrates   = capshares.*caprates + debtshares.*govrates;
+                    Market.totrates   = Market.capshares.*Market.caprates + Market.debtshares.*Market.govrates;
                     
                     
                 case 'open'
                     
                     if (iter == 1)
                         
-                        assets = asset0*ones(1,T_model);
-                        debts  = debt0 *ones(1,T_model);
-                        caps   = (assets - debts)/qtobin0;
+                        Market.assets = Market0.assets*ones(1,T_model);
+                        Market.debts  = Market0.debts *ones(1,T_model);
+                        Market.caps   = (Market.assets - Market.debts)/qtobin0;
                         
-                        capshares  = capshare0 *ones(1,T_model);
-                        debtshares = debtshare0*ones(1,T_model);
-                        caprates   = (((1 - taucap_base)/(1 - taucap))*(caprate0 - 1) + 1)*ones(1,T_model);
-                        govrates   = govrate0  *ones(1,T_model);
-                        totrates   = totrate0  *ones(1,T_model);
+                        Market.capshares  = Market0.capshares *ones(1,T_model);
+                        Market.debtshares = Market0.debtshares*ones(1,T_model);
+                        Market.caprates   = (((1 - taucap_base)/(1 - taucap))*(Market0.caprates - 1) + 1)*ones(1,T_model);
+                        Market.govrates   = Market0.govrates  *ones(1,T_model);
+                        Market.totrates   = Market0.totrates  *ones(1,T_model);
                         
-                        rhos   = ((qtobin*(caprates - 1) + d)/alp).^(1/(alp-1));
-                        beqs   = beq0*ones(1,T_model);
+                        Market.rhos   = ((qtobin*(Market.caprates - 1) + d)/alp).^(1/(alp-1));
+                        Market.beqs   = Market0.beqs  *ones(1,T_model);
                         
                     else
-                        beqs   = Dynamic.beqs;
-                        caps   = Dynamic.caps;
+                        Market.beqs   = Dynamic.beqs;
+                        Market.caps   = Dynamic.caps;
                     end
                     
             end
             
-            wages       = A*(1-alp)*(rhos.^alp);
-            expsubsidys = [expshare * max(diff(caps), 0), 0] ./ caps;
+            Market.wages   = A*(1-alp)*(Market.rhos.^alp);
+            Market.expsubs = [expshare * max(diff(Market.caps), 0), 0] ./ Market.caps;
             
             
             % Generate dynamic aggregates
-            [Dynamic, LABs, DISTs] = generate_aggregates(...
-                beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubsidys, ...
-                DISTs_steady, {}, {});
+            [Dynamic, LABs, DISTs] = generate_aggregates(Market, DISTs_steady, {}, {});
             
             
             % Calculate additional dynamic aggregates
@@ -613,28 +584,28 @@ methods (Static, Access = private)
                 case 'steady'
                     
                     % Calculate debt
-                    Dynamic.debts = debts;
+                    Dynamic.debts = Market.debts;
                     
                     % Calculate capital and output
                     Dynamic.caps = (Dynamic.assets - Dynamic.debts)/qtobin;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
                     
-                    % Calculate convergence value
+                    % Calculate market clearing series
                     Dynamic.rhos = (max(Dynamic.assets - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
-                    delta = rhos - Dynamic.rhos;
+                    clearing = Market.rhos - Dynamic.rhos;
                     
                 case 'open'
                     
                     % Calculate capital and output
-                    Dynamic.caps = rhos .* Dynamic.labeffs;
+                    Dynamic.caps = Market.rhos .* Dynamic.labeffs;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
                     
-                    Dynamic.caps_domestic = capshares .* [asset0, Dynamic.assets(1:end-1)];
+                    Dynamic.caps_domestic = Market.capshares .* [Market0.assets, Dynamic.assets(1:end-1)];
                     Dynamic.caps_foreign  = qtobin*Dynamic.caps - Dynamic.caps_domestic;
                     
                     % Calculate debt
                     Dynamic.cits_domestic = Dynamic.cits;
-                    Dynamic.cits_foreign  = taucap.*(caprates - 1).*captaxshare.*Dynamic.caps_foreign;
+                    Dynamic.cits_foreign  = taucap.*(Market.caprates - 1).*captaxshare.*Dynamic.caps_foreign;
                     Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
                     
                     if isbase
@@ -643,26 +614,26 @@ methods (Static, Access = private)
                     end
                     
                     Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
-                    Dynamic.debts = [debt0, zeros(1,T_model-1)];
+                    Dynamic.debts = [Market0.debts, zeros(1,T_model-1)];
                     for t = 1:T_model-1
                         Dynamic.debts(t+1) = Gtilde(t) - Ttilde(t) - Dynamic.revs(t) + Dynamic.debts(t)*cborates(t);
                     end
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
                     
-                    Dynamic.debts_domestic = (1 - capshares) .* Dynamic.assets;
+                    Dynamic.debts_domestic = (1 - Market.capshares) .* Dynamic.assets;
                     Dynamic.debts_foreign  = Dynamic.debts - Dynamic.debts_domestic;
                     
                     % Calculate income
-                    Dynamic.labincs = Dynamic.labeffs .* wages;
-                    Dynamic.capincs   = qtobin * (caprates - 1) .* Dynamic.caps;
+                    Dynamic.labincs = Dynamic.labeffs .* Market.wages;
+                    Dynamic.capincs = qtobin * (Market.caprates - 1) .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
-                    % Calculate convergence value
-                    Dynamic.rhos = rhos;
-                    delta = beqs - Dynamic.beqs;
+                    % Calculate market clearing series
+                    Dynamic.rhos = Market.rhos;
+                    clearing = Market.beqs - Dynamic.beqs;
                     
                 case 'closed'
                     
@@ -672,7 +643,7 @@ methods (Static, Access = private)
                     Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
                     
                     Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
-                    Dynamic.debts = [debt0, zeros(1,T_model-1)];
+                    Dynamic.debts = [Market0.debts, zeros(1,T_model-1)];
                     for t = 1:T_model-1
                         Dynamic.debts(t+1) = Gtilde(t) - Ttilde(t) - Dynamic.revs(t) + Dynamic.debts(t)*cborates(t);
                     end
@@ -683,28 +654,28 @@ methods (Static, Access = private)
                     Dynamic.debts_foreign  = zeros(1,T_model);
                     
                     % Calculate capital and output
-                    Dynamic.caps = ([(asset0 - debt0)/qtobin0, (Dynamic.assets(1:end-1) - Dynamic.debts(2:end))/qtobin]);
+                    Dynamic.caps = ([(Market0.assets - Market0.debts)/qtobin0, (Dynamic.assets(1:end-1) - Dynamic.debts(2:end))/qtobin]);
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
                     
                     Dynamic.caps_domestic = [qtobin0 * Dynamic.caps(1), qtobin * Dynamic.caps(2:end)];
                     Dynamic.caps_foreign  = zeros(1,T_model);
                     
                     % Calculate income
-                    Dynamic.labincs = Dynamic.labeffs .* wages;
-                    Dynamic.capincs = qtobin * (caprates - 1) .* Dynamic.caps;
+                    Dynamic.labincs = Dynamic.labeffs .* Market.wages;
+                    Dynamic.capincs = qtobin * (Market.caprates - 1) .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
-                    % Calculate convergence value
-                    Dynamic.rhos = (max([asset0, Dynamic.assets(1:end-1)] - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
-                    delta = rhos - Dynamic.rhos;
+                    % Calculate market clearing series
+                    Dynamic.rhos = (max([Market0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
+                    clearing = Market.rhos - Dynamic.rhos;
                     
             end
             
             
-            % Calculate convergence error
-            eps = max(abs(delta));
+            % Check market clearing series
+            eps = max(abs(clearing));
             
             fprintf('Error term = %7.4f\n', eps)
             fprintf(iterlog, '%u,%0.4f\n', iter, eps);
@@ -724,9 +695,8 @@ methods (Static, Access = private)
             save(fullfile(save_dir, 'distributions.mat'), 'DISTs')
         end
         
-        % Save solution
-        save(fullfile(save_dir, 'solution.mat'), ...
-            'rhos', 'beqs', 'assets', 'debts', 'caps', 'wages', 'capshares', 'debtshares', 'caprates', 'govrates', 'totrates', 'expsubsidys')
+        % Save final market conditions
+        save(fullfile(save_dir, 'market.mat'), '-struct', 'Market')
         
         % Save dynamic aggregates
         switch economy
@@ -754,10 +724,10 @@ methods (Static, Access = private)
                     LAB  = LABs {1,idem};
                     DIST = DISTs{1,idem};
                     
-                    working_ind = (LAB > 0.01);
+                    workingind = (LAB > 0.01);
                     
-                    workmass = workmass + sum(DIST(working_ind));
-                    frisch   = frisch + sum(DIST(working_ind).*(1-LAB(working_ind))./LAB(working_ind))*(1-gamma*(1-sigma))/sigma;
+                    workmass = workmass + sum(DIST(workingind));
+                    frisch   = frisch + sum(DIST(workingind).*(1-LAB(workingind))./LAB(workingind))*(1-gamma*(1-sigma))/sigma;
                     
                 end
                 
@@ -765,17 +735,16 @@ methods (Static, Access = private)
                 
                 
                 % Calculate savings elasticity
-                deviation = 0.005;
+                dev = 0.005;
+                Market_dev = Market;
                 
-                caprates_dev = caprates * (1 + deviation);
-                govrates_dev = govrates * (1 + deviation);
-                totrates_dev = totrates * (1 + deviation);
+                Market_dev.caprates = Market.caprates * (1 + dev);
+                Market_dev.govrates = Market.govrates * (1 + dev);
+                Market_dev.totrates = Market.totrates * (1 + dev);
                 
-                [Dynamic_dev] = generate_aggregates(...
-                    beqs, wages, capshares, debtshares, caprates_dev, govrates_dev, totrates_dev, expsubsidys, ...
-                    DISTs_steady, {}, {});
+                [Dynamic_dev] = generate_aggregates(Market_dev, DISTs_steady, {}, {});
                 
-                savelas = ((Dynamic_dev.assets - Dynamic.assets)/Dynamic.assets) / ((totrates_dev - totrates)/(totrates-1));
+                savelas = ((Dynamic_dev.assets - Dynamic.assets)/Dynamic.assets) / ((Market_dev.totrates - Market.totrates)/(Market.totrates-1));
                 
                 
                 % Save and display elasticities
