@@ -117,7 +117,7 @@ methods (Static)
             taxes.hh.dividend      = .15;
             taxes.hh.inc_prog      = .181;
             taxes.hh.inc_scale     = 1.02; 
-            taxes.hh.div_inc_share = 0;  
+            taxes.hh.div_inc_share = 0;
 
         else
             % Define firm tax rates
