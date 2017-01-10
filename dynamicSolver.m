@@ -228,12 +228,6 @@ methods (Static, Access = private)
         
         function [Aggregate, LABs, DISTs] = generate_aggregates(Market, DISTs_steady, LABs_static, DISTs_static) 
             
-            % Initialize aggregates
-            series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'incs', 'pits', 'ssts', 'cits', 'bens'};
-            for i = 1:length(series) %#ok<FXUP>
-                Aggregate.(series{i}) = zeros(1,T_model);
-            end
-            
             % Initialize data storage arrays
             LABs    = cell(nstartyears, ndem);
             DISTs   = cell(nstartyears, ndem);
@@ -258,8 +252,12 @@ methods (Static, Access = private)
                     
             end
             
+            % Initialize aggregates
+            series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'incs', 'pits', 'ssts', 'cits', 'bens'};
+            for o = series, Aggregate.(o{1}) = zeros(1,T_model_dist); end
             
-            for idem = 1:ndem %#ok<FXUP>
+            
+            for idem = 1:ndem
                 
                 % Extract demographic adjustments
                 mu2_idem = mu2(idem,:);
@@ -280,7 +278,7 @@ methods (Static, Access = private)
                         
                 end
                 
-                parfor i = 1:nstartyears %#ok<FXUP>
+                parfor i = 1:nstartyears
                     
                     % Extract static optimal decision values and distributions if available
                     LAB_static  = LABs_static {i,idem};
@@ -300,38 +298,22 @@ methods (Static, Access = private)
                     
                 end
                 
-                % Add cohort aggregates to total aggregates
-                for i = 1:nstartyears %#ok<FXUP>
+                for i = 1:nstartyears
                     
-                    switch economy
-                        
-                        case 'steady'
-                            
-                            Aggregate.assets  = Aggregate.assets  + sum(Cohorts{i,idem}.asset );
-                            Aggregate.beqs    = Aggregate.beqs    + sum(Cohorts{i,idem}.beq   );
-                            Aggregate.labeffs = Aggregate.labeffs + sum(Cohorts{i,idem}.labeff);
-                            
-                        case {'open', 'closed'}
-                            
-                            % Align aggregates to model years
-                            T_shift = max(0, startyears(i));
-                            T_dist  = size(DISTs{i,idem}, 4);
-                            
-                            Aggregate.assets (T_shift+(1:T_dist)) = Aggregate.assets (T_shift+(1:T_dist)) + Cohorts{i,idem}.asset ;
-                            Aggregate.beqs   (T_shift+(1:T_dist)) = Aggregate.beqs   (T_shift+(1:T_dist)) + Cohorts{i,idem}.beq   ;
-                            Aggregate.labeffs(T_shift+(1:T_dist)) = Aggregate.labeffs(T_shift+(1:T_dist)) + Cohorts{i,idem}.labeff;
-                            Aggregate.labs   (T_shift+(1:T_dist)) = Aggregate.labs   (T_shift+(1:T_dist)) + Cohorts{i,idem}.lab   ;
-                            Aggregate.lfprs  (T_shift+(1:T_dist)) = Aggregate.lfprs  (T_shift+(1:T_dist)) + Cohorts{i,idem}.lfpr  ;
-                            Aggregate.incs   (T_shift+(1:T_dist)) = Aggregate.incs   (T_shift+(1:T_dist)) + Cohorts{i,idem}.inc   ;
-                            Aggregate.pits   (T_shift+(1:T_dist)) = Aggregate.pits   (T_shift+(1:T_dist)) + Cohorts{i,idem}.pit   ;
-                            Aggregate.ssts   (T_shift+(1:T_dist)) = Aggregate.ssts   (T_shift+(1:T_dist)) + Cohorts{i,idem}.sst   ;
-                            Aggregate.cits   (T_shift+(1:T_dist)) = Aggregate.cits   (T_shift+(1:T_dist)) + Cohorts{i,idem}.cit   ;
-                            Aggregate.bens   (T_shift+(1:T_dist)) = Aggregate.bens   (T_shift+(1:T_dist)) + Cohorts{i,idem}.ben   ;
-                            
-                    end
+                    % Align cohort aggregates to model years
+                    T_shift = max(startyears(i), 0);
+                    T_dist  = size(DISTs{i,idem}, 4);
+                    
+                    % Add cohort aggregates to total aggregates
+                    for o = series, Aggregate.(o{1})(T_shift+(1:T_dist)) = Aggregate.(o{1})(T_shift+(1:T_dist)) + Cohorts{i,idem}.(o{1}); end
                     
                 end
                 
+            end
+            
+            % Condense steady state aggregates to single time period
+            switch economy
+                case 'steady', for o = series, Aggregate.(o{1}) = sum(Aggregate.(o{1})); end
             end
             
         end
@@ -365,26 +347,17 @@ methods (Static, Access = private)
             % (Intermediary structure used to filter out extraneous fields)
             [Static_] = generate_aggregates(Market, {}, LABs_static, DISTs_static);
             
-            Static.incs = Static_.incs;
-            Static.pits = Static_.pits;
-            Static.ssts = Static_.ssts;
-            Static.cits = Static_.cits;
-            Static.bens = Static_.bens;
+            for oo = {'incs', 'pits', 'ssts', 'cits', 'bens'}
+                Static.(oo{1}) = Static_.(oo{1});
+            end
             
             
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
             
-            Static.labeffs        = Dynamic_base.labeffs       ;
-            Static.caps           = Dynamic_base.caps          ;
-            Static.lfprs          = Dynamic_base.lfprs         ;
-            Static.labincs        = Dynamic_base.labincs       ;
-            Static.capincs        = Dynamic_base.capincs       ;
-            Static.outs           = Dynamic_base.outs          ;
-            Static.caps_domestic  = Dynamic_base.caps_domestic ;
-            Static.caps_foreign   = Dynamic_base.caps_foreign  ;
-            Static.debts_domestic = Dynamic_base.debts_domestic;
-            Static.debts_foreign  = Dynamic_base.debts_foreign ;
+            for oo = {'labeffs', 'caps', 'lfprs', 'labincs', 'capincs', 'outs', 'caps_domestic', 'caps_foreign', 'debts_domestic', 'debts_foreign'}
+                Static.(oo{1}) = Dynamic_base.(oo{1});
+            end
             
             clear('Dynamic_base')
             
@@ -718,10 +691,10 @@ methods (Static, Access = private)
                 workmass = 0;
                 frisch   = 0;
                 
-                for idem = 1:ndem %#ok<FXUP>
+                for jdem = 1:ndem
                     
-                    LAB  = LABs {1,idem};
-                    DIST = DISTs{1,idem};
+                    LAB  = LABs {1,jdem};
+                    DIST = DISTs{1,jdem};
                     
                     workingind = (LAB > 0.01);
                     
@@ -752,8 +725,8 @@ methods (Static, Access = private)
                 elasticities = { 'Capital to output ratio' , capout  ;
                                  'Labor elasticity'        , labelas ;
                                  'Savings elasticity'      , savelas };
-                for i = 1:size(elasticities, 1) %#ok<FXUP>
-                    fprintf('\t%-25s= % 7.4f\n', elasticities{i, :})
+                for j = 1:size(elasticities, 1)
+                    fprintf('\t%-25s= % 7.4f\n', elasticities{j,:})
                 end
                 fprintf('\n')
                 
