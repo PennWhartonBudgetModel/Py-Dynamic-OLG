@@ -307,8 +307,8 @@ methods (Static, Access = private)
                         
                         case 'steady'
                             
-                            Aggregate.assets  = Aggregate.assets  + sum(Cohorts{i,idem}.kalive + Cohorts{i,idem}.kdead);
-                            Aggregate.beqs    = Aggregate.beqs    + sum(Cohorts{i,idem}.kdead );
+                            Aggregate.assets  = Aggregate.assets  + sum(Cohorts{i,idem}.asset );
+                            Aggregate.beqs    = Aggregate.beqs    + sum(Cohorts{i,idem}.beq   );
                             Aggregate.labeffs = Aggregate.labeffs + sum(Cohorts{i,idem}.labeff);
                             
                         case {'open', 'closed'}
@@ -317,8 +317,8 @@ methods (Static, Access = private)
                             T_shift = max(0, startyears(i));
                             T_dist  = size(DISTs{i,idem}, 4);
                             
-                            Aggregate.assets (T_shift+(1:T_dist)) = Aggregate.assets (T_shift+(1:T_dist)) + Cohorts{i,idem}.kalive + Cohorts{i,idem}.kdead;
-                            Aggregate.beqs   (T_shift+(1:T_dist)) = Aggregate.beqs   (T_shift+(1:T_dist)) + Cohorts{i,idem}.kdead ;
+                            Aggregate.assets (T_shift+(1:T_dist)) = Aggregate.assets (T_shift+(1:T_dist)) + Cohorts{i,idem}.asset ;
+                            Aggregate.beqs   (T_shift+(1:T_dist)) = Aggregate.beqs   (T_shift+(1:T_dist)) + Cohorts{i,idem}.beq   ;
                             Aggregate.labeffs(T_shift+(1:T_dist)) = Aggregate.labeffs(T_shift+(1:T_dist)) + Cohorts{i,idem}.labeff;
                             Aggregate.labs   (T_shift+(1:T_dist)) = Aggregate.labs   (T_shift+(1:T_dist)) + Cohorts{i,idem}.lab   ;
                             Aggregate.lfprs  (T_shift+(1:T_dist)) = Aggregate.lfprs  (T_shift+(1:T_dist)) + Cohorts{i,idem}.lfpr  ;
@@ -700,8 +700,7 @@ methods (Static, Access = private)
         
         % Save dynamic aggregates
         switch economy
-            case {'open', 'closed'}
-                save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic')
+            case {'open', 'closed'}, save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic')
         end
         
         
@@ -750,11 +749,11 @@ methods (Static, Access = private)
                 % Save and display elasticities
                 save(fullfile(save_dir, 'elasticities.mat'), 'capout', 'labelas', 'savelas')
                 
-                elasticities = { capout , 'Capital to output ratio' ;
-                                 labelas, 'Labor elasticity'        ;
-                                 savelas, 'Savings elasticity'      };
+                elasticities = { 'Capital to output ratio' , capout  ;
+                                 'Labor elasticity'        , labelas ;
+                                 'Savings elasticity'      , savelas };
                 for i = 1:size(elasticities, 1) %#ok<FXUP>
-                    fprintf('\t%-25s= % 7.4f\n', elasticities{i, 2}, elasticities{i, 1})
+                    fprintf('\t%-25s= % 7.4f\n', elasticities{i, :})
                 end
                 fprintf('\n')
                 

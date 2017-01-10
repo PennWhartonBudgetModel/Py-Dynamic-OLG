@@ -285,8 +285,8 @@ end
 
 %% Aggregate generation
 
-Cohort.kalive = sum(reshape(K  (:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
-Cohort.kdead  = sum(reshape(K  (:,:,:,1:T_dist) .* DIST, [], T_dist), 1) .* mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist));
+Cohort.asset  = sum(reshape(K  (:,:,:,1:T_dist) .* DIST, [], T_dist), 1) .* (1 + (mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist))));
+Cohort.beq    = sum(reshape(K  (:,:,:,1:T_dist) .* DIST, [], T_dist), 1) .* (0 + (mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist))));
 Cohort.labeff = sum(reshape(LAB(:,:,:,1:T_dist) .* repmat(reshape(zs(:,T_past+(1:T_dist),idem), [nz,1,1,T_dist]), [1,nk,nb,1]) .* DIST, [], T_dist), 1);
 Cohort.lab    = sum(reshape(LAB(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
 Cohort.lfpr   = sum(reshape((LAB(:,:,:,1:T_dist) >= 0.01) .* DIST, [], T_dist), 1);
