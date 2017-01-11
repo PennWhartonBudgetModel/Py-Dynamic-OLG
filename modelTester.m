@@ -106,7 +106,12 @@ for i = 1:length(setnames)
             % Identify value deviation
             delta = outputset.(valuename)(:) - targetset.(valuename)(:);
             if any(delta)
-                flag(sprintf('%06.2f%% deviation', abs(nanmean(delta*2 ./ (outputset.(valuename)(:) + targetset.(valuename)(:)))*100)));
+                pdev = abs(nanmean(delta*2 ./ (outputset.(valuename)(:) + targetset.(valuename)(:))))*100;
+                if pdev < 0.01
+                    flag(sprintf('Numerical deviation'));
+                else
+                    flag(sprintf('%06.2f%% deviation', pdev));
+                end
             end
             
         end
