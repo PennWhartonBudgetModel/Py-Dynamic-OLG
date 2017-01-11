@@ -196,14 +196,14 @@ methods (Static, Access = private)
         
         debtout     = s.FederalDebtHeldbythePublic(1)/100;
         fedgovtnis  = s.fedgovtnis(1:T_model);
-        cborates    = 1 + s.r_cbo(1:T_model);
-        cbomeanrate = 1 + mean(s.r_cbo);
+        cborates    = s.r_cbo(1:T_model);
+        cbomeanrate = mean(s.r_cbo);
         
         
         % Load income tax parameters
         s = load(fullfile(param_dir, sprintf('param_inctax_%s.mat', taxplan)));
         
-        deduc_coefs = [deducscale * s.avg_deduc, s.coefs(1:2)];
+        deduc_coefs = [deducscale*s.avg_deduc, s.coefs(1:2)];
         pit_coefs   = [s.limit, s.X];
         
         
@@ -215,11 +215,11 @@ methods (Static, Access = private)
         taucap      = s.tau_cap;
         taucapgain  = s.tau_capgain;
         
-        qtobin = 1 - taucap * expshare;
+        qtobin = 1 - taucap*expshare;
         
         s_base = load(fullfile(param_dir, 'param_bustax_base.mat'));
         taucap_base = s_base.tau_cap;
-        qtobin0 = 1 - taucap_base * s_base.exp_share;
+        qtobin0 = 1 - taucap_base*s_base.exp_share;
         
         
         
@@ -388,8 +388,8 @@ methods (Static, Access = private)
                     % Calculate government expenditure adjustments
                     Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
                     
-                    Gtilde = Dynamic_base.Gtilde - gcut * s.GEXP_percent(1:T_model) .* Dynamic_base.outs;
-                    Ttilde = revperc .* Dynamic_base.outs - Static.pits - Static.ssts - Static.cits;
+                    Gtilde = Dynamic_base.Gtilde - gcut*s.GEXP_percent(1:T_model).*Dynamic_base.outs;
+                    Ttilde = revperc.*Dynamic_base.outs - Static.pits - Static.ssts - Static.cits;
                     
                 end
                 
@@ -470,7 +470,7 @@ methods (Static, Access = private)
                     
                     Market.capshares  = (Market.assets - Market.debts) ./ Market.assets;
                     Market.debtshares = 1 - Market.capshares;
-                    Market.caprates   = 1 + (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
+                    Market.caprates   = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
                     switch economy
                         case 'steady', Market.govrates = cbomeanrate;
                         case 'closed', Market.govrates = cborates   ;
@@ -488,11 +488,11 @@ methods (Static, Access = private)
                         
                         Market.capshares  = Market0.capshares *ones(1,T_model);
                         Market.debtshares = Market0.debtshares*ones(1,T_model);
-                        Market.caprates   = (((1 - taucap_base)/(1 - taucap))*(Market0.caprates - 1) + 1)*ones(1,T_model);
+                        Market.caprates   = Market0.caprates  *ones(1,T_model)*(1-taucap_base)/(1-taucap);
                         Market.govrates   = Market0.govrates  *ones(1,T_model);
                         Market.totrates   = Market0.totrates  *ones(1,T_model);
                         
-                        Market.rhos   = ((qtobin*(Market.caprates - 1) + d)/alp).^(1/(alp-1));
+                        Market.rhos   = ((qtobin*Market.caprates + d)/alp).^(1/(alp-1));
                         Market.beqs   = Market0.beqs  *ones(1,T_model);
                         
                     else
@@ -538,7 +538,7 @@ methods (Static, Access = private)
                     
                     % Calculate debt
                     Dynamic.cits_domestic = Dynamic.cits;
-                    Dynamic.cits_foreign  = taucap.*(Market.caprates - 1).*captaxshare.*Dynamic.caps_foreign;
+                    Dynamic.cits_foreign  = taucap * Market.caprates * captaxshare .* Dynamic.caps_foreign;
                     Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
                     
                     if isbase
@@ -549,7 +549,7 @@ methods (Static, Access = private)
                     Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
                     Dynamic.debts = [Market0.debts, zeros(1,T_model-1)];
                     for t = 1:T_model-1
-                        Dynamic.debts(t+1) = Gtilde(t) - Ttilde(t) - Dynamic.revs(t) + Dynamic.debts(t)*cborates(t);
+                        Dynamic.debts(t+1) = Gtilde(t) - Ttilde(t) - Dynamic.revs(t) + Dynamic.debts(t)*(1 + cborates(t));
                     end
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
@@ -559,7 +559,7 @@ methods (Static, Access = private)
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = qtobin * (Market.caprates - 1) .* Dynamic.caps;
+                    Dynamic.capincs = qtobin * Market.caprates .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
@@ -578,7 +578,7 @@ methods (Static, Access = private)
                     Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
                     Dynamic.debts = [Market0.debts, zeros(1,T_model-1)];
                     for t = 1:T_model-1
-                        Dynamic.debts(t+1) = Gtilde(t) - Ttilde(t) - Dynamic.revs(t) + Dynamic.debts(t)*cborates(t);
+                        Dynamic.debts(t+1) = Gtilde(t) - Ttilde(t) - Dynamic.revs(t) + Dynamic.debts(t)*(1 + cborates(t));
                     end
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
@@ -595,7 +595,7 @@ methods (Static, Access = private)
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = qtobin * (Market.caprates - 1) .* Dynamic.caps;
+                    Dynamic.capincs = qtobin * Market.caprates .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
@@ -656,10 +656,10 @@ methods (Static, Access = private)
                     LAB  = LABs {1,jdem};
                     DIST = DISTs{1,jdem};
                     
-                    workingind = (LAB > 0.01);
+                    workind = (LAB > 0.01);
                     
-                    workmass = workmass + sum(DIST(workingind));
-                    frisch   = frisch   + sum(DIST(workingind).*(1-LAB(workingind))./LAB(workingind))*(1-gamma*(1-sigma))/sigma;
+                    workmass = workmass + sum(DIST(workind));
+                    frisch   = frisch   + sum(DIST(workind).*(1-LAB(workind))./LAB(workind))*(1-gamma*(1-sigma))/sigma;
                     
                 end
                 
@@ -667,16 +667,16 @@ methods (Static, Access = private)
                 
                 
                 % Calculate savings elasticity
-                dev = 0.005;
+                ratedev = 0.01;
                 Market_dev = Market;
                 
-                Market_dev.caprates = Market.caprates * (1 + dev);
-                Market_dev.govrates = Market.govrates * (1 + dev);
-                Market_dev.totrates = Market.totrates * (1 + dev);
+                Market_dev.caprates = Market.caprates * (1 + ratedev);
+                Market_dev.govrates = Market.govrates * (1 + ratedev);
+                Market_dev.totrates = Market.totrates * (1 + ratedev);
                 
-                [Dynamic_dev] = generate_aggregates(Market_dev, DISTs_steady, {}, {});
+                [Dynamic_dev] = generate_aggregates(Market_dev, {}, {}, {});
                 
-                savelas = ((Dynamic_dev.assets - Dynamic.assets)/Dynamic.assets) / ((Market_dev.totrates - Market.totrates)/(Market.totrates-1));
+                savelas = (Dynamic_dev.assets - Dynamic.assets) / (Dynamic.assets * ratedev);
                 
                 
                 % Save and display elasticities

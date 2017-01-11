@@ -333,7 +333,7 @@ if (nargin > 1)
 end
 
 % Calculate taxable income
-inc     = (rpci/mpci)*max(0, capshare*(caprate-1)*ks_ik*(1-captaxshare) + debtshare*(govrate-1)*ks_ik + (1-sstaxcredit)*labinc);
+inc     = (rpci/mpci)*max(0, capshare*caprate*ks_ik*(1-captaxshare) + debtshare*govrate*ks_ik + (1-sstaxcredit)*labinc);
 deduc   = max(0, deduc_coefs*inc.^[0; 1; 0.5]);
 inc_eff = max(inc - deduc, 0);
 inc     = (mpci/rpci)*inc;
@@ -342,13 +342,13 @@ inc     = (mpci/rpci)*inc;
 pit = (mpci/rpci)*pit_coefs(1)*(inc_eff - (inc_eff.^(-pit_coefs(2)) + (pit_coefs(3))).^(-1/pit_coefs(2)));
 
 % Calculate Social Security tax
-sst = sstax*min(labinc, ssincmax);
+sst = sstax * min(labinc, ssincmax);
 
 % Calculate capital income tax
-cit = capshare*ks_ik*(taucap*((caprate-1) - expsub)*captaxshare + taucapgain*(year == 1)*(qtobin - qtobin0)/qtobin0);
+cit = capshare*ks_ik*(taucap*(caprate - expsub)*captaxshare + taucapgain*(year == 1)*(qtobin - qtobin0)/qtobin0);
 
 % Calculate available resources
-resources = totrate*ks_ik + labinc - (pit + sst + cit) + beq + (year == 1)*ks_ik*capshare*(qtobin - qtobin0)/qtobin0;
+resources = (1 + totrate)*ks_ik + labinc - (pit + sst + cit) + beq + (year == 1)*ks_ik*capshare*(qtobin - qtobin0)/qtobin0;
 
 end
 
