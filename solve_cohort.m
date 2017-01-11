@@ -61,9 +61,9 @@ assert( isa(govrates,       'double') && (size(govrates,        1) == 1         
 assert( isa(totrates,       'double') && (size(totrates,        1) == 1         ) && (size(totrates,        2) <= T_model_max   ) );
 assert( isa(expsubs,        'double') && (size(expsubs,         1) == 1         ) && (size(expsubs,         2) <= T_model_max   ) );
 
-assert( isa(DIST0,          'double') && (size(DIST0,           1) <= nz_max    ) && (size(DIST0,           2) <= nk_max        ) && (size(DIST0,       3) <= nb_max    ) && (size(DIST0,       4) <= T_life_max    ) );
-assert( isa(LAB_static,     'double') && (size(LAB_static,      1) <= nz_max    ) && (size(LAB_static,      2) <= nk_max        ) && (size(LAB_static,  3) <= nb_max    ) && (size(LAB_static,  4) <= T_life_max    ) );
-assert( isa(DIST_static,    'double') && (size(DIST_static,     1) <= nz_max    ) && (size(DIST_static,     2) <= nk_max        ) && (size(DIST_static, 3) <= nb_max    ) && (size(DIST_static, 4) <= T_model_max   ) );
+assert( isa(DIST0,          'double') && (size(DIST0,           1) <= nz_max    ) && (size(DIST0,           2) <= nk_max        ) && (size(DIST0,       3) <= nb_max) && (size(DIST0,       4) <= T_life_max ) );
+assert( isa(LAB_static,     'double') && (size(LAB_static,      1) <= nz_max    ) && (size(LAB_static,      2) <= nk_max        ) && (size(LAB_static,  3) <= nb_max) && (size(LAB_static,  4) <= T_life_max ) );
+assert( isa(DIST_static,    'double') && (size(DIST_static,     1) <= nz_max    ) && (size(DIST_static,     2) <= nk_max        ) && (size(DIST_static, 3) <= nb_max) && (size(DIST_static, 4) <= T_model_max) );
 
 
 
@@ -311,86 +311,25 @@ function [resources, inc, pit, sst, cit] = calculate_resources(...
 coder.inline('always');
 
 % Define parameters as persistent variables
-persistent initialized
+persistent ks_ik year ...
+           mpci rpci sstaxcredit sstax ssincmax deduc_coefs pit_coefs captaxshare taucap taucapgain qtobin qtobin0 ...
+           beq capshare debtshare caprate govrate totrate expsub ...
+           initialized
 
-persistent ks_ik
-persistent year
-persistent mpci
-persistent rpci
-persistent sstaxcredit
-persistent sstax
-persistent ssincmax
-persistent deduc_coefs
-persistent pit_coefs
-persistent captaxshare
-persistent taucap
-persistent taucapgain
-persistent qtobin
-persistent qtobin0
-persistent beq
-persistent capshare
-persistent debtshare
-persistent caprate
-persistent govrate
-persistent totrate
-persistent expsub
-
-% Initialize parameters
+% Initialize parameters for C code generation
 if isempty(initialized)
-    
-    ks_ik           = 0;
-    year            = 0;
-    mpci            = 0;
-    rpci            = 0;
-    sstaxcredit     = 0;
-    sstax           = 0;
-    ssincmax        = 0;
-    deduc_coefs     = 0;
-    pit_coefs       = 0;
-    captaxshare     = 0;
-    taucap          = 0;
-    taucapgain      = 0;
-    qtobin          = 0;
-    qtobin0         = 0;
-    beq             = 0;
-    capshare        = 0;
-    debtshare       = 0;
-    caprate         = 0;
-    govrate         = 0;
-    totrate         = 0;
-    expsub          = 0;
-    
-    initialized     = true;
-    
+    ks_ik = 0; year = 0;
+    mpci = 0; rpci = 0; sstaxcredit = 0; sstax = 0; ssincmax = 0; deduc_coefs = 0; pit_coefs = 0; captaxshare = 0; taucap = 0; taucapgain = 0; qtobin = 0; qtobin0 = 0;
+    beq = 0; capshare = 0; debtshare = 0; caprate = 0; govrate = 0; totrate = 0; expsub = 0;
+    initialized = true;
 end
 
 % Set parameters if provided
 if (nargin > 1)
-    
-    ks_ik           = ks_ik_      ;
-    year            = year_       ;
-    mpci            = mpci_       ;
-    rpci            = rpci_       ;
-    sstaxcredit     = sstaxcredit_;
-    sstax           = sstax_      ;
-    ssincmax        = ssincmax_   ;
-    deduc_coefs     = deduc_coefs_;
-    pit_coefs       = pit_coefs_  ;
-    captaxshare     = captaxshare_;
-    taucap          = taucap_     ;
-    taucapgain      = taucapgain_ ;
-    qtobin          = qtobin_     ;
-    qtobin0         = qtobin0_    ;
-    beq             = beq_        ;
-    capshare        = capshare_   ;
-    debtshare       = debtshare_  ;
-    caprate         = caprate_    ;
-    govrate         = govrate_    ;
-    totrate         = totrate_    ;
-    expsub          = expsub_     ;
-    
+    ks_ik = ks_ik_; year = year_;
+    mpci = mpci_; rpci = rpci_; sstaxcredit = sstaxcredit_; sstax = sstax_; ssincmax = ssincmax_; deduc_coefs = deduc_coefs_; pit_coefs = pit_coefs_; captaxshare = captaxshare_; taucap = taucap_; taucapgain = taucapgain_; qtobin = qtobin_; qtobin0 = qtobin0_;
+    beq = beq_; capshare = capshare_; debtshare = debtshare_; caprate = caprate_; govrate = govrate_; totrate = totrate_; expsub = expsub_;
     if isempty(labinc), return, end
-    
 end
 
 % Calculate taxable income
@@ -399,13 +338,13 @@ deduc   = max(0, deduc_coefs*inc.^[0; 1; 0.5]);
 inc_eff = max(inc - deduc, 0);
 inc     = (mpci/rpci)*inc;
 
-% Calculate personal income tax (PIT)
+% Calculate personal income tax
 pit = (mpci/rpci)*pit_coefs(1)*(inc_eff - (inc_eff.^(-pit_coefs(2)) + (pit_coefs(3))).^(-1/pit_coefs(2)));
 
 % Calculate Social Security tax
 sst = sstax*min(labinc, ssincmax);
 
-% Calculate capital income tax (CIT)
+% Calculate capital income tax
 cit = capshare*ks_ik*(taucap*((caprate-1) - expsub)*captaxshare + taucapgain*(year == 1)*(qtobin - qtobin0)/qtobin0);
 
 % Calculate available resources
@@ -423,38 +362,19 @@ function v = value_retirement(k, ks_, resources_, EV_ib_, sigma_, gamma_)
 coder.inline('always');
 
 % Define parameters as persistent variables
-persistent initialized
+persistent ks resources EV_ib sigma gamma ...
+           initialized
 
-persistent ks
-persistent resources
-persistent EV_ib
-persistent sigma
-persistent gamma
-
-% Initialize parameters
+% Initialize parameters for C code generation
 if isempty(initialized)
-    
-    ks          = 0;
-    resources   = 0;
-    EV_ib       = 0;
-    sigma       = 0;
-    gamma       = 0;
-    
+    ks = 0; resources = 0; EV_ib = 0; sigma = 0; gamma = 0;
     initialized = true;
-    
 end
 
 % Set parameters if provided
 if (nargin > 1)
-    
-    ks          = ks_       ;
-    resources   = resources_;
-    EV_ib       = EV_ib_    ;
-    sigma       = sigma_    ;
-    gamma       = gamma_    ;
-    
-    return
-    
+    ks = ks_; resources = resources_; EV_ib = EV_ib_; sigma = sigma_; gamma = gamma_;
+    if isempty(k), return, end
 end
 
 % Calculate consumption
@@ -486,41 +406,19 @@ function v = value_working(x, ks_, bs_, wage_eff_, EV_, sigma_, gamma_)
 coder.inline('always');
 
 % Define parameters as persistent variables
-persistent initialized
+persistent ks bs wage_eff EV sigma gamma ...
+           initialized
 
-persistent ks
-persistent bs
-persistent wage_eff
-persistent EV
-persistent sigma
-persistent gamma
-
-% Initialize parameters
+% Initialize parameters for C code generation
 if isempty(initialized)
-    
-    ks          = 0;
-    bs          = 0;
-    wage_eff    = 0;
-    EV          = 0;
-    sigma       = 0;
-    gamma       = 0;
-    
+    ks = 0; bs = 0; wage_eff = 0; EV = 0; sigma = 0; gamma = 0;
     initialized = true;
-    
 end
 
 % Set parameters if provided
 if (nargin > 1)
-    
-    ks          = ks_      ;
-    bs          = bs_      ;
-    wage_eff    = wage_eff_;
-    EV          = EV_      ;
-    sigma       = sigma_   ;
-    gamma       = gamma_   ;
-    
-    return
-    
+    ks = ks_; bs = bs_; wage_eff = wage_eff_; EV = EV_; sigma = sigma_; gamma = gamma_;
+    if isempty(x), return, end
 end
 
 % Define decision variables and perform bound checks
@@ -565,32 +463,20 @@ end
 function [b] = calculate_b(labinc, age_, bs_ib_, ssincmax_)
 
 % Define parameters as persistent variables
-persistent initialized
+persistent age bs_ib ssincmax ...
+           initialized
+           
 
-persistent ssincmax
-persistent age
-persistent bs_ib
-
-% Initialize parameters
+% Initialize parameters for C code generation
 if isempty(initialized)
-    
-    ssincmax    = 0;
-    age         = 0;
-    bs_ib       = 0;
-    
+    age = 0; bs_ib = 0; ssincmax = 0;
     initialized = true;
-    
 end
 
 % Set parameters if provided
 if (nargin > 1)
-    
-    ssincmax    = ssincmax_;
-    age         = age_     ;
-    bs_ib       = bs_ib_   ;
-    
-    return
-    
+    age = age_; bs_ib = bs_ib_; ssincmax = ssincmax_;
+    if isempty(labinc), return, end
 end
 
 % Enforce function inlining for C code generation
