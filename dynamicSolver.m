@@ -142,11 +142,15 @@ methods (Static, Access = private)
         T_life  = s.T_life;
         switch economy
             case 'steady'
-                T_model    = 1;
-                startyears = 0;
+                T_model      = 1;
+                T_model_opt  = 1;
+                T_model_dist = s.T_life;
+                startyears   = 0;
             case {'open', 'closed'}
-                T_model    = s.T_model;
-                startyears = (-T_life+1):(T_model-1);
+                T_model      = s.T_model;
+                T_model_opt  = s.T_model;
+                T_model_dist = s.T_model;
+                startyears   = (-s.T_life+1):(s.T_model-1);
         end
         nstartyears = length(startyears);
         
@@ -216,11 +220,6 @@ methods (Static, Access = private)
         s_base = load(fullfile(param_dir, 'param_bustax_base.mat'));
         taucap_base = s_base.tau_cap;
         qtobin0 = 1 - taucap_base * s_base.exp_share;
-        clear('s_base')
-        
-        
-        % Clear parameter loading structure
-        clear('s')
         
         
         
@@ -239,29 +238,12 @@ methods (Static, Access = private)
                 DISTs_static = DISTs;
             end
             
-            % Define dynamic optimization and distribution generation model time periods
-            switch economy
-        
-                case 'steady'
-                    T_model_opt  = 1;
-                    T_model_dist = T_life;
-                    
-                case {'open', 'closed'}
-                    T_model_opt  = T_model;
-                    T_model_dist = T_model;
-                    
-            end
-            
             % Initialize aggregates
             series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'incs', 'pits', 'ssts', 'cits', 'bens'};
             for o = series, Aggregate.(o{1}) = zeros(1,T_model_dist); end
             
             
             for idem = 1:ndem
-                
-                % Extract demographic adjustments
-                mu2_idem = mu2(idem,:);
-                mu3_idem = mu3(idem,:);
                 
                 % Define initial distributions
                 switch economy
@@ -271,7 +253,7 @@ methods (Static, Access = private)
                         
                     case {'open', 'closed'}
                         if ~isempty(DISTs_steady)
-                            DIST0 = DISTs_steady{1,idem} ./ repmat(shiftdim(mu2_idem(1:size(DISTs_steady{1,idem}, 4)), -2), [nz,nk,nb,1]);
+                            DIST0 = DISTs_steady{1,idem} ./ repmat(shiftdim(mu2(idem, 1:size(DISTs_steady{1,idem}, 4)), -2), [nz,nk,nb,1]);
                         else
                             DIST0 = [];
                         end
@@ -280,21 +262,12 @@ methods (Static, Access = private)
                 
                 parfor i = 1:nstartyears
                     
-                    % Extract static optimal decision values and distributions if available
-                    LAB_static  = LABs_static {i,idem};
-                    DIST_static = DISTs_static{i,idem};
-                    
                     % Generate cohort optimal decision values, distributions, and aggregates
-                    [LAB, DIST, Cohort] = solve_cohort(...
-                        startyears(i), T_life, T_work, T_model_opt, T_model_dist, nz, nk, nb, idem, zs, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
+                    [LABs{i,idem}, DISTs{i,idem}, Cohorts{i,idem}] = solve_cohort(...
+                        startyears(i), T_life, T_work, T_model_opt, T_model_dist, nz, nk, nb, zs(:,:,idem), transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2(idem,:), mu3(idem,:), ...
                         mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                         Market.beqs, Market.wages, Market.capshares, Market.debtshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs, ...
-                        DIST0, LAB_static, DIST_static); %#ok<PFBNS>
-                    
-                    % Store values
-                    LABs   {i,idem} = LAB   ;
-                    DISTs  {i,idem} = DIST  ;
-                    Cohorts{i,idem} = Cohort;
+                        DIST0, LABs_static{i,idem}, DISTs_static{i,idem}); %#ok<PFBNS>
                     
                 end
                 
@@ -328,19 +301,14 @@ methods (Static, Access = private)
             base_generator = @() dynamicSolver.solve(economy, basedef, [], callingtag);
             base_dir = dirFinder.save(economy, basedef);
             
-            % Load baseline market conditions
+            % Load baseline market conditions, optimal decision values, and distributions
             Market = hardyload('market.mat'  , base_generator, base_dir);
             
-            % Load optimal decision values and distributions from baseline
             s = hardyload('decisions.mat'    , base_generator, base_dir);
             LABs_static  = s.LABs ;
             
             s = hardyload('distributions.mat', base_generator, base_dir);
             DISTs_static = s.DISTs;
-            
-            
-            % Clear parameter loading structure
-            clear('s')
             
             
             % Generate static aggregates
@@ -358,8 +326,6 @@ methods (Static, Access = private)
             for oo = {'labeffs', 'caps', 'lfprs', 'labincs', 'capincs', 'outs', 'caps_domestic', 'caps_foreign', 'debts_domestic', 'debts_foreign'}
                 Static.(oo{1}) = Dynamic_base.(oo{1});
             end
-            
-            clear('Dynamic_base')
             
             
             % Calculate additional static aggregates
@@ -425,11 +391,7 @@ methods (Static, Access = private)
                     Gtilde = Dynamic_base.Gtilde - gcut * s.GEXP_percent(1:T_model) .* Dynamic_base.outs;
                     Ttilde = revperc .* Dynamic_base.outs - Static.pits - Static.ssts - Static.cits;
                     
-                    clear('Dynamic_base')
-                    
                 end
-                
-                clear('s')
                 
             case 'closed'
                 
@@ -442,8 +404,6 @@ methods (Static, Access = private)
                 
                 Gtilde = Dynamic_open.Gtilde;
                 Ttilde = Dynamic_open.Ttilde;
-                
-                clear('Dynamic_open')
                 
         end
         
@@ -699,7 +659,7 @@ methods (Static, Access = private)
                     workingind = (LAB > 0.01);
                     
                     workmass = workmass + sum(DIST(workingind));
-                    frisch   = frisch + sum(DIST(workingind).*(1-LAB(workingind))./LAB(workingind))*(1-gamma*(1-sigma))/sigma;
+                    frisch   = frisch   + sum(DIST(workingind).*(1-LAB(workingind))./LAB(workingind))*(1-gamma*(1-sigma))/sigma;
                     
                 end
                 
