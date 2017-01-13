@@ -4,11 +4,11 @@
 %%
 
 
-function [LAB, DIST, Cohort] = solve_cohort(...
-             startyear, T_life, T_work, T_model_opt, T_model_dist, nz, nk, nb, zs_idem, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
+function [LAB, DIST, Cohort, V0s] = solve_cohort(...
+             startyear, T_cohort, T_work, T_model, nz, nk, nb, zs_idem, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
              mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
              beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubs, ...
-             DIST0, LAB_static, DIST_static) %#codegen
+             V0, DIST0, LAB_static, DIST_static) %#codegen
 
 
 % Define argument properties for C code generation
@@ -19,10 +19,9 @@ nk_max      =  50;
 nb_max      =  50;
 
 assert( isa(startyear,      'double') && (size(startyear,       1) == 1         ) && (size(startyear,       2) == 1             ) );
-assert( isa(T_life,         'double') && (size(T_life,          1) == 1         ) && (size(T_life,          2) == 1             ) );
+assert( isa(T_cohort,       'double') && (size(T_cohort,        1) == 1         ) && (size(T_cohort,        2) == 1             ) );
 assert( isa(T_work,         'double') && (size(T_work,          1) == 1         ) && (size(T_work,          2) == 1             ) );
-assert( isa(T_model_dist,   'double') && (size(T_model_dist,    1) == 1         ) && (size(T_model_dist,    2) == 1             ) );
-assert( isa(T_model_opt,    'double') && (size(T_model_opt,     1) == 1         ) && (size(T_model_opt,     2) == 1             ) );
+assert( isa(T_model,        'double') && (size(T_model,         1) == 1         ) && (size(T_model,         2) == 1             ) );
 assert( isa(nz,             'double') && (size(nz,              1) == 1         ) && (size(nz,              2) == 1             ) );
 assert( isa(nk,             'double') && (size(nk,              1) == 1         ) && (size(nk,              2) == 1             ) );
 assert( isa(nb,             'double') && (size(nb,              1) == 1         ) && (size(nb,              2) == 1             ) );
@@ -61,6 +60,7 @@ assert( isa(govrates,       'double') && (size(govrates,        1) == 1         
 assert( isa(totrates,       'double') && (size(totrates,        1) == 1         ) && (size(totrates,        2) <= T_model_max   ) );
 assert( isa(expsubs,        'double') && (size(expsubs,         1) == 1         ) && (size(expsubs,         2) <= T_model_max   ) );
 
+assert( isa(V0,             'double') && (size(V0,              1) <= nz_max    ) && (size(V0,              2) <= nk_max        ) && (size(V0,          3) <= nb_max) );
 assert( isa(DIST0,          'double') && (size(DIST0,           1) <= nz_max    ) && (size(DIST0,           2) <= nk_max        ) && (size(DIST0,       3) <= nb_max) && (size(DIST0,       4) <= T_life_max ) );
 assert( isa(LAB_static,     'double') && (size(LAB_static,      1) <= nz_max    ) && (size(LAB_static,      2) <= nk_max        ) && (size(LAB_static,  3) <= nb_max) && (size(LAB_static,  4) <= T_life_max ) );
 assert( isa(DIST_static,    'double') && (size(DIST_static,     1) <= nz_max    ) && (size(DIST_static,     2) <= nk_max        ) && (size(DIST_static, 3) <= nb_max) && (size(DIST_static, 4) <= T_model_max) );
@@ -70,41 +70,53 @@ assert( isa(DIST_static,    'double') && (size(DIST_static,     1) <= nz_max    
 %% Dynamic optimization
 
 % Define dynamic aggregate generation flag
-isdynamic = isempty(DIST_static);
+isdynamic = isempty(LAB_static) && isempty(DIST_static);
 
-% Find number of past years, effective living years, and effective working years
-T_past = max(-startyear,      0);
-S_life = max(T_life - T_past, 0);
-S_work = max(T_work - T_past, 0);
+
+
+
+
+T_past  = max(-startyear, 0);
+T_shift = max(+startyear, 0);
+
+
+
+
 
 % Initialize optimal decision value arrays
-V   = zeros(nz,nk,nb,S_life+1); % Utility
+V   = zeros(nz,nk,nb,T_cohort); % Utility
 
-K   = zeros(nz,nk,nb,S_life);   % Savings
-LAB = zeros(nz,nk,nb,S_life);   % Labor level
-B   = zeros(nz,nk,nb,S_life);   % Average earnings
+K   = zeros(nz,nk,nb,T_cohort);   % Savings
+LAB = zeros(nz,nk,nb,T_cohort);   % Labor level
+B   = zeros(nz,nk,nb,T_cohort);   % Average earnings
 
-INC = zeros(nz,nk,nb,S_life);   % Taxable income
-PIT = zeros(nz,nk,nb,S_life);   % Personal income tax
-SST = zeros(nz,nk,nb,S_life);   % Social Security tax
-CIT = zeros(nz,nk,nb,S_life);   % Corporate income tax
-BEN = zeros(nz,nk,nb,S_life);   % Social Security benefits
+INC = zeros(nz,nk,nb,T_cohort);   % Taxable income
+PIT = zeros(nz,nk,nb,T_cohort);   % Personal income tax
+SST = zeros(nz,nk,nb,T_cohort);   % Social Security tax
+CIT = zeros(nz,nk,nb,T_cohort);   % Corporate income tax
+BEN = zeros(nz,nk,nb,T_cohort);   % Social Security benefits
 
 % Specify settings for dynamic optimization subproblems
 optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
 
 
+
+
+V_step = V0;
+
+
+
 % Solve dynamic optimization problem through backward induction
-for t = S_life:-1:1
+for t = T_cohort:-1:1
     
-    % Determine age and year, bounded by projection period
+    % Determine age and year, bounded by parameter period
     age  = t + T_past;
-    year = max(1, min(age + startyear, T_model_opt));
+    year = min(t + T_shift, T_model);
     
     % Extract annual parameters
     ssbenefit  = ssbenefits(:, year);
-    ssincmax   = ssincmaxs    (year);
     sstax      = sstaxs       (year);
+    ssincmax   = ssincmaxs    (year);
     beq        = beqs         (year);
     wage       = wages        (year);
     caprate    = caprates     (year);
@@ -115,13 +127,11 @@ for t = S_life:-1:1
     expsub     = expsubs      (year);
     
     
+    
     for ib = 1:nb
         for ik = 1:nk
             
-            if (t > S_work)
-                
-                % Calculate expected value curve using values for next time step
-                EV = (1-surv(age))*repmat(V_beq, [1,nb]) + surv(age)*beta*reshape(V(1,:,:,t+1), [nk,nb]);
+            if (age > T_work)
                 
                 % Calculate available resources and tax terms
                 labinc = ssbenefit(ib);
@@ -131,6 +141,9 @@ for t = S_life:-1:1
                     beq, capshare, debtshare, caprate, govrate, totrate, expsub);
                 
                 if isdynamic
+                    
+                    % Calculate expected value curve using values for next time step
+                    EV = (1-surv(age))*repmat(V_beq, [1,nb]) + surv(age)*beta*reshape(V_step(1,:,:), [nk,nb]);
                     
                     % Call retirement age value function to set parameters
                     value_retirement([], ks, resources, EV(:,ib), sigma, gamma);
@@ -157,9 +170,6 @@ for t = S_life:-1:1
                 
                 for iz = 1:nz
                     
-                    % Calculate expected value curve using values for next time step
-                    EV = (1-surv(age))*repmat(V_beq, [1,nb]) + surv(age)*beta*reshape(sum(repmat(transz(iz,:)', [1,nk,nb]) .* V(:,:,:,t+1), 1), [nk,nb]);
-                    
                     % Calculate effective wage
                     wage_eff = wage * zs_idem(iz,age);
                     
@@ -170,7 +180,10 @@ for t = S_life:-1:1
                         beq, capshare, debtshare, caprate, govrate, totrate, expsub);
                     
                     if isdynamic
-
+                        
+                        % Calculate expected value curve using values for next time step
+                        EV = (1-surv(age))*repmat(V_beq, [1,nb]) + surv(age)*beta*reshape(sum(repmat(transz(iz,:)', [1,nk,nb]) .* V_step, 1), [nk,nb]);
+                        
                         % Call working age value function and average earnings calculation function to set parameters
                         value_working([], ks, bs, wage_eff, EV, sigma, gamma)
                         calculate_b  ([], age, bs(ib), ssincmax)
@@ -211,7 +224,14 @@ for t = S_life:-1:1
             
         end
     end
+    
+    V_step = V(:,:,:,t);
+    
 end
+
+
+
+V0s = cat(4, V, V0);
 
 
 
@@ -219,15 +239,12 @@ end
 
 if isdynamic
     
-    % Find number of distribution years
-    T_dist = min(startyear+T_life, T_model_dist) - max(startyear, 0);
-    
     % Initialize distributions
-    DIST = zeros(nz,nk,nb,T_dist);
+    DIST = zeros(nz,nk,nb,T_cohort);
     DIST(:,:,:,1) = DIST0(:,:,:,T_past+1);
     
     % Find distributions through forward propagation
-    for t = 1:T_dist-1
+    for t = 1:T_cohort-1
         
         % Extract optimal k and b values
         k_t = K(:,:,:,t);
@@ -271,12 +288,11 @@ if isdynamic
     end
     
     % Adjust distributions based on demographics
-    DIST = repmat(shiftdim(mu2_idem(T_past+(1:T_dist)), -2), [nz,nk,nb,1]) .* DIST;
+    DIST = repmat(shiftdim(mu2_idem(T_past+(1:T_cohort)), -2), [nz,nk,nb,1]) .* DIST;
     
 else
     
     DIST = DIST_static;
-    T_dist = size(DIST, 4);
     
 end
 
@@ -284,16 +300,16 @@ end
 
 %% Aggregate generation
 
-Cohort.assets  = sum(reshape(K  (:,:,:,1:T_dist) .* DIST, [], T_dist), 1) .* (1 + (mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist))));
-Cohort.beqs    = sum(reshape(K  (:,:,:,1:T_dist) .* DIST, [], T_dist), 1) .* (0 + (mu3_idem(T_past+(1:T_dist)) ./ mu2_idem(T_past+(1:T_dist))));
-Cohort.labeffs = sum(reshape(LAB(:,:,:,1:T_dist) .* repmat(reshape(zs_idem(:,T_past+(1:T_dist)), [nz,1,1,T_dist]), [1,nk,nb,1]) .* DIST, [], T_dist), 1);
-Cohort.labs    = sum(reshape(LAB(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
-Cohort.lfprs   = sum(reshape((LAB(:,:,:,1:T_dist) >= 0.01) .* DIST, [], T_dist), 1);
-Cohort.incs    = sum(reshape(INC(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
-Cohort.pits    = sum(reshape(PIT(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
-Cohort.ssts    = sum(reshape(SST(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
-Cohort.cits    = sum(reshape(CIT(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
-Cohort.bens    = sum(reshape(BEN(:,:,:,1:T_dist) .* DIST, [], T_dist), 1);
+Cohort.assets  = sum(reshape(K   .* DIST, [], T_cohort), 1) .* (1 + (mu3_idem(T_past+(1:T_cohort)) ./ mu2_idem(T_past+(1:T_cohort))));
+Cohort.beqs    = sum(reshape(K   .* DIST, [], T_cohort), 1) .* (0 + (mu3_idem(T_past+(1:T_cohort)) ./ mu2_idem(T_past+(1:T_cohort))));
+Cohort.labeffs = sum(reshape(LAB .* repmat(reshape(zs_idem(:,T_past+(1:T_cohort)), [nz,1,1,T_cohort]), [1,nk,nb,1]) .* DIST, [], T_cohort), 1);
+Cohort.labs    = sum(reshape(LAB .* DIST, [], T_cohort), 1);
+Cohort.lfprs   = sum(reshape((LAB >= 0.01) .* DIST, [], T_cohort), 1);
+Cohort.incs    = sum(reshape(INC .* DIST, [], T_cohort), 1);
+Cohort.pits    = sum(reshape(PIT .* DIST, [], T_cohort), 1);
+Cohort.ssts    = sum(reshape(SST .* DIST, [], T_cohort), 1);
+Cohort.cits    = sum(reshape(CIT .* DIST, [], T_cohort), 1);
+Cohort.bens    = sum(reshape(BEN .* DIST, [], T_cohort), 1);
 
 
 end
