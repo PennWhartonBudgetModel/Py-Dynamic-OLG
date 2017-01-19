@@ -5,13 +5,14 @@
 
 
 function [LAB, DIST, Cohort, V] = solve_cohort(...
-             T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs_cohort, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_cohort, mu3_cohort, ...
+             T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs_idem, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
              mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
              beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubs, ...
              V0, DIST0, LAB_static, DIST_static) %#codegen
 
 
-% Define argument properties for C code generation
+%% Argument verification
+
 T_max  = 100;
 nz_max =  50;
 nk_max =  50;
@@ -25,7 +26,7 @@ assert( isa(T_model,        'double') && (size(T_model,     1) == 1     ) && (si
 assert( isa(nz,             'double') && (size(nz,          1) == 1     ) && (size(nz,          2) == 1     ) );
 assert( isa(nk,             'double') && (size(nk,          1) == 1     ) && (size(nk,          2) == 1     ) );
 assert( isa(nb,             'double') && (size(nb,          1) == 1     ) && (size(nb,          2) == 1     ) );
-assert( isa(zs_cohort,      'double') && (size(zs_cohort,   1) <= nz_max) && (size(zs_cohort,   2) <= T_max ) );
+assert( isa(zs_idem,        'double') && (size(zs_idem,     1) <= nz_max) && (size(zs_idem,     2) <= T_max ) );
 assert( isa(transz,         'double') && (size(transz,      1) <= nz_max) && (size(transz,      2) <= nz_max) );
 assert( isa(ks,             'double') && (size(ks,          1) <= nk_max) && (size(ks,          2) == 1     ) );
 assert( isa(bs,             'double') && (size(bs,          1) <= nb_max) && (size(bs,          2) == 1     ) );
@@ -34,8 +35,8 @@ assert( isa(gamma,          'double') && (size(gamma,       1) == 1     ) && (si
 assert( isa(sigma,          'double') && (size(sigma,       1) == 1     ) && (size(sigma,       2) == 1     ) );
 assert( isa(surv,           'double') && (size(surv,        1) == 1     ) && (size(surv,        2) <= T_max ) );
 assert( isa(V_beq,          'double') && (size(V_beq,       1) <= nk_max) && (size(V_beq,       2) == 1     ) );
-assert( isa(mu2_cohort,     'double') && (size(mu2_cohort,  1) == 1     ) && (size(mu2_cohort,  2) <= T_max ) );
-assert( isa(mu3_cohort,     'double') && (size(mu3_cohort,  1) == 1     ) && (size(mu3_cohort,  2) <= T_max ) );
+assert( isa(mu2_idem,       'double') && (size(mu2_idem,    1) == 1     ) && (size(mu2_idem,    2) <= T_max ) );
+assert( isa(mu3_idem,       'double') && (size(mu3_idem,    1) == 1     ) && (size(mu3_idem,    2) <= T_max ) );
 
 assert( isa(mpci,           'double') && (size(mpci,        1) == 1     ) && (size(mpci,        2) == 1     ) );
 assert( isa(rpci,           'double') && (size(rpci,        1) == 1     ) && (size(rpci,        2) == 1     ) );
@@ -157,7 +158,7 @@ for t = T_active:-1:1
                 for iz = 1:nz
                     
                     % Calculate effective wage
-                    wage_eff = wage * zs_cohort(iz,t);
+                    wage_eff = wage * zs_idem(iz,age);
                     
                     % Call resource calculation function to set parameters
                     calculate_resources(...
@@ -219,6 +220,11 @@ end
 
 
 %% Distribution generation
+
+% Extract distribution scaling parameters
+mu2_cohort = mu2_idem(T_past+(1:T_active));
+mu3_cohort = mu3_idem(T_past+(1:T_active));
+
 
 if isdynamic
     
@@ -284,7 +290,7 @@ end
 
 Cohort.assets  = sum(reshape(K   .* DIST, [], T_active), 1) .* (1 + (mu3_cohort ./ mu2_cohort));
 Cohort.beqs    = sum(reshape(K   .* DIST, [], T_active), 1) .* (0 + (mu3_cohort ./ mu2_cohort));
-Cohort.labeffs = sum(reshape(LAB .* repmat(reshape(zs_cohort, [nz,1,1,T_active]), [1,nk,nb,1]) .* DIST, [], T_active), 1);
+Cohort.labeffs = sum(reshape(LAB .* repmat(reshape(zs_idem(:,T_past+(1:T_active)), [nz,1,1,T_active]), [1,nk,nb,1]) .* DIST, [], T_active), 1);
 Cohort.labs    = sum(reshape(LAB .* DIST, [], T_active), 1);
 Cohort.lfprs   = sum(reshape((LAB >= 0.01) .* DIST, [], T_active), 1);
 Cohort.incs    = sum(reshape(INC .* DIST, [], T_active), 1);

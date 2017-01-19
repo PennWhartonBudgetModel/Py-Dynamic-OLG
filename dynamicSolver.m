@@ -244,6 +244,14 @@ methods (Static, Access = private)
             
             for idem = 1:ndem
                 
+                % Package fixed dynamic optimization parameters into anonymous function
+                solve_cohort_ = @(T_past, T_shift, T_active, V0, DIST0, LAB_static, DIST_static) solve_cohort(...
+                    T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs(:,:,idem), transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2(idem,:), mu3(idem,:), ...
+                    mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                    Market.beqs, Market.wages, Market.capshares, Market.debtshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs, ...
+                    V0, DIST0, LAB_static, DIST_static);
+                
+                
                 % Define initial distributions
                 switch economy
                     
@@ -277,17 +285,8 @@ methods (Static, Access = private)
                     % Extract initial distribution
                     DIST0 = DIST0s(:,:,:,T_past+1);
                     
-                    % Extract population parameters
-                    zs_cohort  = zs (:   , T_past+(1:T_active), idem);
-                    mu2_cohort = mu2(idem, T_past+(1:T_active)      );
-                    mu3_cohort = mu3(idem, T_past+(1:T_active)      );
-                    
                     % Solve dynamic optimization
-                    [LABs{end,idem}, DISTs{end,idem}, Cohorts{end,idem}, V] = solve_cohort(...
-                        T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs_cohort, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_cohort, mu3_cohort, ...
-                        mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-                        Market.beqs, Market.wages, Market.capshares, Market.debtshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs, ...
-                        V0, DIST0, [], []);
+                    [LABs{end,idem}, DISTs{end,idem}, Cohorts{end,idem}, V] = solve_cohort_(T_past, T_shift, T_active, V0, DIST0, [], []);
                     
                     % Define series of initial utility values
                     V0s = cat(4, V, V0);
@@ -323,19 +322,10 @@ methods (Static, Access = private)
                             % Extract initial distribution
                             DIST0 = DIST0s(:,:,:,T_past+1); %#ok<PFBNS>
                             
-                            % Extract population parameters
-                            zs_cohort  = zs (:   , T_past+(1:T_active), idem); %#ok<PFBNS>
-                            mu2_cohort = mu2(idem, T_past+(1:T_active)      ); %#ok<PFBNS>
-                            mu3_cohort = mu3(idem, T_past+(1:T_active)      ); %#ok<PFBNS>
-                            
                             % Solve dynamic optimization
-                            [LABs{i,idem}, DISTs{i,idem}, Cohort] = solve_cohort(...
-                                T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs_cohort, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_cohort, mu3_cohort, ...
-                                mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-                                Market.beqs, Market.wages, Market.capshares, Market.debtshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs, ...
-                                V0, DIST0, LABs_static{i,idem}, DISTs_static{i,idem}); %#ok<PFBNS>
+                            [LABs{i,idem}, DISTs{i,idem}, Cohort] = solve_cohort_(T_past, T_shift, T_active, V0, DIST0, LABs_static{i,idem}, DISTs_static{i,idem});
                             
-                            % Align cohort aggregates to model years
+                            % Align cohort aggregates with model years
                             for o = series
                                 Cohorts{i,idem}.(o{1}) = zeros(1,T_model);
                                 Cohorts{i,idem}.(o{1})(T_shift+(1:T_active)) = Cohorts{i,idem}.(o{1})(T_shift+(1:T_active)) + Cohort.(o{1});
