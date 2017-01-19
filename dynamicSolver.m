@@ -139,7 +139,7 @@ methods (Static, Access = private)
         % Load global parameters
         s = load(fullfile(param_dir, 'param_global.mat'));
         
-        T_life  = s.T_life;
+        T_life = s.T_life;
         switch economy
             case 'steady'
                 T_model    = 1;
@@ -226,27 +226,20 @@ methods (Static, Access = private)
             % Define dynamic aggregate generation flag
             isdynamic = isempty(LABs_static) && isempty(DISTs_static);
             
-            % Initialize data storage arrays
-            LABs    = cell(nstartyears, ndem);
-            DISTs   = cell(nstartyears, ndem);
-            Cohorts = cell(nstartyears, ndem);
-            
             % Set empty values for static optimal decision values and distributions if not provided
             if isdynamic
                 LABs_static  = cell(nstartyears, ndem);
                 DISTs_static = cell(nstartyears, ndem);
             end
             
-            
+            % Initialize data storage arrays
+            LABs    = cell(nstartyears, ndem);
+            DISTs   = cell(nstartyears, ndem);
+            Cohorts = cell(nstartyears, ndem);
             
             % Initialize aggregates
             series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'incs', 'pits', 'ssts', 'cits', 'bens'};
-                
-            switch economy
-                case 'steady'          , for o = series, Aggregate.(o{1}) = 0;                end
-                case {'open', 'closed'}, for o = series, Aggregate.(o{1}) = zeros(1,T_model); end
-            end
-            
+            for o = series, Aggregate.(o{1}) = zeros(1,T_model); end
             
             
             for idem = 1:ndem
@@ -255,73 +248,105 @@ methods (Static, Access = private)
                 switch economy
                     
                     case 'steady'
-                        DIST0 = padarray(DISTz', [0, nk-1, nb-1], 0, 'post');
+                        DIST0s = padarray(DISTz', [0, nk-1, nb-1], 0, 'post');
                         
                     case {'open', 'closed'}
                         if isdynamic
-                            DIST0 = DISTs_steady{1,idem} ./ repmat(shiftdim(mu2(idem, 1:size(DISTs_steady{1,idem}, 4)), -2), [nz,nk,nb,1]);
+                            DIST0s = DISTs_steady{1,idem} ./ repmat(shiftdim(mu2(idem, 1:size(DISTs_steady{1,idem}, 4)), -2), [nz,nk,nb,1]);
                         else
-                            DIST0 = [];
+                            DIST0s = double.empty(0,0,0,T_life);
                         end
                         
                 end
                 
                 
+                % Solve steady state / post-transition path cohort
                 if isdynamic
                     
-                    % Solve steady state cohort
-                    % (Post-transition solution for open and closed economy)
-                    [LABs{end,idem}, DISTs{end,idem}, Cohorts{end,idem}, V0s] = solve_cohort(...
-                        startyears(end), T_life, T_work, T_model, nz, nk, nb, zs(:,:,idem), transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2(idem,:), mu3(idem,:), ...
+                    % Extract starting year and derive time constants
+                    startyear = startyears(end);
+                    T_past  = max(-startyear, 0);
+                    T_shift = max(+startyear, 0);
+                    
+                    % Define active time as full lifetime
+                    T_active = T_life;
+                    
+                    % Define initial utility values
+                    V0 = zeros(nz,nk,nb);
+                    
+                    % Extract initial distribution
+                    DIST0 = DIST0s(:,:,:,T_past+1);
+                    
+                    % Extract population parameters
+                    zs_cohort  = zs (:   , T_past+(1:T_active), idem);
+                    mu2_cohort = mu2(idem, T_past+(1:T_active)      );
+                    mu3_cohort = mu3(idem, T_past+(1:T_active)      );
+                    
+                    % Solve dynamic optimization
+                    [LABs{end,idem}, DISTs{end,idem}, Cohorts{end,idem}, V] = solve_cohort(...
+                        T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs_cohort, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_cohort, mu3_cohort, ...
                         mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                         Market.beqs, Market.wages, Market.capshares, Market.debtshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs, ...
-                        zeros(nz,nk,nb), DIST0, [], []);
+                        V0, DIST0, [], []);
+                    
+                    % Define series of initial utility values
+                    V0s = cat(4, V, V0);
                     
                 else
                     V0s = zeros(nz,nk,nb,T_life+1);
                 end
                 
                 
-                
                 switch economy
                     
                     case {'steady'}
                         
-                        for i = 1:nstartyears
-                            
-                            % Add cohort aggregates to total aggregates
-                            for o = series, Aggregate.(o{1}) = Aggregate.(o{1}) + sum(Cohorts{i,idem}.(o{1})); end
-                            
-                        end
+                        % Add cohort aggregates to total aggregates
+                        for o = series, Aggregate.(o{1}) = Aggregate.(o{1}) + sum(Cohorts{1,idem}.(o{1})); end
                     
                     case {'open', 'closed'}
                         
+                        % Solve transition path cohorts
                         parfor i = 1:nstartyears
                             
+                            % Extract starting year and derive time constants
                             startyear = startyears(i);
+                            T_past  = max(-startyear, 0);
+                            T_shift = max(+startyear, 0);
                             
-                            T_cohort = min(startyear+T_life, T_model) - max(startyear, 0);
+                            % Define active time as life years within modeling period
+                            T_active = min(startyear+T_life, T_model) - T_shift;
                             
+                            % Extract initial utility values
                             V0 = V0s(:,:,:,min(T_model-startyear, T_life)+1); %#ok<PFBNS>
                             
-                            % Generate cohort optimal decision values, distributions, and aggregates
-                            [LABs{i,idem}, DISTs{i,idem}, Cohorts{i,idem}] = solve_cohort(...
-                                startyear, T_cohort, T_work, T_model, nz, nk, nb, zs(:,:,idem), transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2(idem,:), mu3(idem,:), ...
+                            % Extract initial distribution
+                            DIST0 = DIST0s(:,:,:,T_past+1); %#ok<PFBNS>
+                            
+                            % Extract population parameters
+                            zs_cohort  = zs (:   , T_past+(1:T_active), idem); %#ok<PFBNS>
+                            mu2_cohort = mu2(idem, T_past+(1:T_active)      ); %#ok<PFBNS>
+                            mu3_cohort = mu3(idem, T_past+(1:T_active)      ); %#ok<PFBNS>
+                            
+                            % Solve dynamic optimization
+                            [LABs{i,idem}, DISTs{i,idem}, Cohort] = solve_cohort(...
+                                T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs_cohort, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_cohort, mu3_cohort, ...
                                 mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                                 Market.beqs, Market.wages, Market.capshares, Market.debtshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs, ...
                                 V0, DIST0, LABs_static{i,idem}, DISTs_static{i,idem}); %#ok<PFBNS>
                             
+                            % Align cohort aggregates to model years
+                            for o = series
+                                Cohorts{i,idem}.(o{1}) = zeros(1,T_model);
+                                Cohorts{i,idem}.(o{1})(T_shift+(1:T_active)) = Cohorts{i,idem}.(o{1})(T_shift+(1:T_active)) + Cohort.(o{1});
+                            end
+                            
                         end
                         
+                        % Add cohort aggregates to total aggregates
+                        % (Separate loop necessary due to restrictions with use of structures within parfor loops)
                         for i = 1:nstartyears
-                            
-                            % Align cohort aggregates to model years
-                            T_shift  = max(startyears(i), 0);
-                            T_cohort = size(DISTs{i,idem}, 4);
-                            
-                            % Add cohort aggregates to total aggregates
-                            for o = series, Aggregate.(o{1})(T_shift+(1:T_cohort)) = Aggregate.(o{1})(T_shift+(1:T_cohort)) + Cohorts{i,idem}.(o{1}); end
-                            
+                            for o = series, Aggregate.(o{1}) = Aggregate.(o{1}) + Cohorts{i,idem}.(o{1}); end
                         end
                         
                 end

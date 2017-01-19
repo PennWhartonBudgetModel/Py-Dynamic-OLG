@@ -4,66 +4,66 @@
 %%
 
 
-function [LAB, DIST, Cohort, V0s] = solve_cohort(...
-             startyear, T_cohort, T_work, T_model, nz, nk, nb, zs_idem, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
+function [LAB, DIST, Cohort, V] = solve_cohort(...
+             T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs_cohort, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_cohort, mu3_cohort, ...
              mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
              beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubs, ...
              V0, DIST0, LAB_static, DIST_static) %#codegen
 
 
 % Define argument properties for C code generation
-T_life_max  = 100;
-T_model_max =  75;
-nz_max      =  50;
-nk_max      =  50;
-nb_max      =  50;
+T_max  = 100;
+nz_max =  50;
+nk_max =  50;
+nb_max =  50;
 
-assert( isa(startyear,      'double') && (size(startyear,       1) == 1         ) && (size(startyear,       2) == 1             ) );
-assert( isa(T_cohort,       'double') && (size(T_cohort,        1) == 1         ) && (size(T_cohort,        2) == 1             ) );
-assert( isa(T_work,         'double') && (size(T_work,          1) == 1         ) && (size(T_work,          2) == 1             ) );
-assert( isa(T_model,        'double') && (size(T_model,         1) == 1         ) && (size(T_model,         2) == 1             ) );
-assert( isa(nz,             'double') && (size(nz,              1) == 1         ) && (size(nz,              2) == 1             ) );
-assert( isa(nk,             'double') && (size(nk,              1) == 1         ) && (size(nk,              2) == 1             ) );
-assert( isa(nb,             'double') && (size(nb,              1) == 1         ) && (size(nb,              2) == 1             ) );
-assert( isa(zs_idem,        'double') && (size(zs_idem,         1) <= nz_max    ) && (size(zs_idem,         2) <= T_life_max    ) );
-assert( isa(transz,         'double') && (size(transz,          1) <= nz_max    ) && (size(transz,          2) <= nz_max        ) );
-assert( isa(ks,             'double') && (size(ks,              1) <= nk_max    ) && (size(ks,              2) == 1             ) );
-assert( isa(bs,             'double') && (size(bs,              1) <= nb_max    ) && (size(bs,              2) == 1             ) );
-assert( isa(beta,           'double') && (size(beta,            1) == 1         ) && (size(beta,            2) == 1             ) );
-assert( isa(gamma,          'double') && (size(gamma,           1) == 1         ) && (size(gamma,           2) == 1             ) );
-assert( isa(sigma,          'double') && (size(sigma,           1) == 1         ) && (size(sigma,           2) == 1             ) );
-assert( isa(surv,           'double') && (size(surv,            1) == 1         ) && (size(surv,            2) <= T_life_max    ) );
-assert( isa(V_beq,          'double') && (size(V_beq,           1) <= nk_max    ) && (size(V_beq,           2) == 1             ) );
-assert( isa(mu2_idem,       'double') && (size(mu2_idem,        1) == 1         ) && (size(mu2_idem,        2) <= T_life_max    ) );
-assert( isa(mu3_idem,       'double') && (size(mu3_idem,        1) == 1         ) && (size(mu3_idem,        2) <= T_life_max    ) );
+assert( isa(T_past,         'double') && (size(T_past,      1) == 1     ) && (size(T_past,      2) == 1     ) );
+assert( isa(T_shift,        'double') && (size(T_shift,     1) == 1     ) && (size(T_shift,     2) == 1     ) );
+assert( isa(T_active,       'double') && (size(T_active,    1) == 1     ) && (size(T_active,    2) == 1     ) );
+assert( isa(T_work,         'double') && (size(T_work,      1) == 1     ) && (size(T_work,      2) == 1     ) );
+assert( isa(T_model,        'double') && (size(T_model,     1) == 1     ) && (size(T_model,     2) == 1     ) );
+assert( isa(nz,             'double') && (size(nz,          1) == 1     ) && (size(nz,          2) == 1     ) );
+assert( isa(nk,             'double') && (size(nk,          1) == 1     ) && (size(nk,          2) == 1     ) );
+assert( isa(nb,             'double') && (size(nb,          1) == 1     ) && (size(nb,          2) == 1     ) );
+assert( isa(zs_cohort,      'double') && (size(zs_cohort,   1) <= nz_max) && (size(zs_cohort,   2) <= T_max ) );
+assert( isa(transz,         'double') && (size(transz,      1) <= nz_max) && (size(transz,      2) <= nz_max) );
+assert( isa(ks,             'double') && (size(ks,          1) <= nk_max) && (size(ks,          2) == 1     ) );
+assert( isa(bs,             'double') && (size(bs,          1) <= nb_max) && (size(bs,          2) == 1     ) );
+assert( isa(beta,           'double') && (size(beta,        1) == 1     ) && (size(beta,        2) == 1     ) );
+assert( isa(gamma,          'double') && (size(gamma,       1) == 1     ) && (size(gamma,       2) == 1     ) );
+assert( isa(sigma,          'double') && (size(sigma,       1) == 1     ) && (size(sigma,       2) == 1     ) );
+assert( isa(surv,           'double') && (size(surv,        1) == 1     ) && (size(surv,        2) <= T_max ) );
+assert( isa(V_beq,          'double') && (size(V_beq,       1) <= nk_max) && (size(V_beq,       2) == 1     ) );
+assert( isa(mu2_cohort,     'double') && (size(mu2_cohort,  1) == 1     ) && (size(mu2_cohort,  2) <= T_max ) );
+assert( isa(mu3_cohort,     'double') && (size(mu3_cohort,  1) == 1     ) && (size(mu3_cohort,  2) <= T_max ) );
 
-assert( isa(mpci,           'double') && (size(mpci,            1) == 1         ) && (size(mpci,            2) == 1             ) );
-assert( isa(rpci,           'double') && (size(rpci,            1) == 1         ) && (size(rpci,            2) == 1             ) );
-assert( isa(sstaxcredit,    'double') && (size(sstaxcredit,     1) == 1         ) && (size(sstaxcredit,     2) == 1             ) );
-assert( isa(ssbenefits,     'double') && (size(ssbenefits,      1) <= nb_max    ) && (size(ssbenefits,      2) <= T_model_max   ) );
-assert( isa(sstaxs,         'double') && (size(sstaxs,          1) == 1         ) && (size(sstaxs,          2) <= T_model_max   ) );
-assert( isa(ssincmaxs,      'double') && (size(ssincmaxs,       1) == 1         ) && (size(ssincmaxs,       2) <= T_model_max   ) );
-assert( isa(deduc_coefs,    'double') && (size(deduc_coefs,     1) == 1         ) && (size(deduc_coefs,     2) == 3             ) );
-assert( isa(pit_coefs,      'double') && (size(pit_coefs,       1) == 1         ) && (size(pit_coefs,       2) == 3             ) );
-assert( isa(captaxshare,    'double') && (size(captaxshare,     1) == 1         ) && (size(captaxshare,     2) == 1             ) );
-assert( isa(taucap,         'double') && (size(taucap,          1) == 1         ) && (size(taucap,          2) == 1             ) );
-assert( isa(taucapgain,     'double') && (size(taucapgain,      1) == 1         ) && (size(taucapgain,      2) == 1             ) );
-assert( isa(qtobin,         'double') && (size(qtobin,          1) == 1         ) && (size(qtobin,          2) == 1             ) );
-assert( isa(qtobin0,        'double') && (size(qtobin0,         1) == 1         ) && (size(qtobin0,         2) == 1             ) );
+assert( isa(mpci,           'double') && (size(mpci,        1) == 1     ) && (size(mpci,        2) == 1     ) );
+assert( isa(rpci,           'double') && (size(rpci,        1) == 1     ) && (size(rpci,        2) == 1     ) );
+assert( isa(sstaxcredit,    'double') && (size(sstaxcredit, 1) == 1     ) && (size(sstaxcredit, 2) == 1     ) );
+assert( isa(ssbenefits,     'double') && (size(ssbenefits,  1) <= nb_max) && (size(ssbenefits,  2) <= T_max ) );
+assert( isa(sstaxs,         'double') && (size(sstaxs,      1) == 1     ) && (size(sstaxs,      2) <= T_max ) );
+assert( isa(ssincmaxs,      'double') && (size(ssincmaxs,   1) == 1     ) && (size(ssincmaxs,   2) <= T_max ) );
+assert( isa(deduc_coefs,    'double') && (size(deduc_coefs, 1) == 1     ) && (size(deduc_coefs, 2) == 3     ) );
+assert( isa(pit_coefs,      'double') && (size(pit_coefs,   1) == 1     ) && (size(pit_coefs,   2) == 3     ) );
+assert( isa(captaxshare,    'double') && (size(captaxshare, 1) == 1     ) && (size(captaxshare, 2) == 1     ) );
+assert( isa(taucap,         'double') && (size(taucap,      1) == 1     ) && (size(taucap,      2) == 1     ) );
+assert( isa(taucapgain,     'double') && (size(taucapgain,  1) == 1     ) && (size(taucapgain,  2) == 1     ) );
+assert( isa(qtobin,         'double') && (size(qtobin,      1) == 1     ) && (size(qtobin,      2) == 1     ) );
+assert( isa(qtobin0,        'double') && (size(qtobin0,     1) == 1     ) && (size(qtobin0,     2) == 1     ) );
 
-assert( isa(beqs,           'double') && (size(beqs,            1) == 1         ) && (size(beqs,            2) <= T_model_max   ) );
-assert( isa(wages,          'double') && (size(wages,           1) == 1         ) && (size(wages,           2) <= T_model_max   ) );
-assert( isa(capshares,      'double') && (size(capshares,       1) == 1         ) && (size(capshares,       2) <= T_model_max   ) );
-assert( isa(debtshares,     'double') && (size(debtshares,      1) == 1         ) && (size(debtshares,      2) <= T_model_max   ) );
-assert( isa(caprates,       'double') && (size(caprates,        1) == 1         ) && (size(caprates,        2) <= T_model_max   ) );
-assert( isa(govrates,       'double') && (size(govrates,        1) == 1         ) && (size(govrates,        2) <= T_model_max   ) );
-assert( isa(totrates,       'double') && (size(totrates,        1) == 1         ) && (size(totrates,        2) <= T_model_max   ) );
-assert( isa(expsubs,        'double') && (size(expsubs,         1) == 1         ) && (size(expsubs,         2) <= T_model_max   ) );
+assert( isa(beqs,           'double') && (size(beqs,        1) == 1     ) && (size(beqs,        2) <= T_max ) );
+assert( isa(wages,          'double') && (size(wages,       1) == 1     ) && (size(wages,       2) <= T_max ) );
+assert( isa(capshares,      'double') && (size(capshares,   1) == 1     ) && (size(capshares,   2) <= T_max ) );
+assert( isa(debtshares,     'double') && (size(debtshares,  1) == 1     ) && (size(debtshares,  2) <= T_max ) );
+assert( isa(caprates,       'double') && (size(caprates,    1) == 1     ) && (size(caprates,    2) <= T_max ) );
+assert( isa(govrates,       'double') && (size(govrates,    1) == 1     ) && (size(govrates,    2) <= T_max ) );
+assert( isa(totrates,       'double') && (size(totrates,    1) == 1     ) && (size(totrates,    2) <= T_max ) );
+assert( isa(expsubs,        'double') && (size(expsubs,     1) == 1     ) && (size(expsubs,     2) <= T_max ) );
 
-assert( isa(V0,             'double') && (size(V0,              1) <= nz_max    ) && (size(V0,              2) <= nk_max        ) && (size(V0,          3) <= nb_max) );
-assert( isa(DIST0,          'double') && (size(DIST0,           1) <= nz_max    ) && (size(DIST0,           2) <= nk_max        ) && (size(DIST0,       3) <= nb_max) && (size(DIST0,       4) <= T_life_max ) );
-assert( isa(LAB_static,     'double') && (size(LAB_static,      1) <= nz_max    ) && (size(LAB_static,      2) <= nk_max        ) && (size(LAB_static,  3) <= nb_max) && (size(LAB_static,  4) <= T_life_max ) );
-assert( isa(DIST_static,    'double') && (size(DIST_static,     1) <= nz_max    ) && (size(DIST_static,     2) <= nk_max        ) && (size(DIST_static, 3) <= nb_max) && (size(DIST_static, 4) <= T_model_max) );
+assert( isa(V0,             'double') && (size(V0,          1) <= nz_max) && (size(V0,          2) <= nk_max) && (size(V0,          3) <= nb_max) );
+assert( isa(DIST0,          'double') && (size(DIST0,       1) <= nz_max) && (size(DIST0,       2) <= nk_max) && (size(DIST0,       3) <= nb_max) );
+assert( isa(LAB_static,     'double') && (size(LAB_static,  1) <= nz_max) && (size(LAB_static,  2) <= nk_max) && (size(LAB_static,  3) <= nb_max) && (size(LAB_static,  4) <= T_max) );
+assert( isa(DIST_static,    'double') && (size(DIST_static, 1) <= nz_max) && (size(DIST_static, 2) <= nk_max) && (size(DIST_static, 3) <= nb_max) && (size(DIST_static, 4) <= T_max) );
 
 
 
@@ -73,41 +73,28 @@ assert( isa(DIST_static,    'double') && (size(DIST_static,     1) <= nz_max    
 isdynamic = isempty(LAB_static) && isempty(DIST_static);
 
 
-
-
-
-T_past  = max(-startyear, 0);
-T_shift = max(+startyear, 0);
-
-
-
-
-
 % Initialize optimal decision value arrays
-V   = zeros(nz,nk,nb,T_cohort); % Utility
+V   = zeros(nz,nk,nb,T_active);   % Utility
 
-K   = zeros(nz,nk,nb,T_cohort);   % Savings
-LAB = zeros(nz,nk,nb,T_cohort);   % Labor level
-B   = zeros(nz,nk,nb,T_cohort);   % Average earnings
+K   = zeros(nz,nk,nb,T_active);   % Savings
+LAB = zeros(nz,nk,nb,T_active);   % Labor level
+B   = zeros(nz,nk,nb,T_active);   % Average earnings
 
-INC = zeros(nz,nk,nb,T_cohort);   % Taxable income
-PIT = zeros(nz,nk,nb,T_cohort);   % Personal income tax
-SST = zeros(nz,nk,nb,T_cohort);   % Social Security tax
-CIT = zeros(nz,nk,nb,T_cohort);   % Corporate income tax
-BEN = zeros(nz,nk,nb,T_cohort);   % Social Security benefits
+INC = zeros(nz,nk,nb,T_active);   % Taxable income
+PIT = zeros(nz,nk,nb,T_active);   % Personal income tax
+SST = zeros(nz,nk,nb,T_active);   % Social Security tax
+CIT = zeros(nz,nk,nb,T_active);   % Corporate income tax
+BEN = zeros(nz,nk,nb,T_active);   % Social Security benefits
+
+% Initialize forward-looking utility values
+V_step = V0;
 
 % Specify settings for dynamic optimization subproblems
 optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
 
 
-
-
-V_step = V0;
-
-
-
 % Solve dynamic optimization problem through backward induction
-for t = T_cohort:-1:1
+for t = T_active:-1:1
     
     % Determine age and year, bounded by parameter period
     age  = t + T_past;
@@ -125,7 +112,6 @@ for t = T_cohort:-1:1
     debtshare  = debtshares   (year);
     totrate    = totrates     (year);
     expsub     = expsubs      (year);
-    
     
     
     for ib = 1:nb
@@ -171,7 +157,7 @@ for t = T_cohort:-1:1
                 for iz = 1:nz
                     
                     % Calculate effective wage
-                    wage_eff = wage * zs_idem(iz,age);
+                    wage_eff = wage * zs_cohort(iz,t);
                     
                     % Call resource calculation function to set parameters
                     calculate_resources(...
@@ -225,13 +211,10 @@ for t = T_cohort:-1:1
         end
     end
     
+    % Update forward-looking utility values
     V_step = V(:,:,:,t);
     
 end
-
-
-
-V0s = cat(4, V, V0);
 
 
 
@@ -240,11 +223,10 @@ V0s = cat(4, V, V0);
 if isdynamic
     
     % Initialize distributions
-    DIST = zeros(nz,nk,nb,T_cohort);
-    DIST(:,:,:,1) = DIST0(:,:,:,T_past+1);
+    DIST = cat(4, DIST0, zeros(nz,nk,nb,T_active-1));
     
     % Find distributions through forward propagation
-    for t = 1:T_cohort-1
+    for t = 1:T_active-1
         
         % Extract optimal k and b values
         k_t = K(:,:,:,t);
@@ -288,7 +270,7 @@ if isdynamic
     end
     
     % Adjust distributions based on demographics
-    DIST = repmat(shiftdim(mu2_idem(T_past+(1:T_cohort)), -2), [nz,nk,nb,1]) .* DIST;
+    DIST = repmat(shiftdim(mu2_cohort, -2), [nz,nk,nb,1]) .* DIST;
     
 else
     
@@ -300,16 +282,16 @@ end
 
 %% Aggregate generation
 
-Cohort.assets  = sum(reshape(K   .* DIST, [], T_cohort), 1) .* (1 + (mu3_idem(T_past+(1:T_cohort)) ./ mu2_idem(T_past+(1:T_cohort))));
-Cohort.beqs    = sum(reshape(K   .* DIST, [], T_cohort), 1) .* (0 + (mu3_idem(T_past+(1:T_cohort)) ./ mu2_idem(T_past+(1:T_cohort))));
-Cohort.labeffs = sum(reshape(LAB .* repmat(reshape(zs_idem(:,T_past+(1:T_cohort)), [nz,1,1,T_cohort]), [1,nk,nb,1]) .* DIST, [], T_cohort), 1);
-Cohort.labs    = sum(reshape(LAB .* DIST, [], T_cohort), 1);
-Cohort.lfprs   = sum(reshape((LAB >= 0.01) .* DIST, [], T_cohort), 1);
-Cohort.incs    = sum(reshape(INC .* DIST, [], T_cohort), 1);
-Cohort.pits    = sum(reshape(PIT .* DIST, [], T_cohort), 1);
-Cohort.ssts    = sum(reshape(SST .* DIST, [], T_cohort), 1);
-Cohort.cits    = sum(reshape(CIT .* DIST, [], T_cohort), 1);
-Cohort.bens    = sum(reshape(BEN .* DIST, [], T_cohort), 1);
+Cohort.assets  = sum(reshape(K   .* DIST, [], T_active), 1) .* (1 + (mu3_cohort ./ mu2_cohort));
+Cohort.beqs    = sum(reshape(K   .* DIST, [], T_active), 1) .* (0 + (mu3_cohort ./ mu2_cohort));
+Cohort.labeffs = sum(reshape(LAB .* repmat(reshape(zs_cohort, [nz,1,1,T_active]), [1,nk,nb,1]) .* DIST, [], T_active), 1);
+Cohort.labs    = sum(reshape(LAB .* DIST, [], T_active), 1);
+Cohort.lfprs   = sum(reshape((LAB >= 0.01) .* DIST, [], T_active), 1);
+Cohort.incs    = sum(reshape(INC .* DIST, [], T_active), 1);
+Cohort.pits    = sum(reshape(PIT .* DIST, [], T_active), 1);
+Cohort.ssts    = sum(reshape(SST .* DIST, [], T_active), 1);
+Cohort.cits    = sum(reshape(CIT .* DIST, [], T_active), 1);
+Cohort.bens    = sum(reshape(BEN .* DIST, [], T_active), 1);
 
 
 end
