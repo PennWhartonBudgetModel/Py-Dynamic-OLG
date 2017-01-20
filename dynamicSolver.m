@@ -232,7 +232,7 @@ methods (Static, Access = private)
                 DISTs_static = cell(nstartyears, ndem);
             end
             
-            % Initialize data storage arrays
+            % Initialize optimal labor, distribution, and cohort aggregate arrays
             LABs    = cell(nstartyears, ndem);
             DISTs   = cell(nstartyears, ndem);
             Cohorts = cell(nstartyears, ndem);
@@ -269,7 +269,7 @@ methods (Static, Access = private)
                 end
                 
                 
-                % Initialize series of initial utility values
+                % Initialize series of terminal utility values
                 V0s = zeros(nz,nk,nb,T_life+1);
                 
                 % Solve steady state / post-transition path cohort
@@ -283,7 +283,7 @@ methods (Static, Access = private)
                     % Define active time as full lifetime
                     T_active = T_life;
                     
-                    % Define initial utility values
+                    % Define terminal utility values
                     V0 = zeros(nz,nk,nb);
                     
                     % Extract initial distribution
@@ -292,7 +292,7 @@ methods (Static, Access = private)
                     % Solve dynamic optimization
                     [LABs{end,idem}, DISTs{end,idem}, Cohorts{end,idem}, V] = solve_cohort_(T_past, T_shift, T_active, V0, DIST0, [], []);
                     
-                    % Define series of initial utility values
+                    % Define series of terminal utility values
                     V0s(:,:,:,1:T_life) = V;
                     
                 end
@@ -318,7 +318,7 @@ methods (Static, Access = private)
                             % Define active time as life years within modeling period
                             T_active = min(startyear+T_life, T_model) - T_shift;
                             
-                            % Extract initial utility values
+                            % Extract terminal utility values
                             V0 = V0s(:,:,:,min(T_model-startyear, T_life)+1); %#ok<PFBNS>
                             
                             % Extract initial distribution

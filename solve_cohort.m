@@ -126,7 +126,7 @@ for t = T_active:-1:1
                 
                 if isdynamic
                     
-                    % Calculate expected value curve using values for next time step
+                    % Calculate expected value curve using forward-looking utility values
                     EV = (1-surv(age))*repmat(V_beq, [1,nb]) + surv(age)*beta*reshape(V_step(1,:,:), [nk,nb]);
                     
                     % Call retirement age value function to set parameters
@@ -135,7 +135,7 @@ for t = T_active:-1:1
                     % Solve dynamic optimization subproblem
                     [k, v] = fminsearch(@value_retirement, ks(ik), optim_options);
                     
-                    % Record values
+                    % Record optimal decision values
                     V(:,ik,ib,t) = -v;
                     K(:,ik,ib,t) = k ;
                     
@@ -165,7 +165,7 @@ for t = T_active:-1:1
                     
                     if isdynamic
                         
-                        % Calculate expected value curve using values for next time step
+                        % Calculate expected value curve using forward-looking utility values
                         EV = (1-surv(age))*repmat(V_beq, [1,nb]) + surv(age)*beta*reshape(sum(repmat(transz(iz,:)', [1,nk,nb]) .* V_step, 1), [nk,nb]);
                         
                         % Call working age value function and average earnings calculation function to set parameters
@@ -181,7 +181,7 @@ for t = T_active:-1:1
                         k   = x(1);
                         lab = x(2);
                         
-                        % Record values
+                        % Record optimal decision values
                         V(iz,ik,ib,t) = -v;
                         K(iz,ik,ib,t) = k ;
                         
@@ -189,7 +189,6 @@ for t = T_active:-1:1
                         lab = LAB_static(iz,ik,ib,t);
                     end
                     
-                    % Calculate tax terms for optimal decision values
                     labinc = wage_eff * lab;
                     [~, inc, pit, sst, cit] = calculate_resources(labinc);
                     
@@ -229,7 +228,7 @@ if isdynamic
     DIST = zeros(nz,nk,nb,T_active);
     DIST(:,:,:,1) = DIST0;
     
-    % Find distributions through forward propagation
+    % Generate distributions through forward propagation
     for t = 1:T_active-1
         
         % Extract optimal k and b values
@@ -261,7 +260,7 @@ if isdynamic
             % Perform productivity transformation
             DIST_step = repmat(transz(:,jz), [1,nk,nb]) .* DIST(:,:,:,t);
             
-            % Calculate distributions for next time step
+            % Generate distribution for next time step
             for elem = 1:numel(DIST_step)
                 DIST(jz, jk_lt(elem), jb_lt(elem), t+1) = DIST(jz, jk_lt(elem), jb_lt(elem), t+1) + wb_lt(elem) * wk_lt(elem) * DIST_step(elem);
                 DIST(jz, jk_gt(elem), jb_lt(elem), t+1) = DIST(jz, jk_gt(elem), jb_lt(elem), t+1) + wb_lt(elem) * wk_gt(elem) * DIST_step(elem);
@@ -334,6 +333,7 @@ if (nargin > 1)
     if isempty(labinc), return, end
 end
 
+
 % Calculate taxable income
 inc     = (rpci/mpci)*max(0, capshare*caprate*ks_ik*(1-captaxshare) + debtshare*govrate*ks_ik + (1-sstaxcredit)*labinc);
 deduc   = max(0, deduc_coefs*inc.^[0; 1; 0.5]);
@@ -346,7 +346,7 @@ pit = (mpci/rpci)*pit_coefs(1)*(inc_eff - (inc_eff.^(-pit_coefs(2)) + (pit_coefs
 % Calculate Social Security tax
 sst = sstax * min(labinc, ssincmax);
 
-% Calculate capital income tax
+% Calculate corporate income tax
 cit = capshare*ks_ik*(taucap*(caprate - expsub)*captaxshare + taucapgain*(year == 1)*(qtobin - qtobin0)/qtobin0);
 
 % Calculate available resources
@@ -379,6 +379,7 @@ if (nargin > 1)
     if isempty(k), return, end
 end
 
+
 % Calculate consumption
 consumption = resources - k;
 
@@ -394,7 +395,6 @@ if (ks(1) <= k) && (k <= ks(end)) && (0 <= consumption)
 else
     v = Inf;
 end
-
 
 end
 
@@ -422,6 +422,7 @@ if (nargin > 1)
     ks = ks_; bs = bs_; wage_eff = wage_eff_; EV = EV_; sigma = sigma_; gamma = gamma_;
     if isempty(x), return, end
 end
+
 
 % Define decision variables and perform bound checks
 k   = x(1);
@@ -464,10 +465,12 @@ end
 % Average earnings calculation function
 function [b] = calculate_b(labinc, age_, bs_ib_, ssincmax_)
 
+% Enforce function inlining for C code generation
+coder.inline('always');
+
 % Define parameters as persistent variables
 persistent age bs_ib ssincmax ...
            initialized
-           
 
 % Initialize parameters for C code generation
 if isempty(initialized)
@@ -481,8 +484,6 @@ if (nargin > 1)
     if isempty(labinc), return, end
 end
 
-% Enforce function inlining for C code generation
-coder.inline('always');
 
 b = (bs_ib*(age-1) + min(labinc, ssincmax))/age;
 
