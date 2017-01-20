@@ -221,7 +221,7 @@ methods (Static, Access = private)
         
         %% Aggregate generation function
         
-        function [Aggregate, LABs, DISTs] = generate_aggregates(Market, DISTs_steady, LABs_static, DISTs_static) 
+        function [Aggregate, LABs, DISTs] = generate_aggregates(Market, DISTs_steady, LABs_static, DISTs_static)
             
             % Define dynamic aggregate generation flag
             isdynamic = isempty(LABs_static) && isempty(DISTs_static);
@@ -249,24 +249,28 @@ methods (Static, Access = private)
                     T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs(:,:,idem), transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2(idem,:), mu3(idem,:), ...
                     mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                     Market.beqs, Market.wages, Market.capshares, Market.debtshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs, ...
-                    V0, DIST0, LAB_static, DIST_static);
+                    V0, DIST0, LAB_static, DIST_static, isdynamic);
                 
                 
                 % Define initial distributions
                 switch economy
                     
                     case 'steady'
-                        DIST0s = padarray(DISTz', [0, nk-1, nb-1], 0, 'post');
+                        DIST0s = zeros(nz,nk,nb);
+                        DIST0s(:,1,1) = DISTz';
                         
                     case {'open', 'closed'}
                         if isdynamic
-                            DIST0s = DISTs_steady{1,idem} ./ repmat(shiftdim(mu2(idem, 1:size(DISTs_steady{1,idem}, 4)), -2), [nz,nk,nb,1]);
+                            DIST0s = DISTs_steady{1,idem} ./ repmat(reshape(mu2(idem, 1:T_life), [1,1,1,T_life]), [nz,nk,nb,1]);
                         else
                             DIST0s = double.empty(0,0,0,T_life);
                         end
                         
                 end
                 
+                
+                % Initialize series of initial utility values
+                V0s = zeros(nz,nk,nb,T_life+1);
                 
                 % Solve steady state / post-transition path cohort
                 if isdynamic
@@ -289,10 +293,8 @@ methods (Static, Access = private)
                     [LABs{end,idem}, DISTs{end,idem}, Cohorts{end,idem}, V] = solve_cohort_(T_past, T_shift, T_active, V0, DIST0, [], []);
                     
                     % Define series of initial utility values
-                    V0s = cat(4, V, V0);
+                    V0s(:,:,:,1:T_life) = V;
                     
-                else
-                    V0s = zeros(nz,nk,nb,T_life+1);
                 end
                 
                 
@@ -356,12 +358,12 @@ methods (Static, Access = private)
             base_dir = dirFinder.save(economy, basedef);
             
             % Load baseline market conditions, optimal decision values, and distributions
-            Market = hardyload('market.mat'  , base_generator, base_dir);
+            Market = hardyload('market.mat'       , base_generator, base_dir);
             
-            s = hardyload('decisions.mat'    , base_generator, base_dir);
+            s      = hardyload('decisions.mat'    , base_generator, base_dir);
             LABs_static  = s.LABs ;
             
-            s = hardyload('distributions.mat', base_generator, base_dir);
+            s      = hardyload('distributions.mat', base_generator, base_dir);
             DISTs_static = s.DISTs;
             
             
