@@ -240,9 +240,16 @@ distvars_1   = load(fullfile(jobdir  , 'distvars_1.mat'));
 distvars_1_0 = load(fullfile('Freeze', 'distvars_1.mat'));
 
 fprintf('distvars_1\n');
-fieldnames = fields(distvars_1)';
-for fieldname = fieldnames
-    fprintf('\t%-12s%d\n', fieldname{1}, all(distvars_1.(fieldname{1})(:) == distvars_1_0.(fieldname{1})(:)));
+valuenames = fields(distvars_1);
+for i = 1:length(valuenames)
+    valuename = valuenames{i};
+    delta = distvars_1.(valuename)(:) - distvars_1_0.(valuename)(:);
+    if any(delta)
+        pdev = abs(nanmean(delta*2 ./ (distvars_1.(valuename)(:) + distvars_1_0.(valuename)(:))))*100;
+        fprintf('\t%-14s%06.2f%% deviation\n', valuename, pdev);
+    else
+        fprintf('\t%-14sNo deviation\n', valuename);
+    end
 end
 fprintf('\n');
 
@@ -251,10 +258,18 @@ distvars_2   = load(fullfile(jobdir  , 'distvars_2.mat'));
 distvars_2_0 = load(fullfile('Freeze', 'distvars_2.mat'));
 
 fprintf('distvars_2\n');
-fieldnames = fields(distvars_2)';
-for fieldname = fieldnames
-    fprintf('\t%-12s%d\n', fieldname{1}, all(distvars_2.(fieldname{1})(:) == distvars_2_0.(fieldname{1})(:)));
+valuenames = fields(distvars_2);
+for i = 1:length(valuenames)
+    valuename = valuenames{i};
+    delta = distvars_2.(valuename)(:) - distvars_2_0.(valuename)(:);
+    if any(delta)
+        pdev = abs(nanmean(delta*2 ./ (distvars_2.(valuename)(:) + distvars_2_0.(valuename)(:))))*100;
+        fprintf('\t%-14s%06.2f%% deviation\n', valuename, pdev);
+    else
+        fprintf('\t%-14sNo deviation\n', valuename);
+    end
 end
 fprintf('\n');
+
 
 
