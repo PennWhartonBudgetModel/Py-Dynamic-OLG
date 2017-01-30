@@ -138,9 +138,9 @@ while (rhosseps > rhosstol)
             end
             
             pop_prev = pop;
-            pop = sum(sum(sum(sum(sum(dist1ss))))) + sum(sum(sum(sum(dist1ss_r))));
+            pop = sum(dist1ss(:)) + sum(dist1ss_r(:));
             
-            dist_age = squeeze(sum(sum(sum(sum(permute(dist1ss,[1,2,3,5,4]))))))+squeeze(sum(sum(sum(permute(dist1ss_r,[1,2,4,3])))));
+            dist_age = sum(sum(reshape(dist1ss, [], T, 3), 1) + sum(reshape(dist1ss_r, [], T, 3), 1), 3)';
             
             disteps = max(abs((1/dist_age(1)).*dist_age(2:end) - (1/dist_age_previous(1)).*dist_age_previous(2:end)));
             fprintf('Iteration %3u: %8.4f\n', iter, disteps)
