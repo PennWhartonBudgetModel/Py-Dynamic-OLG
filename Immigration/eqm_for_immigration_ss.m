@@ -63,10 +63,9 @@ while (rhosseps > rhosstol)
             im_flow = [ pop * pgr                                     ;
                         im_scale * pop * imm_age(1) * legal_rate(1)   ;
                         im_scale * pop * imm_age(1) * illegal_rate(1) ];
-            im_flow = reshape(im_flow, [1,1,1,1,3]);
             
             for iz = 1:nz
-                dist1ss(1,iz,1,1,:) = reshape(proddist_age(iz,1,:), [1,1,1,1,3]) .* im_flow;
+                dist1ss(1,iz,1,1,:) = reshape(proddist_age(iz,1,:), 3, []) .* im_flow;
             end
             
             
@@ -76,7 +75,6 @@ while (rhosseps > rhosstol)
                 im_flow = [ 0                                             ;
                             im_scale * pop * imm_age(t) * legal_rate(1)   ;
                             im_scale * pop * imm_age(t) * illegal_rate(1) ];
-                im_flow = reshape(im_flow, [1,1,1,1,3]);
                 
                 for iz = 1:nz
                     for ik = 1:nk
@@ -92,19 +90,23 @@ while (rhosseps > rhosstol)
                             w2 = (point_b - bgrid(loc2)) / (bgrid(loc2+1) - bgrid(loc2));
                             w2 = min(w2, 1);
                             
-                            dist_hold = dist1ss_previous(ik,iz,ib,t,:) + (ik == 1)*(ib == 1)*reshape(proddist_age(iz,t,:), [1,1,1,1,3]).*im_flow;
-                            
                             for jz = 1:nz
-                                if (t < Tr)
-                                    dist1ss  (loc1  , jz, loc2  , t+1, :) = dist1ss  (loc1  , jz, loc2  , t+1, :) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                    dist1ss  (loc1+1, jz, loc2  , t+1, :) = dist1ss  (loc1+1, jz, loc2  , t+1, :) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
-                                    dist1ss  (loc1  , jz, loc2+1, t+1, :) = dist1ss  (loc1  , jz, loc2+1, t+1, :) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                    dist1ss  (loc1+1, jz, loc2+1, t+1, :) = dist1ss  (loc1+1, jz, loc2+1, t+1, :) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
-                                else
-                                    dist1ss_r(loc1  ,     loc2  , t+1, :) = dist1ss_r(loc1  ,     loc2  , t+1, :) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*reshape(dist_hold, [1,1,1,3]);
-                                    dist1ss_r(loc1+1,     loc2  , t+1, :) = dist1ss_r(loc1+1,     loc2  , t+1, :) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*reshape(dist_hold, [1,1,1,3]);
-                                    dist1ss_r(loc1  ,     loc2+1, t+1, :) = dist1ss_r(loc1  ,     loc2+1, t+1, :) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*reshape(dist_hold, [1,1,1,3]);
-                                    dist1ss_r(loc1+1,     loc2+1, t+1, :) = dist1ss_r(loc1+1,     loc2+1, t+1, :) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*reshape(dist_hold, [1,1,1,3]);
+                                for ipop = 1:3
+                                    
+                                    dist_hold = dist1ss_previous(ik,iz,ib,t,ipop) + (ik == 1)*(ib == 1)*proddist_age(iz,t,ipop)*im_flow(ipop);
+                                    
+                                    if (t < Tr)
+                                        dist1ss  (loc1  , jz, loc2  , t+1, ipop) = dist1ss  (loc1  , jz, loc2  , t+1, ipop) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                        dist1ss  (loc1+1, jz, loc2  , t+1, ipop) = dist1ss  (loc1+1, jz, loc2  , t+1, ipop) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
+                                        dist1ss  (loc1  , jz, loc2+1, t+1, ipop) = dist1ss  (loc1  , jz, loc2+1, t+1, ipop) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                        dist1ss  (loc1+1, jz, loc2+1, t+1, ipop) = dist1ss  (loc1+1, jz, loc2+1, t+1, ipop) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
+                                    else
+                                        dist1ss_r(loc1  ,     loc2  , t+1, ipop) = dist1ss_r(loc1  ,     loc2  , t+1, ipop) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                        dist1ss_r(loc1+1,     loc2  , t+1, ipop) = dist1ss_r(loc1+1,     loc2  , t+1, ipop) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
+                                        dist1ss_r(loc1  ,     loc2+1, t+1, ipop) = dist1ss_r(loc1  ,     loc2+1, t+1, ipop) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                        dist1ss_r(loc1+1,     loc2+1, t+1, ipop) = dist1ss_r(loc1+1,     loc2+1, t+1, ipop) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
+                                    end
+                                    
                                 end
                             end
                             
@@ -121,7 +123,6 @@ while (rhosseps > rhosstol)
                 im_flow = [ 0                                             ;
                             im_scale * pop * imm_age(t) * legal_rate(1)   ;
                             im_scale * pop * imm_age(t) * illegal_rate(1) ];
-                im_flow = reshape(im_flow, [1,1,1,3]);
                 
                 for ik = 1:nk
                     for ib = 1:nb
@@ -131,10 +132,14 @@ while (rhosseps > rhosstol)
                         w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
                         w1 = min(w1, 1);
                         
-                        dist_hold = dist1ss_r_previous(ik,ib,t,:) + (ik == 1)*(ib == 1)*im_flow;
-                        
-                        dist1ss_r(loc1  , ib, t+1, :) = dist1ss_r(loc1  , ib, t+1, :) + surv(t)*(1-w1)*dist_hold;
-                        dist1ss_r(loc1+1, ib, t+1, :) = dist1ss_r(loc1+1, ib, t+1, :) + surv(t)*(w1  )*dist_hold;
+                        for ipop = 1:3
+                            
+                            dist_hold = dist1ss_r_previous(ik,ib,t,ipop) + (ik == 1)*(ib == 1)*im_flow(ipop);
+
+                            dist1ss_r(loc1  , ib, t+1, ipop) = dist1ss_r(loc1  , ib, t+1, ipop) + surv(t)*(1-w1)*dist_hold;
+                            dist1ss_r(loc1+1, ib, t+1, ipop) = dist1ss_r(loc1+1, ib, t+1, ipop) + surv(t)*(w1  )*dist_hold;
+                            
+                        end
                         
                     end
                 end
