@@ -15,6 +15,10 @@ function pol_params_imm(impolno)
 % policy4 = policy1(:,4:5);
 % 
 % save polvals_imm.mat
+
+impolno = 1;
+jobdir = 'Testing';
+
 load polvals_imm.mat
 load params.mat Tss T z proddist_age
 load Imm_Data.mat
@@ -111,13 +115,37 @@ elseif policy1(3)==5
 end
 
 filename = ['imm_polparams_' num2str(impolno) '.mat'];
-save(filename)
+save(fullfile(jobdir, filename))
 
 % Need to solve steady-state before using function below
-pop_trans = population_projector(impolno);
+pop_trans = population_projector(impolno, jobdir);
 
 
 filename = ['imm_polparams_' num2str(impolno) '.mat'];
-save(filename)
+save(fullfile(jobdir, filename), 'pop_trans')
 
 
+
+
+%% Testing
+
+imm_polparams_1   = load(fullfile(jobdir  , 'imm_polparams_1.mat'));
+imm_polparams_1_0 = load(fullfile('Freeze', 'imm_polparams_1.mat'));
+
+fprintf('imm_polparams_1\n');
+valuenames = fields(imm_polparams_1);
+for i = 1:length(valuenames)
+    valuename = valuenames{i};
+    delta = imm_polparams_1.(valuename)(:) - imm_polparams_1_0.(valuename)(:);
+    if any(delta)
+        pdev = abs(nanmean(delta*2 ./ (imm_polparams_1.(valuename)(:) + imm_polparams_1_0.(valuename)(:))))*100;
+        fprintf('\t%-14s%06.2f%% deviation\n', valuename, pdev);
+    else
+        fprintf('\t%-14sNo deviation\n', valuename);
+    end
+end
+fprintf('\n');
+
+
+
+end

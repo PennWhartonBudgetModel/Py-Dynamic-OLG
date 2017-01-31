@@ -1,11 +1,11 @@
-function pop_trans = population_projector(impolno)
+function pop_trans = population_projector(impolno, jobdir)
 
 load('params.mat');
 
 load('Imm_Data.mat')
 
 filename = ['imm_polparams_' num2str(impolno) '.mat'];
-load(filename)
+load(fullfile(jobdir, filename))
 
 
 
@@ -15,11 +15,9 @@ load SSVALS pop_prev
 
 demtype = 1;  % by the symmetry of the demographic type sizes, population will grow equally on each "island" (i.e., demtype island).  WLOG, we choose demtype=1.
 filename = ['sspol' num2str(demtype) '.mat'];
-jobdir = ['Steady State Values'];  % gives name
 totfile = fullfile(jobdir,filename);
 load(totfile);
 
-jobdir = ['Steady State Values'];  % gives name
 filename = ['distvars_' num2str(demtype) '.mat'];
 totfile = fullfile(jobdir,filename);
 load(totfile,'dist1ss','dist1ss_r');
@@ -37,6 +35,8 @@ pop_trans(1) = pop;
 
 
 for trans_year = 2:Tss
+    
+    fprintf('%u\n', trans_year)';
     
     year = trans_year - 1;
     

@@ -1,6 +1,6 @@
 clear; clc;
 
-jobdir = 'Steady State Values';
+jobdir = 'Testing';
 if exist(jobdir, 'dir'), rmdir(jobdir, 's'), end
 mkdir(jobdir);
 
