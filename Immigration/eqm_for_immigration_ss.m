@@ -24,15 +24,15 @@ while (rhosseps > rhosstol)
     DD = DEBTss;  % debt used in the calculation of prices (zero for open economy)
     
     % Copy precomputed dynamic optimization values
-    for demtype = 1:ndem
-        filename = sprintf('sspol%u.mat', demtype);
+    for idem = 1:ndem
+        filename = sprintf('sspol%u.mat', idem);
         copyfile(fullfile('Freeze', filename), fullfile(jobdir, filename));
     end
     
     
-    for demtype = 1:ndem
+    for idem = 1:ndem
         
-        load(fullfile(jobdir, sprintf('sspol%u.mat', demtype)));
+        load(fullfile(jobdir, sprintf('sspol%u.mat', idem)));
         
         Kalive  = zeros(1,T);
         Kdead   = zeros(1,T);
@@ -65,48 +65,46 @@ while (rhosseps > rhosstol)
                         im_scale * pop * imm_age(1) * illegal_rate(1) ];
             im_flow = reshape(im_flow, [1,1,1,1,3]);
             
-            loc1 = 1;
-            loc2 = 1;
-            for i1=1:nz
-                dist1ss(loc1,i1,loc2,1,:) = reshape(proddist_age(i1,1,:), [1,1,1,1,3]) .* im_flow;
+            for iz = 1:nz
+                dist1ss(1,iz,1,1,:) = reshape(proddist_age(iz,1,:), [1,1,1,1,3]) .* im_flow;
             end
             
             
-            for t1 = 1:Tr
+            for t = 1:Tr
                 
                 % using period 1 imm rate values for steady state
-                im_flow = [ 0                                              ;
-                            im_scale * pop * imm_age(t1) * legal_rate(1)   ;
-                            im_scale * pop * imm_age(t1) * illegal_rate(1) ];
+                im_flow = [ 0                                             ;
+                            im_scale * pop * imm_age(t) * legal_rate(1)   ;
+                            im_scale * pop * imm_age(t) * illegal_rate(1) ];
                 im_flow = reshape(im_flow, [1,1,1,1,3]);
                 
-                for j2 = 1:nz
-                    for i1 = 1:nk
-                        for i2 = 1:nb
+                for iz = 1:nz
+                    for ik = 1:nk
+                        for ib = 1:nb
                             
-                            point_k = max(kopt(i1,j2,i2,t1), kgrid(1));
+                            point_k = max(kopt(ik,iz,ib,t), kgrid(1));
                             loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
                             w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
                             w1 = min(w1, 1);
                             
-                            point_b = max(bopt(i1,j2,i2,t1), bgrid(1));
+                            point_b = max(bopt(ik,iz,ib,t), bgrid(1));
                             loc2 = find(bgrid(1:nb-1) <= point_b, 1, 'last');
                             w2 = (point_b - bgrid(loc2)) / (bgrid(loc2+1) - bgrid(loc2));
                             w2 = min(w2, 1);
                             
-                            dist_hold = dist1ss_previous(i1,j2,i2,t1,:) + (i1 == 1)*(i2 == 1)*reshape(proddist_age(j2,t1,:), [1,1,1,1,3]).*im_flow;
+                            dist_hold = dist1ss_previous(ik,iz,ib,t,:) + (ik == 1)*(ib == 1)*reshape(proddist_age(iz,t,:), [1,1,1,1,3]).*im_flow;
                             
-                            for j4 = 1:nz
-                                if (t1 < Tr)
-                                    dist1ss  (loc1  , j4, loc2  , t1+1, :) = dist1ss  (loc1  , j4, loc2  , t1+1, :) + surv(t1)*(1-w2)*(1-w1)*tr_z(j2,j4)*dist_hold;
-                                    dist1ss  (loc1+1, j4, loc2  , t1+1, :) = dist1ss  (loc1+1, j4, loc2  , t1+1, :) + surv(t1)*(1-w2)*(w1  )*tr_z(j2,j4)*dist_hold;
-                                    dist1ss  (loc1  , j4, loc2+1, t1+1, :) = dist1ss  (loc1  , j4, loc2+1, t1+1, :) + surv(t1)*(w2  )*(1-w1)*tr_z(j2,j4)*dist_hold;
-                                    dist1ss  (loc1+1, j4, loc2+1, t1+1, :) = dist1ss  (loc1+1, j4, loc2+1, t1+1, :) + surv(t1)*(w2  )*(w1  )*tr_z(j2,j4)*dist_hold;
+                            for jz = 1:nz
+                                if (t < Tr)
+                                    dist1ss  (loc1  , jz, loc2  , t+1, :) = dist1ss  (loc1  , jz, loc2  , t+1, :) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                    dist1ss  (loc1+1, jz, loc2  , t+1, :) = dist1ss  (loc1+1, jz, loc2  , t+1, :) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
+                                    dist1ss  (loc1  , jz, loc2+1, t+1, :) = dist1ss  (loc1  , jz, loc2+1, t+1, :) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                    dist1ss  (loc1+1, jz, loc2+1, t+1, :) = dist1ss  (loc1+1, jz, loc2+1, t+1, :) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
                                 else
-                                    dist1ss_r(loc1  ,     loc2  , t1+1, :) = dist1ss_r(loc1  ,     loc2  , t1+1, :) + surv(t1)*(1-w2)*(1-w1)*tr_z(j2,j4)*reshape(dist_hold, [1,1,1,3]);
-                                    dist1ss_r(loc1+1,     loc2  , t1+1, :) = dist1ss_r(loc1+1,     loc2  , t1+1, :) + surv(t1)*(1-w2)*(w1  )*tr_z(j2,j4)*reshape(dist_hold, [1,1,1,3]);
-                                    dist1ss_r(loc1  ,     loc2+1, t1+1, :) = dist1ss_r(loc1  ,     loc2+1, t1+1, :) + surv(t1)*(w2  )*(1-w1)*tr_z(j2,j4)*reshape(dist_hold, [1,1,1,3]);
-                                    dist1ss_r(loc1+1,     loc2+1, t1+1, :) = dist1ss_r(loc1+1,     loc2+1, t1+1, :) + surv(t1)*(w2  )*(w1  )*tr_z(j2,j4)*reshape(dist_hold, [1,1,1,3]);
+                                    dist1ss_r(loc1  ,     loc2  , t+1, :) = dist1ss_r(loc1  ,     loc2  , t+1, :) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*reshape(dist_hold, [1,1,1,3]);
+                                    dist1ss_r(loc1+1,     loc2  , t+1, :) = dist1ss_r(loc1+1,     loc2  , t+1, :) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*reshape(dist_hold, [1,1,1,3]);
+                                    dist1ss_r(loc1  ,     loc2+1, t+1, :) = dist1ss_r(loc1  ,     loc2+1, t+1, :) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*reshape(dist_hold, [1,1,1,3]);
+                                    dist1ss_r(loc1+1,     loc2+1, t+1, :) = dist1ss_r(loc1+1,     loc2+1, t+1, :) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*reshape(dist_hold, [1,1,1,3]);
                                 end
                             end
                             
@@ -117,26 +115,26 @@ while (rhosseps > rhosstol)
             end
             
             
-            for t1 = Tr+1:T-1
+            for t = Tr+1:T-1
                 
                 % using period 1 imm rate values for steady state
-                im_flow = [ 0                                              ;
-                            im_scale * pop * imm_age(t1) * legal_rate(1)   ;
-                            im_scale * pop * imm_age(t1) * illegal_rate(1) ];
+                im_flow = [ 0                                             ;
+                            im_scale * pop * imm_age(t) * legal_rate(1)   ;
+                            im_scale * pop * imm_age(t) * illegal_rate(1) ];
                 im_flow = reshape(im_flow, [1,1,1,3]);
                 
-                for i1 = 1:nk
-                    for i2 = 1:nb
+                for ik = 1:nk
+                    for ib = 1:nb
                         
-                        point_k = max(koptss(i1,i2,t1-Tr), kgrid(1));
+                        point_k = max(koptss(ik,ib,t-Tr), kgrid(1));
                         loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
                         w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
                         w1 = min(w1, 1);
                         
-                        dist_hold = dist1ss_r_previous(i1,i2,t1,:) + (i1 == 1)*(i2 == 1)*im_flow;
+                        dist_hold = dist1ss_r_previous(ik,ib,t,:) + (ik == 1)*(ib == 1)*im_flow;
                         
-                        dist1ss_r(loc1  , i2, t1+1, :) = dist1ss_r(loc1  , i2, t1+1, :) + surv(t1)*(1-w1)*dist_hold;
-                        dist1ss_r(loc1+1, i2, t1+1, :) = dist1ss_r(loc1+1, i2, t1+1, :) + surv(t1)*(w1  )*dist_hold;
+                        dist1ss_r(loc1  , ib, t+1, :) = dist1ss_r(loc1  , ib, t+1, :) + surv(t)*(1-w1)*dist_hold;
+                        dist1ss_r(loc1+1, ib, t+1, :) = dist1ss_r(loc1+1, ib, t+1, :) + surv(t)*(w1  )*dist_hold;
                         
                     end
                 end
@@ -158,24 +156,24 @@ while (rhosseps > rhosstol)
         end
         
         % solving for aggregates by age
-        for i3 = 1:3
-            for k1 = 1:Tr
-                for k2 = 1:nz
-                    for k4 = 1:nk
-                        for k5 = 1:nb
-                            Kalive(k1) = Kalive(k1) + kopt  (k4,k2,k5,k1)                 *dist1ss(k4,k2,k5,k1,i3);
-                            Kdead (k1) = Kdead (k1) + kopt  (k4,k2,k5,k1)*(1-surv(k1))    *dist1ss(k4,k2,k5,k1,i3);
-                            Lab   (k1) = Lab   (k1) + labopt(k4,k2,k5,k1)                 *dist1ss(k4,k2,k5,k1,i3);
-                            ELab  (k1) = ELab  (k1) + labopt(k4,k2,k5,k1)*z(k2,k1,demtype)*dist1ss(k4,k2,k5,k1,i3);
+        for ipop = 1:3
+            for t = 1:Tr
+                for iz = 1:nz
+                    for ik = 1:nk
+                        for ib = 1:nb
+                            Kalive(t) = Kalive(t) + kopt  (ik,iz,ib,t)             *dist1ss(ik,iz,ib,t,ipop);
+                            Kdead (t) = Kdead (t) + kopt  (ik,iz,ib,t)*(1-surv(t)) *dist1ss(ik,iz,ib,t,ipop);
+                            Lab   (t) = Lab   (t) + labopt(ik,iz,ib,t)             *dist1ss(ik,iz,ib,t,ipop);
+                            ELab  (t) = ELab  (t) + labopt(ik,iz,ib,t)*z(iz,t,idem)*dist1ss(ik,iz,ib,t,ipop);
                         end
                     end
                 end
             end
-            for k1 = Tr+1:T
-                for k4 = 1:nk
-                    for k5 = 1:nb
-                        Kalive(k1) = Kalive(k1) + koptss(k4,k5,k1-Tr)             *dist1ss_r(k4,k5,k1,i3);
-                        Kdead (k1) = Kdead (k1) + koptss(k4,k5,k1-Tr)*(1-surv(k1))*dist1ss_r(k4,k5,k1,i3);
+            for t = Tr+1:T
+                for ik = 1:nk
+                    for ib = 1:nb
+                        Kalive(t) = Kalive(t) + koptss(ik,ib,t-Tr)            *dist1ss_r(ik,ib,t,ipop);
+                        Kdead (t) = Kdead (t) + koptss(ik,ib,t-Tr)*(1-surv(t))*dist1ss_r(ik,ib,t,ipop);
                     end
                 end
             end
@@ -184,7 +182,7 @@ while (rhosseps > rhosstol)
         KPR  = sum(Kalive + Kdead);
         ELAB = sum(ELab);
         
-        save(fullfile(jobdir, sprintf('distvars_%u.mat', demtype)), ...
+        save(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), ...
              'dist1ss', 'dist1ss_r', 'Kalive', 'Kdead', 'KPR', 'ELab', 'Lab', 'ELAB');
         
     end
@@ -194,9 +192,9 @@ while (rhosseps > rhosstol)
     lab     = 0;
     kdeadpr = 0;
     
-    for demtype = 1:ndem
+    for idem = 1:ndem
         
-        load(fullfile(jobdir, sprintf('distvars_%u.mat', demtype)), ...
+        load(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), ...
              'KPR', 'ELAB', 'Lab', 'Kdead');
         
         lab     = lab     + sum(Lab);
@@ -229,10 +227,10 @@ end
 dist1 = zeros(nk,nz,nb,T,3,ndem);
 distr = zeros(nk,   nb,T,3,ndem);
 
-for demtype = 1:ndem
-    load(fullfile(jobdir, sprintf('distvars_%u.mat', demtype)), 'dist1ss', 'dist1ss_r');
-    dist1(:,:,:,:,:,demtype) = dist1ss  ;
-    distr(:,  :,:,:,demtype) = dist1ss_r;
+for idem = 1:ndem
+    load(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), 'dist1ss', 'dist1ss_r');
+    dist1(:,:,:,:,:,idem) = dist1ss  ;
+    distr(:,  :,:,:,idem) = dist1ss_r;
 end
 
 save(fullfile(jobdir, 'eqmdist.mat'), 'dist1', 'distr');
