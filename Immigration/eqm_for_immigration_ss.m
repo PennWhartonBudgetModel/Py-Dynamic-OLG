@@ -59,50 +59,52 @@ while (rhosseps > rhosstol)
             dist1ss_r = zeros(nk,   nb,T,3);
             
             % pgr is population growth rate of existing population.  only grows youngest cohort.
-            im_flow = [ pop*(pgr)                                     ;
+            % using period 1 imm rate values for steady state
+            im_flow = [ pop * pgr                                     ;
                         im_scale * pop * imm_age(1) * legal_rate(1)   ;
-                        im_scale * pop * imm_age(1) * illegal_rate(1) ];   % using period 1 imm rate values for steady state
+                        im_scale * pop * imm_age(1) * illegal_rate(1) ];
             
             loc1 = 1;
             loc2 = 1;
             for i1=1:nz
-                dist1ss(loc1,i1,loc2,1,:) = squeeze(proddist_age(i1,1,:)).*(im_flow);
+                dist1ss(loc1,i1,loc2,1,:) = squeeze(proddist_age(i1,1,:)) .* im_flow;
             end
             
             
             for t1 = 1:Tr
                 
+                % using period 1 imm rate values for steady state
                 im_flow = [ 0                                              ;
                             im_scale * pop * imm_age(t1) * legal_rate(1)   ;
-                            im_scale * pop * imm_age(t1) * illegal_rate(1) ];   % using period 1 imm rate values for steady state
+                            im_scale * pop * imm_age(t1) * illegal_rate(1) ];
                 
                 for j2 = 1:nz
                     for i1 = 1:nk
                         for i2 = 1:nb
                             
-                            point_k = max(kopt(i1,j2,i2,t1),kgrid(1));    % placing floor at lowest gridpoint.
-                            loc1 = find(kgrid(1:nk-1)<=point_k,1,'last');
-                            w1 = (point_k - kgrid(loc1))/(kgrid(loc1+1)-kgrid(loc1));  % amount allocated to higher gridpoint
-                            w1 = min(w1,1);
-
-                            point_b = max(bopt(i1,j2,i2,t1),bgrid(1));    % placing floor at lowest gridpoint.
-                            loc2 = find(bgrid(1:nb-1)<=point_b,1,'last');    % lower gridpoint
-                            w2 = (point_b - bgrid(loc2))/(bgrid(loc2+1)-bgrid(loc2));  % amount allocated to higher gridpoint
-                            w2 = min(w2,1);
-
-                            dist_hold = squeeze(dist1ss_previous(i1,j2,i2,t1,:)) + (eq(i1,1)*eq(i2,1))*squeeze(proddist_age(j2,t1,:)).*im_flow;
-
+                            point_k = max(kopt(i1,j2,i2,t1), kgrid(1));
+                            loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
+                            w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
+                            w1 = min(w1, 1);
+                            
+                            point_b = max(bopt(i1,j2,i2,t1), bgrid(1));
+                            loc2 = find(bgrid(1:nb-1) <= point_b, 1, 'last');
+                            w2 = (point_b - bgrid(loc2)) / (bgrid(loc2+1) - bgrid(loc2));
+                            w2 = min(w2, 1);
+                            
+                            dist_hold = squeeze(dist1ss_previous(i1,j2,i2,t1,:)) + (i1 == 1)*(i2 == 1)*squeeze(proddist_age(j2,t1,:)).*im_flow;
+                            
                             for j4 = 1:nz
                                 if (t1 < Tr)
-                                    dist1ss  (loc1  , j4, loc2  , t1+1, :) = squeeze(dist1ss  (loc1  , j4, loc2  , t1+1, :)) + (surv(t1)*(1-w2)*(1-w1)*tr_z(j2,j4)).*dist_hold;
-                                    dist1ss  (loc1+1, j4, loc2  , t1+1, :) = squeeze(dist1ss  (loc1+1, j4, loc2  , t1+1, :)) + (surv(t1)*(1-w2)*(w1  )*tr_z(j2,j4)).*dist_hold;
-                                    dist1ss  (loc1  , j4, loc2+1, t1+1, :) = squeeze(dist1ss  (loc1  , j4, loc2+1, t1+1, :)) + (surv(t1)*(w2  )*(1-w1)*tr_z(j2,j4)).*dist_hold;
-                                    dist1ss  (loc1+1, j4, loc2+1, t1+1, :) = squeeze(dist1ss  (loc1+1, j4, loc2+1, t1+1, :)) + (surv(t1)*(w2  )*(w1  )*tr_z(j2,j4)).*dist_hold;
+                                    dist1ss  (loc1  , j4, loc2  , t1+1, :) = squeeze(dist1ss  (loc1  , j4, loc2  , t1+1, :)) + surv(t1)*(1-w2)*(1-w1)*tr_z(j2,j4)*dist_hold;
+                                    dist1ss  (loc1+1, j4, loc2  , t1+1, :) = squeeze(dist1ss  (loc1+1, j4, loc2  , t1+1, :)) + surv(t1)*(1-w2)*(w1  )*tr_z(j2,j4)*dist_hold;
+                                    dist1ss  (loc1  , j4, loc2+1, t1+1, :) = squeeze(dist1ss  (loc1  , j4, loc2+1, t1+1, :)) + surv(t1)*(w2  )*(1-w1)*tr_z(j2,j4)*dist_hold;
+                                    dist1ss  (loc1+1, j4, loc2+1, t1+1, :) = squeeze(dist1ss  (loc1+1, j4, loc2+1, t1+1, :)) + surv(t1)*(w2  )*(w1  )*tr_z(j2,j4)*dist_hold;
                                 else
-                                    dist1ss_r(loc1  ,     loc2  , t1+1, :) = squeeze(dist1ss_r(loc1  ,     loc2  , t1+1, :)) + (surv(t1)*(1-w2)*(1-w1)*tr_z(j2,j4)).*dist_hold;
-                                    dist1ss_r(loc1+1,     loc2  , t1+1, :) = squeeze(dist1ss_r(loc1+1,     loc2  , t1+1, :)) + (surv(t1)*(1-w2)*(w1  )*tr_z(j2,j4)).*dist_hold;
-                                    dist1ss_r(loc1  ,     loc2+1, t1+1, :) = squeeze(dist1ss_r(loc1  ,     loc2+1, t1+1, :)) + (surv(t1)*(w2  )*(1-w1)*tr_z(j2,j4)).*dist_hold;
-                                    dist1ss_r(loc1+1,     loc2+1, t1+1, :) = squeeze(dist1ss_r(loc1+1,     loc2+1, t1+1, :)) + (surv(t1)*(w2  )*(w1  )*tr_z(j2,j4)).*dist_hold;
+                                    dist1ss_r(loc1  ,     loc2  , t1+1, :) = squeeze(dist1ss_r(loc1  ,     loc2  , t1+1, :)) + surv(t1)*(1-w2)*(1-w1)*tr_z(j2,j4)*dist_hold;
+                                    dist1ss_r(loc1+1,     loc2  , t1+1, :) = squeeze(dist1ss_r(loc1+1,     loc2  , t1+1, :)) + surv(t1)*(1-w2)*(w1  )*tr_z(j2,j4)*dist_hold;
+                                    dist1ss_r(loc1  ,     loc2+1, t1+1, :) = squeeze(dist1ss_r(loc1  ,     loc2+1, t1+1, :)) + surv(t1)*(w2  )*(1-w1)*tr_z(j2,j4)*dist_hold;
+                                    dist1ss_r(loc1+1,     loc2+1, t1+1, :) = squeeze(dist1ss_r(loc1+1,     loc2+1, t1+1, :)) + surv(t1)*(w2  )*(w1  )*tr_z(j2,j4)*dist_hold;
                                 end
                             end
                             
@@ -115,22 +117,23 @@ while (rhosseps > rhosstol)
             
             for t1 = Tr+1:T-1
                 
+                % using period 1 imm rate values for steady state
                 im_flow = [ 0                                              ;
                             im_scale * pop * imm_age(t1) * legal_rate(1)   ;
-                            im_scale * pop * imm_age(t1) * illegal_rate(1) ];   % using period 1 imm rate values for steady state
+                            im_scale * pop * imm_age(t1) * illegal_rate(1) ];
                 
                 for i1 = 1:nk
                     for i2 = 1:nb
                         
-                        point_k = max(koptss(i1,i2,t1-Tr),kgrid(1));    % placing floor at lowest gridpoint.
-                        loc1 = find(kgrid(1:nk-1)<=point_k,1,'last');
-                        w1 = (point_k - kgrid(loc1))/(kgrid(loc1+1)-kgrid(loc1));  % amount allocated to higher gridpoint
-                        w1 = min(w1,1);
+                        point_k = max(koptss(i1,i2,t1-Tr), kgrid(1));
+                        loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
+                        w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
+                        w1 = min(w1, 1);
                         
-                        dist_hold = squeeze(dist1ss_r_previous(i1,i2,t1,:)) + (eq(i1,1)*eq(i2,1)).*im_flow;
+                        dist_hold = squeeze(dist1ss_r_previous(i1,i2,t1,:)) + (i1 == 1)*(i2 == 1)*im_flow;
                         
-                        dist1ss_r(loc1  , i2, t1+1, :) = squeeze(dist1ss_r(loc1  , i2, t1+1, :)) + (surv(t1).*(1-w1)).*dist_hold;
-                        dist1ss_r(loc1+1, i2, t1+1, :) = squeeze(dist1ss_r(loc1+1, i2, t1+1, :)) + (surv(t1).*(w1  )).*dist_hold;
+                        dist1ss_r(loc1  , i2, t1+1, :) = squeeze(dist1ss_r(loc1  , i2, t1+1, :)) + surv(t1)*(1-w1)*dist_hold;
+                        dist1ss_r(loc1+1, i2, t1+1, :) = squeeze(dist1ss_r(loc1+1, i2, t1+1, :)) + surv(t1)*(w1  )*dist_hold;
                         
                     end
                 end
@@ -140,9 +143,9 @@ while (rhosseps > rhosstol)
             pop_prev = pop;
             pop = sum(dist1ss(:)) + sum(dist1ss_r(:));
             
-            dist_age = sum(sum(reshape(dist1ss, [], T, 3), 1) + sum(reshape(dist1ss_r, [], T, 3), 1), 3)';
+            dist_age = sum(sum([ reshape(dist1ss, [], T, 3) ; reshape(dist1ss_r, [], T, 3) ], 1), 3)';
             
-            disteps = max(abs((1/dist_age(1)).*dist_age(2:end) - (1/dist_age_previous(1)).*dist_age_previous(2:end)));
+            disteps = max(abs(dist_age(2:end)/dist_age(1) - dist_age_previous(2:end)/dist_age_previous(1)));
             fprintf('Iteration %3u: %8.4f\n', iter, disteps)
             
             dist_age_previous  = dist_age ;
@@ -157,8 +160,8 @@ while (rhosseps > rhosstol)
                 for k2 = 1:nz
                     for k4 = 1:nk
                         for k5 = 1:nb
-                            Kalive(k1) = Kalive(k1) + kopt(k4,k2,k5,k1)                   *dist1ss(k4,k2,k5,k1,i3);
-                            Kdead (k1) = Kdead (k1) + kopt(k4,k2,k5,k1)  *(1-surv(k1))    *dist1ss(k4,k2,k5,k1,i3);
+                            Kalive(k1) = Kalive(k1) + kopt  (k4,k2,k5,k1)                 *dist1ss(k4,k2,k5,k1,i3);
+                            Kdead (k1) = Kdead (k1) + kopt  (k4,k2,k5,k1)*(1-surv(k1))    *dist1ss(k4,k2,k5,k1,i3);
                             Lab   (k1) = Lab   (k1) + labopt(k4,k2,k5,k1)                 *dist1ss(k4,k2,k5,k1,i3);
                             ELab  (k1) = ELab  (k1) + labopt(k4,k2,k5,k1)*z(k2,k1,demtype)*dist1ss(k4,k2,k5,k1,i3);
                         end
@@ -206,7 +209,7 @@ while (rhosseps > rhosstol)
     beq    = kdeadpr/pop;
     
     rhopr1   = max(0.5, kpr-DD)/elab;
-    rhosseps = abs(rhopr1-rho);
+    rhosseps = abs(rhopr1 - rho);
     rho      = 0.25*rhopr1 + 0.75*rho;
     
     Y  = A*((kpr-DD)^alp)*(elab^(1-alp));
