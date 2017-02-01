@@ -7,11 +7,14 @@ function trans_thread_tail(tt1,polno,impolno)
 load params.mat
 % load Pop_Evol.mat
 load Surv_Probs.mat
-load Microsim_Data.mat
 load Imm_Data.mat
 % Alive at start of transition
-filename = ['imm_polparams_' num2str(impolno) '.mat'];
-load(filename)
+
+
+jobdir = 'Testing';
+load(fullfile(jobdir, sprintf('imm_polparams_%u.mat', impolno)))
+
+
 % amnesty=.2;
 hello=2;
 MU2 = zeros(ndem,T);
@@ -52,7 +55,6 @@ end
 
 % load DIST_DATA1_debug
 % jobdir = ['job_' num2str(1) '_' num2str(1)];
-jobdir = ['Steady State Values'];  % gives name
 filename = ['eqmdist'];
 totfile = fullfile(jobdir,filename);
 load(totfile);
@@ -77,8 +79,7 @@ for demtype = 1:ndem
 %     ml2 = MU_LEG(demtype,:);
 
     filename = ['tail' num2str(tt1) '_' num2str(demtype) '_' num2str(polno)  '.mat'];
-    jobdir = ['job_' num2str(polno) '_' num2str(impolno)];  % gives name
-    totfile = fullfile(jobdir,filename);
+    totfile = fullfile('Freeze', 'Cohorts', filename);
     load(totfile);
     
     
@@ -291,7 +292,6 @@ for demtype = 1:ndem
     end
     
     filename = ['transvars_' num2str(demtype) '_' num2str(tt1) '_tail_' num2str(polno) '.mat'];
-    jobdir = ['job_' num2str(polno) '_' num2str(impolno)];  % gives name
     totfile = fullfile(jobdir,filename);
     save(totfile,'dist_1','dist_r','Kalive','Kdead','ELab','Lab','Dist','Fedit','SSrev','SSexp','Lfp','SS_base');
 

@@ -8,9 +8,10 @@ function trans_thread_head(tt1,polno,impolno)
 load params.mat
 % load Pop_Evol.mat
 load Surv_Probs.mat
-% load Imm_Data.mat
-filename = ['imm_polparams_' num2str(impolno) '.mat'];
-load(filename)
+load Imm_Data.mat
+
+jobdir = 'Testing';
+load(fullfile(jobdir, sprintf('imm_polparams_%u.mat', impolno)))
 % polno
 % impolno
 % size(im_rate)
@@ -65,8 +66,7 @@ for demtype = 1:ndem
 
 
     filename = ['head' num2str(tt1) '_' num2str(demtype) '_' num2str(polno) '.mat'];
-    jobdir = ['job_' num2str(polno) '_' num2str(impolno)];  % gives name
-    totfile = fullfile(jobdir,filename);
+    totfile = fullfile('Freeze', 'Cohorts', filename);
     load(totfile);
 
 
@@ -253,8 +253,7 @@ for demtype = 1:ndem
     end
         
     filename = ['transvars_' num2str(demtype) '_' num2str(tt1) '_head_' num2str(polno) '.mat'];
-    jobdir = ['job_' num2str(polno) '_' num2str(impolno)];  % gives name
-    totfile = fullfile(jobdir,filename);
+    totfile = fullfile(jobdir, filename);
     save(totfile,'dist_1','dist_r','Kalive','Kdead','ELab','Lab','Dist','Fedit','SSrev','SSexp','Lfp','SS_base');
 end
 

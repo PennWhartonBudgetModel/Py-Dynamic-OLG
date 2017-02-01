@@ -17,3 +17,6 @@ Logs/
 
 # Ignore Matlab code generation directories
 /*_codegen
+
+# Ignore temporary immigration intermediate results directory
+/Immigration/Freeze/Cohorts
