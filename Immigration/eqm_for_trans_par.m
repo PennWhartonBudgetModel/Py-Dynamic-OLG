@@ -1,4 +1,4 @@
-% function [done] = eqm_for_trans(polno,impolno)
+function [] = eqm_for_trans_par()
 
 %-------------------------------------
 % Place main_HPC2 material here
@@ -221,5 +221,29 @@ end
 done = 1;
 
 % delete(mypool)
-    
 
+
+
+
+%% Testing
+
+trans_distvars_1_1   = load(fullfile(jobdir  , 'trans_distvars_1_1.mat'));
+trans_distvars_1_1_0 = load(fullfile('Freeze', 'trans_distvars_1_1.mat'));
+
+fprintf('trans_distvars_1_1\n');
+valuenames = fields(trans_distvars_1_1);
+for i = 1:length(valuenames)
+    valuename = valuenames{i};
+    delta = trans_distvars_1_1.(valuename)(:) - trans_distvars_1_1_0.(valuename)(:);
+    if any(delta)
+        pdev = abs(nanmean(delta*2 ./ (trans_distvars_1_1.(valuename)(:) + trans_distvars_1_1_0.(valuename)(:))))*100;
+        fprintf('\t%-14s%06.2f%% deviation\n', valuename, pdev);
+    else
+        fprintf('\t%-14sNo deviation\n', valuename);
+    end
+end
+fprintf('\n');
+
+
+
+end
