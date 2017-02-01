@@ -1,4 +1,4 @@
-clear; clc;
+function [] = eqm_for_immigration_ss()
 
 jobdir = 'Testing';
 if exist(jobdir, 'dir'), rmdir(jobdir, 's'), end
@@ -282,3 +282,4 @@ fprintf('\n');
 
 
 
+end
