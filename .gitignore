@@ -5,9 +5,9 @@
 *.o*
 *.e*
 
-# Ignore testing directory and log directory
-/Testing
-/Logs
+# Ignore testing directories and log directories
+Testing/
+Logs/
 
 # Ignore designated directories
 .ignore/
