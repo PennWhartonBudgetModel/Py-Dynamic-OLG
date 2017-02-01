@@ -162,9 +162,9 @@ for trans_year = 2:Tss
         
         age = t;
         
-        im_flow = [0                                                ;
-                   pop_trans(year) * imm_age(age) * legal_rate(1)   ;
-                   pop_trans(year) * imm_age(age) * illegal_rate(1) ];
+        im_flow = [ 0                                                ;
+                    pop_trans(year) * imm_age(age) * legal_rate(1)   ;
+                    pop_trans(year) * imm_age(age) * illegal_rate(1) ];
         
         for ik = 1:nk
             for ib = 1:nb
@@ -199,7 +199,8 @@ for trans_year = 2:Tss
 end
 
 
-save(fullfile(jobdir, sprintf('imm_polparams_%u.mat', impolno)), 'pop_trans')
+save(fullfile(jobdir, sprintf('imm_polparams_%u.mat', impolno)), ...
+     'legal_rate', 'prem_legal', 'proddist_age', 'amnesty', 'deportation', 'pop_trans')
 
 
 
