@@ -52,29 +52,29 @@ for startyear = 0:Tss-1
 end
 
 
-for tt1 = 2:T
-    fprintf('Tail %2u\n', tt1);
-    trans_thread_tail(tt1, polno, impolno);
-end
-
-for t = 1:T-1
+for startyear = 1:T-1
+    
+    fprintf('Tail %2u\n', startyear);
+    trans_thread_tail(startyear, polno, impolno);
+    
     for idem = 1:ndem
         
-        load(fullfile(jobdir, sprintf('transvars_%u_%u_tail_%u.mat', idem, t+1, polno)), ...
+        load(fullfile(jobdir, sprintf('transvars_%u_%u_tail_%u.mat', idem, startyear+1, polno)), ...
              'dist_1', 'dist_r', 'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
         
-        KPR   (Tss+t+1, 1:min(Tss,T-t)) = KPR   (Tss+t+1, 1:min(Tss,T-t)) + Kalive (1:min(Tss,T-t)) + Kdead(1:min(Tss,T-t));
-        BEQ   (Tss+t+1, 1:min(Tss,T-t)) = BEQ   (Tss+t+1, 1:min(Tss,T-t)) + Kdead  (1:min(Tss,T-t));
-        ELAB  (Tss+t+1, 1:min(Tss,T-t)) = ELAB  (Tss+t+1, 1:min(Tss,T-t)) + ELab   (1:min(Tss,T-t));
-        LAB   (Tss+t+1, 1:min(Tss,T-t)) = LAB   (Tss+t+1, 1:min(Tss,T-t)) + Lab    (1:min(Tss,T-t));
-        DIST  (Tss+t+1, 1:min(Tss,T-t)) = DIST  (Tss+t+1, 1:min(Tss,T-t)) + Dist   (1:min(Tss,T-t));
-        FEDIT (Tss+t+1, 1:min(Tss,T-t)) = FEDIT (Tss+t+1, 1:min(Tss,T-t)) + Fedit  (1:min(Tss,T-t));
-        SSREV (Tss+t+1, 1:min(Tss,T-t)) = SSREV (Tss+t+1, 1:min(Tss,T-t)) + SSrev  (1:min(Tss,T-t));
-        SSEXP (Tss+t+1, 1:min(Tss,T-t)) = SSEXP (Tss+t+1, 1:min(Tss,T-t)) + SSexp  (1:min(Tss,T-t));
-        LFP   (Tss+t+1, 1:min(Tss,T-t)) = LFP   (Tss+t+1, 1:min(Tss,T-t)) + Lfp    (1:min(Tss,T-t));
-        SSBASE(Tss+t+1, 1:min(Tss,T-t)) = SSBASE(Tss+t+1, 1:min(Tss,T-t)) + SS_base(1:min(Tss,T-t));
+        KPR   (Tss+startyear+1, 1:min(Tss,T-startyear)) = KPR   (Tss+startyear+1, 1:min(Tss,T-startyear)) + Kalive (1:min(Tss,T-startyear)) + Kdead(1:min(Tss,T-startyear));
+        BEQ   (Tss+startyear+1, 1:min(Tss,T-startyear)) = BEQ   (Tss+startyear+1, 1:min(Tss,T-startyear)) + Kdead  (1:min(Tss,T-startyear));
+        ELAB  (Tss+startyear+1, 1:min(Tss,T-startyear)) = ELAB  (Tss+startyear+1, 1:min(Tss,T-startyear)) + ELab   (1:min(Tss,T-startyear));
+        LAB   (Tss+startyear+1, 1:min(Tss,T-startyear)) = LAB   (Tss+startyear+1, 1:min(Tss,T-startyear)) + Lab    (1:min(Tss,T-startyear));
+        DIST  (Tss+startyear+1, 1:min(Tss,T-startyear)) = DIST  (Tss+startyear+1, 1:min(Tss,T-startyear)) + Dist   (1:min(Tss,T-startyear));
+        FEDIT (Tss+startyear+1, 1:min(Tss,T-startyear)) = FEDIT (Tss+startyear+1, 1:min(Tss,T-startyear)) + Fedit  (1:min(Tss,T-startyear));
+        SSREV (Tss+startyear+1, 1:min(Tss,T-startyear)) = SSREV (Tss+startyear+1, 1:min(Tss,T-startyear)) + SSrev  (1:min(Tss,T-startyear));
+        SSEXP (Tss+startyear+1, 1:min(Tss,T-startyear)) = SSEXP (Tss+startyear+1, 1:min(Tss,T-startyear)) + SSexp  (1:min(Tss,T-startyear));
+        LFP   (Tss+startyear+1, 1:min(Tss,T-startyear)) = LFP   (Tss+startyear+1, 1:min(Tss,T-startyear)) + Lfp    (1:min(Tss,T-startyear));
+        SSBASE(Tss+startyear+1, 1:min(Tss,T-startyear)) = SSBASE(Tss+startyear+1, 1:min(Tss,T-startyear)) + SS_base(1:min(Tss,T-startyear));
         
     end
+    
 end
 
 
