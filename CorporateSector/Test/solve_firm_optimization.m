@@ -16,7 +16,7 @@ T = max( T_prices, T_taxes );
 
 % Give warning if price length is less than policy length
 if T_prices<T_taxes
-    warning('Policy length exceeds price length.  Extend price length to ensure cool down period.')
+    error('Policy length exceeds price length.  Extend price length to ensure cool down period.')
 end
 
 
@@ -63,7 +63,7 @@ elseif istransition
     Vpr = zeros( firm_params.nk, firm_params.n_prodshocks); 
     [Vopt_ss, kopt_ss, labopt_ss, invopt_ss, eqopt_ss, adjcostopt_ss, taxopt_ss, outputs_ss] = solve_firm_policies( prices_initial   ,...
                                                                    taxes_initial,    firm_params, Vpr,  tolerance, 1);
-    
+    display('pause here')
     % Solve distribution                                                           
     % Solve stationary distribution corresponding to initial steady-state
     dist_ss0 = (1/(firm_params.nk*firm_params.n_prodshocks)).*ones(firm_params.nk, firm_params.n_prodshocks);    % Initial guess of steady-state distribution
@@ -74,15 +74,16 @@ elseif istransition
     [capital_total, labor_total, eq_total, inv_total, adjcost_total, V_total, output_total, tax_total, dist] = solve_firm_distribution...
                                                         (kopt, labopt,eqopt, invopt, adjcostopt, taxopt, Vopt,...
                                                          outputs, firm_params, dist_ss, T);
-    capital_total = [ capital_total_ss, capital_total];
-    labor_total   = [ labor_total_ss  , labor_total  ];
-    eq_total      = [ eq_total_ss     , eq_total     ];
-    inv_total     = [ inv_total_ss    , inv_total    ];
-    adjcost_total = [ adjcost_total_ss, adjcost_total];
-    V_total       = [V_total_ss       , V_total      ];
-    output_total  = [output_total_ss  , output_total ];
-    tax_total     = [tax_total_ss     , tax_total    ];
-    dist          = cat(3, dist_ss, dist); %#ok<*NASGU>
+                                                     
+    capital_total = [ capital_total_ss , capital_total];
+    labor_total   = [ labor_total_ss   , labor_total  ];
+    eq_total      = [ eq_total_ss      , eq_total     ];
+    inv_total     = [ inv_total_ss     , inv_total    ];
+    adjcost_total = [ adjcost_total_ss , adjcost_total];
+    V_total       = [ V_total_ss       , V_total      ];
+    output_total  = [ output_total_ss  , output_total ];
+    tax_total     = [ tax_total_ss     , tax_total    ];
+    dist          = cat( 3, dist_ss, dist ); %#ok<*NASGU>
     
     
     
@@ -305,6 +306,9 @@ while true
     if breakcondition, break, end
     dist = squeeze(dist);
 end
+
+
+display('pause here')
 
 capital_total = sum(dist(:).*kopt(:)      );
 labor_total   = sum(dist(:).*labopt(:)    );

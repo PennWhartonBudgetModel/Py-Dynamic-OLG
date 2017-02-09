@@ -4,7 +4,7 @@ s = paramGenerator.firm;
 s_tax = paramGenerator.tax;
 
 prices.fund = 0.98;
-prices.wage = 1;
+prices.wage = [1, 1];
 prices.rate = .98;
 tolerance   = 50;    
 
