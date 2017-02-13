@@ -31,6 +31,7 @@ for idem = 1:ndem
         end
     end
     
+    
     for t = 1:min(Tr, Tss-startyear-1)
         
         age  = t;
@@ -49,7 +50,7 @@ for idem = 1:ndem
                     loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
                     w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
                     w1 = min(w1, 1);
-
+                    
                     point_b = max(bopt(ik,iz,ib,t), bgrid(1));
                     loc2 = find(bgrid(1:nb-1) <= point_b, 1, 'last');
                     w2 = (point_b - bgrid(loc2)) / (bgrid(loc2+1) - bgrid(loc2));
@@ -58,18 +59,18 @@ for idem = 1:ndem
                     for jz = 1:nz
                         for ipop = 1:3
                                 
-                            dist_hold = dist_1(ik,iz,ib,t,ipop,idem) + (ik == 1)*(ib == 1)*proddist_age(iz,t,ipop)*im_flow(ipop);
+                            dist_hold = dist_1(ik,iz,ib,t,ipop,idem) + (ik == 1)*(ib == 1)*proddist_age(iz,age,ipop)*im_flow(ipop);
                         
-                            if (t < Tr)
-                                dist_1(loc1  , jz, loc2  , t+1, ipop, idem) = dist_1(loc1  , jz, loc2  , t+1, ipop, idem) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                dist_1(loc1+1, jz, loc2  , t+1, ipop, idem) = dist_1(loc1+1, jz, loc2  , t+1, ipop, idem) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
-                                dist_1(loc1  , jz, loc2+1, t+1, ipop, idem) = dist_1(loc1  , jz, loc2+1, t+1, ipop, idem) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                dist_1(loc1+1, jz, loc2+1, t+1, ipop, idem) = dist_1(loc1+1, jz, loc2+1, t+1, ipop, idem) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
+                            if (age < Tr)
+                                dist_1(loc1  , jz, loc2  , t+1, ipop, idem) = dist_1(loc1  , jz, loc2  , t+1, ipop, idem) + surv(age)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                dist_1(loc1+1, jz, loc2  , t+1, ipop, idem) = dist_1(loc1+1, jz, loc2  , t+1, ipop, idem) + surv(age)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
+                                dist_1(loc1  , jz, loc2+1, t+1, ipop, idem) = dist_1(loc1  , jz, loc2+1, t+1, ipop, idem) + surv(age)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                dist_1(loc1+1, jz, loc2+1, t+1, ipop, idem) = dist_1(loc1+1, jz, loc2+1, t+1, ipop, idem) + surv(age)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
                             else
-                                dist_r(loc1  ,     loc2  , t+1, ipop, idem) = dist_r(loc1  ,     loc2  , t+1, ipop, idem) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                dist_r(loc1+1,     loc2  , t+1, ipop, idem) = dist_r(loc1+1,     loc2  , t+1, ipop, idem) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
-                                dist_r(loc1  ,     loc2+1, t+1, ipop, idem) = dist_r(loc1  ,     loc2+1, t+1, ipop, idem) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                dist_r(loc1+1,     loc2+1, t+1, ipop, idem) = dist_r(loc1+1,     loc2+1, t+1, ipop, idem) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
+                                dist_r(loc1  ,     loc2  , t+1, ipop, idem) = dist_r(loc1  ,     loc2  , t+1, ipop, idem) + surv(age)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                dist_r(loc1+1,     loc2  , t+1, ipop, idem) = dist_r(loc1+1,     loc2  , t+1, ipop, idem) + surv(age)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
+                                dist_r(loc1  ,     loc2+1, t+1, ipop, idem) = dist_r(loc1  ,     loc2+1, t+1, ipop, idem) + surv(age)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                dist_r(loc1+1,     loc2+1, t+1, ipop, idem) = dist_r(loc1+1,     loc2+1, t+1, ipop, idem) + surv(age)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
                             end
                             
                         end
@@ -81,7 +82,7 @@ for idem = 1:ndem
         
         if amnesty
             
-            if (t < Tr)
+            if (age < Tr)
                 
                 amnesty_dist = squeeze(amnesty*dist_1(:,:,:,t+1,3,idem)); 
                 amnesty_dist = permute(amnesty_dist, [2,1,3]);
@@ -128,7 +129,7 @@ for idem = 1:ndem
         for ik = 1:nk
             for ib = 1:nb
                 
-                point_k = max(koptss(ik,ib,t-Tr), kgrid(1));
+                point_k = max(koptss(ik,ib,age-Tr), kgrid(1));
                 loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
                 w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
                 w1 = min(w1, 1);
@@ -137,8 +138,8 @@ for idem = 1:ndem
                     
                     dist_hold = dist_r(ik,ib,t,ipop,idem) + (ik == 1)*(ib == 1)*im_flow(ipop);
                     
-                    dist_r(loc1  , ib, t+1, ipop, idem) = dist_r(loc1  , ib, t+1, ipop, idem) + surv(t)*(1-w1)*dist_hold;
-                    dist_r(loc1+1, ib, t+1, ipop, idem) = dist_r(loc1+1, ib, t+1, ipop, idem) + surv(t)*(w1  )*dist_hold;
+                    dist_r(loc1  , ib, t+1, ipop, idem) = dist_r(loc1  , ib, t+1, ipop, idem) + surv(age)*(1-w1)*dist_hold;
+                    dist_r(loc1+1, ib, t+1, ipop, idem) = dist_r(loc1+1, ib, t+1, ipop, idem) + surv(age)*(w1  )*dist_hold;
                     
                 end
                 
@@ -170,14 +171,15 @@ for idem = 1:ndem
             for iz = 1:nz
                 for ik = 1:nk
                     for ib = 1:nb
+                        age = t;
                         Kalive (t) = Kalive (t) + dist_1(ik,iz,ib,t,ipop,idem)*kopt   (ik,iz,ib,t);
-                        Kdead  (t) = Kdead  (t) + dist_1(ik,iz,ib,t,ipop,idem)*kopt   (ik,iz,ib,t)*(1-surv(t));
-                        ELab   (t) = ELab   (t) + dist_1(ik,iz,ib,t,ipop,idem)*labopt (ik,iz,ib,t)*z(iz,t,idem);
+                        Kdead  (t) = Kdead  (t) + dist_1(ik,iz,ib,t,ipop,idem)*kopt   (ik,iz,ib,t)*(1-surv(age));
+                        ELab   (t) = ELab   (t) + dist_1(ik,iz,ib,t,ipop,idem)*labopt (ik,iz,ib,t)*z(iz,age,idem);
                         Lab    (t) = Lab    (t) + dist_1(ik,iz,ib,t,ipop,idem)*labopt (ik,iz,ib,t);
                         Dist   (t) = Dist   (t) + dist_1(ik,iz,ib,t,ipop,idem);
                         Fedit  (t) = Fedit  (t) + dist_1(ik,iz,ib,t,ipop,idem)*fitax  (ik,iz,ib,t);
                         SSrev  (t) = SSrev  (t) + dist_1(ik,iz,ib,t,ipop,idem)*fsstax (ik,iz,ib,t);
-                        SSexp  (t) = SSexp  (t) + dist_1(ik,iz,ib,t,ipop,idem)*benopt (ik,iz,ib,t)*max(ss_select(ik,iz,ib,t)-1, 0);
+                        SSexp  (t) = SSexp  (t) + dist_1(ik,iz,ib,t,ipop,idem)*benopt (ik,iz,ib,t)*max(ss_select(ik,iz,ib,t)-1, 0); % (Last term missing from tail cohorts)
                         Lfp    (t) = Lfp    (t) + dist_1(ik,iz,ib,t,ipop,idem)*(labopt(ik,iz,ib,t) > 0);
                         SS_base(t) = SS_base(t) + dist_1(ik,iz,ib,t,ipop,idem)*ss_base(ik,iz,ib,t);
                     end
@@ -190,8 +192,9 @@ for idem = 1:ndem
         for ipop = 1:3
             for ik = 1:nk
                 for ib = 1:nb
+                    age = t;
                     Kalive(t) = Kalive(t) + dist_r(ik,ib,t,ipop,idem)*koptss  (ik,ib,t-Tr);
-                    Kdead (t) = Kdead (t) + dist_r(ik,ib,t,ipop,idem)*koptss  (ik,ib,t-Tr)*(1-surv(t));
+                    Kdead (t) = Kdead (t) + dist_r(ik,ib,t,ipop,idem)*koptss  (ik,ib,t-Tr)*(1-surv(age));
                     Dist  (t) = Dist  (t) + dist_r(ik,ib,t,ipop,idem);
                     Fedit (t) = Fedit (t) + dist_r(ik,ib,t,ipop,idem)*fitaxss (ik,ib,t-Tr);
                     SSrev (t) = SSrev (t) + dist_r(ik,ib,t,ipop,idem)*fsstaxss(ik,ib,t-Tr);

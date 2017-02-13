@@ -26,7 +26,7 @@ for idem = 1:ndem
     for t = 1:Tr+startyear
         
         age  = t - startyear;
-        year = max(1, min(t, Tss)) + 1; % (Addition of 1 may be erroneous; leads to year starting at 2)
+        year = max(1, min(startyear+age, Tss)) + 1; % (Addition of 1 may be erroneous; leads to year starting at 2)
         
         im_flow = [ 0                                                ;
                     pop_trans(year) * imm_age(age) * legal_rate(1)   ;
@@ -106,10 +106,10 @@ for idem = 1:ndem
     end
     
     
-    for t = max(Tr+startyear+1, 1):T-1+startyear
+    for t = max(Tr+startyear+1, 1):T+startyear-1
         
         age  = t - startyear;
-        year = max(1, min(t, Tss)) + 1; % (Addition of 1 may be erroneous; leads to year starting at 2)
+        year = max(1, min(startyear+age, Tss)) + 1; % (Addition of 1 may be erroneous; leads to year starting at 2)
         
         im_flow = [ 0                                                ;
                     pop_trans(year) * imm_age(age) * legal_rate(1)   ;
@@ -118,7 +118,7 @@ for idem = 1:ndem
         for ik = 1:nk
             for ib = 1:nb
                 
-                point_k = max(koptss(ik, ib, t - startyear -max(Tr, -startyear)), kgrid(1));
+                point_k = max(koptss(ik, ib, age - max(Tr, -startyear)), kgrid(1));
                 loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
                 w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
                 w1 = min(w1, 1);
@@ -155,23 +155,22 @@ for idem = 1:ndem
     SS_base = zeros(1,T);
     
     % solving for aggregates by age: region 1
-    if (-startyear+1 <= Tr)
-        for t = -startyear+1:Tr
-            for ipop = 1:3
-                for k2 = 1:nz
-                    for ik = 1:nk
-                        for ib = 1:nb
-                            Kalive (t+startyear) = Kalive (t+startyear) + dist_1(ik,k2,ib,t+startyear,ipop,idem)*kopt   (ik,k2,ib,t+startyear);
-                            Kdead  (t+startyear) = Kdead  (t+startyear) + dist_1(ik,k2,ib,t+startyear,ipop,idem)*kopt   (ik,k2,ib,t+startyear)*(1-surv(t));
-                            ELab   (t+startyear) = ELab   (t+startyear) + dist_1(ik,k2,ib,t+startyear,ipop,idem)*labopt (ik,k2,ib,t+startyear)*z(k2,t,idem);
-                            Lab    (t+startyear) = Lab    (t+startyear) + dist_1(ik,k2,ib,t+startyear,ipop,idem)*labopt (ik,k2,ib,t+startyear);
-                            Dist   (t+startyear) = Dist   (t+startyear) + dist_1(ik,k2,ib,t+startyear,ipop,idem);
-                            Fedit  (t+startyear) = Fedit  (t+startyear) + dist_1(ik,k2,ib,t+startyear,ipop,idem)*fitax  (ik,k2,ib,t+startyear);
-                            SSrev  (t+startyear) = SSrev  (t+startyear) + dist_1(ik,k2,ib,t+startyear,ipop,idem)*fsstax (ik,k2,ib,t+startyear);
-                            SSexp  (t+startyear) = SSexp  (t+startyear) + dist_1(ik,k2,ib,t+startyear,ipop,idem)*benopt (ik,k2,ib,t+startyear);
-                            Lfp    (t+startyear) = Lfp    (t+startyear) + dist_1(ik,k2,ib,t+startyear,ipop,idem)*(labopt(ik,k2,ib,t+startyear) > 0);
-                            SS_base(t+startyear) = SS_base(t+startyear) + dist_1(ik,k2,ib,t+startyear,ipop,idem)*ss_base(ik,k2,ib,t+startyear);
-                        end
+    for t = 1:Tr+startyear
+        for ipop = 1:3
+            for iz = 1:nz
+                for ik = 1:nk
+                    for ib = 1:nb
+                        age = t - startyear;
+                        Kalive (t) = Kalive (t) + dist_1(ik,iz,ib,t,ipop,idem)*kopt   (ik,iz,ib,t);
+                        Kdead  (t) = Kdead  (t) + dist_1(ik,iz,ib,t,ipop,idem)*kopt   (ik,iz,ib,t)*(1-surv(age));
+                        ELab   (t) = ELab   (t) + dist_1(ik,iz,ib,t,ipop,idem)*labopt (ik,iz,ib,t)*z(iz,age,idem);
+                        Lab    (t) = Lab    (t) + dist_1(ik,iz,ib,t,ipop,idem)*labopt (ik,iz,ib,t);
+                        Dist   (t) = Dist   (t) + dist_1(ik,iz,ib,t,ipop,idem);
+                        Fedit  (t) = Fedit  (t) + dist_1(ik,iz,ib,t,ipop,idem)*fitax  (ik,iz,ib,t);
+                        SSrev  (t) = SSrev  (t) + dist_1(ik,iz,ib,t,ipop,idem)*fsstax (ik,iz,ib,t);
+                        SSexp  (t) = SSexp  (t) + dist_1(ik,iz,ib,t,ipop,idem)*benopt (ik,iz,ib,t); % (Extra term in head cohorts missing here)
+                        Lfp    (t) = Lfp    (t) + dist_1(ik,iz,ib,t,ipop,idem)*(labopt(ik,iz,ib,t) > 0);
+                        SS_base(t) = SS_base(t) + dist_1(ik,iz,ib,t,ipop,idem)*ss_base(ik,iz,ib,t);
                     end
                 end
             end
@@ -179,16 +178,17 @@ for idem = 1:ndem
     end
     
     % solving for aggregates by age: region 3
-    for t = max(Tr+1, -startyear+1):T
+    for t = max(Tr+startyear+1, 1):T+startyear
         for ipop = 1:3
             for ik = 1:nk
                 for ib = 1:nb
-                    Kalive(t+startyear) = Kalive(t+startyear) + dist_r(ik,ib,t+startyear,ipop,idem)*koptss  (ik,ib,t-max(Tr,-startyear));
-                    Kdead (t+startyear) = Kdead (t+startyear) + dist_r(ik,ib,t+startyear,ipop,idem)*koptss  (ik,ib,t-max(Tr,-startyear))*(1-surv(t));
-                    Dist  (t+startyear) = Dist  (t+startyear) + dist_r(ik,ib,t+startyear,ipop,idem);
-                    Fedit (t+startyear) = Fedit (t+startyear) + dist_r(ik,ib,t+startyear,ipop,idem)*fitaxss (ik,ib,t-max(Tr,-startyear));
-                    SSrev (t+startyear) = SSrev (t+startyear) + dist_r(ik,ib,t+startyear,ipop,idem)*fsstaxss(ik,ib,t-max(Tr,-startyear));
-                    SSexp (t+startyear) = SSexp (t+startyear) + dist_r(ik,ib,t+startyear,ipop,idem)*benoptss(ik,ib,t-max(Tr,-startyear));
+                    age = t - startyear;
+                    Kalive(t) = Kalive(t) + dist_r(ik,ib,t,ipop,idem)*koptss  (ik,ib,t-max(Tr+startyear, 0));
+                    Kdead (t) = Kdead (t) + dist_r(ik,ib,t,ipop,idem)*koptss  (ik,ib,t-max(Tr+startyear, 0))*(1-surv(age));
+                    Dist  (t) = Dist  (t) + dist_r(ik,ib,t,ipop,idem);
+                    Fedit (t) = Fedit (t) + dist_r(ik,ib,t,ipop,idem)*fitaxss (ik,ib,t-max(Tr+startyear, 0));
+                    SSrev (t) = SSrev (t) + dist_r(ik,ib,t,ipop,idem)*fsstaxss(ik,ib,t-max(Tr+startyear, 0));
+                    SSexp (t) = SSexp (t) + dist_r(ik,ib,t,ipop,idem)*benoptss(ik,ib,t-max(Tr+startyear, 0));
                 end
             end
         end
