@@ -18,12 +18,21 @@ for idem = 1:ndem
     
     load(fullfile('Freeze', 'Cohorts', sprintf('head%u_%u_%u.mat', startyear+1, idem, polno)));
     
-    year = max(1, min(startyear+1, Tss));
+    T_life   = T;
+    T_work   = Tr;
+    T_model  = Tss;
+    T_past   = max(-startyear, 0);
+    T_shift  = max(+startyear, 0);
+    T_active = min(startyear+T_life, T_model) - T_shift;
+    
+    
+    age  = 1;
+    year = max(1, min(startyear+age, T_model));
     
     % using period 1 imm rate values for steady state
     im_flow = [ pop_trans(year) * pgr                          ;
-                pop_trans(year) * imm_age(1) * legal_rate(1)   ;
-                pop_trans(year) * imm_age(1) * illegal_rate(1) ];
+                pop_trans(year) * imm_age(age) * legal_rate(1)   ;
+                pop_trans(year) * imm_age(age) * illegal_rate(1) ];
     
     for iz = 1:nz
         for ipop = 1:3
@@ -32,10 +41,10 @@ for idem = 1:ndem
     end
     
     
-    for t = 1:min(Tr, Tss-startyear-1)
+    for t = 1:min(T_work, T_model-startyear-1)
         
-        age  = t;
-        year = max(1, min(startyear+age, Tss)) + 1; % (Addition of 1 may be erroneous; leads to year starting at 2)
+        age  = t + T_past;
+        year = max(1, min(startyear+age, T_model)) + 1; % (Addition of 1 may be erroneous; leads to year starting at 2)
         
         % using period 1 imm rate values for steady state
         im_flow = [ 0                                                ;
@@ -61,7 +70,7 @@ for idem = 1:ndem
                                 
                             dist_hold = dist_1(ik,iz,ib,t,ipop,idem) + (ik == 1)*(ib == 1)*proddist_age(iz,age,ipop)*im_flow(ipop);
                         
-                            if (age < Tr)
+                            if (age < T_work)
                                 dist_1(loc1  , jz, loc2  , t+1, ipop, idem) = dist_1(loc1  , jz, loc2  , t+1, ipop, idem) + surv(age)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
                                 dist_1(loc1+1, jz, loc2  , t+1, ipop, idem) = dist_1(loc1+1, jz, loc2  , t+1, ipop, idem) + surv(age)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
                                 dist_1(loc1  , jz, loc2+1, t+1, ipop, idem) = dist_1(loc1  , jz, loc2+1, t+1, ipop, idem) + surv(age)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
@@ -82,7 +91,7 @@ for idem = 1:ndem
         
         if amnesty
             
-            if (age < Tr)
+            if (age < T_work)
                 
                 amnesty_dist = squeeze(amnesty*dist_1(:,:,:,t+1,3,idem)); 
                 amnesty_dist = permute(amnesty_dist, [2,1,3]);
@@ -116,10 +125,10 @@ for idem = 1:ndem
     end
     
     
-    for t = Tr+1:min(T-1, Tss-startyear)
+    for t = T_work+1:min(T_life-1, T_model-startyear)
         
-        age  = t;
-        year = max(1, min(startyear+age, Tss)) + 1; % (Addition of 1 may be erroneous; leads to year starting at 2)
+        age  = t + T_past;
+        year = max(1, min(startyear+age, T_model)) + 1; % (Addition of 1 may be erroneous; leads to year starting at 2)
         
         % using period 1 imm rate values for steady state
         im_flow = [ 0                                                ;
@@ -129,7 +138,7 @@ for idem = 1:ndem
         for ik = 1:nk
             for ib = 1:nb
                 
-                point_k = max(koptss(ik,ib,age-Tr), kgrid(1));
+                point_k = max(koptss(ik,ib,age-T_work), kgrid(1));
                 loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
                 w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
                 w1 = min(w1, 1);
@@ -154,19 +163,19 @@ for idem = 1:ndem
     end
     
     
-    Kalive  = zeros(1,min(Tss-startyear,T));
-    Kdead   = zeros(1,min(Tss-startyear,T));
-    Lab     = zeros(1,min(Tss-startyear,T));
-    ELab    = zeros(1,min(Tss-startyear,T));
-    Dist    = zeros(1,min(Tss-startyear,T));
-    Fedit   = zeros(1,min(Tss-startyear,T));
-    SSrev   = zeros(1,min(Tss-startyear,T));
-    SSexp   = zeros(1,min(Tss-startyear,T));
-    Lfp     = zeros(1,min(Tss-startyear,T));
-    SS_base = zeros(1,min(Tss-startyear,T));
+    Kalive  = zeros(1,min(T_model-startyear,T_life));
+    Kdead   = zeros(1,min(T_model-startyear,T_life));
+    Lab     = zeros(1,min(T_model-startyear,T_life));
+    ELab    = zeros(1,min(T_model-startyear,T_life));
+    Dist    = zeros(1,min(T_model-startyear,T_life));
+    Fedit   = zeros(1,min(T_model-startyear,T_life));
+    SSrev   = zeros(1,min(T_model-startyear,T_life));
+    SSexp   = zeros(1,min(T_model-startyear,T_life));
+    Lfp     = zeros(1,min(T_model-startyear,T_life));
+    SS_base = zeros(1,min(T_model-startyear,T_life));
     
     % solving for aggregates by age
-    for t = 1:min(Tss-startyear, Tr)
+    for t = 1:min(T_model-startyear, T_work)
         for ipop = 1:3
             for iz = 1:nz
                 for ik = 1:nk
@@ -188,17 +197,17 @@ for idem = 1:ndem
         end
     end
 
-    for t = Tr+1:min(T, Tss-startyear)
+    for t = T_work+1:min(T_life, T_model-startyear)
         for ipop = 1:3
             for ik = 1:nk
                 for ib = 1:nb
                     age = t;
-                    Kalive(t) = Kalive(t) + dist_r(ik,ib,t,ipop,idem)*koptss  (ik,ib,t-Tr);
-                    Kdead (t) = Kdead (t) + dist_r(ik,ib,t,ipop,idem)*koptss  (ik,ib,t-Tr)*(1-surv(age));
+                    Kalive(t) = Kalive(t) + dist_r(ik,ib,t,ipop,idem)*koptss  (ik,ib,t-T_work);
+                    Kdead (t) = Kdead (t) + dist_r(ik,ib,t,ipop,idem)*koptss  (ik,ib,t-T_work)*(1-surv(age));
                     Dist  (t) = Dist  (t) + dist_r(ik,ib,t,ipop,idem);
-                    Fedit (t) = Fedit (t) + dist_r(ik,ib,t,ipop,idem)*fitaxss (ik,ib,t-Tr);
-                    SSrev (t) = SSrev (t) + dist_r(ik,ib,t,ipop,idem)*fsstaxss(ik,ib,t-Tr);
-                    SSexp (t) = SSexp (t) + dist_r(ik,ib,t,ipop,idem)*benoptss(ik,ib,t-Tr);
+                    Fedit (t) = Fedit (t) + dist_r(ik,ib,t,ipop,idem)*fitaxss (ik,ib,t-T_work);
+                    SSrev (t) = SSrev (t) + dist_r(ik,ib,t,ipop,idem)*fsstaxss(ik,ib,t-T_work);
+                    SSexp (t) = SSexp (t) + dist_r(ik,ib,t,ipop,idem)*benoptss(ik,ib,t-T_work);
                 end
             end
         end
