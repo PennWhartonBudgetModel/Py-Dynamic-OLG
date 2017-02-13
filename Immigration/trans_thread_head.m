@@ -10,8 +10,6 @@ load(fullfile(jobdir, sprintf('imm_polparams_%u.mat', impolno)))
 dist_1 = zeros(nk,nz,nb,min(T+1,Tss+1),3,ndem);
 dist_r = zeros(nk,   nb,min(T+1,Tss+1),3,ndem);
 
-cohort = startyear+T;
-
 load('SSVALS.mat', 'pop_prev')
 pop_trans = [pop_prev; pop_trans]; %#ok<NODEF>
 
@@ -20,12 +18,12 @@ for idem = 1:ndem
     
     load(fullfile('Freeze', 'Cohorts', sprintf('head%u_%u_%u.mat', startyear+1, idem, polno)));
     
-    year = max(1, min(cohort+1-T, Tss));
+    year = max(1, min(startyear+1, Tss));
     
     % using period 1 imm rate values for steady state
-    im_flow = [ pop_trans(year) * pgr                        ;
-                pop_trans(year) * imm_age(1)*legal_rate(1)   ;
-                pop_trans(year) * imm_age(1)*illegal_rate(1) ];
+    im_flow = [ pop_trans(year) * pgr                          ;
+                pop_trans(year) * imm_age(1) * legal_rate(1)   ;
+                pop_trans(year) * imm_age(1) * illegal_rate(1) ];
     
     for iz = 1:nz
         for ipop = 1:3
@@ -35,8 +33,8 @@ for idem = 1:ndem
     
     for t = 1:min(Tr, Tss-startyear-1)
         
-        age = t;
-        year = max(1, min(cohort+age-T, Tss)) + 1;
+        age  = t;
+        year = max(1, min(startyear+age, Tss)) + 1;
         
         % using period 1 imm rate values for steady state
         im_flow = [ 0                                                ;
@@ -86,11 +84,11 @@ for idem = 1:ndem
             amnesty_dist = squeeze(amnesty*dist_1(:,:,:,t+1,3,idem)); 
             amnesty_dist = permute(amnesty_dist, [2,1,3]);
             amnesty_dist = squeeze(sum(amnesty_dist)); % amnesty_dist has dimensions nk,nb
-
+            
             prod_legal = squeeze(dist_1(:,:,:,t+1,2,idem));   % has dimensions nk,nz,nb
             prod_legal = squeeze(sum(sum(permute(prod_legal,[1,3,2]))));
             prod_legal = prod_legal / sum(prod_legal);
-
+            
             for ik = 1:nk
                 for ib = 1:nb
                     for iz = 1:nz
@@ -100,26 +98,26 @@ for idem = 1:ndem
             end
             dist_1(:,:,:,t+1,3,idem) = (1-amnesty)*dist_1(:,:,:,t+1,3,idem);
             
-        elseif (amnesty) && ( t == Tr)
+        elseif (amnesty) && (t == Tr)
             
             dist_r(:,:,t+1,2,idem) = dist_r(:,:,t+1,2,idem) + amnesty*dist_r(:,:,t+1,3,idem);
             dist_r(:,:,t+1,3,idem) = (1-amnesty)*dist_r(:,:,t+1,3,idem);
             
         end
-
+        
         dist_1(:,:,:,t+1,3,idem) = (1-deportation)*dist_1(:,:,:,t+1,3,idem);  
         dist_r(:,  :,t+1,3,idem) = (1-deportation)*dist_r(:,  :,t+1,3,idem);
         
     end
-
-
+    
+    
     % looping over dist_r
     if (Tss-startyear > Tr)
         
-        for t = Tr+1:min(T-1 ,Tss-startyear)
+        for t = Tr+1:min(T-1, Tss-startyear)
             
-            age = t;
-            year = max(1, min(cohort+age-T, Tss)) + 1;
+            age  = t;
+            year = max(1, min(startyear+age, Tss)) + 1;
             
             % using period 1 imm rate values for steady state
             im_flow = [ 0                                                ;
@@ -152,6 +150,7 @@ for idem = 1:ndem
             dist_r(:,:,t+1,3,idem) = (1-deportation)*dist_r(:,:,t+1,3,idem);
             
         end
+        
     end
     
     

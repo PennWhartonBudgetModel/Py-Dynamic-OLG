@@ -207,16 +207,16 @@ save(fullfile(jobdir, sprintf('imm_polparams_%u.mat', impolno)), ...
 
 %% Testing
 
-imm_polparams_1   = load(fullfile(jobdir  , 'imm_polparams_1.mat'));
-imm_polparams_1_0 = load(fullfile('Freeze', 'imm_polparams_1.mat'));
+imm_polparams_1        = load(fullfile(jobdir  , 'imm_polparams_1.mat'));
+imm_polparams_1_freeze = load(fullfile('Freeze', 'imm_polparams_1.mat'));
 
 fprintf('imm_polparams_1\n');
 valuenames = fields(imm_polparams_1);
 for i = 1:length(valuenames)
     valuename = valuenames{i};
-    delta = imm_polparams_1.(valuename)(:) - imm_polparams_1_0.(valuename)(:);
+    delta = imm_polparams_1.(valuename)(:) - imm_polparams_1_freeze.(valuename)(:);
     if any(delta)
-        pdev = abs(nanmean(delta*2 ./ (imm_polparams_1.(valuename)(:) + imm_polparams_1_0.(valuename)(:))))*100;
+        pdev = abs(nanmean(delta*2 ./ (imm_polparams_1.(valuename)(:) + imm_polparams_1_freeze.(valuename)(:))))*100;
         fprintf('\t%-14s%06.2f%% deviation\n', valuename, pdev);
     else
         fprintf('\t%-14sNo deviation\n', valuename);

@@ -245,16 +245,16 @@ save(fullfile(jobdir, 'eqmdist.mat'), 'dist1', 'distr');
 
 %% Testing
 
-distvars_1   = load(fullfile(jobdir  , 'distvars_1.mat'));
-distvars_1_0 = load(fullfile('Freeze', 'distvars_1.mat'));
+distvars_1        = load(fullfile(jobdir  , 'distvars_1.mat'));
+distvars_1_freeze = load(fullfile('Freeze', 'distvars_1.mat'));
 
 fprintf('distvars_1\n');
 valuenames = fields(distvars_1);
 for i = 1:length(valuenames)
     valuename = valuenames{i};
-    delta = distvars_1.(valuename)(:) - distvars_1_0.(valuename)(:);
+    delta = distvars_1.(valuename)(:) - distvars_1_freeze.(valuename)(:);
     if any(delta)
-        pdev = abs(nanmean(delta*2 ./ (distvars_1.(valuename)(:) + distvars_1_0.(valuename)(:))))*100;
+        pdev = abs(nanmean(delta*2 ./ (distvars_1.(valuename)(:) + distvars_1_freeze.(valuename)(:))))*100;
         fprintf('\t%-14s%06.2f%% deviation\n', valuename, pdev);
     else
         fprintf('\t%-14sNo deviation\n', valuename);
@@ -263,16 +263,16 @@ end
 fprintf('\n');
 
 
-distvars_2   = load(fullfile(jobdir  , 'distvars_2.mat'));
-distvars_2_0 = load(fullfile('Freeze', 'distvars_2.mat'));
+distvars_2        = load(fullfile(jobdir  , 'distvars_2.mat'));
+distvars_2_freeze = load(fullfile('Freeze', 'distvars_2.mat'));
 
 fprintf('distvars_2\n');
 valuenames = fields(distvars_2);
 for i = 1:length(valuenames)
     valuename = valuenames{i};
-    delta = distvars_2.(valuename)(:) - distvars_2_0.(valuename)(:);
+    delta = distvars_2.(valuename)(:) - distvars_2_freeze.(valuename)(:);
     if any(delta)
-        pdev = abs(nanmean(delta*2 ./ (distvars_2.(valuename)(:) + distvars_2_0.(valuename)(:))))*100;
+        pdev = abs(nanmean(delta*2 ./ (distvars_2.(valuename)(:) + distvars_2_freeze.(valuename)(:))))*100;
         fprintf('\t%-14s%06.2f%% deviation\n', valuename, pdev);
     else
         fprintf('\t%-14sNo deviation\n', valuename);
