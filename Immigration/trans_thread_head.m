@@ -34,7 +34,7 @@ for idem = 1:ndem
     for t = 1:min(Tr, Tss-startyear-1)
         
         age  = t;
-        year = max(1, min(startyear+age, Tss)) + 1;
+        year = max(1, min(startyear+age, Tss)) + 1; % (Addition of 1 may be erroneous; leads to year starting at 2)
         
         % using period 1 imm rate values for steady state
         im_flow = [ 0                                                ;
@@ -79,29 +79,33 @@ for idem = 1:ndem
             end
         end
         
-        if (amnesty) && (t < Tr)
+        if amnesty
             
-            amnesty_dist = squeeze(amnesty*dist_1(:,:,:,t+1,3,idem)); 
-            amnesty_dist = permute(amnesty_dist, [2,1,3]);
-            amnesty_dist = squeeze(sum(amnesty_dist)); % amnesty_dist has dimensions nk,nb
-            
-            prod_legal = squeeze(dist_1(:,:,:,t+1,2,idem));   % has dimensions nk,nz,nb
-            prod_legal = squeeze(sum(sum(permute(prod_legal,[1,3,2]))));
-            prod_legal = prod_legal / sum(prod_legal);
-            
-            for ik = 1:nk
-                for ib = 1:nb
-                    for iz = 1:nz
-                        dist_1(ik,iz,ib,t+1,2,idem) = dist_1(ik,iz,ib,t+1,2,idem) + prod_legal(iz)*amnesty_dist(ik,ib);
+            if (t < Tr)
+                
+                amnesty_dist = squeeze(amnesty*dist_1(:,:,:,t+1,3,idem)); 
+                amnesty_dist = permute(amnesty_dist, [2,1,3]);
+                amnesty_dist = squeeze(sum(amnesty_dist)); % amnesty_dist has dimensions nk,nb
+                
+                prod_legal = squeeze(dist_1(:,:,:,t+1,2,idem));   % has dimensions nk,nz,nb
+                prod_legal = squeeze(sum(sum(permute(prod_legal,[1,3,2]))));
+                prod_legal = prod_legal / sum(prod_legal);
+                
+                for ik = 1:nk
+                    for ib = 1:nb
+                        for iz = 1:nz
+                            dist_1(ik,iz,ib,t+1,2,idem) = dist_1(ik,iz,ib,t+1,2,idem) + prod_legal(iz)*amnesty_dist(ik,ib);
+                        end
                     end
                 end
+                dist_1(:,:,:,t+1,3,idem) = (1-amnesty)*dist_1(:,:,:,t+1,3,idem);
+                
+            else
+                
+                dist_r(:,:,t+1,2,idem) = dist_r(:,:,t+1,2,idem) + amnesty*dist_r(:,:,t+1,3,idem);
+                dist_r(:,:,t+1,3,idem) = (1-amnesty)*dist_r(:,:,t+1,3,idem);
+                
             end
-            dist_1(:,:,:,t+1,3,idem) = (1-amnesty)*dist_1(:,:,:,t+1,3,idem);
-            
-        elseif (amnesty) && (t == Tr)
-            
-            dist_r(:,:,t+1,2,idem) = dist_r(:,:,t+1,2,idem) + amnesty*dist_r(:,:,t+1,3,idem);
-            dist_r(:,:,t+1,3,idem) = (1-amnesty)*dist_r(:,:,t+1,3,idem);
             
         end
         
@@ -111,45 +115,40 @@ for idem = 1:ndem
     end
     
     
-    % looping over dist_r
-    if (Tss-startyear > Tr)
+    for t = Tr+1:min(T-1, Tss-startyear)
         
-        for t = Tr+1:min(T-1, Tss-startyear)
-            
-            age  = t;
-            year = max(1, min(startyear+age, Tss)) + 1;
-            
-            % using period 1 imm rate values for steady state
-            im_flow = [ 0                                                ;
-                        pop_trans(year) * imm_age(age) * legal_rate(1)   ;
-                        pop_trans(year) * imm_age(age) * illegal_rate(1) ];
-            
-            for ik = 1:nk
-                for ib = 1:nb
+        age  = t;
+        year = max(1, min(startyear+age, Tss)) + 1; % (Addition of 1 may be erroneous; leads to year starting at 2)
+        
+        % using period 1 imm rate values for steady state
+        im_flow = [ 0                                                ;
+                    pop_trans(year) * imm_age(age) * legal_rate(1)   ;
+                    pop_trans(year) * imm_age(age) * illegal_rate(1) ];
+        
+        for ik = 1:nk
+            for ib = 1:nb
+                
+                point_k = max(koptss(ik,ib,t-Tr), kgrid(1));
+                loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
+                w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
+                w1 = min(w1, 1);
+                
+                for ipop = 1:3
                     
-                    point_k = max(koptss(ik,ib,t-Tr), kgrid(1));
-                    loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
-                    w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
-                    w1 = min(w1, 1);
+                    dist_hold = dist_r(ik,ib,t,ipop,idem) + (ik == 1)*(ib == 1)*im_flow(ipop);
                     
-                    for ipop = 1:3
-                        
-                        dist_hold = dist_r(ik,ib,t,ipop,idem) + (ik == 1)*(ib == 1)*im_flow(ipop);
-                        
-                        dist_r(loc1  , ib, t+1, ipop, idem) = dist_r(loc1  , ib, t+1, ipop, idem) + surv(t)*(1-w1)*dist_hold;
-                        dist_r(loc1+1, ib, t+1, ipop, idem) = dist_r(loc1+1, ib, t+1, ipop, idem) + surv(t)*(w1  )*dist_hold;
-                        
-                    end
+                    dist_r(loc1  , ib, t+1, ipop, idem) = dist_r(loc1  , ib, t+1, ipop, idem) + surv(t)*(1-w1)*dist_hold;
+                    dist_r(loc1+1, ib, t+1, ipop, idem) = dist_r(loc1+1, ib, t+1, ipop, idem) + surv(t)*(w1  )*dist_hold;
                     
                 end
+                
             end
-            
-            dist_r(:,:,t+1,2,idem) = dist_r(:,:,t+1,2,idem) + amnesty*dist_r(:,:,t+1,3,idem);
-            dist_r(:,:,t+1,3,idem) = (1-amnesty)*dist_r(:,:,t+1,3,idem);
-            
-            dist_r(:,:,t+1,3,idem) = (1-deportation)*dist_r(:,:,t+1,3,idem);
-            
         end
+        
+        dist_r(:,:,t+1,2,idem) = dist_r(:,:,t+1,2,idem) + amnesty*dist_r(:,:,t+1,3,idem);
+        dist_r(:,:,t+1,3,idem) = (1-amnesty)*dist_r(:,:,t+1,3,idem);
+        
+        dist_r(:,:,t+1,3,idem) = (1-deportation)*dist_r(:,:,t+1,3,idem);
         
     end
     
