@@ -16,35 +16,24 @@ pop_trans = [pop_prev; pop_trans]; %#ok<NODEF>
 load(fullfile(jobdir, 'eqmdist.mat'));
 
 
+T_life   = T;
+T_work   = Tr;
+T_model  = Tss;
+T_past   = max(-startyear, 0);
+T_shift  = max(+startyear, 0);
+T_active = min(startyear+T_life, T_model) - T_shift;
+
 for idem = 1:ndem
     
-    load(fullfile('Freeze', 'Cohorts', sprintf('tail%u_%u_%u.mat', -startyear+1, idem, polno)));
+    opt = load(fullfile('Freeze', 'Cohorts', sprintf('cohort=%+03d_idem=%u.mat', startyear, idem)));
     
-    T_life   = T;
-    T_work   = Tr;
-    T_model  = Tss;
-    T_past   = max(-startyear, 0);
-    T_shift  = max(+startyear, 0);
-    T_active = min(startyear+T_life, T_model) - T_shift;
-    
-    
-    if (T_active > T_life - T_work)
-        K   = kopt   ; K  (:,:,:,end-T_life+T_work+1:end) = repmat(reshape(koptss   , [nk,1,nb,T_life-T_work]), [1,nz,1,1]); K   = K  (:,:,:,1:T_active);
-        LAB = labopt ; LAB(:,:,:,end-T_life+T_work+1:end) = repmat(reshape(laboptss , [nk,1,nb,T_life-T_work]), [1,nz,1,1]); LAB = LAB(:,:,:,1:T_active);
-        B   = bopt   ; B  (:,:,:,end-T_life+T_work+1:end) = repmat(reshape(boptss   , [nk,1,nb,T_life-T_work]), [1,nz,1,1]); B   = B  (:,:,:,1:T_active);
-        PIT = fitax  ; PIT(:,:,:,end-T_life+T_work+1:end) = repmat(reshape(fitaxss  , [nk,1,nb,T_life-T_work]), [1,nz,1,1]); PIT = PIT(:,:,:,1:T_active);
-        SST = fsstax ; SST(:,:,:,end-T_life+T_work+1:end) = repmat(reshape(fsstaxss , [nk,1,nb,T_life-T_work]), [1,nz,1,1]); SST = SST(:,:,:,1:T_active);
-        BEN = benopt ; BEN(:,:,:,end-T_life+T_work+1:end) = repmat(reshape(benoptss , [nk,1,nb,T_life-T_work]), [1,nz,1,1]); BEN = BEN(:,:,:,1:T_active);
-        SSB = ss_base; SSB(:,:,:,end-T_life+T_work+1:end) = repmat(reshape(ss_basess, [nk,1,nb,T_life-T_work]), [1,nz,1,1]); SSB = SSB(:,:,:,1:T_active);
-    else
-        K   = repmat(reshape(koptss   , [nk,1,nb,T_active]), [1,nz,1,1]);
-        LAB = repmat(reshape(laboptss , [nk,1,nb,T_active]), [1,nz,1,1]);
-        B   = repmat(reshape(boptss   , [nk,1,nb,T_active]), [1,nz,1,1]);
-        PIT = repmat(reshape(fitaxss  , [nk,1,nb,T_active]), [1,nz,1,1]);
-        SST = repmat(reshape(fsstaxss , [nk,1,nb,T_active]), [1,nz,1,1]);
-        BEN = repmat(reshape(benoptss , [nk,1,nb,T_active]), [1,nz,1,1]);
-        SSB = repmat(reshape(ss_basess, [nk,1,nb,T_active]), [1,nz,1,1]);
-    end
+    K   = opt.K  ;
+    LAB = opt.LAB;
+    B   = opt.B  ;
+    PIT = opt.PIT;
+    SST = opt.SST;
+    BEN = opt.BEN;
+    SSB = opt.SSB;
     
     
     dist_1(:,:,:,1,:,idem) = dist1(:,:,:,-startyear+1,:,idem); %#ok<NODEF>

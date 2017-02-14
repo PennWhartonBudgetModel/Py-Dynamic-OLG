@@ -16,25 +16,24 @@ pop_trans = [pop_prev; pop_trans]; %#ok<NODEF>
 load(fullfile(jobdir, 'eqmdist.mat'));
 
 
+T_life   = T;
+T_work   = Tr;
+T_model  = Tss;
+T_past   = max(-startyear, 0);
+T_shift  = max(+startyear, 0);
+T_active = min(startyear+T_life, T_model) - T_shift;
+    
 for idem = 1:ndem
     
-    load(fullfile('Freeze', 'Cohorts', sprintf('head%u_%u_%u.mat', startyear+1, idem, polno)));
+    opt = load(fullfile('Freeze', 'Cohorts', sprintf('cohort=%+03d_idem=%u.mat', startyear, idem)));
     
-    T_life   = T;
-    T_work   = Tr;
-    T_model  = Tss;
-    T_past   = max(-startyear, 0);
-    T_shift  = max(+startyear, 0);
-    T_active = min(startyear+T_life, T_model) - T_shift;
-    
-    
-    K   = cat(4, kopt   , repmat(reshape(koptss   , [nk,1,nb,T_life-T_work]), [1,nz,1,1])); K   = K  (:,:,:,1:T_active);
-    LAB = cat(4, labopt , repmat(reshape(laboptss , [nk,1,nb,T_life-T_work]), [1,nz,1,1])); LAB = LAB(:,:,:,1:T_active);
-    B   = cat(4, bopt   , repmat(reshape(boptss   , [nk,1,nb,T_life-T_work]), [1,nz,1,1])); B   = B  (:,:,:,1:T_active);
-    PIT = cat(4, fitax  , repmat(reshape(fitaxss  , [nk,1,nb,T_life-T_work]), [1,nz,1,1])); PIT = PIT(:,:,:,1:T_active);
-    SST = cat(4, fsstax , repmat(reshape(fsstaxss , [nk,1,nb,T_life-T_work]), [1,nz,1,1])); SST = SST(:,:,:,1:T_active);
-    BEN = cat(4, benopt , repmat(reshape(benoptss , [nk,1,nb,T_life-T_work]), [1,nz,1,1])); BEN = BEN(:,:,:,1:T_active);
-    SSB = cat(4, ss_base, repmat(reshape(ss_basess, [nk,1,nb,T_life-T_work]), [1,nz,1,1])); SSB = SSB(:,:,:,1:T_active);
+    K   = opt.K  ;
+    LAB = opt.LAB;
+    B   = opt.B  ;
+    PIT = opt.PIT;
+    SST = opt.SST;
+    BEN = opt.BEN;
+    SSB = opt.SSB;
     
     
     age  = 1;
