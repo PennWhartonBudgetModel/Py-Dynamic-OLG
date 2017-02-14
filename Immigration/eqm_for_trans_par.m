@@ -6,9 +6,6 @@ impolno = 1;
 jobdir = 'Testing';
 load(fullfile(jobdir, 'imm_polparams_1.mat'), 'pop_trans')
 
-load('SSVALS.mat', 'DEBTss')
-DEBT = (0.74/0.7) * DEBTss * pop_trans' / pop_trans(1);
-
 load('params.mat')
 load('polparams_1.mat')
 
@@ -27,48 +24,29 @@ Dynamic.ssts    = zeros(1,T_model);
 Dynamic.bens    = zeros(1,T_model);
 
 
-for startyear = -T+1:-1
+for startyear = (-T_life+1):(T_model-1)
     
-    fprintf('Tail %+03d\n', startyear);
-    trans_thread_tail(startyear, polno, impolno);
+    fprintf('Cohort %+03d\n', startyear);
     
-    T_past   = max(-startyear, 0);
-    T_shift  = max(+startyear, 0);
-    T_active = min(startyear+T_life, T_model) - T_shift;
-    
-    for idem = 1:ndem
-        
-        load(fullfile(jobdir, sprintf('transvars_%u_%u_tail_%u.mat', idem, -startyear+1, polno)), ...
-             'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
-        
-        Dynamic.assets (T_shift+(1:T_active)) = Dynamic.assets (T_shift+(1:T_active)) + Kalive + Kdead;
-        Dynamic.beqs   (T_shift+(1:T_active)) = Dynamic.beqs   (T_shift+(1:T_active)) + Kdead  ;
-        Dynamic.labeffs(T_shift+(1:T_active)) = Dynamic.labeffs(T_shift+(1:T_active)) + ELab   ;
-        Dynamic.labs   (T_shift+(1:T_active)) = Dynamic.labs   (T_shift+(1:T_active)) + Lab    ;
-        Dynamic.lfprs  (T_shift+(1:T_active)) = Dynamic.lfprs  (T_shift+(1:T_active)) + Lfp    ;
-        Dynamic.pits   (T_shift+(1:T_active)) = Dynamic.pits   (T_shift+(1:T_active)) + Fedit  ;
-        Dynamic.ssts   (T_shift+(1:T_active)) = Dynamic.ssts   (T_shift+(1:T_active)) + SSrev  ;
-        Dynamic.bens   (T_shift+(1:T_active)) = Dynamic.bens   (T_shift+(1:T_active)) + SSexp  ;
-        
+    if (startyear < 0)
+        trans_thread_tail(startyear, polno, impolno);
+    else
+        trans_thread_head(startyear, polno, impolno);
     end
     
-end
-
-
-% Newborns during the transition
-for startyear = 0:Tss-1
-    
-    fprintf('Head %+03d\n', startyear);
-    trans_thread_head(startyear, polno, impolno);
-    
     T_past   = max(-startyear, 0);
     T_shift  = max(+startyear, 0);
     T_active = min(startyear+T_life, T_model) - T_shift;
     
     for idem = 1:ndem
         
-        load(fullfile(jobdir, sprintf('transvars_%u_%u_head_%u.mat', idem, startyear+1, polno)), ...
-             'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
+        if (startyear < 0)
+            load(fullfile(jobdir, sprintf('transvars_%u_%u_tail_%u.mat', idem, -startyear+1, polno)), ...
+                 'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
+        else
+            load(fullfile(jobdir, sprintf('transvars_%u_%u_head_%u.mat', idem, startyear+1, polno)), ...
+                 'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
+        end
         
         Dynamic.assets (T_shift+(1:T_active)) = Dynamic.assets (T_shift+(1:T_active)) + Kalive + Kdead;
         Dynamic.beqs   (T_shift+(1:T_active)) = Dynamic.beqs   (T_shift+(1:T_active)) + Kdead  ;
