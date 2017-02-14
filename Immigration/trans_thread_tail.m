@@ -23,6 +23,7 @@ T_past   = max(-startyear, 0);
 T_shift  = max(+startyear, 0);
 T_active = min(startyear+T_life, T_model) - T_shift;
 
+
 for idem = 1:ndem
     
     opt = load(fullfile('Freeze', 'Cohorts', sprintf('cohort=%+03d_idem=%u.mat', startyear, idem)));
