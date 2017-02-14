@@ -37,16 +37,16 @@ for startyear = -T+1:-1
              'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
         
         % (First dimension is redundant; summation to be taken over columns)
-        KPR   (Tss-startyear+1, 1:min(Tss,T+startyear)) = KPR   (Tss-startyear+1, 1:min(Tss,T+startyear)) + Kalive (1:min(Tss,T+startyear)) + Kdead(1:min(Tss,T+startyear));
-        BEQ   (Tss-startyear+1, 1:min(Tss,T+startyear)) = BEQ   (Tss-startyear+1, 1:min(Tss,T+startyear)) + Kdead  (1:min(Tss,T+startyear));
-        ELAB  (Tss-startyear+1, 1:min(Tss,T+startyear)) = ELAB  (Tss-startyear+1, 1:min(Tss,T+startyear)) + ELab   (1:min(Tss,T+startyear));
-        LAB   (Tss-startyear+1, 1:min(Tss,T+startyear)) = LAB   (Tss-startyear+1, 1:min(Tss,T+startyear)) + Lab    (1:min(Tss,T+startyear));
-        DIST  (Tss-startyear+1, 1:min(Tss,T+startyear)) = DIST  (Tss-startyear+1, 1:min(Tss,T+startyear)) + Dist   (1:min(Tss,T+startyear));
-        FEDIT (Tss-startyear+1, 1:min(Tss,T+startyear)) = FEDIT (Tss-startyear+1, 1:min(Tss,T+startyear)) + Fedit  (1:min(Tss,T+startyear));
-        SSREV (Tss-startyear+1, 1:min(Tss,T+startyear)) = SSREV (Tss-startyear+1, 1:min(Tss,T+startyear)) + SSrev  (1:min(Tss,T+startyear));
-        SSEXP (Tss-startyear+1, 1:min(Tss,T+startyear)) = SSEXP (Tss-startyear+1, 1:min(Tss,T+startyear)) + SSexp  (1:min(Tss,T+startyear));
-        LFP   (Tss-startyear+1, 1:min(Tss,T+startyear)) = LFP   (Tss-startyear+1, 1:min(Tss,T+startyear)) + Lfp    (1:min(Tss,T+startyear));
-        SSBASE(Tss-startyear+1, 1:min(Tss,T+startyear)) = SSBASE(Tss-startyear+1, 1:min(Tss,T+startyear)) + SS_base(1:min(Tss,T+startyear));
+        KPR   (Tss-startyear+1, 1:min(Tss,T+startyear)) = KPR   (Tss-startyear+1, 1:min(Tss,T+startyear)) + Kalive + Kdead;
+        BEQ   (Tss-startyear+1, 1:min(Tss,T+startyear)) = BEQ   (Tss-startyear+1, 1:min(Tss,T+startyear)) + Kdead  ;
+        ELAB  (Tss-startyear+1, 1:min(Tss,T+startyear)) = ELAB  (Tss-startyear+1, 1:min(Tss,T+startyear)) + ELab   ;
+        LAB   (Tss-startyear+1, 1:min(Tss,T+startyear)) = LAB   (Tss-startyear+1, 1:min(Tss,T+startyear)) + Lab    ;
+        DIST  (Tss-startyear+1, 1:min(Tss,T+startyear)) = DIST  (Tss-startyear+1, 1:min(Tss,T+startyear)) + Dist   ;
+        FEDIT (Tss-startyear+1, 1:min(Tss,T+startyear)) = FEDIT (Tss-startyear+1, 1:min(Tss,T+startyear)) + Fedit  ;
+        SSREV (Tss-startyear+1, 1:min(Tss,T+startyear)) = SSREV (Tss-startyear+1, 1:min(Tss,T+startyear)) + SSrev  ;
+        SSEXP (Tss-startyear+1, 1:min(Tss,T+startyear)) = SSEXP (Tss-startyear+1, 1:min(Tss,T+startyear)) + SSexp  ;
+        LFP   (Tss-startyear+1, 1:min(Tss,T+startyear)) = LFP   (Tss-startyear+1, 1:min(Tss,T+startyear)) + Lfp    ;
+        SSBASE(Tss-startyear+1, 1:min(Tss,T+startyear)) = SSBASE(Tss-startyear+1, 1:min(Tss,T+startyear)) + SS_base;
         
     end
     
@@ -65,16 +65,16 @@ for startyear = 0:Tss-1
              'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
         
         % (First dimension is redundant; summation to be taken over columns)
-        KPR   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = KPR   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + Kalive (1:min(Tss-startyear,T)) + Kdead(1:min(Tss-startyear,T));
-        BEQ   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = BEQ   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + Kdead  (1:min(Tss-startyear,T));
-        ELAB  (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = ELAB  (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + ELab   (1:min(Tss-startyear,T));
-        LAB   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = LAB   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + Lab    (1:min(Tss-startyear,T));
-        DIST  (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = DIST  (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + Dist   (1:min(Tss-startyear,T));
-        FEDIT (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = FEDIT (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + Fedit  (1:min(Tss-startyear,T));
-        SSREV (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = SSREV (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + SSrev  (1:min(Tss-startyear,T));
-        SSEXP (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = SSEXP (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + SSexp  (1:min(Tss-startyear,T));
-        LFP   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = LFP   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + Lfp    (1:min(Tss-startyear,T));
-        SSBASE(Tss-startyear, startyear+(1:min(Tss-startyear,T))) = SSBASE(Tss-startyear, startyear+(1:min(Tss-startyear,T))) + SS_base(1:min(Tss-startyear,T));
+        KPR   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = KPR   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + Kalive + Kdead;
+        BEQ   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = BEQ   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + Kdead  ;
+        ELAB  (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = ELAB  (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + ELab   ;
+        LAB   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = LAB   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + Lab    ;
+        DIST  (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = DIST  (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + Dist   ;
+        FEDIT (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = FEDIT (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + Fedit  ;
+        SSREV (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = SSREV (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + SSrev  ;
+        SSEXP (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = SSEXP (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + SSexp  ;
+        LFP   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = LFP   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + Lfp    ;
+        SSBASE(Tss-startyear, startyear+(1:min(Tss-startyear,T))) = SSBASE(Tss-startyear, startyear+(1:min(Tss-startyear,T))) + SS_base;
         
     end
     
