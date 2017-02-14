@@ -168,16 +168,16 @@ for t = 1:T_active-1
 end
 
 
-Kalive  = zeros(1,T_active);
-Kdead   = zeros(1,T_active);
-Lab     = zeros(1,T_active);
-ELab    = zeros(1,T_active);
-Dist    = zeros(1,T_active);
-Fedit   = zeros(1,T_active);
-SSrev   = zeros(1,T_active);
-SSexp   = zeros(1,T_active);
-Lfp     = zeros(1,T_active);
-SS_base = zeros(1,T_active);
+
+
+Cohort.assets  = zeros(1,T_active);
+Cohort.beqs    = zeros(1,T_active);
+Cohort.labeffs = zeros(1,T_active);
+Cohort.labs    = zeros(1,T_active);
+Cohort.lfprs   = zeros(1,T_active);
+Cohort.pits    = zeros(1,T_active);
+Cohort.ssts    = zeros(1,T_active);
+Cohort.bens    = zeros(1,T_active);
 
 for t = 1:T_active
     for ipop = 1:3
@@ -189,16 +189,14 @@ for t = 1:T_active
             for iz = 1:nz
                 for ik = 1:nk
                     for ib = 1:nb
-                        Kalive (t) = Kalive (t) + dist_1(ik,iz,ib,t,ipop,idem)*K  (ik,iz,ib,t);
-                        Kdead  (t) = Kdead  (t) + dist_1(ik,iz,ib,t,ipop,idem)*K  (ik,iz,ib,t)*(1-surv(age));
-                        ELab   (t) = ELab   (t) + dist_1(ik,iz,ib,t,ipop,idem)*LAB(ik,iz,ib,t)*z(iz,age,idem);
-                        Lab    (t) = Lab    (t) + dist_1(ik,iz,ib,t,ipop,idem)*LAB(ik,iz,ib,t);
-                        Dist   (t) = Dist   (t) + dist_1(ik,iz,ib,t,ipop,idem);
-                        Fedit  (t) = Fedit  (t) + dist_1(ik,iz,ib,t,ipop,idem)*PIT(ik,iz,ib,t);
-                        SSrev  (t) = SSrev  (t) + dist_1(ik,iz,ib,t,ipop,idem)*SST(ik,iz,ib,t);
-                        SSexp  (t) = SSexp  (t) + dist_1(ik,iz,ib,t,ipop,idem)*BEN(ik,iz,ib,t);
-                        Lfp    (t) = Lfp    (t) + dist_1(ik,iz,ib,t,ipop,idem)*(LAB(ik,iz,ib,t) > 0);
-                        SS_base(t) = SS_base(t) + dist_1(ik,iz,ib,t,ipop,idem)*SSB(ik,iz,ib,t);
+                        Cohort.assets (t) = Cohort.assets (t) + dist_1(ik,iz,ib,t,ipop,idem)*K  (ik,iz,ib,t)*(2-surv(age));
+                        Cohort.beqs   (t) = Cohort.beqs   (t) + dist_1(ik,iz,ib,t,ipop,idem)*K  (ik,iz,ib,t)*(1-surv(age));
+                        Cohort.labeffs(t) = Cohort.labeffs(t) + dist_1(ik,iz,ib,t,ipop,idem)*LAB(ik,iz,ib,t)*z(iz,age,idem);
+                        Cohort.labs   (t) = Cohort.labs   (t) + dist_1(ik,iz,ib,t,ipop,idem)*LAB(ik,iz,ib,t);
+                        Cohort.lfprs  (t) = Cohort.lfprs  (t) + dist_1(ik,iz,ib,t,ipop,idem)*(LAB(ik,iz,ib,t) > 0);
+                        Cohort.pits   (t) = Cohort.pits   (t) + dist_1(ik,iz,ib,t,ipop,idem)*PIT(ik,iz,ib,t);
+                        Cohort.ssts   (t) = Cohort.ssts   (t) + dist_1(ik,iz,ib,t,ipop,idem)*SST(ik,iz,ib,t);
+                        Cohort.bens   (t) = Cohort.bens   (t) + dist_1(ik,iz,ib,t,ipop,idem)*BEN(ik,iz,ib,t);
                     end
                 end
             end
@@ -207,12 +205,11 @@ for t = 1:T_active
             
             for ik = 1:nk
                 for ib = 1:nb
-                    Kalive(t) = Kalive(t) + dist_r(ik,ib,t,ipop,idem)*K  (ik,1,ib,t);
-                    Kdead (t) = Kdead (t) + dist_r(ik,ib,t,ipop,idem)*K  (ik,1,ib,t)*(1-surv(age));
-                    Dist  (t) = Dist  (t) + dist_r(ik,ib,t,ipop,idem);
-                    Fedit (t) = Fedit (t) + dist_r(ik,ib,t,ipop,idem)*PIT(ik,1,ib,t);
-                    SSrev (t) = SSrev (t) + dist_r(ik,ib,t,ipop,idem)*SST(ik,1,ib,t);
-                    SSexp (t) = SSexp (t) + dist_r(ik,ib,t,ipop,idem)*BEN(ik,1,ib,t);
+                    Cohort.assets(t) = Cohort.assets(t) + dist_r(ik,ib,t,ipop,idem)*K  (ik,1,ib,t)*(2-surv(age));
+                    Cohort.beqs  (t) = Cohort.beqs  (t) + dist_r(ik,ib,t,ipop,idem)*K  (ik,1,ib,t)*(1-surv(age));
+                    Cohort.pits  (t) = Cohort.pits  (t) + dist_r(ik,ib,t,ipop,idem)*PIT(ik,1,ib,t);
+                    Cohort.ssts  (t) = Cohort.ssts  (t) + dist_r(ik,ib,t,ipop,idem)*SST(ik,1,ib,t);
+                    Cohort.bens  (t) = Cohort.bens  (t) + dist_r(ik,ib,t,ipop,idem)*BEN(ik,1,ib,t);
                 end
             end
             
@@ -220,15 +217,6 @@ for t = 1:T_active
         
     end
 end
-
-Cohort.assets  = Kalive + Kdead;
-Cohort.beqs    = Kdead;
-Cohort.labeffs = ELab ;
-Cohort.labs    = Lab  ;
-Cohort.lfprs   = Lfp  ;
-Cohort.pits    = Fedit;
-Cohort.ssts    = SSrev;
-Cohort.bens    = SSexp;
 
 
 end

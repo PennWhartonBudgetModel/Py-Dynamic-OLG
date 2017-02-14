@@ -10,14 +10,9 @@ load('polparams_1.mat')
 T_life   = T;
 T_model  = Tss;
 
-Dynamic.assets  = zeros(1,T_model);
-Dynamic.beqs    = zeros(1,T_model);
-Dynamic.labeffs = zeros(1,T_model);
-Dynamic.labs    = zeros(1,T_model);
-Dynamic.lfprs   = zeros(1,T_model);
-Dynamic.pits    = zeros(1,T_model);
-Dynamic.ssts    = zeros(1,T_model);
-Dynamic.bens    = zeros(1,T_model);
+% Initialize aggregates
+series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'pits', 'ssts', 'bens'};
+for o = series, Dynamic.(o{1}) = zeros(1,T_model); end
 
 
 for startyear = (-T_life+1):(T_model-1)
@@ -28,18 +23,8 @@ for startyear = (-T_life+1):(T_model-1)
     T_active = min(startyear+T_life, T_model) - T_shift;
     
     for idem = 1:ndem
-        
         Cohort = solve_cohort(startyear, idem);
-        
-        Dynamic.assets (T_shift+(1:T_active)) = Dynamic.assets (T_shift+(1:T_active)) + Cohort.assets ;
-        Dynamic.beqs   (T_shift+(1:T_active)) = Dynamic.beqs   (T_shift+(1:T_active)) + Cohort.beqs   ;
-        Dynamic.labeffs(T_shift+(1:T_active)) = Dynamic.labeffs(T_shift+(1:T_active)) + Cohort.labeffs;
-        Dynamic.labs   (T_shift+(1:T_active)) = Dynamic.labs   (T_shift+(1:T_active)) + Cohort.labs   ;
-        Dynamic.lfprs  (T_shift+(1:T_active)) = Dynamic.lfprs  (T_shift+(1:T_active)) + Cohort.lfprs  ;
-        Dynamic.pits   (T_shift+(1:T_active)) = Dynamic.pits   (T_shift+(1:T_active)) + Cohort.pits   ;
-        Dynamic.ssts   (T_shift+(1:T_active)) = Dynamic.ssts   (T_shift+(1:T_active)) + Cohort.ssts   ;
-        Dynamic.bens   (T_shift+(1:T_active)) = Dynamic.bens   (T_shift+(1:T_active)) + Cohort.bens   ;
-        
+        for o = series, Dynamic.(o{1})(T_shift+(1:T_active)) = Dynamic.(o{1})(T_shift+(1:T_active)) + Cohort.(o{1}); end
     end
     
 end
