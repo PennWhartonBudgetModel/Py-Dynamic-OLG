@@ -7,9 +7,6 @@ load('Imm_Data.mat')
 jobdir = 'Testing';
 load(fullfile(jobdir, sprintf('imm_polparams_%u.mat', impolno)))
 
-dist_1 = zeros(nk,nz,nb,T+startyear+1,3,ndem);
-dist_r = zeros(nk,   nb,T+startyear+1,3,ndem);
-
 load('SSVALS.mat', 'pop_prev')
 pop_trans = [pop_prev; pop_trans]; %#ok<NODEF>
 
@@ -22,6 +19,9 @@ T_model  = Tss;
 T_past   = max(-startyear, 0);
 T_shift  = max(+startyear, 0);
 T_active = min(startyear+T_life, T_model) - T_shift;
+
+dist_1 = zeros(nk,nz,nb,T_active,3,ndem);
+dist_r = zeros(nk,   nb,T_active,3,ndem);
 
 
 for idem = 1:ndem
@@ -37,11 +37,30 @@ for idem = 1:ndem
     SSB = opt.SSB;
     
     
-    dist_1(:,:,:,1,:,idem) = dist1(:,:,:,-startyear+1,:,idem); %#ok<NODEF>
-    dist_r(:,  :,1,:,idem) = distr(:,  :,-startyear+1,:,idem); %#ok<NODEF>
+    if (startyear < 0)
+        
+        dist_1(:,:,:,1,:,idem) = dist1(:,:,:,T_past+1,:,idem); %#ok<NODEF>
+        dist_r(:,  :,1,:,idem) = distr(:,  :,T_past+1,:,idem); %#ok<NODEF>
+        
+    else
+        
+        age  = 1;
+        year = max(1, min(startyear+age, T_model));
+        
+        im_flow = [ pop_trans(year) * pgr                            ;
+                    pop_trans(year) * imm_age(age) * legal_rate(1)   ;
+                    pop_trans(year) * imm_age(age) * illegal_rate(1) ];
+        
+        for iz = 1:nz
+            for ipop = 1:3
+                dist_1(1,iz,1,1,ipop,idem) = proddist_age(iz,1,ipop) * im_flow(ipop);
+            end
+        end
+        
+    end
     
     
-    for t = 1:T_active
+    for t = 1:T_active-1
         
         age  = t + T_past;
         year = max(1, min(startyear+age, T_model)) + 1; % (Addition of 1 may be erroneous; leads to year starting at 2)
@@ -134,7 +153,7 @@ for idem = 1:ndem
                         dist_hold = dist_r(ik,ib,t,ipop,idem) + (ik == 1)*(ib == 1)*im_flow(ipop);
                         
                         dist_r(loc1  ,ib,t+1,ipop,idem) = dist_r(loc1  ,ib,t+1,ipop,idem) + surv(age)*(1-w1)*dist_hold;
-                        dist_r(loc1+1,ib,t+1,ipop,idem) = dist_r(loc1+1,ib,t+1,ipop,idem) + surv(age)*(w1  )*dist_hold; 
+                        dist_r(loc1+1,ib,t+1,ipop,idem) = dist_r(loc1+1,ib,t+1,ipop,idem) + surv(age)*(w1  )*dist_hold;
                         
                     end
                     
@@ -206,6 +225,6 @@ for idem = 1:ndem
     
     
     save(fullfile(jobdir, sprintf('transvars_%u_%u_tail_%u.mat', idem, -startyear+1, polno)), ...
-         'dist_1', 'dist_r', 'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
+         'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
     
 end
