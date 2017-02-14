@@ -1,4 +1,4 @@
-function [] = eqm_for_immigration_ss()
+function [] = solve_ss()
 
 jobdir = 'Testing';
 if exist(jobdir, 'dir'), rmdir(jobdir, 's'), end

@@ -1,4 +1,4 @@
-function [] = pol_params_imm()
+function [] = project_pop()
 
 impolno = 1;
 jobdir = 'Testing';

@@ -1,4 +1,4 @@
-function [] = eqm_for_trans_par()
+function [] = solve_trans()
 
 jobdir = 'Testing';
 load(fullfile(jobdir, 'imm_polparams_1.mat'), 'pop_trans')
