@@ -34,7 +34,7 @@ for startyear = -T+1:-1
     for idem = 1:ndem
         
         load(fullfile(jobdir, sprintf('transvars_%u_%u_tail_%u.mat', idem, -startyear+1, polno)), ...
-             'dist_1', 'dist_r', 'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
+             'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
         
         % (First dimension is redundant; summation to be taken over columns)
         KPR   (Tss-startyear+1, 1:min(Tss,T+startyear)) = KPR   (Tss-startyear+1, 1:min(Tss,T+startyear)) + Kalive (1:min(Tss,T+startyear)) + Kdead(1:min(Tss,T+startyear));
@@ -62,7 +62,7 @@ for startyear = 0:Tss-1
     for idem = 1:ndem
         
         load(fullfile(jobdir, sprintf('transvars_%u_%u_head_%u.mat', idem, startyear+1, polno)), ...
-             'dist_1', 'dist_r', 'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
+             'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
         
         % (First dimension is redundant; summation to be taken over columns)
         KPR   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) = KPR   (Tss-startyear, startyear+(1:min(Tss-startyear,T))) + Kalive (1:min(Tss-startyear,T)) + Kdead(1:min(Tss-startyear,T));

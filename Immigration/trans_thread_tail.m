@@ -161,16 +161,16 @@ for idem = 1:ndem
     end
     
     
-    Kalive  = zeros(1,T_life);
-    Kdead   = zeros(1,T_life);
-    Lab     = zeros(1,T_life);
-    ELab    = zeros(1,T_life);
-    Dist    = zeros(1,T_life);
-    Fedit   = zeros(1,T_life);
-    SSrev   = zeros(1,T_life);
-    SSexp   = zeros(1,T_life);
-    Lfp     = zeros(1,T_life);
-    SS_base = zeros(1,T_life);
+    Kalive  = zeros(1,T_active);
+    Kdead   = zeros(1,T_active);
+    Lab     = zeros(1,T_active);
+    ELab    = zeros(1,T_active);
+    Dist    = zeros(1,T_active);
+    Fedit   = zeros(1,T_active);
+    SSrev   = zeros(1,T_active);
+    SSexp   = zeros(1,T_active);
+    Lfp     = zeros(1,T_active);
+    SS_base = zeros(1,T_active);
     
     for t = 1:T_active
         for ipop = 1:3
@@ -189,7 +189,7 @@ for idem = 1:ndem
                             Dist   (t) = Dist   (t) + dist_1(ik,iz,ib,t,ipop,idem);
                             Fedit  (t) = Fedit  (t) + dist_1(ik,iz,ib,t,ipop,idem)*PIT(ik,iz,ib,t);
                             SSrev  (t) = SSrev  (t) + dist_1(ik,iz,ib,t,ipop,idem)*SST(ik,iz,ib,t);
-                            SSexp  (t) = SSexp  (t) + dist_1(ik,iz,ib,t,ipop,idem)*BEN(ik,iz,ib,t); % (Extra term in head cohorts missing here)
+                            SSexp  (t) = SSexp  (t) + dist_1(ik,iz,ib,t,ipop,idem)*BEN(ik,iz,ib,t);
                             Lfp    (t) = Lfp    (t) + dist_1(ik,iz,ib,t,ipop,idem)*(LAB(ik,iz,ib,t) > 0);
                             SS_base(t) = SS_base(t) + dist_1(ik,iz,ib,t,ipop,idem)*SSB(ik,iz,ib,t);
                         end
