@@ -1,8 +1,5 @@
 function [] = eqm_for_trans_par()
 
-polno   = 1;
-impolno = 1;
-
 jobdir = 'Testing';
 load(fullfile(jobdir, 'imm_polparams_1.mat'), 'pop_trans')
 
@@ -11,7 +8,6 @@ load('polparams_1.mat')
 
 
 T_life   = T;
-T_work   = Tr;
 T_model  = Tss;
 
 Dynamic.assets  = zeros(1,T_model);
@@ -28,34 +24,21 @@ for startyear = (-T_life+1):(T_model-1)
     
     fprintf('Cohort %+03d\n', startyear);
     
-    if (startyear < 0)
-        trans_thread_tail(startyear, polno, impolno);
-    else
-        trans_thread_head(startyear, polno, impolno);
-    end
-    
-    T_past   = max(-startyear, 0);
     T_shift  = max(+startyear, 0);
     T_active = min(startyear+T_life, T_model) - T_shift;
     
     for idem = 1:ndem
         
-        if (startyear < 0)
-            load(fullfile(jobdir, sprintf('transvars_%u_%u_tail_%u.mat', idem, -startyear+1, polno)), ...
-                 'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
-        else
-            load(fullfile(jobdir, sprintf('transvars_%u_%u_head_%u.mat', idem, startyear+1, polno)), ...
-                 'Kalive', 'Kdead', 'ELab', 'Lab', 'Dist', 'Fedit', 'SSrev', 'SSexp', 'Lfp', 'SS_base');
-        end
+        Cohort = solve_cohort(startyear, idem);
         
-        Dynamic.assets (T_shift+(1:T_active)) = Dynamic.assets (T_shift+(1:T_active)) + Kalive + Kdead;
-        Dynamic.beqs   (T_shift+(1:T_active)) = Dynamic.beqs   (T_shift+(1:T_active)) + Kdead  ;
-        Dynamic.labeffs(T_shift+(1:T_active)) = Dynamic.labeffs(T_shift+(1:T_active)) + ELab   ;
-        Dynamic.labs   (T_shift+(1:T_active)) = Dynamic.labs   (T_shift+(1:T_active)) + Lab    ;
-        Dynamic.lfprs  (T_shift+(1:T_active)) = Dynamic.lfprs  (T_shift+(1:T_active)) + Lfp    ;
-        Dynamic.pits   (T_shift+(1:T_active)) = Dynamic.pits   (T_shift+(1:T_active)) + Fedit  ;
-        Dynamic.ssts   (T_shift+(1:T_active)) = Dynamic.ssts   (T_shift+(1:T_active)) + SSrev  ;
-        Dynamic.bens   (T_shift+(1:T_active)) = Dynamic.bens   (T_shift+(1:T_active)) + SSexp  ;
+        Dynamic.assets (T_shift+(1:T_active)) = Dynamic.assets (T_shift+(1:T_active)) + Cohort.assets ;
+        Dynamic.beqs   (T_shift+(1:T_active)) = Dynamic.beqs   (T_shift+(1:T_active)) + Cohort.beqs   ;
+        Dynamic.labeffs(T_shift+(1:T_active)) = Dynamic.labeffs(T_shift+(1:T_active)) + Cohort.labeffs;
+        Dynamic.labs   (T_shift+(1:T_active)) = Dynamic.labs   (T_shift+(1:T_active)) + Cohort.labs   ;
+        Dynamic.lfprs  (T_shift+(1:T_active)) = Dynamic.lfprs  (T_shift+(1:T_active)) + Cohort.lfprs  ;
+        Dynamic.pits   (T_shift+(1:T_active)) = Dynamic.pits   (T_shift+(1:T_active)) + Cohort.pits   ;
+        Dynamic.ssts   (T_shift+(1:T_active)) = Dynamic.ssts   (T_shift+(1:T_active)) + Cohort.ssts   ;
+        Dynamic.bens   (T_shift+(1:T_active)) = Dynamic.bens   (T_shift+(1:T_active)) + Cohort.bens   ;
         
     end
     
