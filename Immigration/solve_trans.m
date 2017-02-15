@@ -1,10 +1,9 @@
 function [] = solve_trans()
 
 jobdir = 'Testing';
-load(fullfile(jobdir, 'imm_polparams_1.mat'), 'pop_trans')
+load(fullfile(jobdir, 'imm_polparams.mat'), 'pop_trans')
 
 load('params.mat')
-load('polparams_1.mat')
 
 
 T_life   = T;

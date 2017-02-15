@@ -1,25 +1,20 @@
 function [] = project_pop()
 
-impolno = 1;
 jobdir = 'Testing';
 
-load('polvals_imm.mat')
-load('params.mat', 'Tss', 'T', 'z', 'proddist_age')
+load('params.mat')
 load('Imm_Data.mat')
-
-policyinds = policy1(impolno, 1:3);
 
 
 % policy #1 increases the flow of legal immigrants
-legal_rate_scales = [1.00, 1.25, 1.50, 1.75, 2.00];
-legal_rate = legal_rate * legal_rate_scales(policyinds(1)); %#ok<NODEF>
+legal_rate_scale = 1.5;
+legal_rate = legal_rate * legal_rate_scale; %#ok<NODEF>
 
 
 % policy #2 increases the relative flow of skilled immigrants.
 % the idea here is to get the increase in avg productivity from someone and
 % use that value to scale up
-prem_legals = [1.000000000, 1.058728397, 1.117456794, 1.176185192, 1.234913589];
-prem_legal = prem_legals(policyinds(2));
+prem_legal = 1.117456794;
 
 
 %  This loop modifies proddist_age to hit productivity targets specified above.  We do this by moving 
@@ -58,19 +53,14 @@ end
 
 
 % policy #3 grants amnesty to a percentage of illegal immigrants annually
-amnestys     = [0.00, 0.00, 0.00, 0.05, 0.10];
-deportations = [0.00, 0.10, 0.05, 0.00, 0.00];
-amnesty     = amnestys    (policyinds(3)); %#ok<NASGU>
-deportation = deportations(policyinds(3));
+amnesty     = 0.05;
+deportation = 0.05;
 
 
 
-load('params.mat')
-load('Imm_Data.mat')
+
 
 Tr = NRA_baseline;
-
-load('SSVALS.mat', 'pop_prev')
 
 idem = 1;  % by the symmetry of the demographic type sizes, population will grow equally on each "island" (i.e., idem island).  WLOG, we choose idem=1.
 
@@ -187,6 +177,8 @@ for trans_year = 2:Tss
         end
     end
     
+    % (Amnesty adjustments missing?)
+    
     dist1ss  (:,:,:,:,3) = (1 - deportation)*dist1ss  (:,:,:,:,3);  
     dist1ss_r(:,  :,:,3) = (1 - deportation)*dist1ss_r(:,  :,:,3);
     
@@ -199,7 +191,7 @@ for trans_year = 2:Tss
 end
 
 
-save(fullfile(jobdir, sprintf('imm_polparams_%u.mat', impolno)), ...
+save(fullfile(jobdir, 'imm_polparams.mat'), ...
      'legal_rate', 'prem_legal', 'proddist_age', 'amnesty', 'deportation', 'pop_trans')
 
 
@@ -207,16 +199,16 @@ save(fullfile(jobdir, sprintf('imm_polparams_%u.mat', impolno)), ...
 
 %% Testing
 
-imm_polparams_1        = load(fullfile(jobdir  , 'imm_polparams_1.mat'));
-imm_polparams_1_freeze = load(fullfile('Freeze', 'imm_polparams_1.mat'));
+imm_polparams        = load(fullfile(jobdir  , 'imm_polparams.mat'));
+imm_polparams_freeze = load(fullfile('Freeze', 'imm_polparams.mat'));
 
-fprintf('imm_polparams_1\n');
-valuenames = fields(imm_polparams_1);
+fprintf('imm_polparams\n');
+valuenames = fields(imm_polparams);
 for i = 1:length(valuenames)
     valuename = valuenames{i};
-    delta = imm_polparams_1.(valuename)(:) - imm_polparams_1_freeze.(valuename)(:);
+    delta = imm_polparams.(valuename)(:) - imm_polparams_freeze.(valuename)(:);
     if any(delta)
-        pdev = abs(nanmean(delta*2 ./ (imm_polparams_1.(valuename)(:) + imm_polparams_1_freeze.(valuename)(:))))*100;
+        pdev = abs(nanmean(delta*2 ./ (imm_polparams.(valuename)(:) + imm_polparams_freeze.(valuename)(:))))*100;
         fprintf('\t%-14s%06.2f%% deviation\n', valuename, pdev);
     else
         fprintf('\t%-14sNo deviation\n', valuename);

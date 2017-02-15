@@ -5,7 +5,7 @@ load('Surv_Probs.mat')
 load('Imm_Data.mat')
 
 jobdir = 'Testing';
-load(fullfile(jobdir, sprintf('imm_polparams_1.mat')))
+load(fullfile(jobdir, 'imm_polparams.mat'))
 
 load('SSVALS.mat', 'pop_prev')
 pop_trans = [pop_prev; pop_trans]; %#ok<NODEF>
