@@ -127,7 +127,7 @@ while (rhosseps > rhosstol)
                 for ik = 1:nk
                     for ib = 1:nb
                         
-                        point_k = max(koptss(ik,ib,t-Tr), kgrid(1));
+                        point_k = max(kopt(ik,1,ib,t), kgrid(1));
                         loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
                         w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
                         w1 = min(w1, 1);
@@ -177,8 +177,8 @@ while (rhosseps > rhosstol)
             for t = Tr+1:T
                 for ik = 1:nk
                     for ib = 1:nb
-                        Kalive(t) = Kalive(t) + koptss(ik,ib,t-Tr)            *dist1ss_r(ik,ib,t,ipop);
-                        Kdead (t) = Kdead (t) + koptss(ik,ib,t-Tr)*(1-surv(t))*dist1ss_r(ik,ib,t,ipop);
+                        Kalive(t) = Kalive(t) + kopt(ik,1,ib,t)            *dist1ss_r(ik,ib,t,ipop);
+                        Kdead (t) = Kdead (t) + kopt(ik,1,ib,t)*(1-surv(t))*dist1ss_r(ik,ib,t,ipop);
                     end
                 end
             end

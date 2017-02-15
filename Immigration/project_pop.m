@@ -159,7 +159,7 @@ for trans_year = 2:Tss
         for ik = 1:nk
             for ib = 1:nb
                 
-                point_k = max(koptss(ik,ib,t-Tr), kgrid(1));
+                point_k = max(kopt(ik,1,ib,t), kgrid(1));
                 loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
                 w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
                 w1 = min(w1, 1);
