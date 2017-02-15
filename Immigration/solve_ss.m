@@ -6,7 +6,8 @@ mkdir(jobdir);
 
 load('params.mat')
 surv(T) = 0;
-Tr = NRA_baseline;
+
+T_life = T;
 
 load('Imm_Data.mat')
 
@@ -34,20 +35,19 @@ while (rhosseps > rhosstol)
         
         load(fullfile(jobdir, sprintf('sspol%u.mat', idem)));
         
-        Kalive  = zeros(1,T);
-        Kdead   = zeros(1,T);
-        Lab     = zeros(1,T);
-        ELab    = zeros(1,T);
+        Kalive  = zeros(1,T_life);
+        Kdead   = zeros(1,T_life);
+        Lab     = zeros(1,T_life);
+        ELab    = zeros(1,T_life);
         
-        dist1ss_previous   = zeros(nk,nz,nb,T,3);
-        dist1ss_r_previous = zeros(nk,   nb,T,3);
+        dist_previous = zeros(nk,nz,nb,T_life,3);
         
         disteps  = Inf;
         disttol  = 1e-4;
         pop_prev = 0;
         pop      = 1;   % initial assertion of population
         
-        dist_age_previous = ones(T,1);
+        dist_age_previous = ones(T_life,1);
         
         iter = 0;
         
@@ -55,8 +55,7 @@ while (rhosseps > rhosstol)
             
             iter = iter + 1;
             
-            dist1ss   = zeros(nk,nz,nb,T,3);   % last dimension is [native, legal, illegal]
-            dist1ss_r = zeros(nk,   nb,T,3);
+            dist = zeros(nk,nz,nb,T_life,3);
             
             % pgr is population growth rate of existing population.  only grows youngest cohort.
             % using period 1 imm rate values for steady state
@@ -65,13 +64,12 @@ while (rhosseps > rhosstol)
                         im_scale * pop * imm_age(1) * illegal_rate(1) ];
             
             for iz = 1:nz
-                dist1ss(1,iz,1,1,:) = reshape(proddist_age(iz,1,:), 3, []) .* im_flow;
+                dist(1,iz,1,1,:) = reshape(proddist_age(iz,1,:), 3, []) .* im_flow;
             end
             
             
-            for t = 1:Tr
+            for t = 1:T_life-1
                 
-                % using period 1 imm rate values for steady state
                 im_flow = [ 0                                             ;
                             im_scale * pop * imm_age(t) * legal_rate(1)   ;
                             im_scale * pop * imm_age(t) * illegal_rate(1) ];
@@ -93,19 +91,12 @@ while (rhosseps > rhosstol)
                             for jz = 1:nz
                                 for ipop = 1:3
                                     
-                                    dist_hold = dist1ss_previous(ik,iz,ib,t,ipop) + (ik == 1)*(ib == 1)*proddist_age(iz,t,ipop)*im_flow(ipop);
+                                    dist_hold = dist_previous(ik,iz,ib,t,ipop) + (ik == 1)*(ib == 1)*proddist_age(iz,t,ipop)*im_flow(ipop);
                                     
-                                    if (t < Tr)
-                                        dist1ss  (loc1  , jz, loc2  , t+1, ipop) = dist1ss  (loc1  , jz, loc2  , t+1, ipop) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                        dist1ss  (loc1+1, jz, loc2  , t+1, ipop) = dist1ss  (loc1+1, jz, loc2  , t+1, ipop) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
-                                        dist1ss  (loc1  , jz, loc2+1, t+1, ipop) = dist1ss  (loc1  , jz, loc2+1, t+1, ipop) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                        dist1ss  (loc1+1, jz, loc2+1, t+1, ipop) = dist1ss  (loc1+1, jz, loc2+1, t+1, ipop) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
-                                    else
-                                        dist1ss_r(loc1  ,     loc2  , t+1, ipop) = dist1ss_r(loc1  ,     loc2  , t+1, ipop) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                        dist1ss_r(loc1+1,     loc2  , t+1, ipop) = dist1ss_r(loc1+1,     loc2  , t+1, ipop) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
-                                        dist1ss_r(loc1  ,     loc2+1, t+1, ipop) = dist1ss_r(loc1  ,     loc2+1, t+1, ipop) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                        dist1ss_r(loc1+1,     loc2+1, t+1, ipop) = dist1ss_r(loc1+1,     loc2+1, t+1, ipop) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
-                                    end
+                                    dist(loc1  ,jz,loc2  ,t+1,ipop) = dist(loc1  ,jz,loc2  ,t+1,ipop) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                    dist(loc1+1,jz,loc2  ,t+1,ipop) = dist(loc1+1,jz,loc2  ,t+1,ipop) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
+                                    dist(loc1  ,jz,loc2+1,t+1,ipop) = dist(loc1  ,jz,loc2+1,t+1,ipop) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                    dist(loc1+1,jz,loc2+1,t+1,ipop) = dist(loc1+1,jz,loc2+1,t+1,ipop) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
                                     
                                 end
                             end
@@ -116,69 +107,30 @@ while (rhosseps > rhosstol)
                 
             end
             
-            
-            for t = Tr+1:T-1
-                
-                % using period 1 imm rate values for steady state
-                im_flow = [ 0                                             ;
-                            im_scale * pop * imm_age(t) * legal_rate(1)   ;
-                            im_scale * pop * imm_age(t) * illegal_rate(1) ];
-                
-                for ik = 1:nk
-                    for ib = 1:nb
-                        
-                        point_k = max(kopt(ik,1,ib,t), kgrid(1));
-                        loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
-                        w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
-                        w1 = min(w1, 1);
-                        
-                        for ipop = 1:3
-                            
-                            dist_hold = dist1ss_r_previous(ik,ib,t,ipop) + (ik == 1)*(ib == 1)*im_flow(ipop);
-
-                            dist1ss_r(loc1  , ib, t+1, ipop) = dist1ss_r(loc1  , ib, t+1, ipop) + surv(t)*(1-w1)*dist_hold;
-                            dist1ss_r(loc1+1, ib, t+1, ipop) = dist1ss_r(loc1+1, ib, t+1, ipop) + surv(t)*(w1  )*dist_hold;
-                            
-                        end
-                        
-                    end
-                end
-                
-            end
-            
             pop_prev = pop;
-            pop = sum(dist1ss(:)) + sum(dist1ss_r(:));
+            pop = sum(dist(:));
             
-            dist_age = sum(sum([ reshape(dist1ss, [], T, 3) ; reshape(dist1ss_r, [], T, 3) ], 1), 3)';
+            dist_age = sum(sum(reshape(dist, [], T_life, 3), 1), 3)';
             
             disteps = max(abs(dist_age(2:end)/dist_age(1) - dist_age_previous(2:end)/dist_age_previous(1)));
             fprintf('Iteration %3u: %8.4f\n', iter, disteps)
             
-            dist_age_previous  = dist_age ;
-            dist1ss_previous   = dist1ss  ;   % updating working-age distribution array
-            dist1ss_r_previous = dist1ss_r;   % updating retiree distribution array
+            dist_age_previous = dist_age;
+            dist_previous     = dist    ;
             
         end
         
         % solving for aggregates by age
         for ipop = 1:3
-            for t = 1:Tr
+            for t = 1:T_life
                 for iz = 1:nz
                     for ik = 1:nk
                         for ib = 1:nb
-                            Kalive(t) = Kalive(t) + kopt  (ik,iz,ib,t)             *dist1ss(ik,iz,ib,t,ipop);
-                            Kdead (t) = Kdead (t) + kopt  (ik,iz,ib,t)*(1-surv(t)) *dist1ss(ik,iz,ib,t,ipop);
-                            Lab   (t) = Lab   (t) + labopt(ik,iz,ib,t)             *dist1ss(ik,iz,ib,t,ipop);
-                            ELab  (t) = ELab  (t) + labopt(ik,iz,ib,t)*z(iz,t,idem)*dist1ss(ik,iz,ib,t,ipop);
+                            Kalive(t) = Kalive(t) + kopt  (ik,iz,ib,t)             *dist(ik,iz,ib,t,ipop);
+                            Kdead (t) = Kdead (t) + kopt  (ik,iz,ib,t)*(1-surv(t)) *dist(ik,iz,ib,t,ipop);
+                            Lab   (t) = Lab   (t) + labopt(ik,iz,ib,t)             *dist(ik,iz,ib,t,ipop);
+                            ELab  (t) = ELab  (t) + labopt(ik,iz,ib,t)*z(iz,t,idem)*dist(ik,iz,ib,t,ipop);
                         end
-                    end
-                end
-            end
-            for t = Tr+1:T
-                for ik = 1:nk
-                    for ib = 1:nb
-                        Kalive(t) = Kalive(t) + kopt(ik,1,ib,t)            *dist1ss_r(ik,ib,t,ipop);
-                        Kdead (t) = Kdead (t) + kopt(ik,1,ib,t)*(1-surv(t))*dist1ss_r(ik,ib,t,ipop);
                     end
                 end
             end
@@ -188,7 +140,7 @@ while (rhosseps > rhosstol)
         ELAB = sum(ELab);
         
         save(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), ...
-             'dist1ss', 'dist1ss_r', 'Kalive', 'Kdead', 'KPR', 'ELab', 'Lab', 'ELAB');
+             'dist', 'Kalive', 'Kdead', 'KPR', 'ELab', 'Lab', 'ELAB');
         
     end
     
@@ -229,16 +181,14 @@ end
 
 
 
-dist1 = zeros(nk,nz,nb,T,3,ndem);
-distr = zeros(nk,   nb,T,3,ndem);
+DIST = zeros(nk,nz,nb,T_life,3,ndem);
 
 for idem = 1:ndem
-    load(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), 'dist1ss', 'dist1ss_r');
-    dist1(:,:,:,:,:,idem) = dist1ss  ;
-    distr(:,  :,:,:,idem) = dist1ss_r;
+    load(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), 'dist');
+    DIST(:,:,:,:,:,idem) = dist;
 end
 
-save(fullfile(jobdir, 'eqmdist.mat'), 'dist1', 'distr');
+save(fullfile(jobdir, 'DIST.mat'), 'DIST');
 
 
 
