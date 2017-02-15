@@ -5,6 +5,9 @@ jobdir = 'Testing';
 load('params.mat')
 load('Imm_Data.mat')
 
+T_life  = T;
+T_model = Tss;
+
 
 % policy #1 increases the flow of legal immigrants
 legal_rate_scale = 1.5;
@@ -22,7 +25,7 @@ prem_legal = 1.117456794;
 %  so not all productivity targets are feasible.
 
 for i1 = 2  % *** idem = 1:2?
-    for t = 1:T
+    for t = 1:T_life
         % We take the average over productivity shocks because the probability weights are uniform
         % (by 2-bin discretization of normal distributions)
         E_bar = sum(reshape(z(:,t,:), [], 1))/8; %#ok<NODEF>
@@ -59,31 +62,26 @@ deportation = 0.05;
 
 
 
-
-Tr = NRA_baseline;
-
 idem = 1;  % by the symmetry of the demographic type sizes, population will grow equally on each "island" (i.e., idem island).  WLOG, we choose idem=1.
 
 load(fullfile(jobdir, sprintf('sspol%u.mat'    , idem)));
-load(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), 'dist1ss', 'dist1ss_r');
+load(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), 'dist');
 
-dist1ss_previous   = dist1ss  ;   %#ok<NODEF> % initiating working-age distribution array
-dist1ss_r_previous = dist1ss_r;   %#ok<NODEF> % initiating retiree distribution array
+dist_previous = dist;   %#ok<NODEF>
 
-pop = sum(dist1ss(:)) + sum(dist1ss_r(:));
+pop = sum(dist(:));
 
-pop_trans = zeros(Tss,1);    % fill in with transition population sizes
+pop_trans = zeros(T_model,1);    % fill in with transition population sizes
 pop_trans(1) = pop;
 
 
-for trans_year = 2:Tss
+for trans_year = 2:T_model
     
     fprintf('Year %2u\n', trans_year);
     
     year = trans_year - 1;
     
-    dist1ss = zeros(nk,nz,nb,T,3);   % last dimension is [native, legal, illegal]
-    dist1ss_r = zeros(nk,nb,T,3);
+    dist = zeros(nk,nz,nb,T_life,3);
     
     % using period 1 imm rate values for steady state
     im_flow = [ pop_trans(year) * pgr                          ;
@@ -91,10 +89,10 @@ for trans_year = 2:Tss
                 pop_trans(year) * imm_age(1) * illegal_rate(1) ];
     
     for iz = 1:nz
-        dist1ss(1,iz,1,1,:) = reshape(proddist_age(iz,1,:), 3, []) .* im_flow;
+        dist(1,iz,1,1,:) = reshape(proddist_age(iz,1,:), 3, []) .* im_flow;
     end
     
-    for t = 1:Tr
+    for t = 1:T_life-1
         
         age = t;
         
@@ -119,26 +117,12 @@ for trans_year = 2:Tss
                     for jz = 1:nz
                         for ipop = 1:3
                             
-                            if (t < Tr)
-                                
-                                % lack of generality in im flow indicator below
-                                dist_hold = dist1ss_previous(ik,iz,ib,t,ipop) + (ik == 1)*(ib == 1)*proddist_age(iz,t,ipop)*im_flow(ipop);
-                                
-                                dist1ss(loc1  ,jz,loc2  ,t+1,ipop) = dist1ss(loc1  ,jz,loc2  ,t+1,ipop) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                dist1ss(loc1+1,jz,loc2  ,t+1,ipop) = dist1ss(loc1+1,jz,loc2  ,t+1,ipop) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
-                                dist1ss(loc1  ,jz,loc2+1,t+1,ipop) = dist1ss(loc1  ,jz,loc2+1,t+1,ipop) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                dist1ss(loc1+1,jz,loc2+1,t+1,ipop) = dist1ss(loc1+1,jz,loc2+1,t+1,ipop) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
-                                
-                            else
-                                
-                                dist_hold = dist1ss_previous(ik,iz,ib,t,ipop) + (ik == 1)*(ib == 1)*proddist_age(iz,t,ipop)*im_flow(ipop);
-                                
-                                dist1ss_r(loc1  ,loc2  ,t+1,ipop) = dist1ss_r(loc1  ,loc2  ,t+1,ipop) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                dist1ss_r(loc1+1,loc2  ,t+1,ipop) = dist1ss_r(loc1+1,loc2  ,t+1,ipop) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
-                                dist1ss_r(loc1  ,loc2+1,t+1,ipop) = dist1ss_r(loc1  ,loc2+1,t+1,ipop) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                dist1ss_r(loc1+1,loc2+1,t+1,ipop) = dist1ss_r(loc1+1,loc2+1,t+1,ipop) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
+                            dist_hold = dist_previous(ik,iz,ib,t,ipop) + (ik == 1)*(ib == 1)*proddist_age(iz,age,ipop)*im_flow(ipop);
                             
-                            end
+                            dist(loc1  ,jz,loc2  ,t+1,ipop) = dist(loc1  ,jz,loc2  ,t+1,ipop) + surv(age)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
+                            dist(loc1+1,jz,loc2  ,t+1,ipop) = dist(loc1+1,jz,loc2  ,t+1,ipop) + surv(age)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
+                            dist(loc1  ,jz,loc2+1,t+1,ipop) = dist(loc1  ,jz,loc2+1,t+1,ipop) + surv(age)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
+                            dist(loc1+1,jz,loc2+1,t+1,ipop) = dist(loc1+1,jz,loc2+1,t+1,ipop) + surv(age)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
                             
                         end
                     end
@@ -148,45 +132,15 @@ for trans_year = 2:Tss
         end
     end
     
-    for t = Tr+1:T-1
-        
-        age = t;
-        
-        im_flow = [ 0                                                ;
-                    pop_trans(year) * imm_age(age) * legal_rate(1)   ;
-                    pop_trans(year) * imm_age(age) * illegal_rate(1) ];
-        
-        for ik = 1:nk
-            for ib = 1:nb
-                
-                point_k = max(kopt(ik,1,ib,t), kgrid(1));
-                loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
-                w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
-                w1 = min(w1, 1);
-                
-                for ipop = 1:3
-                    
-                    dist_hold = dist1ss_r_previous(ik,ib,t,ipop) + (ik == 1)*(ib == 1)*im_flow(ipop);
-                    
-                    dist1ss_r(loc1  ,ib,t+1,ipop) = dist1ss_r(loc1  ,ib,t+1,ipop) + surv(t)*(1-w1)*dist_hold;
-                    dist1ss_r(loc1+1,ib,t+1,ipop) = dist1ss_r(loc1+1,ib,t+1,ipop) + surv(t)*(w1  )*dist_hold;
-                
-                end
-                
-            end
-        end
-    end
     
     % (Amnesty adjustments missing?)
     
-    dist1ss  (:,:,:,:,3) = (1 - deportation)*dist1ss  (:,:,:,:,3);  
-    dist1ss_r(:,  :,:,3) = (1 - deportation)*dist1ss_r(:,  :,:,3);
+    dist(:,:,:,:,3) = (1-deportation)*dist(:,:,:,:,3);
     
-    pop = sum(dist1ss(:)) + sum(dist1ss_r(:));
+    pop = sum(dist(:));
     pop_trans(trans_year) = pop;
     
-    dist1ss_previous   = dist1ss  ;   % updating working-age distribution array
-    dist1ss_r_previous = dist1ss_r;   % updating retiree distribution array
+    dist_previous = dist;
     
 end
 

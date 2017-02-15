@@ -70,9 +70,11 @@ while (rhosseps > rhosstol)
             
             for t = 1:T_life-1
                 
+                age = t;
+                
                 im_flow = [ 0                                             ;
-                            im_scale * pop * imm_age(t) * legal_rate(1)   ;
-                            im_scale * pop * imm_age(t) * illegal_rate(1) ];
+                            im_scale * pop * imm_age(age) * legal_rate(1)   ;
+                            im_scale * pop * imm_age(age) * illegal_rate(1) ];
                 
                 for iz = 1:nz
                     for ik = 1:nk
@@ -91,12 +93,12 @@ while (rhosseps > rhosstol)
                             for jz = 1:nz
                                 for ipop = 1:3
                                     
-                                    dist_hold = dist_previous(ik,iz,ib,t,ipop) + (ik == 1)*(ib == 1)*proddist_age(iz,t,ipop)*im_flow(ipop);
+                                    dist_hold = dist_previous(ik,iz,ib,t,ipop) + (ik == 1)*(ib == 1)*proddist_age(iz,age,ipop)*im_flow(ipop);
                                     
-                                    dist(loc1  ,jz,loc2  ,t+1,ipop) = dist(loc1  ,jz,loc2  ,t+1,ipop) + surv(t)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                    dist(loc1+1,jz,loc2  ,t+1,ipop) = dist(loc1+1,jz,loc2  ,t+1,ipop) + surv(t)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
-                                    dist(loc1  ,jz,loc2+1,t+1,ipop) = dist(loc1  ,jz,loc2+1,t+1,ipop) + surv(t)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                    dist(loc1+1,jz,loc2+1,t+1,ipop) = dist(loc1+1,jz,loc2+1,t+1,ipop) + surv(t)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
+                                    dist(loc1  ,jz,loc2  ,t+1,ipop) = dist(loc1  ,jz,loc2  ,t+1,ipop) + surv(age)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                    dist(loc1+1,jz,loc2  ,t+1,ipop) = dist(loc1+1,jz,loc2  ,t+1,ipop) + surv(age)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
+                                    dist(loc1  ,jz,loc2+1,t+1,ipop) = dist(loc1  ,jz,loc2+1,t+1,ipop) + surv(age)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
+                                    dist(loc1+1,jz,loc2+1,t+1,ipop) = dist(loc1+1,jz,loc2+1,t+1,ipop) + surv(age)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
                                     
                                 end
                             end
@@ -126,10 +128,14 @@ while (rhosseps > rhosstol)
                 for iz = 1:nz
                     for ik = 1:nk
                         for ib = 1:nb
-                            Kalive(t) = Kalive(t) + kopt  (ik,iz,ib,t)             *dist(ik,iz,ib,t,ipop);
-                            Kdead (t) = Kdead (t) + kopt  (ik,iz,ib,t)*(1-surv(t)) *dist(ik,iz,ib,t,ipop);
-                            Lab   (t) = Lab   (t) + labopt(ik,iz,ib,t)             *dist(ik,iz,ib,t,ipop);
-                            ELab  (t) = ELab  (t) + labopt(ik,iz,ib,t)*z(iz,t,idem)*dist(ik,iz,ib,t,ipop);
+                            
+                            age = t;
+                            
+                            Kalive(t) = Kalive(t) + kopt  (ik,iz,ib,t)               *dist(ik,iz,ib,t,ipop);
+                            Kdead (t) = Kdead (t) + kopt  (ik,iz,ib,t)*(1-surv(age)) *dist(ik,iz,ib,t,ipop);
+                            Lab   (t) = Lab   (t) + labopt(ik,iz,ib,t)               *dist(ik,iz,ib,t,ipop);
+                            ELab  (t) = ELab  (t) + labopt(ik,iz,ib,t)*z(iz,age,idem)*dist(ik,iz,ib,t,ipop);
+                            
                         end
                     end
                 end
