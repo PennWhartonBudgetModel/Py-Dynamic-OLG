@@ -8,7 +8,7 @@ prices.wage = [1, 1];
 prices.rate = .98;
 tolerance   = 50;    
 
-s.firm_params.discount_factor = prices.rate;
+s.discount_factor = prices.rate;
 
 [capital_total, labor_total, eq_total, inv_total, adjcost_total, V_total, output_total, tax_total, dist] =...
-    solve_firm_optimization(prices, s_tax, s, tolerance);
+    solve_firm_optimization_mex(prices, s_tax, s, tolerance);

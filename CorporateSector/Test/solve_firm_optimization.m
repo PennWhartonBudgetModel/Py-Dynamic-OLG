@@ -6,6 +6,15 @@ function [capital_total, labor_total, eq_total, inv_total, adjcost_total, V_tota
         solve_firm_optimization( prices, taxes, firm_params, tolerance) %#ok<*INUSD>
 %#codegen
 
+capital_total = 0;
+labor_total   = 0;
+eq_total      = 0;
+inv_total     = 0;
+adjcost_total = 0;
+V_total       = 0;
+output_total  = 0;
+tax_total     = 0;
+dist          = 0;
 
 %% Determine if transition path and accommodate if transition.
 
@@ -19,7 +28,13 @@ if T_prices<T_taxes
     error('Policy length exceeds price length.  Extend price length to ensure cool down period.')
 end
 
+prices_initial    = prices;
+prices_transition = prices;
+prices_terminal   = prices;
 
+taxes_initial    = taxes;
+taxes_transition = taxes;
+taxes_terminal   = taxes;
 
 % Assign transition if T>1
 if T>1, istransition = true; else istransition = false; end
@@ -27,11 +42,9 @@ if T>1, istransition = true; else istransition = false; end
 % For transition, determine initial steady-state, terminal steady-state, and extend vectors to length T.
 if istransition
     % Since "firm" is a field of taxes, must ensure that all other fields of "taxes" are included for code generating purposes.
-    taxes_initial    = taxes;
-    taxes_transition = taxes;
-    taxes_terminal   = taxes;
     
-    [prices_initial, prices_transition, prices_terminal] = transition_accommodator(prices,      T);
+    
+    [prices_initial,      prices_transition,      prices_terminal    ] = transition_accommodator(prices,      T);
     [taxes_initial.firm,  taxes_transition.firm,  taxes_terminal.firm] = transition_accommodator(taxes.firm,  T);
     
 
@@ -63,7 +76,6 @@ elseif istransition
     Vpr = zeros( firm_params.nk, firm_params.n_prodshocks); 
     [Vopt_ss, kopt_ss, labopt_ss, invopt_ss, eqopt_ss, adjcostopt_ss, taxopt_ss, outputs_ss] = solve_firm_policies( prices_initial   ,...
                                                                    taxes_initial,    firm_params, Vpr,  tolerance, 1);
-    display('pause here')
     % Solve distribution                                                           
     % Solve stationary distribution corresponding to initial steady-state
     dist_ss0 = (1/(firm_params.nk*firm_params.n_prodshocks)).*ones(firm_params.nk, firm_params.n_prodshocks);    % Initial guess of steady-state distribution
@@ -72,8 +84,8 @@ elseif istransition
                                                          outputs_ss, firm_params, dist_ss0, 1);
     % Solve transition path distribution taking the initial distribution as given.                                                    
     [capital_total, labor_total, eq_total, inv_total, adjcost_total, V_total, output_total, tax_total, dist] = solve_firm_distribution...
-                                                        (kopt, labopt,eqopt, invopt, adjcostopt, taxopt, Vopt,...
-                                                         outputs, firm_params, dist_ss, T);
+                                                        (kopt,    labopt,    eqopt,    invopt,    adjcostopt,    taxopt,    Vopt,...
+                                                         outputs,    firm_params, dist_ss,  T);
                                                      
     capital_total = [ capital_total_ss , capital_total];
     labor_total   = [ labor_total_ss   , labor_total  ];
@@ -83,7 +95,7 @@ elseif istransition
     V_total       = [ V_total_ss       , V_total      ];
     output_total  = [ output_total_ss  , output_total ];
     tax_total     = [ tax_total_ss     , tax_total    ];
-    dist          = cat( 3, dist_ss, dist ); %#ok<*NASGU>
+    dist          = cat( 3, dist_ss, dist ); 
     
     
     
@@ -107,7 +119,7 @@ function [Vopt, kopt, labopt, invopt, eqopt, adjcostopt, taxopt, outputs] = solv
     capital_share   = firm_params.capital_share;
     labor_share     = firm_params.labor_share;
     nk              = firm_params.nk; 
-    kgrid           = firm_params.kgrid; %#ok<*STRNU>
+    kgrid           = firm_params.kgrid; 
 
 
     %% Initiate arrays
@@ -129,8 +141,9 @@ function [Vopt, kopt, labopt, invopt, eqopt, adjcostopt, taxopt, outputs] = solv
     
     %% Solve firm optimization
     max_iter = 20000;
-    iter=0;
+    iter = 0;
     breakcondition = false;
+    it = 0;
     while true
         iter = iter+1;
         if issteadystate
@@ -150,8 +163,8 @@ function [Vopt, kopt, labopt, invopt, eqopt, adjcostopt, taxopt, outputs] = solv
                 firm_params.discount_factor = prices.rate(it);
                 value_function([], revenues(ik,ip,it), kgrid(ik), EVpr, it, taxes, firm_params);
                 k_opt = 0;  
-                V_opt = 0;  
-                [k_opt,V_opt] = fminsearch(@value_function,kgrid(ik),optim_options);
+                V_opt = 0;
+                [k_opt, V_opt] = fminsearch(@value_function,kgrid(ik),optim_options);
                 Vopt      (ik,ip,it) = -V_opt;
                 kopt      (ik,ip,it) = k_opt;
                 invopt    (ik,ip,it) = k_opt - (1 - depreciation)*kgrid(ik);
@@ -164,13 +177,12 @@ function [Vopt, kopt, labopt, invopt, eqopt, adjcostopt, taxopt, outputs] = solv
         error = max(max(max(abs(Vopt(:,:,it)-Vpr))));
         if issteadystate
             if ((error<tolerance)||(iter>max_iter)), breakcondition = true; end
-            Vpr = Vopt;
+            Vpr = Vopt(:,:,1);
         elseif ~issteadystate
             if it == 1, breakcondition = true; end
             Vpr = Vopt(:,:,it);
         end
         if breakcondition, break, end
-        Vpr = squeeze(Vpr);
     end
     
 end
@@ -242,7 +254,7 @@ adjustment_costs = (adj_cost_param/2)*((investment/k_ik)^2);
 
 taxbill = corp_inc_tax*(revenue - exp_share*investment - adjustment_costs);
 vf = revenue - investment - adjustment_costs - taxbill + discount_factor*interp1(kgrid,EVpr,k_prime,'linear');
-vf = -vf;
+vf = -vf(1);
 
 
 end
@@ -260,19 +272,19 @@ nk             = firm_params.nk;
 n_prodshocks   = firm_params.n_prodshocks;
 prod_transprob = firm_params.prod_transprob;
 
+wk_lt = 0;    % For codegen (to define on all paths)
+wk_gt = 0;    % For codegen (to define on all paths)
 
-
-
-
-tolerance = 10e-8; 
-max_iter = 10000;
 
 if issteadystate
     [wk_lt, wk_gt, jk_lt, jk_gt] = solve_grid_weights(kopt, kgrid);
 end
 
+tolerance = 10e-8; 
+max_iter = 10000;
 breakcondition = false;
 iter = 0;
+it   = 0;
 while true
     
     iter = iter+1;
@@ -301,14 +313,12 @@ while true
         dist = distpr;
     elseif ~issteadystate
         if it == T-1, breakcondition = true; end
-        dist(:,:,it+1) = distpr;
+        dist(:,:,it) = distpr;
     end
     if breakcondition, break, end
     dist = squeeze(dist);
 end
 
-
-display('pause here')
 
 capital_total = sum(dist(:).*kopt(:)      );
 labor_total   = sum(dist(:).*labopt(:)    );
@@ -368,7 +378,7 @@ end
 
 
 function [wk_lt, wk_gt, jk_lt, jk_gt] = solve_grid_weights(kopt, kgrid)
-        
+
 % Solve the distribution of households
 % Find indices of nearest values in kgrid and cgrid series
 jk_lt = ones(size(kopt));
