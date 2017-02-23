@@ -10,7 +10,7 @@ jobdir = 'Testing';
 load(fullfile(jobdir, 'imm_polparams.mat'))
 
 load('SSVALS.mat', 'pop_prev')
-pop_trans = [pop_prev; pop_trans]; %#ok<NODEF>
+pop_trans = [pop_prev, pops];
 
 load(fullfile(jobdir, 'DIST.mat'));
 

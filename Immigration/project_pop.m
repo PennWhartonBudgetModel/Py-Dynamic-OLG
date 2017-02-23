@@ -75,30 +75,32 @@ idem = 1;  % by the symmetry of the demographic type sizes, population will grow
 load(fullfile(jobdir, sprintf('sspol%u.mat'    , idem)));
 load(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), 'dist');
 
-dist_previous = dist;   %#ok<NODEF>
+dist_previous     = dist;   %#ok<NODEF>
+dist_age_previous = ones(1,T_life);
+        
+disteps  = Inf;
+disttol  = -Inf;
 
-pop = sum(dist(:));
+pops(1) = sum(dist(:));
 
-pop_trans = zeros(T_model,1);    % fill in with transition population sizes
-pop_trans(1) = pop;
+year = 1;
+lastyear = T_model;
 
-
-for trans_year = 2:T_model
+while (disteps > disttol && year < lastyear)
     
-    fprintf('Year %2u\n', trans_year);
+    fprintf('Year %2u\n', year);
     
     
     
     % --- Initialize distributions ---
     
-    year = trans_year - 1;
-    
     dist = zeros(nk,nz,nb,T_life,3);
     
+    % pgr is population growth rate of existing population.  only grows youngest cohort.
     % using period 1 imm rate values for steady state
-    im_flow = [ pop_trans(year) * pgr                          ;
-                pop_trans(year) * imm_age(1) * legal_rate(1)   ;
-                pop_trans(year) * imm_age(1) * illegal_rate(1) ];
+    im_flow = [ pops(year) * pgr                          ;
+                pops(year) * imm_age(1) * legal_rate(1)   ;
+                pops(year) * imm_age(1) * illegal_rate(1) ];
     
     for iz = 1:nz
         for ipop = 1:3
@@ -114,9 +116,9 @@ for trans_year = 2:T_model
         
         age = t;
         
-        im_flow = [ 0                                                ;
-                    pop_trans(year) * imm_age(age) * legal_rate(1)   ;
-                    pop_trans(year) * imm_age(age) * illegal_rate(1) ];
+        im_flow = [ 0                                           ;
+                    pops(year) * imm_age(age) * legal_rate(1)   ;
+                    pops(year) * imm_age(age) * illegal_rate(1) ];
         
         for iz = 1:nz
             for ik = 1:nk
@@ -152,20 +154,23 @@ for trans_year = 2:T_model
     end
     
     
-    % (Amnesty adjustments missing?)
-    
+    % *** Amnesty adjustments missing?
     dist(:,:,:,:,3) = (1-deportation)*dist(:,:,:,:,3);
     
-    pop = sum(dist(:));
-    pop_trans(trans_year) = pop;
     
+    dist_age = sum(sum(reshape(dist, [], T_life, 3), 1), 3);
+    disteps = max(abs(dist_age(2:end)/dist_age(1) - dist_age_previous(2:end)/dist_age_previous(1)));
+    dist_age_previous = dist_age;
+    
+    pops(year+1) = sum(dist(:)); %#ok<AGROW>
     dist_previous = dist;
+    year = year + 1;
     
 end
 
 
 save(fullfile(jobdir, 'imm_polparams.mat'), ...
-     'legal_rate', 'prem_legal', 'proddist_age', 'amnesty', 'deportation', 'pop_trans')
+     'legal_rate', 'prem_legal', 'proddist_age', 'amnesty', 'deportation', 'pops')
 
 
 

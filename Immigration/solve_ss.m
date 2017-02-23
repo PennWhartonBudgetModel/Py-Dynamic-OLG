@@ -26,8 +26,6 @@ load('Imm_Data.mat')
 rhosseps = Inf;
 rhosstol = 1e-4;
 
-im_scale = 1;    % scaling the immigration flow to target
-
 
 
 load('SSVALS.mat')   % loads the last set of outputs as the first guess
@@ -61,35 +59,32 @@ while (rhosseps > rhosstol)
         
         load(fullfile(jobdir, sprintf('sspol%u.mat', idem)));
         
-        Kalive  = zeros(1,T_life);
-        Kdead   = zeros(1,T_life);
-        Lab     = zeros(1,T_life);
-        ELab    = zeros(1,T_life);
-        
-        dist_previous = zeros(nk,nz,nb,T_life,3);
+        dist_previous     = zeros(nk,nz,nb,T_life,3);
+        dist_age_previous = ones(1,T_life);
         
         disteps  = Inf;
         disttol  = 1e-4;
-        pop_prev = 0;
-        pop      = 1;   % initial assertion of population
         
-        dist_age_previous = ones(T_life,1);
+        pops(1) = 1;
         
-        iter = 0;
+        year = 1;
+        lastyear = Inf;
         
-        while (disteps > disttol)
+        while (disteps > disttol && year < lastyear)
+            
+            fprintf('Year %2u\n', year);
+            
+            
             
             % --- Initialize distributions ---
-            
-            iter = iter + 1;
             
             dist = zeros(nk,nz,nb,T_life,3);
             
             % pgr is population growth rate of existing population.  only grows youngest cohort.
             % using period 1 imm rate values for steady state
-            im_flow = [ pop * pgr                                     ;
-                        im_scale * pop * imm_age(1) * legal_rate(1)   ;
-                        im_scale * pop * imm_age(1) * illegal_rate(1) ];
+            im_flow = [ pops(year) * pgr                          ;
+                        pops(year) * imm_age(1) * legal_rate(1)   ;
+                        pops(year) * imm_age(1) * illegal_rate(1) ];
             
             for iz = 1:nz
                 for ipop = 1:3
@@ -105,9 +100,9 @@ while (rhosseps > rhosstol)
                 
                 age = t;
                 
-                im_flow = [ 0                                               ;
-                            im_scale * pop * imm_age(age) * legal_rate(1)   ;
-                            im_scale * pop * imm_age(age) * illegal_rate(1) ];
+                im_flow = [ 0                                           ;
+                            pops(year) * imm_age(age) * legal_rate(1)   ;
+                            pops(year) * imm_age(age) * illegal_rate(1) ];
                 
                 for iz = 1:nz
                     for ik = 1:nk
@@ -142,16 +137,14 @@ while (rhosseps > rhosstol)
                 
             end
             
-            pop_prev = pop;
-            pop = sum(dist(:));
             
-            dist_age = sum(sum(reshape(dist, [], T_life, 3), 1), 3)';
-            
+            dist_age = sum(sum(reshape(dist, [], T_life, 3), 1), 3);
             disteps = max(abs(dist_age(2:end)/dist_age(1) - dist_age_previous(2:end)/dist_age_previous(1)));
-            fprintf('Iteration %3u: %8.4f\n', iter, disteps)
-            
             dist_age_previous = dist_age;
-            dist_previous     = dist    ;
+            
+            pops(year+1) = sum(dist(:)); %#ok<AGROW>
+            dist_previous = dist;
+            year = year + 1;
             
         end
         
@@ -159,7 +152,11 @@ while (rhosseps > rhosstol)
         
         % --- solve_cohort aggregate generation ---
         
-        % solving for aggregates by age
+        Kalive  = zeros(1,T_life);
+        Kdead   = zeros(1,T_life);
+        Lab     = zeros(1,T_life);
+        ELab    = zeros(1,T_life);
+        
         for ipop = 1:3
             for t = 1:T_life
                 for iz = 1:nz
