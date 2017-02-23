@@ -154,7 +154,7 @@ while (disteps > disttol && year < lastyear)
     end
     
     
-    % *** Amnesty adjustments missing?
+    % *** Should be time-indexed?
     dist(:,:,:,:,3) = (1-deportation)*dist(:,:,:,:,3);
     
     

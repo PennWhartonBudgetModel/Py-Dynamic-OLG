@@ -113,7 +113,7 @@ for t = 1:T_active-1
     dist(:,:,:,t+1,2) = dist(:,:,:,t+1,2) + repmat(sum(amnesty*dist(:,:,:,t+1,3), 2), [1,nz,1]).*repmat(distz_legal, [nk,1,nb])/sum(distz_legal);
     
     % Reduce illegal immigrant population for amnesty and deportation
-    dist(:,:,:,t+1,3) = (1-amnesty)*(1-deportation)*dist(:,:,:,t+1,3);
+    dist(:,:,:,t+1,3) = (1-amnesty-deportation)*dist(:,:,:,t+1,3);
     
 end
 
