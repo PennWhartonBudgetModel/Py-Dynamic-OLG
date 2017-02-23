@@ -272,6 +272,7 @@ methods (Static, Access = private)
                 % Initialize series of terminal utility values
                 V0s = zeros(nz,nk,nb,T_life+1);
                 
+                
                 % Solve steady state / post-transition path cohort
                 if isdynamic
                     

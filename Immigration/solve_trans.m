@@ -1,18 +1,31 @@
 function [] = solve_trans()
 
+
+
+% --- Initialization ---
+
 jobdir = 'Testing';
-load(fullfile(jobdir, 'imm_polparams.mat'), 'pop_trans')
+
+
+
+% -- Parameter loading ---
 
 load('params.mat')
 
+T_life  = T;
+T_model = Tss;
 
-T_life   = T;
-T_model  = Tss;
+
+
+% --- generate_aggregates ---
 
 % Initialize aggregates
 series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'pits', 'ssts', 'bens'};
 for o = series, Dynamic.(o{1}) = zeros(1,T_model); end
 
+
+
+% --- Solve transition path cohorts ---
 
 for startyear = (-T_life+1):(T_model-1)
     

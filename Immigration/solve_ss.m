@@ -1,8 +1,16 @@
 function [] = solve_ss()
 
+
+
+% --- Initialization ---
+
 jobdir = 'Testing';
 if exist(jobdir, 'dir'), rmdir(jobdir, 's'), end
 mkdir(jobdir);
+
+
+
+% --- Parameter loading ---
 
 load('params.mat')
 surv(T) = 0;
@@ -12,26 +20,44 @@ T_life = T;
 load('Imm_Data.mat')
 
 
+
+% --- Dynamic aggregate generation ---
+
 rhosseps = Inf;
 rhosstol = 1e-4;
 
 im_scale = 1;    % scaling the immigration flow to target
 
+
+
 load('SSVALS.mat')   % loads the last set of outputs as the first guess
 
-% starting steady state equilbrium calculation
+
+
 while (rhosseps > rhosstol)
+    
+    
+    
+    % --- Define prices ---
     
     DD = DEBTss;  % debt used in the calculation of prices (zero for open economy)
     
-    % Copy precomputed dynamic optimization values
+    
+    
+    % --- generate_aggregates ---
+    
     for idem = 1:ndem
+        
+        
+        
+        % --- solve_cohort dynamic optimization ---
+        
         filename = sprintf('sspol%u.mat', idem);
         copyfile(fullfile('Freeze', filename), fullfile(jobdir, filename));
-    end
-    
-    
-    for idem = 1:ndem
+        
+        
+        
+        % --- solve_cohort distribution generation ---
         
         load(fullfile(jobdir, sprintf('sspol%u.mat', idem)));
         
@@ -53,6 +79,8 @@ while (rhosseps > rhosstol)
         
         while (disteps > disttol)
             
+            % --- Initialize distributions ---
+            
             iter = iter + 1;
             
             dist = zeros(nk,nz,nb,T_life,3);
@@ -64,15 +92,20 @@ while (rhosseps > rhosstol)
                         im_scale * pop * imm_age(1) * illegal_rate(1) ];
             
             for iz = 1:nz
-                dist(1,iz,1,1,:) = reshape(proddist_age(iz,1,:), 3, []) .* im_flow;
+                for ipop = 1:3
+                    dist(1,iz,1,1,ipop) = proddist_age(iz,1,ipop) * im_flow(ipop);
+                end
             end
             
+            
+            
+            % --- Generate distributions through forward propagation ---
             
             for t = 1:T_life-1
                 
                 age = t;
                 
-                im_flow = [ 0                                             ;
+                im_flow = [ 0                                               ;
                             im_scale * pop * imm_age(age) * legal_rate(1)   ;
                             im_scale * pop * imm_age(age) * illegal_rate(1) ];
                 
@@ -122,6 +155,10 @@ while (rhosseps > rhosstol)
             
         end
         
+        
+        
+        % --- solve_cohort aggregate generation ---
+        
         % solving for aggregates by age
         for ipop = 1:3
             for t = 1:T_life
@@ -150,6 +187,10 @@ while (rhosseps > rhosstol)
         
     end
     
+    
+    
+    % --- Add cohort aggregates to total aggregates ---
+    
     kpr     = 0;
     elab    = 0;
     lab     = 0;
@@ -166,6 +207,10 @@ while (rhosseps > rhosstol)
         kdeadpr = kdeadpr + sum(Kdead);
         
     end
+    
+    
+    
+    % --- Calculate additional dynamic aggregates ---
     
     rhopr = (kpr-DD)/elab;
     
@@ -186,6 +231,8 @@ while (rhosseps > rhosstol)
 end
 
 
+
+% -- Save optimal decision values and distributions for baseline ---
 
 DIST = zeros(nk,nz,nb,T_life,3,ndem);
 

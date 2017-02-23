@@ -1,5 +1,7 @@
 function [Cohort] = solve_cohort(startyear, idem)
 
+% --- Argument verification ---
+
 load('params.mat')
 load('Surv_Probs.mat')
 load('Imm_Data.mat')
@@ -23,6 +25,9 @@ T_active = min(startyear+T_life, T_model) - T_shift;
 dist = zeros(nk,nz,nb,T_active,3);
 
 
+
+% --- Dynamic optimization ---
+
 opt = load(fullfile('Freeze', 'Cohorts', sprintf('cohort=%+03d_idem=%u.mat', startyear, idem)));
 
 K   = opt.K  ;
@@ -32,6 +37,11 @@ PIT = opt.PIT;
 SST = opt.SST;
 BEN = opt.BEN;
 
+
+
+% --- Distribution generation ---
+
+% --- Initialize distributions ---
 
 if (startyear < 0)
     
@@ -54,6 +64,9 @@ else
     
 end
 
+
+
+% --- Generate distributions through forward propagation ---
 
 for t = 1:T_active-1
     
@@ -124,6 +137,7 @@ end
 
 
 
+% --- Aggregate generation ---
 
 Cohort.assets  = zeros(1,T_active);
 Cohort.beqs    = zeros(1,T_active);

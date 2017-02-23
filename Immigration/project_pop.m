@@ -1,6 +1,14 @@
 function [] = project_pop()
 
+
+
+% --- Initialization ---
+
 jobdir = 'Testing';
+
+
+
+% --- Parameter loading ---
 
 load('params.mat')
 load('Imm_Data.mat')
@@ -20,9 +28,9 @@ legal_rate = legal_rate * legal_rate_scale; %#ok<NODEF>
 prem_legal = 1.117456794;
 
 
-%  This loop modifies proddist_age to hit productivity targets specified above.  We do this by moving 
-%  masses from low -> high or high -> low.  The problem is bounded by a max productivity,
-%  so not all productivity targets are feasible.
+% This loop modifies proddist_age to hit productivity targets specified above.  We do this by moving 
+% masses from low -> high or high -> low.  The problem is bounded by a max productivity,
+% so not all productivity targets are feasible.
 
 for i1 = 2  % *** idem = 1:2?
     for t = 1:T_life
@@ -79,6 +87,10 @@ for trans_year = 2:T_model
     
     fprintf('Year %2u\n', trans_year);
     
+    
+    
+    % --- Initialize distributions ---
+    
     year = trans_year - 1;
     
     dist = zeros(nk,nz,nb,T_life,3);
@@ -89,8 +101,14 @@ for trans_year = 2:T_model
                 pop_trans(year) * imm_age(1) * illegal_rate(1) ];
     
     for iz = 1:nz
-        dist(1,iz,1,1,:) = reshape(proddist_age(iz,1,:), 3, []) .* im_flow;
+        for ipop = 1:3
+            dist(1,iz,1,1,ipop) = proddist_age(iz,1,ipop) * im_flow(ipop);
+        end
     end
+    
+    
+    
+    % --- Generate distributions through forward propagation ---
     
     for t = 1:T_life-1
         
@@ -130,6 +148,7 @@ for trans_year = 2:T_model
                 end
             end
         end
+        
     end
     
     
