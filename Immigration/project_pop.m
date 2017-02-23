@@ -185,7 +185,9 @@ valuenames = fields(imm_polparams);
 for i = 1:length(valuenames)
     valuename = valuenames{i};
     delta = imm_polparams.(valuename)(:) - imm_polparams_freeze.(valuename)(:);
-    if any(delta)
+    if any(isnan(delta))
+        fprintf('\t%-14sNaN found\n', valuename);
+    elseif any(delta)
         pdev = abs(nanmean(delta*2 ./ (imm_polparams.(valuename)(:) + imm_polparams_freeze.(valuename)(:))))*100;
         fprintf('\t%-14s%06.2f%% deviation\n', valuename, pdev);
     else

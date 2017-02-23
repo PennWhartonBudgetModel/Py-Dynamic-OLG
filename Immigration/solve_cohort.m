@@ -108,30 +108,12 @@ for t = 1:T_active-1
         end
     end
     
-    if (age < T_work)
-        
-        amnesty_dist = squeeze(amnesty*dist(:,:,:,t+1,3)); 
-        amnesty_dist = permute(amnesty_dist, [2,1,3]);
-        amnesty_dist = squeeze(sum(amnesty_dist));
-        
-        prod_legal = squeeze(dist(:,:,:,t+1,2));
-        prod_legal = squeeze(sum(sum(permute(prod_legal, [1,3,2]))));
-        prod_legal = prod_legal / sum(prod_legal);
-        
-        for ik = 1:nk
-            for ib = 1:nb
-                for iz = 1:nz
-                    dist(ik,iz,ib,t+1,2) = dist(ik,iz,ib,t+1,2) + prod_legal(iz)*amnesty_dist(ik,ib);
-                end
-            end
-        end
-        
-    else
-        dist(:,:,:,t+1,2) = dist(:,:,:,t+1,2) + amnesty*dist(:,:,:,t+1,3);
-    end
+    % Increase legal immigrant population for amnesty, maintaining overall distribution over productivity levels
+    distz_legal = sum(sum(dist(:,:,:,t+1,2), 1), 3);
+    dist(:,:,:,t+1,2) = dist(:,:,:,t+1,2) + repmat(sum(amnesty*dist(:,:,:,t+1,3), 2), [1,nz,1]).*repmat(distz_legal, [nk,1,nb])/sum(distz_legal);
     
-    dist(:,:,:,t+1,3) = (1-amnesty    )*dist(:,:,:,t+1,3);
-    dist(:,:,:,t+1,3) = (1-deportation)*dist(:,:,:,t+1,3);
+    % Reduce illegal immigrant population for amnesty and deportation
+    dist(:,:,:,t+1,3) = (1-amnesty)*(1-deportation)*dist(:,:,:,t+1,3);
     
 end
 

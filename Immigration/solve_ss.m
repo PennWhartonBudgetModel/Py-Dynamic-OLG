@@ -271,7 +271,9 @@ valuenames = fields(distvars_2);
 for i = 1:length(valuenames)
     valuename = valuenames{i};
     delta = distvars_2.(valuename)(:) - distvars_2_freeze.(valuename)(:);
-    if any(delta)
+    if any(isnan(delta))
+        fprintf('\t%-14sNaN found\n', valuename);
+    elseif any(delta)
         pdev = abs(nanmean(delta*2 ./ (distvars_2.(valuename)(:) + distvars_2_freeze.(valuename)(:))))*100;
         fprintf('\t%-14s%06.2f%% deviation\n', valuename, pdev);
     else
