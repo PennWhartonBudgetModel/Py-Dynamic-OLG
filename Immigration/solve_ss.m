@@ -60,7 +60,10 @@ while (rhosseps > rhosstol)
         
         % --- solve_cohort distribution generation ---
         
-        load(fullfile(jobdir, sprintf('sspol%u.mat', idem)));
+        s = load(fullfile(jobdir, sprintf('sspol%u.mat', idem)));
+        K   = s.kopt  ;
+        B   = s.bopt  ;
+        LAB = s.labopt;
         
         dist_previous     = zeros(nk,nz,nb,T_life,3);
         dist_age_previous = ones(1,T_life);
@@ -83,16 +86,12 @@ while (rhosseps > rhosstol)
             
             dist = zeros(nk,nz,nb,T_life,3);
             
-            % pgr is population growth rate of existing population.  only grows youngest cohort.
-            % using period 1 imm rate values for steady state
             im_flow = [ pops(year) * pgr                          ;
                         pops(year) * imm_age(1) * legal_rate(1)   ;
                         pops(year) * imm_age(1) * illegal_rate(1) ];
             
-            for iz = 1:nz
-                for ipop = 1:3
-                    dist(1,iz,1,1,ipop) = proddist_age(iz,1,ipop) * im_flow(ipop);
-                end
+            for ipop = 1:3
+                dist(1,:,1,1,ipop) = reshape(proddist_age(:,1,ipop)*im_flow(ipop), [1,nz,1,1,1]);
             end
             
             
@@ -107,34 +106,45 @@ while (rhosseps > rhosstol)
                             pops(year) * imm_age(age) * legal_rate(1)   ;
                             pops(year) * imm_age(age) * illegal_rate(1) ];
                 
-                for iz = 1:nz
-                    for ik = 1:nk
-                        for ib = 1:nb
-                            
-                            point_k = max(kopt(ik,iz,ib,t), kgrid(1));
-                            loc1 = find(kgrid(1:nk-1) <= point_k, 1, 'last');
-                            w1 = (point_k - kgrid(loc1)) / (kgrid(loc1+1) - kgrid(loc1));
-                            w1 = min(w1, 1);
-                            
-                            point_b = max(bopt(ik,iz,ib,t), bgrid(1));
-                            loc2 = find(bgrid(1:nb-1) <= point_b, 1, 'last');
-                            w2 = (point_b - bgrid(loc2)) / (bgrid(loc2+1) - bgrid(loc2));
-                            w2 = min(w2, 1);
-                            
-                            for jz = 1:nz
-                                for ipop = 1:3
-                                    
-                                    dist_hold = dist_previous(ik,iz,ib,t,ipop) + (ik == 1)*(ib == 1)*proddist_age(iz,age,ipop)*im_flow(ipop);
-                                    
-                                    dist(loc1  ,jz,loc2  ,t+1,ipop) = dist(loc1  ,jz,loc2  ,t+1,ipop) + surv(age)*(1-w2)*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                    dist(loc1+1,jz,loc2  ,t+1,ipop) = dist(loc1+1,jz,loc2  ,t+1,ipop) + surv(age)*(1-w2)*(w1  )*tr_z(iz,jz)*dist_hold;
-                                    dist(loc1  ,jz,loc2+1,t+1,ipop) = dist(loc1  ,jz,loc2+1,t+1,ipop) + surv(age)*(w2  )*(1-w1)*tr_z(iz,jz)*dist_hold;
-                                    dist(loc1+1,jz,loc2+1,t+1,ipop) = dist(loc1+1,jz,loc2+1,t+1,ipop) + surv(age)*(w2  )*(w1  )*tr_z(iz,jz)*dist_hold;
-                                    
-                                end
-                            end
-                            
+                % Extract optimal k and b values
+                k_t = max(K(:,:,:,t), kgrid(1));
+                b_t = max(B(:,:,:,t), bgrid(1));
+                
+                % Find indices of nearest values in ks and bs series
+                jk_lt = ones(size(k_t));
+                for elem = 1:length(k_t(:))
+                    jk_lt(elem) = find(kgrid(1:end-1) <= k_t(elem), 1, 'last');
+                end
+                jk_gt = jk_lt + 1;
+                
+                jb_lt = ones(size(b_t));
+                for elem = 1:length(b_t(:))
+                    jb_lt(elem) = find(bgrid(1:end-1) <= b_t(elem), 1, 'last');
+                end
+                jb_gt = jb_lt + 1;
+                
+                % Calculate linear weights for nearest values
+                wk_lt = max((kgrid(jk_gt) - k_t) ./ (kgrid(jk_gt) - kgrid(jk_lt)), 0);
+                wk_gt = 1 - wk_lt;
+                
+                wb_lt = max((bgrid(jb_gt) - b_t) ./ (bgrid(jb_gt) - bgrid(jb_lt)), 0);
+                wb_gt = 1 - wb_lt;
+                
+                for jz = 1:nz
+                    for ipop = 1:3
+                        
+                        DIST_inflow = zeros(nk,nz,nb);
+                        DIST_inflow(1,:,1) = reshape(proddist_age(:,age,ipop)*im_flow(ipop), [1,nz,1]);
+                        
+                        DIST_step = (dist_previous(:,:,:,t,ipop) + DIST_inflow) .* repmat(reshape(tr_z(:,jz), [1,nz,1]), [nk,1,nb]) * surv(age);
+                        
+                        for elem = 1:numel(DIST_step)
+                            dist(jk_lt(elem), jz, jb_lt(elem), t+1, ipop) = dist(jk_lt(elem), jz, jb_lt(elem), t+1, ipop) + wk_lt(elem)*wb_lt(elem)*DIST_step(elem);
+                            dist(jk_gt(elem), jz, jb_lt(elem), t+1, ipop) = dist(jk_gt(elem), jz, jb_lt(elem), t+1, ipop) + wk_gt(elem)*wb_lt(elem)*DIST_step(elem);
+                            dist(jk_lt(elem), jz, jb_gt(elem), t+1, ipop) = dist(jk_lt(elem), jz, jb_gt(elem), t+1, ipop) + wk_lt(elem)*wb_gt(elem)*DIST_step(elem);
+                            dist(jk_gt(elem), jz, jb_gt(elem), t+1, ipop) = dist(jk_gt(elem), jz, jb_gt(elem), t+1, ipop) + wk_gt(elem)*wb_gt(elem)*DIST_step(elem);
                         end
+                        
                     end
                 end
                 
@@ -175,10 +185,10 @@ while (rhosseps > rhosstol)
                             
                             age = t;
                             
-                            Kalive(t) = Kalive(t) + kopt  (ik,iz,ib,t)               *dist(ik,iz,ib,t,ipop);
-                            Kdead (t) = Kdead (t) + kopt  (ik,iz,ib,t)*(1-surv(age)) *dist(ik,iz,ib,t,ipop);
-                            Lab   (t) = Lab   (t) + labopt(ik,iz,ib,t)               *dist(ik,iz,ib,t,ipop);
-                            ELab  (t) = ELab  (t) + labopt(ik,iz,ib,t)*z(iz,age,idem)*dist(ik,iz,ib,t,ipop);
+                            Kalive(t) = Kalive(t) + K  (ik,iz,ib,t)               *dist(ik,iz,ib,t,ipop);
+                            Kdead (t) = Kdead (t) + K  (ik,iz,ib,t)*(1-surv(age)) *dist(ik,iz,ib,t,ipop);
+                            Lab   (t) = Lab   (t) + LAB(ik,iz,ib,t)               *dist(ik,iz,ib,t,ipop);
+                            ELab  (t) = ELab  (t) + LAB(ik,iz,ib,t)*z(iz,age,idem)*dist(ik,iz,ib,t,ipop);
                             
                         end
                     end
