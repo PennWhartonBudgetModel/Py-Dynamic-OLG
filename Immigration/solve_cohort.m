@@ -10,7 +10,7 @@ jobdir = 'Testing';
 load(fullfile(jobdir, 'imm_polparams.mat'))
 
 load('SSVALS.mat', 'pop_prev')
-pop_trans = [pop_prev, pops];
+pops = [pop_prev, pops]; %#ok<NODEF>
 
 load(fullfile(jobdir, 'DIST.mat'));
 
@@ -52,9 +52,9 @@ else
     age  = 1;
     year = max(1, min(startyear+age, T_model));
     
-    im_flow = [ pop_trans(year) * pgr                            ;
-                pop_trans(year) * imm_age(age) * legal_rate(1)   ;
-                pop_trans(year) * imm_age(age) * illegal_rate(1) ];
+    im_flow = [ pops(year) * pgr                            ;
+                pops(year) * imm_age(age) * legal_rate(1)   ;
+                pops(year) * imm_age(age) * illegal_rate(1) ];
     
     for iz = 1:nz
         for ipop = 1:3
@@ -73,9 +73,9 @@ for t = 1:T_active-1
     age  = t + T_past;
     year = max(1, min(startyear+age, T_model)) + 1; % (Addition of 1 may be erroneous; also possible that max should be taken with 0 instead)
     
-    im_flow = [ 0                                                ;
-                pop_trans(year) * imm_age(age) * legal_rate(1)   ;
-                pop_trans(year) * imm_age(age) * illegal_rate(1) ];
+    im_flow = [ 0                                           ;
+                pops(year) * imm_age(age) * legal_rate(1)   ;
+                pops(year) * imm_age(age) * illegal_rate(1) ];
     
     for iz = 1:nz
         for ik = 1:nk
@@ -114,6 +114,8 @@ for t = 1:T_active-1
     
     % Reduce illegal immigrant population for amnesty and deportation
     dist(:,:,:,t+1,3) = (1-amnesty-deportation)*dist(:,:,:,t+1,3);
+    
+    % if dist_previous(t+1) does not exist, set dist_previous(t+1) to dist(t+1)
     
 end
 

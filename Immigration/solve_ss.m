@@ -19,6 +19,9 @@ T_life = T;
 
 load('Imm_Data.mat')
 
+amnesty     = 0.00;
+deportation = 0.00;
+
 
 
 % --- Dynamic aggregate generation ---
@@ -72,7 +75,7 @@ while (rhosseps > rhosstol)
         
         while (disteps > disttol && year < lastyear)
             
-            fprintf('Year %2u\n', year);
+            fprintf('Year %3u\n', year);
             
             
             
@@ -134,6 +137,13 @@ while (rhosseps > rhosstol)
                         end
                     end
                 end
+                
+                % Increase legal immigrant population for amnesty, maintaining overall distribution over productivity levels
+                distz_legal = sum(sum(dist(:,:,:,t+1,2), 1), 3);
+                dist(:,:,:,t+1,2) = dist(:,:,:,t+1,2) + repmat(sum(amnesty*dist(:,:,:,t+1,3), 2), [1,nz,1]).*repmat(distz_legal, [nk,1,nb])/sum(distz_legal);
+                
+                % Reduce illegal immigrant population for amnesty and deportation
+                dist(:,:,:,t+1,3) = (1-amnesty-deportation)*dist(:,:,:,t+1,3);
                 
             end
             
