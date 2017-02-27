@@ -58,6 +58,7 @@ for o = series, Dynamic.(o{1}) = zeros(1,T_model); end
 
 for idem = 1:ndem
     
+    
     % Consolidate cohort optimal decision value arrays
     K   = zeros(nk,nz,nb,T_life,T_model);
     LAB = zeros(nk,nz,nb,T_life,T_model);
@@ -188,18 +189,22 @@ for idem = 1:ndem
                 
             end
             
-            % Increase legal immigrant population for amnesty, maintaining overall distribution over productivity levels
-            DISTz_legal = sum(sum(DIST_next(:,:,:,age,2), 1), 3);
-            DIST_next(:,:,:,age,2) = DIST_next(:,:,:,age,2) + repmat(sum(amnesty*DIST_next(:,:,:,age,3), 2), [1,nz,1]).*repmat(DISTz_legal, [nk,1,nb])/sum(DISTz_legal);
-            
-            % Reduce illegal immigrant population for amnesty and deportation
-            DIST_next(:,:,:,age,3) = (1-amnesty-deportation)*DIST_next(:,:,:,age,3);
-            
         end
         
+        % Increase legal immigrant population for amnesty, maintaining productivity distributions
+        DISTz_legal = DIST_next(:,:,:,:,2) ./ repmat(sum(DIST_next(:,:,:,:,2), 2), [1,nz,1,1]);
+        DISTz_legal(isnan(DISTz_legal)) = 1/nz;
+        
+        DIST_next(:,:,:,:,2) = DIST_next(:,:,:,:,2) + amnesty*repmat(sum(DIST_next(:,:,:,:,3), 2), [1,nz,1,1]).*DISTz_legal;
+        
+        % Reduce illegal immigrant population for amnesty and deportation
+        DIST_next(:,:,:,:,3) = (1-amnesty-deportation)*DIST_next(:,:,:,:,3);
+        
+        % Calculate distribution convergence error
         DIST_age_next = sum(sum(reshape(DIST_next, [], T_life, 3), 1), 3);
         DISTeps = max(abs(DIST_age_next(2:end)/DIST_age_next(1) - DIST_age(2:end)/DIST_age(1)));
         
+        % Update distributions
         DIST     = DIST_next;
         DIST_age = DIST_age_next;
         
