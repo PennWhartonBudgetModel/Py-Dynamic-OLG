@@ -95,7 +95,7 @@ for idem = 1:ndem
     
     s = load(fullfile(jobdir, sprintf('distvars_%u.mat', idem)));
     
-    DIST     = s.dist;
+    DIST     = s.DIST;
     DIST_age = ones(1,T_life);
     
     DISTeps = Inf;
