@@ -22,8 +22,8 @@ ndem = s.ndem;
 ks   = s.kgrid;
 bs   = s.bgrid;
 
-z    = s.z;
-tr_z = s.tr_z;
+zs     = s.z;
+transz = s.tr_z;
 
 surv = s.surv;
 surv(T_life) = 0;
@@ -39,7 +39,7 @@ imm_age      = s.imm_age;
 
 s = load(fullfile(jobdir, 'imm_polparams.mat'));
 
-proddist_age = s.proddist_age;
+DISTz_age    = s.proddist_age;
 legal_rate   = s.legal_rate;
 amnesty      = s.amnesty;
 deportation  = s.deportation;
@@ -116,7 +116,7 @@ for idem = 1:ndem
                         for ipop = 1:3
                             Dynamic.assets (year) = Dynamic.assets (year) + DIST(ik,iz,ib,age,ipop)*K  (ik,iz,ib,age,year)*(2-surv(age));
                             Dynamic.beqs   (year) = Dynamic.beqs   (year) + DIST(ik,iz,ib,age,ipop)*K  (ik,iz,ib,age,year)*(1-surv(age));
-                            Dynamic.labeffs(year) = Dynamic.labeffs(year) + DIST(ik,iz,ib,age,ipop)*LAB(ik,iz,ib,age,year)*z(iz,age,idem);
+                            Dynamic.labeffs(year) = Dynamic.labeffs(year) + DIST(ik,iz,ib,age,ipop)*LAB(ik,iz,ib,age,year)*zs(iz,age,idem);
                             Dynamic.labs   (year) = Dynamic.labs   (year) + DIST(ik,iz,ib,age,ipop)*LAB(ik,iz,ib,age,year);
                             Dynamic.lfprs  (year) = Dynamic.lfprs  (year) + DIST(ik,iz,ib,age,ipop)*(LAB(ik,iz,ib,age,year) > 0);
                             Dynamic.pits   (year) = Dynamic.pits   (year) + DIST(ik,iz,ib,age,ipop)*PIT(ik,iz,ib,age,year);
@@ -134,22 +134,19 @@ for idem = 1:ndem
         
         DIST_next = zeros(nk,nz,nb,T_life,3);
         
-        
         for age = 1:T_life
             
             im_flow = sum(DIST(:))*[ (age == 1)*pgr               ;
                                      imm_age(age)*legal_rate(1)   ;
                                      imm_age(age)*illegal_rate(1) ];
             
-            if (age == 1)
+            for ipop = 1:3
+                DIST_next(1,:,1,age,ipop) = reshape(DISTz_age(:,age,ipop)*im_flow(ipop), [1,nz,1,1,1]);
+            end
+            
+            if (age > 1)
                 
-                for ipop = 1:3
-                    DIST_next(1,:,1,age,ipop) = reshape(proddist_age(:,age,ipop)*im_flow(ipop), [1,nz,1,1,1]);
-                end
-                
-            else
-                
-                % Extract optimal k and b values
+                % Extract optimal k and b decision values
                 k_t = max(K(:,:,:,age-1,year-1), ks(1));
                 b_t = max(B(:,:,:,age-1,year-1), bs(1));
                 
@@ -176,16 +173,15 @@ for idem = 1:ndem
                 for jz = 1:nz
                     for ipop = 1:3
                         
-                        DIST_inflow = zeros(nk,nz,nb);
-                        DIST_inflow(1,:,1) = reshape(proddist_age(:,age,ipop)*im_flow(ipop), [1,nz,1]);
+                        % Apply survival and productivity transformations to cohort distribution from previous year
+                        DIST_transz = DIST(:,:,:,age-1,ipop) * surv(age-1) .* repmat(reshape(transz(:,jz), [1,nz,1]), [nk,1,nb]);
                         
-                        DIST_step = (DIST(:,:,:,age-1,ipop)*surv(age-1) + DIST_inflow) .* repmat(reshape(tr_z(:,jz), [1,nz,1]), [nk,1,nb]);
-                        
-                        for elem = 1:numel(DIST_step)
-                            DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) + wk_lt(elem)*wb_lt(elem)*DIST_step(elem);
-                            DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) + wk_gt(elem)*wb_lt(elem)*DIST_step(elem);
-                            DIST_next(jk_lt(elem), jz, jb_gt(elem), age, ipop) = DIST_next(jk_lt(elem), jz, jb_gt(elem), age, ipop) + wk_lt(elem)*wb_gt(elem)*DIST_step(elem);
-                            DIST_next(jk_gt(elem), jz, jb_gt(elem), age, ipop) = DIST_next(jk_gt(elem), jz, jb_gt(elem), age, ipop) + wk_gt(elem)*wb_gt(elem)*DIST_step(elem);
+                        % Redistribute cohort distribution according to target indices and weights
+                        for elem = 1:numel(DIST_transz)
+                            DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) + wk_lt(elem)*wb_lt(elem)*DIST_transz(elem);
+                            DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) + wk_gt(elem)*wb_lt(elem)*DIST_transz(elem);
+                            DIST_next(jk_lt(elem), jz, jb_gt(elem), age, ipop) = DIST_next(jk_lt(elem), jz, jb_gt(elem), age, ipop) + wk_lt(elem)*wb_gt(elem)*DIST_transz(elem);
+                            DIST_next(jk_gt(elem), jz, jb_gt(elem), age, ipop) = DIST_next(jk_gt(elem), jz, jb_gt(elem), age, ipop) + wk_gt(elem)*wb_gt(elem)*DIST_transz(elem);
                         end
                         
                     end
