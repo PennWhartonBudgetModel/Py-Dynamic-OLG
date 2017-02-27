@@ -33,14 +33,14 @@ pgr = s.pgr;
 
 s = load('Imm_Data.mat');
 
-illegal_rate = s.illegal_rate;
+illegal_rate = s.illegal_rate(1);
 imm_age      = s.imm_age;
 
 
 s = load(fullfile(jobdir, 'imm_polparams.mat'));
 
 DISTz_age    = s.proddist_age;
-legal_rate   = s.legal_rate;
+legal_rate   = s.legal_rate(1);
 amnesty      = s.amnesty;
 deportation  = s.deportation;
 
@@ -132,17 +132,16 @@ for idem = 1:ndem
         if (year == lastyear), break, else, year = year + 1; end
         
         
+        % Initialize distribution for next year
         DIST_next = zeros(nk,nz,nb,T_life,3);
         
+        % Grow populations
+        DIST_total = sum(DIST(:));
+        DIST_next(1,:,1,1,1) = DIST_total * reshape(DISTz_age(:,1,1), [1,nz,1,1]) * pgr;
+        DIST_next(1,:,1,:,2) = DIST_total * reshape(DISTz_age(:,:,2), [1,nz,1,T_life]) .* repmat(reshape(imm_age, [1,1,1,T_life]), [1,nz,1,1]) * legal_rate;
+        DIST_next(1,:,1,:,3) = DIST_total * reshape(DISTz_age(:,:,3), [1,nz,1,T_life]) .* repmat(reshape(imm_age, [1,1,1,T_life]), [1,nz,1,1]) * illegal_rate;
+        
         for age = 1:T_life
-            
-            im_flow = sum(DIST(:))*[ (age == 1)*pgr               ;
-                                     imm_age(age)*legal_rate(1)   ;
-                                     imm_age(age)*illegal_rate(1) ];
-            
-            for ipop = 1:3
-                DIST_next(1,:,1,age,ipop) = reshape(DISTz_age(:,age,ipop)*im_flow(ipop), [1,nz,1,1,1]);
-            end
             
             if (age > 1)
                 
@@ -173,10 +172,10 @@ for idem = 1:ndem
                 for jz = 1:nz
                     for ipop = 1:3
                         
-                        % Apply survival and productivity transformations to cohort distribution from previous year
+                        % Apply survival and productivity transformations to cohort distribution from current year
                         DIST_transz = DIST(:,:,:,age-1,ipop) * surv(age-1) .* repmat(reshape(transz(:,jz), [1,nz,1]), [nk,1,nb]);
                         
-                        % Redistribute cohort distribution according to target indices and weights
+                        % Redistribute cohort for next year according to target indices and weights
                         for elem = 1:numel(DIST_transz)
                             DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) + wk_lt(elem)*wb_lt(elem)*DIST_transz(elem);
                             DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) + wk_gt(elem)*wb_lt(elem)*DIST_transz(elem);
