@@ -25,7 +25,7 @@ bs   = s.bgrid;
 zs     = s.z;
 transz = s.tr_z;
 
-surv = s.surv;
+surv = s.surv(1:T_life);
 surv(T_life) = 0;
 
 pgr = s.pgr;
@@ -110,27 +110,21 @@ for idem = 1:ndem
         fprintf('Year %3u\n', year);
         
         
-        for ik = 1:nk
-            for iz = 1:nz
-                for ib = 1:nb
-                    for age = 1:T_life
-                        for ipop = 1:3
-                            Dynamic.assets (year) = Dynamic.assets (year) + DIST(ik,iz,ib,age,ipop)*K  (ik,iz,ib,age,year)*(2-surv(age));
-                            Dynamic.beqs   (year) = Dynamic.beqs   (year) + DIST(ik,iz,ib,age,ipop)*K  (ik,iz,ib,age,year)*(1-surv(age));
-                            Dynamic.labeffs(year) = Dynamic.labeffs(year) + DIST(ik,iz,ib,age,ipop)*LAB(ik,iz,ib,age,year)*zs(iz,age,idem);
-                            Dynamic.labs   (year) = Dynamic.labs   (year) + DIST(ik,iz,ib,age,ipop)*LAB(ik,iz,ib,age,year);
-                            Dynamic.lfprs  (year) = Dynamic.lfprs  (year) + DIST(ik,iz,ib,age,ipop)*(LAB(ik,iz,ib,age,year) > 0);
-                            Dynamic.pits   (year) = Dynamic.pits   (year) + DIST(ik,iz,ib,age,ipop)*PIT(ik,iz,ib,age,year);
-                            Dynamic.ssts   (year) = Dynamic.ssts   (year) + DIST(ik,iz,ib,age,ipop)*SST(ik,iz,ib,age,year);
-                            Dynamic.bens   (year) = Dynamic.bens   (year) + DIST(ik,iz,ib,age,ipop)*BEN(ik,iz,ib,age,year);
-                        end
-                    end
-                end
-            end
+        % Calculate aggregates for current year
+        for ipop = 1:3
+            A.assets  = DIST(:,:,:,:,ipop).*K  (:,:,:,:,year).*repmat(reshape(2-surv, [1,1,1,T_life]), [nk,nz,nb,1]);
+            A.beqs    = DIST(:,:,:,:,ipop).*K  (:,:,:,:,year).*repmat(reshape(1-surv, [1,1,1,T_life]), [nk,nz,nb,1]);
+            A.labeffs = DIST(:,:,:,:,ipop).*LAB(:,:,:,:,year).*repmat(reshape(zs(:,:,idem), [1,nz,1,T_life]), [nk,1,nb,1]);
+            A.labs    = DIST(:,:,:,:,ipop).*LAB(:,:,:,:,year);
+            A.lfprs   = DIST(:,:,:,:,ipop).*(LAB(:,:,:,:,year) > 0);
+            A.pits    = DIST(:,:,:,:,ipop).*PIT(:,:,:,:,year);
+            A.ssts    = DIST(:,:,:,:,ipop).*SST(:,:,:,:,year);
+            A.bens    = DIST(:,:,:,:,ipop).*BEN(:,:,:,:,year);
+            for o = series, Dynamic.(o{1})(year) = Dynamic.(o{1})(year) + sum(A.(o{1})(:)); end
         end
         
         
-        if (year == lastyear), break, else, year = year + 1; end
+        if (year < lastyear), year = year + 1; else, break, end
         
         
         % Initialize distribution for next year
@@ -142,51 +136,47 @@ for idem = 1:ndem
         DIST_next(1,:,1,:,2) = DIST_total * reshape(DISTz_age(:,:,2), [1,nz,1,T_life]) .* repmat(reshape(imm_age, [1,1,1,T_life]), [1,nz,1,1]) * legal_rate;
         DIST_next(1,:,1,:,3) = DIST_total * reshape(DISTz_age(:,:,3), [1,nz,1,T_life]) .* repmat(reshape(imm_age, [1,1,1,T_life]), [1,nz,1,1]) * illegal_rate;
         
-        for age = 1:T_life
+        for age = 2:T_life
             
-            if (age > 1)
-                
-                % Extract optimal k and b decision values
-                k_t = max(K(:,:,:,age-1,year-1), ks(1));
-                b_t = max(B(:,:,:,age-1,year-1), bs(1));
-                
-                % Find indices of nearest values in ks and bs series
-                jk_lt = ones(size(k_t));
-                for elem = 1:length(k_t(:))
-                    jk_lt(elem) = find(ks(1:end-1) <= k_t(elem), 1, 'last');
-                end
-                jk_gt = jk_lt + 1;
-                
-                jb_lt = ones(size(b_t));
-                for elem = 1:length(b_t(:))
-                    jb_lt(elem) = find(bs(1:end-1) <= b_t(elem), 1, 'last');
-                end
-                jb_gt = jb_lt + 1;
-                
-                % Calculate linear weights for nearest values
-                wk_lt = max((ks(jk_gt) - k_t) ./ (ks(jk_gt) - ks(jk_lt)), 0);
-                wk_gt = 1 - wk_lt;
-                
-                wb_lt = max((bs(jb_gt) - b_t) ./ (bs(jb_gt) - bs(jb_lt)), 0);
-                wb_gt = 1 - wb_lt;
-                
-                for jz = 1:nz
-                    for ipop = 1:3
-                        
-                        % Apply survival and productivity transformations to cohort distribution from current year
-                        DIST_transz = DIST(:,:,:,age-1,ipop) * surv(age-1) .* repmat(reshape(transz(:,jz), [1,nz,1]), [nk,1,nb]);
-                        
-                        % Redistribute cohort for next year according to target indices and weights
-                        for elem = 1:numel(DIST_transz)
-                            DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) + wk_lt(elem)*wb_lt(elem)*DIST_transz(elem);
-                            DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) + wk_gt(elem)*wb_lt(elem)*DIST_transz(elem);
-                            DIST_next(jk_lt(elem), jz, jb_gt(elem), age, ipop) = DIST_next(jk_lt(elem), jz, jb_gt(elem), age, ipop) + wk_lt(elem)*wb_gt(elem)*DIST_transz(elem);
-                            DIST_next(jk_gt(elem), jz, jb_gt(elem), age, ipop) = DIST_next(jk_gt(elem), jz, jb_gt(elem), age, ipop) + wk_gt(elem)*wb_gt(elem)*DIST_transz(elem);
-                        end
-                        
+            % Extract optimal k and b decision values
+            k_t = max(K(:,:,:,age-1,year-1), ks(1));
+            b_t = max(B(:,:,:,age-1,year-1), bs(1));
+            
+            % Find indices of nearest values in ks and bs series
+            jk_lt = ones(size(k_t));
+            for elem = 1:length(k_t(:))
+                jk_lt(elem) = find(ks(1:end-1) <= k_t(elem), 1, 'last');
+            end
+            jk_gt = jk_lt + 1;
+            
+            jb_lt = ones(size(b_t));
+            for elem = 1:length(b_t(:))
+                jb_lt(elem) = find(bs(1:end-1) <= b_t(elem), 1, 'last');
+            end
+            jb_gt = jb_lt + 1;
+            
+            % Calculate linear weights for nearest values
+            wk_lt = max((ks(jk_gt) - k_t) ./ (ks(jk_gt) - ks(jk_lt)), 0);
+            wk_gt = 1 - wk_lt;
+            
+            wb_lt = max((bs(jb_gt) - b_t) ./ (bs(jb_gt) - bs(jb_lt)), 0);
+            wb_gt = 1 - wb_lt;
+            
+            for jz = 1:nz
+                for ipop = 1:3
+                    
+                    % Apply survival and productivity transformations to cohort distribution from current year
+                    DIST_transz = DIST(:,:,:,age-1,ipop) * surv(age-1) .* repmat(reshape(transz(:,jz), [1,nz,1]), [nk,1,nb]);
+                    
+                    % Redistribute cohort for next year according to target indices and weights
+                    for elem = 1:numel(DIST_transz)
+                        DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) + wk_lt(elem)*wb_lt(elem)*DIST_transz(elem);
+                        DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) + wk_gt(elem)*wb_lt(elem)*DIST_transz(elem);
+                        DIST_next(jk_lt(elem), jz, jb_gt(elem), age, ipop) = DIST_next(jk_lt(elem), jz, jb_gt(elem), age, ipop) + wk_lt(elem)*wb_gt(elem)*DIST_transz(elem);
+                        DIST_next(jk_gt(elem), jz, jb_gt(elem), age, ipop) = DIST_next(jk_gt(elem), jz, jb_gt(elem), age, ipop) + wk_gt(elem)*wb_gt(elem)*DIST_transz(elem);
                     end
+                    
                 end
-                
             end
             
         end
@@ -195,7 +185,7 @@ for idem = 1:ndem
         DISTz_legal = DIST_next(:,:,:,:,2) ./ repmat(sum(DIST_next(:,:,:,:,2), 2), [1,nz,1,1]);
         DISTz_legal(isnan(DISTz_legal)) = 1/nz;
         
-        DIST_next(:,:,:,:,2) = DIST_next(:,:,:,:,2) + amnesty*repmat(sum(DIST_next(:,:,:,:,3), 2), [1,nz,1,1]).*DISTz_legal;
+        DIST_next(:,:,:,:,2) = DIST_next(:,:,:,:,2) + repmat(sum(amnesty*DIST_next(:,:,:,:,3), 2), [1,nz,1,1]).*DISTz_legal;
         
         % Reduce illegal immigrant population for amnesty and deportation
         DIST_next(:,:,:,:,3) = (1-amnesty-deportation)*DIST_next(:,:,:,:,3);
