@@ -56,6 +56,9 @@ for idem = 1:ndem
     K   = s.kopt  ;
     LAB = s.labopt;
     B   = s.bopt  ;
+    PIT = zeros(nk,nz,nb,T_life,T_model);
+    SST = zeros(nk,nz,nb,T_life,T_model);
+    BEN = zeros(nk,nz,nb,T_life,T_model);
     
     
     
@@ -76,20 +79,17 @@ for idem = 1:ndem
         
         
         % Add values to aggregates for current year
-        if (length(Dynamic.assets ) < year), Dynamic.assets (year) = 0; end
-        if (length(Dynamic.labeffs) < year), Dynamic.labeffs(year) = 0; end
-        
+        for a = series, if (length(Dynamic.(a{1})) < year), Dynamic.(a{1})(year) = 0; end, end
         for ipop = 1:3
-            for age = 1:T_life
-                for iz = 1:nz
-                    for ik = 1:nk
-                        for ib = 1:nb
-                            Dynamic.assets (year) = Dynamic.assets (year) + DIST(ik,iz,ib,age,ipop)*K  (ik,iz,ib,age,min(year, T_model))*(2-surv(age));
-                            Dynamic.labeffs(year) = Dynamic.labeffs(year) + DIST(ik,iz,ib,age,ipop)*LAB(ik,iz,ib,age,min(year, T_model))*zs(iz,age,idem);
-                        end
-                    end
-                end
-            end
+            A.assets  = DIST(:,:,:,:,ipop).*K  (:,:,:,:,min(year, T_model)).*repmat(reshape(2-surv, [1,1,1,T_life]), [nk,nz,nb,1]);
+            A.beqs    = DIST(:,:,:,:,ipop).*K  (:,:,:,:,min(year, T_model)).*repmat(reshape(1-surv, [1,1,1,T_life]), [nk,nz,nb,1]);
+            A.labeffs = DIST(:,:,:,:,ipop).*LAB(:,:,:,:,min(year, T_model)).*repmat(reshape(zs(:,:,idem), [1,nz,1,T_life]), [nk,1,nb,1]);
+            A.labs    = DIST(:,:,:,:,ipop).*LAB(:,:,:,:,min(year, T_model));
+            A.lfprs   = DIST(:,:,:,:,ipop).*(LAB(:,:,:,:,min(year, T_model)) > 0);
+            A.pits    = DIST(:,:,:,:,ipop).*PIT(:,:,:,:,min(year, T_model));
+            A.ssts    = DIST(:,:,:,:,ipop).*SST(:,:,:,:,min(year, T_model));
+            A.bens    = DIST(:,:,:,:,ipop).*BEN(:,:,:,:,min(year, T_model));
+            for a = series, Dynamic.(a{1})(year) = Dynamic.(a{1})(year) + sum(A.(a{1})(:)); end
         end
         
         
@@ -109,8 +109,8 @@ for idem = 1:ndem
         for age = 2:T_life
             
             % Extract optimal k and b decision values
-            k_t = max(K(:,:,:,age-1,min(year, T_model)), ks(1));
-            b_t = max(B(:,:,:,age-1,min(year, T_model)), bs(1));
+            k_t = max(K(:,:,:,age-1,min(year-1, T_model)), ks(1));
+            b_t = max(B(:,:,:,age-1,min(year-1, T_model)), bs(1));
             
             % Find indices of nearest values in ks and bs series
             jk_lt = ones(size(k_t));
