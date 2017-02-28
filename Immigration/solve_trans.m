@@ -25,19 +25,36 @@ surv(T_life) = 0;
 
 pgr = s.pgr;
 
+DISTz_age = s.proddist_age;
+
 
 s = load('Imm_Data.mat');
 
+legal_rate   = s.legal_rate(1);
 illegal_rate = s.illegal_rate(1);
 imm_age      = s.imm_age;
 
 
-s = load(fullfile(jobdir, 'imm_polparams.mat'));
 
-DISTz_age    = s.proddist_age;
-legal_rate   = s.legal_rate(1);
-amnesty      = s.amnesty;
-deportation  = s.deportation;
+% Scale flow of legal immigrants
+legal_rate_scale = 1.5;
+legal_rate = legal_rate * legal_rate_scale;
+
+
+% Shift legal immigrant productivity distributions
+prem_legal = 1.117456794;
+
+for age = 1:T_life
+    v = mean(zs(:,age,:), 3);
+    ztarget = sum(v.*DISTz_age(:,age,2)) * prem_legal;
+    p = (v(nz) - ztarget) / (v(nz)*(nz-1) - sum(v(1:nz-1)));
+    DISTz_age(:,age,2) = [ p*ones(nz-1,1) ; 1 - p*(nz-1) ];
+end
+
+
+% Define amnesty and deportation rates
+amnesty     = 0.05;
+deportation = 0.05;
 
 
 

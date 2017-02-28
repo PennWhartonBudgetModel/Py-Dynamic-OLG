@@ -34,6 +34,25 @@ legal_rate   = s.legal_rate(1);
 illegal_rate = s.illegal_rate(1);
 imm_age      = s.imm_age;
 
+
+
+% Scale flow of legal immigrants
+legal_rate_scale = 1.0;
+legal_rate = legal_rate * legal_rate_scale;
+
+
+% Shift legal immigrant productivity distributions
+prem_legal = 1.000000000;
+
+for age = 1:T_life
+    v = mean(zs(:,age,:), 3);
+    ztarget = sum(v.*DISTz_age(:,age,2)) * prem_legal;
+    p = (v(nz) - ztarget) / (v(nz)*(nz-1) - sum(v(1:nz-1)));
+    DISTz_age(:,age,2) = [ p*ones(nz-1,1) ; 1 - p*(nz-1) ];
+end
+
+
+% Define amnesty and deportation rates
 amnesty     = 0.00;
 deportation = 0.00;
 
