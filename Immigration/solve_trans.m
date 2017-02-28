@@ -86,7 +86,7 @@ for idem = 1:ndem
     % Initialize distribution with steady state distribution
     s = load(fullfile(jobdir, sprintf('distvars_%u.mat', idem)));
     
-    DIST     = s.DIST;
+    DIST = s.DIST;
     DIST_age = ones(1,T_life);
     
     DISTeps = Inf;
@@ -184,10 +184,11 @@ for idem = 1:ndem
         
         % Calculate distribution convergence error
         DIST_age_next = sum(sum(reshape(DIST_next, [], T_life, 3), 1), 3);
-        DISTeps = max(abs(DIST_age_next(2:end)/DIST_age_next(1) - DIST_age(2:end)/DIST_age(1)));
+        DIST_age_next = DIST_age_next / DIST_age_next(1);
+        DISTeps = max(abs(DIST_age_next - DIST_age));
         
         % Update distributions
-        DIST     = DIST_next;
+        DIST = DIST_next;
         DIST_age = DIST_age_next;
         
     end

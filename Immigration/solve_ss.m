@@ -63,7 +63,8 @@ for idem = 1:ndem
     
     
     % Initialize distribution
-    DIST     = zeros(nk,nz,nb,T_life,3);
+    DIST = ones(nk,nz,nb,T_life,3);
+    DIST = DIST / numel(DIST);
     DIST_age = ones(1,T_life);
     
     DISTeps = Inf;
@@ -101,7 +102,6 @@ for idem = 1:ndem
         
         % Grow populations
         DIST_total = sum(DIST(:));
-        if (~DIST_total), DIST_total = 1; end
         DIST_next(1,:,1,1,1) = DIST_total * reshape(DISTz_age(:,1,1), [1,nz,1,1]) * pgr;
         DIST_next(1,:,1,:,2) = DIST_total * reshape(DISTz_age(:,:,2), [1,nz,1,T_life]) .* repmat(reshape(imm_age, [1,1,1,T_life]), [1,nz,1,1]) * legal_rate;
         DIST_next(1,:,1,:,3) = DIST_total * reshape(DISTz_age(:,:,3), [1,nz,1,T_life]) .* repmat(reshape(imm_age, [1,1,1,T_life]), [1,nz,1,1]) * illegal_rate;
@@ -162,7 +162,8 @@ for idem = 1:ndem
         
         % Calculate distribution convergence error
         DIST_age_next = sum(sum(reshape(DIST_next, [], T_life, 3), 1), 3);
-        DISTeps = max(abs(DIST_age_next(2:end)/DIST_age_next(1) - DIST_age(2:end)/DIST_age(1)));
+        DIST_age_next = DIST_age_next / DIST_age_next(1);
+        DISTeps = max(abs(DIST_age_next - DIST_age));
         
         % Update distributions
         DIST = DIST_next;
@@ -170,7 +171,8 @@ for idem = 1:ndem
         
     end
     
-    save(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), 'DIST');
+    % Save distribution
+    save(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), 'DIST', 'DIST_age');
     
 end
 
