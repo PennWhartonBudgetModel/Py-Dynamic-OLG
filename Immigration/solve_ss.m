@@ -93,34 +93,20 @@ for idem = 1:ndem
         end
         
         
-        
         if (year < lastyear), year = year + 1; else, break, end
-        
-        
-        population = sum(DIST(:));
-        if (~population), population = 1; end
         
         
         % Initialize distribution for next year
         DIST_next = zeros(nk,nz,nb,T_life,3);
         
-        im_flow = [ population * pgr                       ;
-                    population * imm_age(1) * legal_rate   ;
-                    population * imm_age(1) * illegal_rate ];
-        
-        for ipop = 1:3
-            DIST_next(1,:,1,1,ipop) = reshape(DISTz_age(:,1,ipop)*im_flow(ipop), [1,nz,1,1,1]);
-        end
+        % Grow populations
+        DIST_total = sum(DIST(:));
+        if (~DIST_total), DIST_total = 1; end
+        DIST_next(1,:,1,1,1) = DIST_total * reshape(DISTz_age(:,1,1), [1,nz,1,1]) * pgr;
+        DIST_next(1,:,1,:,2) = DIST_total * reshape(DISTz_age(:,:,2), [1,nz,1,T_life]) .* repmat(reshape(imm_age, [1,1,1,T_life]), [1,nz,1,1]) * legal_rate;
+        DIST_next(1,:,1,:,3) = DIST_total * reshape(DISTz_age(:,:,3), [1,nz,1,T_life]) .* repmat(reshape(imm_age, [1,1,1,T_life]), [1,nz,1,1]) * illegal_rate;
         
         for age = 2:T_life
-            
-            im_flow = [ 0                                          ;
-                        population * imm_age(age-1) * legal_rate   ;
-                        population * imm_age(age-1) * illegal_rate ];
-            
-            for ipop = 1:3
-                DIST_next(1,:,1,age,ipop) = reshape(DISTz_age(:,age,ipop)*im_flow(ipop), [1,nz,1,1,1]);
-            end
             
             % Extract optimal k and b decision values
             k_t = max(K(:,:,:,age-1,min(year, T_model)), ks(1));
