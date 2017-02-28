@@ -168,35 +168,32 @@ for idem = 1:ndem
         DIST = DIST_next;
         year = year + 1;
         
-    end
-    
-    
-    
-    Kalive  = zeros(1,T_life);
-    Kdead   = zeros(1,T_life);
-    Lab     = zeros(1,T_life);
-    ELab    = zeros(1,T_life);
-    
-    for ipop = 1:3
-        for age = 1:T_life
-            for iz = 1:nz
-                for ik = 1:nk
-                    for ib = 1:nb         
-                        Kalive(age) = Kalive(age) + K  (ik,iz,ib,age)               *DIST_next(ik,iz,ib,age,ipop);
-                        Kdead (age) = Kdead (age) + K  (ik,iz,ib,age)*(1-surv(age)) *DIST_next(ik,iz,ib,age,ipop);
-                        Lab   (age) = Lab   (age) + LAB(ik,iz,ib,age)               *DIST_next(ik,iz,ib,age,ipop);
-                        ELab  (age) = ELab  (age) + LAB(ik,iz,ib,age)*zs(iz,age,idem)*DIST_next(ik,iz,ib,age,ipop);
+        
+        
+        Dynamic.assets (min(year, T_model)) = 0;
+        Dynamic.labeffs(min(year, T_model)) = 0;
+        
+        for ipop = 1:3
+            for age = 1:T_life
+                for iz = 1:nz
+                    for ik = 1:nk
+                        for ib = 1:nb
+                            Dynamic.assets (min(year, T_model)) = Dynamic.assets (min(year, T_model)) + DIST_next(ik,iz,ib,age,ipop)*K  (ik,iz,ib,age)*(2-surv(age));
+                            Dynamic.labeffs(min(year, T_model)) = Dynamic.labeffs(min(year, T_model)) + DIST_next(ik,iz,ib,age,ipop)*LAB(ik,iz,ib,age)*zs(iz,age,idem);
+                        end
                     end
                 end
             end
         end
+        
     end
     
-    KPR  = sum(Kalive + Kdead);
-    ELAB = sum(ELab);
+    
+    KPR  = Dynamic.assets ;
+    ELAB = Dynamic.labeffs;
     
     save(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), ...
-         'DIST', 'Kalive', 'Kdead', 'KPR', 'ELab', 'Lab', 'ELAB');
+         'DIST', 'KPR', 'ELAB');
     
 end
 
