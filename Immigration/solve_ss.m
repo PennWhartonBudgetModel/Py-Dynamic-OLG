@@ -1,14 +1,9 @@
 function [] = solve_ss()
 
 
-
-% --- Initialization ---
-
 jobdir = 'Testing';
 
 
-
-% --- Parameter loading ---
 
 s = load('params.mat');
 
@@ -46,7 +41,7 @@ deportation = 0.00;
 
 % Initialize aggregates
 series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'pits', 'ssts', 'bens'};
-for o = series, Dynamic.(o{1}) = zeros(1,T_model); end
+for a = series, Dynamic.(a{1}) = []; end
 
 
 for idem = 1:ndem
@@ -68,50 +63,66 @@ for idem = 1:ndem
     DIST     = zeros(nk,nz,nb,T_life,3);
     DIST_age = ones(1,T_life);
     
-    DISTeps  = Inf;
-    DISTtol  = 1e-4;
-    
-    pops(1) = 1;
+    DISTeps = Inf;
+    DISTtol = 1e-4;
     
     year = 1;
     lastyear = Inf;
     
     
-    while (DISTeps > DISTtol && year < lastyear)
+    while (DISTeps > DISTtol)
         
         fprintf('Year %3u\n', year);
         
         
+        % Add values to aggregates for current year
+        if (length(Dynamic.assets ) < year), Dynamic.assets (year) = 0; end
+        if (length(Dynamic.labeffs) < year), Dynamic.labeffs(year) = 0; end
         
-        % --- Initialize distributions ---
+        for ipop = 1:3
+            for age = 1:T_life
+                for iz = 1:nz
+                    for ik = 1:nk
+                        for ib = 1:nb
+                            Dynamic.assets (year) = Dynamic.assets (year) + DIST(ik,iz,ib,age,ipop)*K  (ik,iz,ib,age,min(year, T_model))*(2-surv(age));
+                            Dynamic.labeffs(year) = Dynamic.labeffs(year) + DIST(ik,iz,ib,age,ipop)*LAB(ik,iz,ib,age,min(year, T_model))*zs(iz,age,idem);
+                        end
+                    end
+                end
+            end
+        end
         
+        
+        
+        if (year < lastyear), year = year + 1; else, break, end
+        
+        
+        population = sum(DIST(:));
+        if (~population), population = 1; end
+        
+        
+        % Initialize distribution for next year
         DIST_next = zeros(nk,nz,nb,T_life,3);
         
-        im_flow = [ pops(year) * pgr                       ;
-                    pops(year) * imm_age(1) * legal_rate   ;
-                    pops(year) * imm_age(1) * illegal_rate ];
+        im_flow = [ population * pgr                       ;
+                    population * imm_age(1) * legal_rate   ;
+                    population * imm_age(1) * illegal_rate ];
         
         for ipop = 1:3
             DIST_next(1,:,1,1,ipop) = reshape(DISTz_age(:,1,ipop)*im_flow(ipop), [1,nz,1,1,1]);
         end
         
-        
-        
-        % --- Generate distributions through forward propagation ---
-        
         for age = 2:T_life
             
             im_flow = [ 0                                          ;
-                        pops(year) * imm_age(age-1) * legal_rate   ;
-                        pops(year) * imm_age(age-1) * illegal_rate ];
+                        population * imm_age(age-1) * legal_rate   ;
+                        population * imm_age(age-1) * illegal_rate ];
             
             for ipop = 1:3
                 DIST_next(1,:,1,age,ipop) = reshape(DISTz_age(:,age,ipop)*im_flow(ipop), [1,nz,1,1,1]);
             end
             
-            
-            
-            % Extract optimal k and b values
+            % Extract optimal k and b decision values
             k_t = max(K(:,:,:,age-1,min(year, T_model)), ks(1));
             b_t = max(B(:,:,:,age-1,min(year, T_model)), bs(1));
             
@@ -138,8 +149,10 @@ for idem = 1:ndem
             for jz = 1:nz
                 for ipop = 1:3
                     
+                    % Apply survival and productivity transformations to cohort distribution from current year
                     DIST_transz = DIST(:,:,:,age-1,ipop) * surv(age-1) .* repmat(reshape(transz(:,jz), [1,nz,1]), [nk,1,nb]);
                     
+                    % Redistribute cohort for next year according to target indices and weights
                     for elem = 1:numel(DIST_transz)
                         DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) + wk_lt(elem)*wb_lt(elem)*DIST_transz(elem);
                         DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) + wk_gt(elem)*wb_lt(elem)*DIST_transz(elem);
@@ -150,52 +163,33 @@ for idem = 1:ndem
                 end
             end
             
-            % Increase legal immigrant population for amnesty, maintaining overall distribution over productivity levels
-            DISTz_legal = sum(sum(DIST_next(:,:,:,age,2), 1), 3);
-            DIST_next(:,:,:,age,2) = DIST_next(:,:,:,age,2) + repmat(sum(amnesty*DIST_next(:,:,:,age,3), 2), [1,nz,1]).*repmat(DISTz_legal, [nk,1,nb])/sum(DISTz_legal);
-            
-            % Reduce illegal immigrant population for amnesty and deportation
-            DIST_next(:,:,:,age,3) = (1-amnesty-deportation)*DIST_next(:,:,:,age,3);
-            
         end
         
+        % Increase legal immigrant population for amnesty, maintaining productivity distributions
+        DISTz_legal = DIST_next(:,:,:,:,2) ./ repmat(sum(DIST_next(:,:,:,:,2), 2), [1,nz,1,1]);
+        DISTz_legal(isnan(DISTz_legal)) = 1/nz;
         
+        DIST_next(:,:,:,:,2) = DIST_next(:,:,:,:,2) + repmat(sum(amnesty*DIST_next(:,:,:,:,3), 2), [1,nz,1,1]).*DISTz_legal;
+        
+        % Reduce illegal immigrant population for amnesty and deportation
+        DIST_next(:,:,:,:,3) = (1-amnesty-deportation)*DIST_next(:,:,:,:,3);
+        
+        % Calculate distribution convergence error
         DIST_age_next = sum(sum(reshape(DIST_next, [], T_life, 3), 1), 3);
         DISTeps = max(abs(DIST_age_next(2:end)/DIST_age_next(1) - DIST_age(2:end)/DIST_age(1)));
-        DIST_age = DIST_age_next;
         
-        pops(year+1) = sum(DIST_next(:)); %#ok<AGROW>
+        % Update distributions
         DIST = DIST_next;
-        year = year + 1;
-        
-        
-        
-        Dynamic.assets (min(year, T_model)) = 0;
-        Dynamic.labeffs(min(year, T_model)) = 0;
-        
-        for ipop = 1:3
-            for age = 1:T_life
-                for iz = 1:nz
-                    for ik = 1:nk
-                        for ib = 1:nb
-                            Dynamic.assets (min(year, T_model)) = Dynamic.assets (min(year, T_model)) + DIST_next(ik,iz,ib,age,ipop)*K  (ik,iz,ib,age)*(2-surv(age));
-                            Dynamic.labeffs(min(year, T_model)) = Dynamic.labeffs(min(year, T_model)) + DIST_next(ik,iz,ib,age,ipop)*LAB(ik,iz,ib,age)*zs(iz,age,idem);
-                        end
-                    end
-                end
-            end
-        end
+        DIST_age = DIST_age_next;
         
     end
     
-    
-    KPR  = Dynamic.assets ;
-    ELAB = Dynamic.labeffs;
-    
-    save(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), ...
-         'DIST', 'KPR', 'ELAB');
+    save(fullfile(jobdir, sprintf('distvars_%u.mat', idem)), 'DIST');
     
 end
+
+
+save(fullfile(jobdir, 'ss_aggregates.mat'), '-struct', 'Dynamic');
 
 
 
@@ -241,6 +235,25 @@ for i = 1:length(valuenames)
 end
 fprintf('\n');
 
+
+ss_aggregates        = load(fullfile(jobdir  , 'ss_aggregates.mat'));
+ss_aggregates_freeze = load(fullfile('Freeze', 'ss_aggregates.mat'));
+
+fprintf('ss_aggregates\n');
+valuenames = fields(ss_aggregates);
+for i = 1:length(valuenames)
+    valuename = valuenames{i};
+    delta = ss_aggregates.(valuename)(:) - ss_aggregates_freeze.(valuename)(:);
+    if any(isnan(delta))
+        fprintf('\t%-14sNaN found\n', valuename);
+    elseif any(delta)
+        pdev = abs(nanmean(delta*2 ./ (ss_aggregates.(valuename)(:) + ss_aggregates_freeze.(valuename)(:))))*100;
+        fprintf('\t%-14s%06.2f%% deviation\n', valuename, pdev);
+    else
+        fprintf('\t%-14sNo deviation\n', valuename);
+    end
+end
+fprintf('\n');
 
 
 end

@@ -43,7 +43,7 @@ deportation  = s.deportation;
 
 % Initialize aggregates
 series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'pits', 'ssts', 'bens'};
-for o = series, Dynamic.(o{1}) = zeros(1,T_model); end
+for a = series, Dynamic.(a{1}) = []; end
 
 
 for idem = 1:ndem
@@ -101,7 +101,8 @@ for idem = 1:ndem
         fprintf('Year %3u\n', year);
         
         
-        % Calculate aggregates for current year
+        % Add values to aggregates for current year
+        for a = series, if (length(Dynamic.(a{1})) < year), Dynamic.(a{1})(year) = 0; end, end
         for ipop = 1:3
             A.assets  = DIST(:,:,:,:,ipop).*K  (:,:,:,:,year).*repmat(reshape(2-surv, [1,1,1,T_life]), [nk,nz,nb,1]);
             A.beqs    = DIST(:,:,:,:,ipop).*K  (:,:,:,:,year).*repmat(reshape(1-surv, [1,1,1,T_life]), [nk,nz,nb,1]);
@@ -111,7 +112,7 @@ for idem = 1:ndem
             A.pits    = DIST(:,:,:,:,ipop).*PIT(:,:,:,:,year);
             A.ssts    = DIST(:,:,:,:,ipop).*SST(:,:,:,:,year);
             A.bens    = DIST(:,:,:,:,ipop).*BEN(:,:,:,:,year);
-            for o = series, Dynamic.(o{1})(year) = Dynamic.(o{1})(year) + sum(A.(o{1})(:)); end
+            for a = series, Dynamic.(a{1})(year) = Dynamic.(a{1})(year) + sum(A.(a{1})(:)); end
         end
         
         
