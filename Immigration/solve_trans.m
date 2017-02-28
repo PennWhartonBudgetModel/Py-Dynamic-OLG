@@ -1,14 +1,9 @@
 function [] = solve_trans()
 
 
-
-% --- Initialization ---
-
 jobdir = 'Testing';
 
 
-
-% -- Parameter loading ---
 
 s = load('params.mat');
 
@@ -46,20 +41,15 @@ deportation  = s.deportation;
 
 
 
-% --- generate_aggregates ---
-
 % Initialize aggregates
 series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'pits', 'ssts', 'bens'};
 for o = series, Dynamic.(o{1}) = zeros(1,T_model); end
 
 
-
-% --- Solve transition path cohorts ---
-
 for idem = 1:ndem
     
     
-    % Consolidate cohort optimal decision value arrays
+    % Solve dynamic optimization for cohorts
     K   = zeros(nk,nz,nb,T_life,T_model);
     LAB = zeros(nk,nz,nb,T_life,T_model);
     B   = zeros(nk,nz,nb,T_life,T_model);
@@ -93,6 +83,7 @@ for idem = 1:ndem
     
     
     
+    % Initialize distribution with steady state distribution
     s = load(fullfile(jobdir, sprintf('distvars_%u.mat', idem)));
     
     DIST     = s.DIST;
