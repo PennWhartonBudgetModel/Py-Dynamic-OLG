@@ -121,7 +121,7 @@ for idem = 1:ndem
         % Add values to aggregates for current year
         for a = series, if (length(Dynamic.(a{1})) < year), Dynamic.(a{1})(year) = 0; end, end
         for ipop = 1:3
-            A.assets  = DIST(:,:,:,:,ipop).*K  (:,:,:,:,year).*repmat(reshape(2-surv, [1,1,1,T_life]), [nk,nz,nb,1]);
+            A.assets  = DIST(:,:,:,:,ipop).*repmat(reshape(ks, [nk,1,1,1]), [1,nz,nb,T_life]);
             A.beqs    = DIST(:,:,:,:,ipop).*K  (:,:,:,:,year).*repmat(reshape(1-surv, [1,1,1,T_life]), [nk,nz,nb,1]);
             A.labeffs = DIST(:,:,:,:,ipop).*LAB(:,:,:,:,year).*repmat(reshape(zs(:,:,idem), [1,nz,1,T_life]), [nk,1,nb,1]);
             A.labs    = DIST(:,:,:,:,ipop).*LAB(:,:,:,:,year);
