@@ -1,8 +1,11 @@
 function [] = solve_trans()
 
-
+% Define job directory
 jobdir = 'Testing';
 
+
+% Define population groups
+groups = {'citizen', 'legal', 'illegal'};
 
 
 s = load('params.mat');
@@ -25,7 +28,7 @@ surv(T_life) = 0;
 
 pgr = s.pgr;
 
-DISTz_age = s.proddist_age;
+for i = 1:length(groups), DISTz_age.(groups{i}) = s.proddist_age(:,:,i); end
 
 
 s = load('Imm_Data.mat');
@@ -46,9 +49,9 @@ prem_legal = 1.117456794;
 
 for age = 1:T_life
     v = mean(zs(:,age,:), 3);
-    ztarget = sum(v.*DISTz_age(:,age,2)) * prem_legal;
+    ztarget = sum(v.*DISTz_age.legal(:,age)) * prem_legal;
     p = (v(nz) - ztarget) / (v(nz)*(nz-1) - sum(v(1:nz-1)));
-    DISTz_age(:,age,2) = [ p*ones(nz-1,1) ; 1 - p*(nz-1) ];
+    DISTz_age.legal(:,age) = [ p*ones(nz-1,1) ; 1 - p*(nz-1) ];
 end
 
 
@@ -120,15 +123,15 @@ for idem = 1:ndem
         
         % Add values to aggregates for current year
         for a = series, if (length(Dynamic.(a{1})) < year), Dynamic.(a{1})(year) = 0; end, end
-        for ipop = 1:3
-            A.assets  = DIST(:,:,:,:,ipop).*repmat(reshape(ks, [nk,1,1,1]), [1,nz,nb,T_life]);
-            A.beqs    = DIST(:,:,:,:,ipop).*K  (:,:,:,:,year).*repmat(reshape(1-surv, [1,1,1,T_life]), [nk,nz,nb,1]);
-            A.labeffs = DIST(:,:,:,:,ipop).*LAB(:,:,:,:,year).*repmat(reshape(zs(:,:,idem), [1,nz,1,T_life]), [nk,1,nb,1]);
-            A.labs    = DIST(:,:,:,:,ipop).*LAB(:,:,:,:,year);
-            A.lfprs   = DIST(:,:,:,:,ipop).*(LAB(:,:,:,:,year) > 0);
-            A.pits    = DIST(:,:,:,:,ipop).*PIT(:,:,:,:,year);
-            A.ssts    = DIST(:,:,:,:,ipop).*SST(:,:,:,:,year);
-            A.bens    = DIST(:,:,:,:,ipop).*BEN(:,:,:,:,year);
+        for g = groups
+            A.assets  = DIST.(g{1}).*repmat(reshape(ks, [nk,1,1,1]), [1,nz,nb,T_life]);
+            A.beqs    = DIST.(g{1}).*K  (:,:,:,:,min(year, T_model)).*repmat(reshape(1-surv, [1,1,1,T_life]), [nk,nz,nb,1]);
+            A.labeffs = DIST.(g{1}).*LAB(:,:,:,:,min(year, T_model)).*repmat(reshape(zs(:,:,idem), [1,nz,1,T_life]), [nk,1,nb,1]);
+            A.labs    = DIST.(g{1}).*LAB(:,:,:,:,min(year, T_model));
+            A.lfprs   = DIST.(g{1}).*(LAB(:,:,:,:,min(year, T_model)) > 0);
+            A.pits    = DIST.(g{1}).*PIT(:,:,:,:,min(year, T_model));
+            A.ssts    = DIST.(g{1}).*SST(:,:,:,:,min(year, T_model));
+            A.bens    = DIST.(g{1}).*BEN(:,:,:,:,min(year, T_model));
             for a = series, Dynamic.(a{1})(year) = Dynamic.(a{1})(year) + sum(A.(a{1})(:)); end
         end
         
@@ -137,13 +140,13 @@ for idem = 1:ndem
         
         
         % Initialize distribution for next year
-        DIST_next = zeros(nk,nz,nb,T_life,3);
+        for g = groups, DIST_next.(g{1}) = zeros(nk,nz,nb,T_life); end
         
         % Grow populations
-        DIST_total = sum(DIST(:));
-        DIST_next(1,:,1,1,1) = DIST_total * reshape(DISTz_age(:,1,1), [1,nz,1,1]) * pgr;
-        DIST_next(1,:,1,:,2) = DIST_total * reshape(DISTz_age(:,:,2), [1,nz,1,T_life]) .* repmat(reshape(imm_age, [1,1,1,T_life]), [1,nz,1,1]) * legal_rate;
-        DIST_next(1,:,1,:,3) = DIST_total * reshape(DISTz_age(:,:,3), [1,nz,1,T_life]) .* repmat(reshape(imm_age, [1,1,1,T_life]), [1,nz,1,1]) * illegal_rate;
+        DIST_total = 0; for g = groups, DIST_total = DIST_total + sum(DIST.(g{1})(:)); end
+        DIST_next.citizen(1,:,1,1) = DIST_total * reshape(DISTz_age.citizen(:,1), [1,nz,1,1]) * pgr;
+        DIST_next.legal  (1,:,1,:) = DIST_total * reshape(DISTz_age.legal  , [1,nz,1,T_life]) .* repmat(reshape(imm_age, [1,1,1,T_life]), [1,nz,1,1]) * legal_rate  ;
+        DIST_next.illegal(1,:,1,:) = DIST_total * reshape(DISTz_age.illegal, [1,nz,1,T_life]) .* repmat(reshape(imm_age, [1,1,1,T_life]), [1,nz,1,1]) * illegal_rate;
         
         for age = 2:T_life
             
@@ -172,17 +175,17 @@ for idem = 1:ndem
             wb_gt = 1 - wb_lt;
             
             for jz = 1:nz
-                for ipop = 1:3
+                for g = groups
                     
                     % Apply survival and productivity transformations to cohort distribution from current year
-                    DIST_transz = DIST(:,:,:,age-1,ipop) * surv(age-1) .* repmat(reshape(transz(:,jz), [1,nz,1]), [nk,1,nb]);
+                    DIST_transz = DIST.(g{1})(:,:,:,age-1) * surv(age-1) .* repmat(reshape(transz(:,jz), [1,nz,1]), [nk,1,nb]);
                     
                     % Redistribute cohort for next year according to target indices and weights
                     for elem = 1:numel(DIST_transz)
-                        DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_lt(elem), jz, jb_lt(elem), age, ipop) + wk_lt(elem)*wb_lt(elem)*DIST_transz(elem);
-                        DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) = DIST_next(jk_gt(elem), jz, jb_lt(elem), age, ipop) + wk_gt(elem)*wb_lt(elem)*DIST_transz(elem);
-                        DIST_next(jk_lt(elem), jz, jb_gt(elem), age, ipop) = DIST_next(jk_lt(elem), jz, jb_gt(elem), age, ipop) + wk_lt(elem)*wb_gt(elem)*DIST_transz(elem);
-                        DIST_next(jk_gt(elem), jz, jb_gt(elem), age, ipop) = DIST_next(jk_gt(elem), jz, jb_gt(elem), age, ipop) + wk_gt(elem)*wb_gt(elem)*DIST_transz(elem);
+                        DIST_next.(g{1})(jk_lt(elem), jz, jb_lt(elem), age) = DIST_next.(g{1})(jk_lt(elem), jz, jb_lt(elem), age) + wk_lt(elem)*wb_lt(elem)*DIST_transz(elem);
+                        DIST_next.(g{1})(jk_gt(elem), jz, jb_lt(elem), age) = DIST_next.(g{1})(jk_gt(elem), jz, jb_lt(elem), age) + wk_gt(elem)*wb_lt(elem)*DIST_transz(elem);
+                        DIST_next.(g{1})(jk_lt(elem), jz, jb_gt(elem), age) = DIST_next.(g{1})(jk_lt(elem), jz, jb_gt(elem), age) + wk_lt(elem)*wb_gt(elem)*DIST_transz(elem);
+                        DIST_next.(g{1})(jk_gt(elem), jz, jb_gt(elem), age) = DIST_next.(g{1})(jk_gt(elem), jz, jb_gt(elem), age) + wk_gt(elem)*wb_gt(elem)*DIST_transz(elem);
                     end
                     
                 end
@@ -191,16 +194,16 @@ for idem = 1:ndem
         end
         
         % Increase legal immigrant population for amnesty, maintaining productivity distributions
-        DISTz_legal = DIST_next(:,:,:,:,2) ./ repmat(sum(DIST_next(:,:,:,:,2), 2), [1,nz,1,1]);
+        DISTz_legal = DIST_next.legal ./ repmat(sum(DIST_next.legal, 2), [1,nz,1,1]);
         DISTz_legal(isnan(DISTz_legal)) = 1/nz;
         
-        DIST_next(:,:,:,:,2) = DIST_next(:,:,:,:,2) + repmat(sum(amnesty*DIST_next(:,:,:,:,3), 2), [1,nz,1,1]).*DISTz_legal;
+        DIST_next.legal = DIST_next.legal + repmat(sum(amnesty*DIST_next.illegal, 2), [1,nz,1,1]).*DISTz_legal;
         
         % Reduce illegal immigrant population for amnesty and deportation
-        DIST_next(:,:,:,:,3) = (1-amnesty-deportation)*DIST_next(:,:,:,:,3);
+        DIST_next.illegal = (1-amnesty-deportation)*DIST_next.illegal;
         
         % Calculate distribution convergence error
-        DIST_age_next = sum(sum(reshape(DIST_next, [], T_life, 3), 1), 3);
+        DIST_age_next = zeros(1,T_life); for g = groups, DIST_age_next = DIST_age_next + sum(reshape(DIST_next.(g{1}), [], T_life), 1); end
         DIST_age_next = DIST_age_next / DIST_age_next(1);
         DISTeps = max(abs(DIST_age_next - DIST_age));
         
