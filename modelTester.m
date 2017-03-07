@@ -19,7 +19,7 @@ methods (Static)
     % Test steady state solution and elasticities
     function [] = steady()
         save_dir = dynamicSolver.steady(modelTester.basedef);
-        setnames = {'solution', 'elasticities'};
+        setnames = {'market', 'elasticities'};
         test_output(save_dir, setnames);
     end
     
@@ -27,15 +27,15 @@ methods (Static)
     % Test open economy baseline solution, dynamic aggregates, and static aggregates
     function [] = open_base()
         save_dir = dynamicSolver.open(modelTester.basedef);
-        setnames = {'solution', 'aggregates'};
+        setnames = {'market', 'dynamics'};
         test_output(save_dir, setnames);
     end
     
     
     % Test open economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = open_counter()
-        save_dir = dynamicSolver.open(modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.10));
-        setnames = {'solution', 'aggregates', 'aggregates_static'};
+        save_dir = dynamicSolver.open(modelTester.basedef, struct('taxplan', 'ryan', 'gcut', +0.10));
+        setnames = {'market', 'dynamics', 'statics'};
         test_output(save_dir, setnames);
     end
     
@@ -43,15 +43,15 @@ methods (Static)
     % Test closed economy baseline solution, dynamic aggregates, and static aggregates
     function [] = closed_base()
         save_dir = dynamicSolver.closed(modelTester.basedef);
-        setnames = {'solution', 'aggregates'};
+        setnames = {'market', 'dynamics'};
         test_output(save_dir, setnames);
     end
     
     
     % Test closed economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = closed_counter()
-        save_dir = dynamicSolver.closed(modelTester.basedef, struct('plan', 'ryan', 'gcut', +0.10));
-        setnames = {'solution', 'aggregates', 'aggregates_static'};
+        save_dir = dynamicSolver.closed(modelTester.basedef, struct('taxplan', 'ryan', 'gcut', +0.10));
+        setnames = {'market', 'dynamics', 'statics'};
         test_output(save_dir, setnames);
     end
     
@@ -75,6 +75,12 @@ target = s.target;
 % Initialize match flag
 ismatch = true;
 
+% Define function to flag issues
+function flag(str)
+    fprintf('\t%-15s%-20s%s.\n', setname, valuename, str)
+    ismatch = false;
+end
+
 fprintf('\n[Test results]\n')
 for i = 1:length(setnames)
     
@@ -94,17 +100,18 @@ for i = 1:length(setnames)
         
         % Identify missing value
         if ~isfield(outputset, valuename)
-            fprintf('\t%-25sNot found.\n', valuename)
-            ismatch = false;
+            flag('Not found');
         else
             
             % Identify value deviation
             delta = outputset.(valuename)(:) - targetset.(valuename)(:);
-            
             if any(delta)
-                dev = nanmean( delta*2 ./ (outputset.(valuename)(:) + targetset.(valuename)(:)) );
-                fprintf('\t%-25s%06.2f%% deviation.\n', valuename, abs(dev*100))
-                ismatch = false;
+                pdev = abs(nanmean(delta*2 ./ (outputset.(valuename)(:) + targetset.(valuename)(:))))*100;
+                if pdev < 0.01
+                    flag(sprintf('Numerical deviation'));
+                else
+                    flag(sprintf('%06.2f%% deviation', pdev));
+                end
             end
             
         end
@@ -120,8 +127,7 @@ for i = 1:length(setnames)
         
         % Identify new value
         if ~isfield(targetset, valuename)
-            fprintf('\t%-25sNew.\n', valuename)
-            ismatch = false;
+            flag('New');
         end
         
     end
