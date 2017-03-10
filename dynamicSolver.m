@@ -100,9 +100,6 @@ methods (Static, Access = private)
         
         %% Initialization
         
-        % Start parallel pool if JVM enabled and pool does not already exist
-        if usejava('jvm'), gcp; end
-        
         % Unpack parameters from baseline definition
         beta  = basedef.beta ;
         gamma = basedef.gamma;
@@ -292,13 +289,8 @@ methods (Static, Access = private)
                         
                     case {'open', 'closed'}
                         
-                        OPTs_par = struct('startyears', num2cell(startyears));
-                        for i = 1:nstartyears
-                            for o = os, OPTs_par(i).(o{1}) = zeros(nz,nk,nb,T_life,T_model); end
-                        end
-                        
                         % Solve transition path cohorts
-                        parfor i = 1:nstartyears
+                        for i = 1:nstartyears
                             
                             % Extract starting year and derive time constants
                             startyear = startyears(i);
@@ -309,26 +301,22 @@ methods (Static, Access = private)
                             T_active = min(startyear+T_life, T_model) - T_shift;
                             
                             % Extract terminal utility values
-                            V0 = V0s(:,:,:,min(T_model-startyear, T_life)+1); %#ok<PFBNS>
+                            V0 = V0s(:,:,:,min(T_model-startyear, T_life)+1);
                             
                             % Solve dynamic optimization
-                            [~, OPT_par] = solve_cohort_(T_past, T_shift, T_active, V0, LABs_static{i,idem});
+                            [~, OPT_cohort] = solve_cohort_(T_past, T_shift, T_active, V0, LABs_static{i,idem});
                             
-                            LABs_{i,idem} = OPT_par.LAB;
+                            LABs_{i,idem} = OPT_cohort.LAB;
                             
                             for t = 1:T_active
                                 
                                 age  = t + T_past ;
                                 year = t + T_shift;
                                 
-                                for o = os, OPTs_par(i).(o{1})(:,:,:,age,year) = OPT_par.(o{1})(:,:,:,t); end
+                                for o = os, OPTs.(o{1})(:,:,:,age,year) = OPT_cohort.(o{1})(:,:,:,t); end
                                 
                             end
                             
-                        end
-                        
-                        for i = 1:nstartyears
-                            for o = os, OPTs.(o{1}) = OPTs.(o{1}) + OPTs_par(i).(o{1}); end
                         end
                         
                 end
