@@ -146,9 +146,14 @@ methods (Static, Access = private)
                 startyears = 0;
             case {'open', 'closed'}
                 T_model    = s.T_model;
-                startyears = (-s.T_life+1):(s.T_model-1);
+                startyears = (-T_life+1):(T_model-1);
         end
         nstartyears = length(startyears);
+                        
+        T_pasts   = max(-startyears, 0);                          % Life years before first model year
+        T_shifts  = max(+startyears, 0);                          % Model years before first life year
+        T_actives = min(startyears+T_life, T_model) - T_shifts;   % Life years within modeling period
+        T_ends    = min(T_model-startyears, T_life);              % Maximum age within modeling period
         
         nz   = s.nz;
         nk   = s.nk;
@@ -254,32 +259,23 @@ methods (Static, Access = private)
                     V0, LAB_static, isdynamic);
                 
                 
-                % Initialize series of terminal utility values
-                V0s = zeros(nz,nk,nb,T_life+1);
-                
-                
                 % Solve steady state / post-transition path cohort
                 if isdynamic
-                    
-                    % Extract starting year and derive time constants
-                    startyear = startyears(end);
-                    T_past  = max(-startyear, 0);
-                    T_shift = max(+startyear, 0);
-                    
-                    % Define active time as full lifetime
-                    T_active = T_life;
                     
                     % Define terminal utility values
                     V0 = zeros(nz,nk,nb);
                     
                     % Solve dynamic optimization
-                    [V, OPT] = solve_cohort_(T_past, T_shift, T_active, V0, []);
+                    % (Note that active time is set to full lifetime)
+                    [V, OPT] = solve_cohort_(T_pasts(end), T_shifts(end), T_life, V0, []);
                     
                     LABs_{end,idem} = OPT.LAB;
                     
                     % Define series of terminal utility values
-                    V0s(:,:,:,1:T_life) = V;
+                    V0s = cat(4, V(:,:,:,2:T_life), V0);
                     
+                else
+                    V0s = zeros(nz,nk,nb,T_life);
                 end
                 
                 
@@ -292,43 +288,31 @@ methods (Static, Access = private)
                         
                     case {'open', 'closed'}
                         
-                        OPTs_par = struct('startyears', num2cell(startyears));
-                        for i = 1:nstartyears
-                            for o = os, OPTs_par(i).(o{1}) = zeros(nz,nk,nb,T_life,T_model); end
-                        end
+                        OPTs_cohort = cell(1, nstartyears);
                         
                         % Solve transition path cohorts
                         parfor i = 1:nstartyears
                             
-                            % Extract starting year and derive time constants
-                            startyear = startyears(i);
-                            T_past  = max(-startyear, 0);
-                            T_shift = max(+startyear, 0);
-                            
-                            % Define active time as life years within modeling period
-                            T_active = min(startyear+T_life, T_model) - T_shift;
-                            
                             % Extract terminal utility values
-                            V0 = V0s(:,:,:,min(T_model-startyear, T_life)+1); %#ok<PFBNS>
+                            V0 = V0s(:,:,:,T_ends(i)); %#ok<PFBNS>
                             
-                            % Solve dynamic optimization
-                            [~, OPT_par] = solve_cohort_(T_past, T_shift, T_active, V0, LABs_static{i,idem});
+                            [~, OPTs_cohort{i}] = solve_cohort_(T_pasts(i), T_shifts(i), T_actives(i), V0, LABs_static{i,idem});
                             
-                            LABs_{i,idem} = OPT_par.LAB;
-                            
-                            for t = 1:T_active
-                                
-                                age  = t + T_past ;
-                                year = t + T_shift;
-                                
-                                for o = os, OPTs_par(i).(o{1})(:,:,:,age,year) = OPT_par.(o{1})(:,:,:,t); end
-                                
-                            end
+                            LABs_{i,idem} = OPTs_cohort{i}.LAB;
                             
                         end
                         
                         for i = 1:nstartyears
-                            for o = os, OPTs.(o{1}) = OPTs.(o{1}) + OPTs_par(i).(o{1}); end
+                            
+                            for t = 1:T_actives(i)
+                                
+                                age  = t + T_pasts (i);
+                                year = t + T_shifts(i);
+                                
+                                for o = os, OPTs.(o{1})(:,:,:,age,year) = OPTs_cohort{i}.(o{1})(:,:,:,t); end
+                                
+                            end
+                            
                         end
                         
                 end
@@ -351,10 +335,8 @@ methods (Static, Access = private)
                 year = 1;
                 
                 switch economy
-                    case 'steady'
-                        lastyear = T_life;
-                    case {'open', 'closed'}
-                        lastyear = T_model;
+                    case 'steady'          , lastyear = T_life ;
+                    case {'open', 'closed'}, lastyear = T_model;
                 end
                 
                 while (true)
