@@ -4,11 +4,11 @@
 %%
 
 
-function [DIST, Cohort, V, K, LAB, B, INC, PIT, SST, CIT, BEN] = solve_cohort(...
-             T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs_idem, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
+function [V, K, LAB, B, INC, PIT, SST, CIT, BEN] = solve_cohort(...
+             T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs_idem, transz, ks, bs, beta, gamma, sigma, surv, V_beq, ...
              mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
              beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubs, ...
-             V0, DIST0, LAB_static, DIST_static, isdynamic) %#codegen
+             V0, LAB_static, isdynamic) %#codegen
 
 
 %% Argument verification
@@ -35,8 +35,6 @@ assert( isa(gamma       , 'double'  ) && (size(gamma        , 1) == 1       ) &&
 assert( isa(sigma       , 'double'  ) && (size(sigma        , 1) == 1       ) && (size(sigma        , 2) == 1       ) );
 assert( isa(surv        , 'double'  ) && (size(surv         , 1) == 1       ) && (size(surv         , 2) <= T_max   ) );
 assert( isa(V_beq       , 'double'  ) && (size(V_beq        , 1) <= nk_max  ) && (size(V_beq        , 2) == 1       ) );
-assert( isa(mu2_idem    , 'double'  ) && (size(mu2_idem     , 1) == 1       ) && (size(mu2_idem     , 2) <= T_max   ) );
-assert( isa(mu3_idem    , 'double'  ) && (size(mu3_idem     , 1) == 1       ) && (size(mu3_idem     , 2) <= T_max   ) );
 
 assert( isa(mpci        , 'double'  ) && (size(mpci         , 1) == 1       ) && (size(mpci         , 2) == 1       ) );
 assert( isa(rpci        , 'double'  ) && (size(rpci         , 1) == 1       ) && (size(rpci         , 2) == 1       ) );
@@ -62,9 +60,7 @@ assert( isa(totrates    , 'double'  ) && (size(totrates     , 1) == 1       ) &&
 assert( isa(expsubs     , 'double'  ) && (size(expsubs      , 1) == 1       ) && (size(expsubs      , 2) <= T_max   ) );
 
 assert( isa(V0          , 'double'  ) && (size(V0           , 1) <= nz_max  ) && (size(V0           , 2) <= nk_max  ) && (size(V0           , 3) <= nb_max  ) );
-assert( isa(DIST0       , 'double'  ) && (size(DIST0        , 1) <= nz_max  ) && (size(DIST0        , 2) <= nk_max  ) && (size(DIST0        , 3) <= nb_max  ) );
 assert( isa(LAB_static  , 'double'  ) && (size(LAB_static   , 1) <= nz_max  ) && (size(LAB_static   , 2) <= nk_max  ) && (size(LAB_static   , 3) <= nb_max  ) && (size(LAB_static   , 4) <= T_max   ) );
-assert( isa(DIST_static , 'double'  ) && (size(DIST_static  , 1) <= nz_max  ) && (size(DIST_static  , 2) <= nk_max  ) && (size(DIST_static  , 3) <= nb_max  ) && (size(DIST_static  , 4) <= T_max   ) );
 assert( isa(isdynamic   , 'logical' ) && (size(isdynamic    , 1) == 1       ) && (size(isdynamic    , 2) == 1       ) );
 
 
@@ -212,89 +208,6 @@ for t = T_active:-1:1
     V_step = V(:,:,:,t);
     
 end
-
-
-
-%% Distribution generation
-
-% Extract distribution scaling parameters
-mu2_cohort = mu2_idem(T_past+(1:T_active));
-mu3_cohort = mu3_idem(T_past+(1:T_active));
-
-
-if isdynamic
-    
-    % Initialize distributions
-    DIST = zeros(nz,nk,nb,T_active);
-    DIST(:,:,:,1) = DIST0;
-    
-    % Generate distributions through forward propagation
-    for t = 1:T_active-1
-        
-        % Extract optimal k and b values
-        k_t = K(:,:,:,t);
-        b_t = B(:,:,:,t);
-        
-        % Find indices of nearest values in ks and bs series
-        jk_lt = ones(size(k_t));
-        for elem = 1:length(k_t(:))
-            jk_lt(elem) = find(ks(1:end-1) <= k_t(elem), 1, 'last');
-        end
-        jk_gt = jk_lt + 1;
-        
-        jb_lt = ones(size(b_t));
-        for elem = 1:length(b_t(:))
-            jb_lt(elem) = find(bs(1:end-1) <= b_t(elem), 1, 'last');
-        end
-        jb_gt = jb_lt + 1;
-        
-        % Calculate linear weights for nearest values
-        wk_lt = (ks(jk_gt) - k_t) ./ (ks(jk_gt) - ks(jk_lt));
-        wk_gt = 1 - wk_lt;
-        
-        wb_lt = (bs(jb_gt) - b_t) ./ (bs(jb_gt) - bs(jb_lt));
-        wb_gt = 1 - wb_lt;
-        
-        for jz = 1:nz
-            
-            % Perform productivity transformation
-            DIST_step = repmat(transz(:,jz), [1,nk,nb]) .* DIST(:,:,:,t);
-            
-            % Generate distribution for next time step
-            for elem = 1:numel(DIST_step)
-                DIST(jz, jk_lt(elem), jb_lt(elem), t+1) = DIST(jz, jk_lt(elem), jb_lt(elem), t+1) + wb_lt(elem) * wk_lt(elem) * DIST_step(elem);
-                DIST(jz, jk_gt(elem), jb_lt(elem), t+1) = DIST(jz, jk_gt(elem), jb_lt(elem), t+1) + wb_lt(elem) * wk_gt(elem) * DIST_step(elem);
-                DIST(jz, jk_lt(elem), jb_gt(elem), t+1) = DIST(jz, jk_lt(elem), jb_gt(elem), t+1) + wb_gt(elem) * wk_lt(elem) * DIST_step(elem);
-                DIST(jz, jk_gt(elem), jb_gt(elem), t+1) = DIST(jz, jk_gt(elem), jb_gt(elem), t+1) + wb_gt(elem) * wk_gt(elem) * DIST_step(elem);
-            end
-            
-        end
-        
-    end
-    
-    % Adjust distributions based on demographics
-    DIST = repmat(reshape(mu2_cohort, [1,1,1,T_active]), [nz,nk,nb,1]) .* DIST;
-    
-else
-    
-    DIST = DIST_static;
-    
-end
-
-
-
-%% Aggregate generation
-
-Cohort.assets  = sum(reshape(K   .* DIST, [], T_active), 1) .* (1 + (mu3_cohort ./ mu2_cohort));
-Cohort.beqs    = sum(reshape(K   .* DIST, [], T_active), 1) .* (0 + (mu3_cohort ./ mu2_cohort));
-Cohort.labeffs = sum(reshape(LAB .* repmat(reshape(zs_idem(:,T_past+(1:T_active)), [nz,1,1,T_active]), [1,nk,nb,1]) .* DIST, [], T_active), 1);
-Cohort.labs    = sum(reshape(LAB .* DIST, [], T_active), 1);
-Cohort.lfprs   = sum(reshape((LAB >= 0.01) .* DIST, [], T_active), 1);
-Cohort.incs    = sum(reshape(INC .* DIST, [], T_active), 1);
-Cohort.pits    = sum(reshape(PIT .* DIST, [], T_active), 1);
-Cohort.ssts    = sum(reshape(SST .* DIST, [], T_active), 1);
-Cohort.cits    = sum(reshape(CIT .* DIST, [], T_active), 1);
-Cohort.bens    = sum(reshape(BEN .* DIST, [], T_active), 1);
 
 
 end

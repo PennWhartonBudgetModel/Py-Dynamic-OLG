@@ -221,28 +221,22 @@ methods (Static, Access = private)
         
         %% Aggregate generation function
         
-        function [Aggregate, LABs_, DISTs, DISTs_new] = generate_aggregates(Market, DISTs_steady, LABs_static, DISTs_static, DISTs_static_new)
+        function [Aggregate, LABs_, DISTs_new] = generate_aggregates(Market, DISTs_steady, LABs_static, DISTs_static_new)
             
             % Define dynamic aggregate generation flag
-            isdynamic = isempty(LABs_static) && isempty(DISTs_static);
+            isdynamic = isempty(LABs_static);
             
-            % Set empty values for static optimal decision values and distributions if not provided
-            if isdynamic
-                LABs_static  = cell(nstartyears, ndem);
-                DISTs_static = cell(nstartyears, ndem);
-            end
+            % Set empty values for static optimal decision values if not provided
+            if isdynamic, LABs_static = cell(nstartyears, ndem); end
             
             % Initialize optimal labor, distribution, and cohort aggregate arrays
-            LABs_   = cell(nstartyears, ndem);
-            DISTs   = cell(nstartyears, ndem);
-            Cohorts = cell(nstartyears, ndem);
+            LABs_ = cell(nstartyears, ndem);
             
             DISTs_new = repmat({double.empty(nz,nk,nb,T_life,0)}, [1,ndem]);
             
             % Initialize aggregates
             series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'incs', 'pits', 'ssts', 'cits', 'bens'};
-            for o = series, Aggregate.(o{1}) = zeros(1,T_model); end
-            for a = series, Aggregate_.(a{1}) = []; end
+            for a = series, Aggregate.(a{1}) = []; end
             
             
             for idem = 1:ndem
@@ -258,28 +252,11 @@ methods (Static, Access = private)
                 
                 
                 % Package fixed dynamic optimization parameters into anonymous function
-                solve_cohort_ = @(T_past, T_shift, T_active, V0, DIST0, LAB_static, DIST_static) solve_cohort(...
-                    T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs(:,:,idem), transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2(idem,:), mu3(idem,:), ...
+                solve_cohort_ = @(T_past, T_shift, T_active, V0, LAB_static) solve_cohort(...
+                    T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs(:,:,idem), transz, ks, bs, beta, gamma, sigma, surv, V_beq, ...
                     mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                     Market.beqs, Market.wages, Market.capshares, Market.debtshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs, ...
-                    V0, DIST0, LAB_static, DIST_static, isdynamic);
-                
-                
-                % Define initial distributions
-                switch economy
-                    
-                    case 'steady'
-                        DIST0s = zeros(nz,nk,nb,T_life);
-                        DIST0s(:,1,1,1) = reshape(DISTz, [nz,1,1,1]);
-                        
-                    case {'open', 'closed'}
-                        if isdynamic
-                            DIST0s = DISTs_steady{1,idem} ./ repmat(reshape(mu2(idem, 1:T_life), [1,1,1,T_life]), [nz,nk,nb,1]);
-                        else
-                            DIST0s = double.empty(0,0,0,T_life);
-                        end
-                        
-                end
+                    V0, LAB_static, isdynamic);
                 
                 
                 % Initialize series of terminal utility values
@@ -300,11 +277,8 @@ methods (Static, Access = private)
                     % Define terminal utility values
                     V0 = zeros(nz,nk,nb);
                     
-                    % Extract initial distribution
-                    DIST0 = DIST0s(:,:,:,T_past+1);
-                    
                     % Solve dynamic optimization
-                    [DISTs{end,idem}, Cohorts{end,idem}, V__, K__, LAB__, B__, INC__, PIT__, SST__, CIT__, BEN__] = solve_cohort_(T_past, T_shift, T_active, V0, DIST0, [], []);
+                    [V__, K__, LAB__, B__, INC__, PIT__, SST__, CIT__, BEN__] = solve_cohort_(T_past, T_shift, T_active, V0, []);
                     
                     LABs_{end,idem} = LAB__;
                     
@@ -353,11 +327,8 @@ methods (Static, Access = private)
                             % Extract terminal utility values
                             V0 = V0s(:,:,:,min(T_model-startyear, T_life)+1); %#ok<PFBNS>
                             
-                            % Extract initial distribution
-                            DIST0 = DIST0s(:,:,:,T_past+1); %#ok<PFBNS>
-                            
                             % Solve dynamic optimization
-                            [DISTs{i,idem}, Cohort, ~, K_temp, LAB_temp, B_temp, INC_temp, PIT_temp, SST_temp, CIT_temp, BEN_temp] = solve_cohort_(T_past, T_shift, T_active, V0, DIST0, LABs_static{i,idem}, DISTs_static{i,idem});
+                            [~, K_temp, LAB_temp, B_temp, INC_temp, PIT_temp, SST_temp, CIT_temp, BEN_temp] = solve_cohort_(T_past, T_shift, T_active, V0, LABs_static{i,idem});
                             
                             LABs_{i,idem} = LAB_temp;
                             
@@ -377,13 +348,6 @@ methods (Static, Access = private)
                                 
                             end
                             
-                            
-                            % Align cohort aggregates with model years
-                            for o = series
-                                Cohorts{i,idem}.(o{1}) = zeros(1,T_model);
-                                Cohorts{i,idem}.(o{1})(T_shift+(1:T_active)) = Cohorts{i,idem}.(o{1})(T_shift+(1:T_active)) + Cohort.(o{1});
-                            end
-                            
                         end
                         
                         for i = 1:nstartyears
@@ -399,10 +363,17 @@ methods (Static, Access = private)
                         
                 end
                         
-
+                % Define initial distributions
                 if isdynamic
-                    % DIST__ = DISTs_steady{1,idem};
-                    DIST__ = DIST0s;
+                    
+                    switch economy
+                        case {'steady'}
+                            DIST__ = zeros(nz,nk,nb,T_life);
+                            DIST__(:,1,1,1) = reshape(DISTz, [nz,1,1,1]);
+                        case {'open', 'closed'}
+                            DIST__ = DISTs_steady{1,idem}(:,:,:,:,end);
+                    end
+                    
                 else
                     DIST__ = DISTs_static_new{idem}(:,:,:,:,1);
                 end
@@ -420,7 +391,7 @@ methods (Static, Access = private)
                     
                     DISTs_new{idem} = cat(5, DISTs_new{idem}, DIST__);
                     
-                    for a = series, if (length(Aggregate_.(a{1})) < year), Aggregate_.(a{1})(year) = 0; end, end
+                    for a = series, if (length(Aggregate.(a{1})) < year), Aggregate.(a{1})(year) = 0; end, end
                     
                     DIST_mu2 = DIST__ .* repmat(reshape(mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]);
                     
@@ -448,7 +419,7 @@ methods (Static, Access = private)
                     % A_.cits    = DIST__ .* CITs(:,:,:,:,min(year, T_model));
                     % A_.bens    = DIST__ .* BENs(:,:,:,:,min(year, T_model));
                     
-                    for a = series, Aggregate_.(a{1})(year) = Aggregate_.(a{1})(year) + sum(A_.(a{1})(:)); end
+                    for a = series, Aggregate.(a{1})(year) = Aggregate.(a{1})(year) + sum(A_.(a{1})(:)); end
                     
                     
                     if (year < lastyear), year = year + 1; else, break, end
@@ -514,21 +485,11 @@ methods (Static, Access = private)
                     
                 end
                 
-                
-                % Add cohort aggregates to total aggregates
-                % (Separate loop necessary due to restrictions with use of structures within parfor loops)
-                for i = 1:nstartyears
-                    for o = series, Aggregate.(o{1}) = Aggregate.(o{1}) + Cohorts{i,idem}.(o{1}); end
-                end
-                
-                
             end
             
             switch economy
                 case {'steady'}
-                    for a = series, Aggregate.(a{1}) = Aggregate_.(a{1})(end); end
-                case {'open', 'closed'}
-                    Aggregate = Aggregate_;
+                    for a = series, Aggregate.(a{1}) = Aggregate.(a{1})(end); end
             end
             
         end
@@ -549,16 +510,13 @@ methods (Static, Access = private)
             s      = hardyload('decisions.mat'    , base_generator, base_dir);
             LABs_static  = s.LABs ;
             
-            s      = hardyload('distributions.mat', base_generator, base_dir);
-            DISTs_static = s.DISTs;
-            
             s      = hardyload('distributions_new.mat', base_generator, base_dir);
             DISTs_static_new = s.DISTs_new;
             
             
             % Generate static aggregates
             % (Intermediary structure used to filter out extraneous fields)
-            [Static_] = generate_aggregates(Market, {}, LABs_static, DISTs_static, DISTs_static_new);
+            [Static_] = generate_aggregates(Market, {}, LABs_static, DISTs_static_new);
             
             for oo = {'incs', 'pits', 'ssts', 'cits', 'bens'}
                 Static.(oo{1}) = Static_.(oo{1});
@@ -610,9 +568,9 @@ methods (Static, Access = private)
                 Market0 = hardyload('market.mat'       , steady_generator, steady_dir);
                 
                 % Load steady state distributions
-                s       = hardyload('distributions.mat', steady_generator, steady_dir);
+                s       = hardyload('distributions_new.mat', steady_generator, steady_dir);
                 
-                DISTs_steady = s.DISTs;
+                DISTs_steady = s.DISTs_new;
                 
         end
         
@@ -752,7 +710,7 @@ methods (Static, Access = private)
             
             
             % Generate dynamic aggregates
-            [Dynamic, LABs, DISTs, DISTs_new] = generate_aggregates(Market, DISTs_steady, {}, {});
+            [Dynamic, LABs, DISTs_new] = generate_aggregates(Market, DISTs_steady, {}, {});
             
             
             % Calculate additional dynamic aggregates
@@ -870,7 +828,6 @@ methods (Static, Access = private)
         % Save optimal decision values and distributions for baseline
         if isbase
             save(fullfile(save_dir, 'decisions.mat'    ), 'LABs' )
-            save(fullfile(save_dir, 'distributions.mat'), 'DISTs')
             save(fullfile(save_dir, 'distributions_new.mat'), 'DISTs_new')
         end
         
@@ -900,7 +857,7 @@ methods (Static, Access = private)
                 for jdem = 1:ndem
                     
                     LAB  = LABs {1,jdem};
-                    DIST = DISTs{1,jdem};
+                    DIST = DISTs_new{1,jdem}(:,:,:,:,end) .* repmat(reshape(mu2(jdem,:), [1,1,1,T_life]), [nz,nk,nb,1]);
                     
                     workind = (LAB > 0.01);
                     
