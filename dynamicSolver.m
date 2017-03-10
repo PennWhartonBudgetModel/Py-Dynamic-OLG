@@ -247,14 +247,14 @@ methods (Static, Access = private)
             
             for idem = 1:ndem
                 
-                Ks   = zeros(nz,nk,nb,T_life,T_model);
-                LABs = zeros(nz,nk,nb,T_life,T_model);
-                Bs   = zeros(nz,nk,nb,T_life,T_model);
-                INCs = zeros(nz,nk,nb,T_life,T_model);
-                PITs = zeros(nz,nk,nb,T_life,T_model);
-                SSTs = zeros(nz,nk,nb,T_life,T_model);
-                CITs = zeros(nz,nk,nb,T_life,T_model);
-                BENs = zeros(nz,nk,nb,T_life,T_model);
+                Ks___   = zeros(nz,nk,nb,T_life,T_model);
+                LABs___ = zeros(nz,nk,nb,T_life,T_model);
+                Bs___   = zeros(nz,nk,nb,T_life,T_model);
+                INCs___ = zeros(nz,nk,nb,T_life,T_model);
+                PITs___ = zeros(nz,nk,nb,T_life,T_model);
+                SSTs___ = zeros(nz,nk,nb,T_life,T_model);
+                CITs___ = zeros(nz,nk,nb,T_life,T_model);
+                BENs___ = zeros(nz,nk,nb,T_life,T_model);
                 
                 
                 % Package fixed dynamic optimization parameters into anonymous function
@@ -304,21 +304,12 @@ methods (Static, Access = private)
                     DIST0 = DIST0s(:,:,:,T_past+1);
                     
                     % Solve dynamic optimization
-                    [DISTs{end,idem}, Cohorts{end,idem}, V, K, LAB, B, INC, PIT, SST, CIT, BEN] = solve_cohort_(T_past, T_shift, T_active, V0, DIST0, [], []);
+                    [DISTs{end,idem}, Cohorts{end,idem}, V__, K__, LAB__, B__, INC__, PIT__, SST__, CIT__, BEN__] = solve_cohort_(T_past, T_shift, T_active, V0, DIST0, [], []);
                     
-                    LABs_{end,idem} = LAB;
-                    
-                    Ks  (:,:,:,:,end) = K  ;
-                    LABs(:,:,:,:,end) = LAB;
-                    Bs  (:,:,:,:,end) = B  ;
-                    INCs(:,:,:,:,end) = INC;
-                    PITs(:,:,:,:,end) = PIT;
-                    SSTs(:,:,:,:,end) = SST;
-                    CITs(:,:,:,:,end) = CIT;
-                    BENs(:,:,:,:,end) = BEN;
+                    LABs_{end,idem} = LAB__;
                     
                     % Define series of terminal utility values
-                    V0s(:,:,:,1:T_life) = V;
+                    V0s(:,:,:,1:T_life) = V__;
                     
                 end
                 
@@ -326,18 +317,27 @@ methods (Static, Access = private)
                 switch economy
                     
                     case {'steady'}
+                    
+                        Ks___  (:,:,:,:,end) = K__  ;
+                        LABs___(:,:,:,:,end) = LAB__;
+                        Bs___  (:,:,:,:,end) = B__  ;
+                        INCs___(:,:,:,:,end) = INC__;
+                        PITs___(:,:,:,:,end) = PIT__;
+                        SSTs___(:,:,:,:,end) = SST__;
+                        CITs___(:,:,:,:,end) = CIT__;
+                        BENs___(:,:,:,:,end) = BEN__;
                         
                         
                     case {'open', 'closed'}
                         
-                        Ks_par   = repmat({Ks  }, [1,nstartyears]);
-                        LABs_par = repmat({LABs}, [1,nstartyears]);
-                        Bs_par   = repmat({Bs  }, [1,nstartyears]);
-                        INCs_par = repmat({INCs}, [1,nstartyears]);
-                        PITs_par = repmat({PITs}, [1,nstartyears]);
-                        SSTs_par = repmat({SSTs}, [1,nstartyears]);
-                        CITs_par = repmat({CITs}, [1,nstartyears]);
-                        BENs_par = repmat({BENs}, [1,nstartyears]);
+                        Ks_par   = repmat({Ks___  }, [1,nstartyears]);
+                        LABs_par = repmat({LABs___}, [1,nstartyears]);
+                        Bs_par   = repmat({Bs___  }, [1,nstartyears]);
+                        INCs_par = repmat({INCs___}, [1,nstartyears]);
+                        PITs_par = repmat({PITs___}, [1,nstartyears]);
+                        SSTs_par = repmat({SSTs___}, [1,nstartyears]);
+                        CITs_par = repmat({CITs___}, [1,nstartyears]);
+                        BENs_par = repmat({BENs___}, [1,nstartyears]);
                         
                         % Solve transition path cohorts
                         parfor i = 1:nstartyears
@@ -357,23 +357,23 @@ methods (Static, Access = private)
                             DIST0 = DIST0s(:,:,:,T_past+1); %#ok<PFBNS>
                             
                             % Solve dynamic optimization
-                            [DISTs{i,idem}, Cohort, ~, K, LAB, B, INC, PIT, SST, CIT, BEN] = solve_cohort_(T_past, T_shift, T_active, V0, DIST0, LABs_static{i,idem}, DISTs_static{i,idem});
+                            [DISTs{i,idem}, Cohort, ~, K_temp, LAB_temp, B_temp, INC_temp, PIT_temp, SST_temp, CIT_temp, BEN_temp] = solve_cohort_(T_past, T_shift, T_active, V0, DIST0, LABs_static{i,idem}, DISTs_static{i,idem});
                             
-                            LABs_{i,idem} = LAB;
+                            LABs_{i,idem} = LAB_temp;
                             
-                            for t = 1:T_active
+                            for t__ = 1:T_active
                                 
-                                age  = t + T_past ;
-                                year = t + T_shift;
+                                age  = t__ + T_past ;
+                                year = t__ + T_shift;
                                 
-                                Ks_par  {i}(:,:,:,age,year) = K  (:,:,:,t);
-                                LABs_par{i}(:,:,:,age,year) = LAB(:,:,:,t);
-                                Bs_par  {i}(:,:,:,age,year) = B  (:,:,:,t);
-                                INCs_par{i}(:,:,:,age,year) = INC(:,:,:,t);
-                                PITs_par{i}(:,:,:,age,year) = PIT(:,:,:,t);
-                                SSTs_par{i}(:,:,:,age,year) = SST(:,:,:,t);
-                                CITs_par{i}(:,:,:,age,year) = CIT(:,:,:,t);
-                                BENs_par{i}(:,:,:,age,year) = BEN(:,:,:,t);
+                                Ks_par  {i}(:,:,:,age,year) = K_temp  (:,:,:,t__);
+                                LABs_par{i}(:,:,:,age,year) = LAB_temp(:,:,:,t__);
+                                Bs_par  {i}(:,:,:,age,year) = B_temp  (:,:,:,t__);
+                                INCs_par{i}(:,:,:,age,year) = INC_temp(:,:,:,t__);
+                                PITs_par{i}(:,:,:,age,year) = PIT_temp(:,:,:,t__);
+                                SSTs_par{i}(:,:,:,age,year) = SST_temp(:,:,:,t__);
+                                CITs_par{i}(:,:,:,age,year) = CIT_temp(:,:,:,t__);
+                                BENs_par{i}(:,:,:,age,year) = BEN_temp(:,:,:,t__);
                                 
                             end
                             
@@ -387,14 +387,14 @@ methods (Static, Access = private)
                         end
                         
                         for i = 1:nstartyears
-                            Ks   = Ks   + Ks_par  {i};
-                            LABs = LABs + LABs_par{i};
-                            Bs   = Bs   + Bs_par  {i};
-                            INCs = INCs + INCs_par{i};
-                            PITs = PITs + PITs_par{i};
-                            SSTs = SSTs + SSTs_par{i};
-                            CITs = CITs + CITs_par{i};
-                            BENs = BENs + BENs_par{i};
+                            Ks___   = Ks___   + Ks_par  {i};
+                            LABs___ = LABs___ + LABs_par{i};
+                            Bs___   = Bs___   + Bs_par  {i};
+                            INCs___ = INCs___ + INCs_par{i};
+                            PITs___ = PITs___ + PITs_par{i};
+                            SSTs___ = SSTs___ + SSTs_par{i};
+                            CITs___ = CITs___ + CITs_par{i};
+                            BENs___ = BENs___ + BENs_par{i};
                         end
                         
                 end
@@ -426,16 +426,16 @@ methods (Static, Access = private)
                     
                     % A_.assets  = DIST_mu2 .* repmat(reshape(ks, [1,nk,1,1]), [nz,1,nb,T_life]);
                     % A_.beqs    = DIST_mu2 .* Ks  (:,:,:,:,min(year, T_model)).*repmat(reshape(1-surv, [1,1,1,T_life]), [nz,nk,nb,1]);
-                    A_.assets  = DIST_mu2 .* Ks  (:,:,:,:,min(year, T_model)).*(1 + repmat(reshape(mu3(idem,:)./mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]));
-                    A_.beqs    = DIST_mu2 .* Ks  (:,:,:,:,min(year, T_model)).*(0 + repmat(reshape(mu3(idem,:)./mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]));
-                    A_.labeffs = DIST_mu2 .* LABs(:,:,:,:,min(year, T_model)).*repmat(reshape(zs(:,:,idem), [nz,1,1,T_life]), [1,nk,nb,1]);
-                    A_.labs    = DIST_mu2 .* LABs(:,:,:,:,min(year, T_model));
-                    A_.lfprs   = DIST_mu2 .* (LABs(:,:,:,:,min(year, T_model)) > 0);
-                    A_.incs    = DIST_mu2 .* INCs(:,:,:,:,min(year, T_model));
-                    A_.pits    = DIST_mu2 .* PITs(:,:,:,:,min(year, T_model));
-                    A_.ssts    = DIST_mu2 .* SSTs(:,:,:,:,min(year, T_model));
-                    A_.cits    = DIST_mu2 .* CITs(:,:,:,:,min(year, T_model));
-                    A_.bens    = DIST_mu2 .* BENs(:,:,:,:,min(year, T_model));
+                    A_.assets  = DIST_mu2 .* Ks___  (:,:,:,:,min(year, T_model)).*(1 + repmat(reshape(mu3(idem,:)./mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]));
+                    A_.beqs    = DIST_mu2 .* Ks___  (:,:,:,:,min(year, T_model)).*(0 + repmat(reshape(mu3(idem,:)./mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]));
+                    A_.labeffs = DIST_mu2 .* LABs___(:,:,:,:,min(year, T_model)).*repmat(reshape(zs(:,:,idem), [nz,1,1,T_life]), [1,nk,nb,1]);
+                    A_.labs    = DIST_mu2 .* LABs___(:,:,:,:,min(year, T_model));
+                    A_.lfprs   = DIST_mu2 .* (LABs___(:,:,:,:,min(year, T_model)) > 0);
+                    A_.incs    = DIST_mu2 .* INCs___(:,:,:,:,min(year, T_model));
+                    A_.pits    = DIST_mu2 .* PITs___(:,:,:,:,min(year, T_model));
+                    A_.ssts    = DIST_mu2 .* SSTs___(:,:,:,:,min(year, T_model));
+                    A_.cits    = DIST_mu2 .* CITs___(:,:,:,:,min(year, T_model));
+                    A_.bens    = DIST_mu2 .* BENs___(:,:,:,:,min(year, T_model));
                     
                     % A_.assets  = DIST__ .* repmat(reshape(ks, [1,nk,1,1]), [nz,1,nb,T_life]);
                     % A_.beqs    = DIST__ .* Ks  (:,:,:,:,min(year, T_model)).*repmat(reshape(1-surv, [1,1,1,T_life]), [nz,nk,nb,1]);
@@ -463,8 +463,8 @@ methods (Static, Access = private)
                         for age = 2:T_life
                             
                             % Extract optimal k and b decision values
-                            k_t = Ks(:,:,:,age-1,min(year-1, T_model));
-                            b_t = Bs(:,:,:,age-1,min(year-1, T_model));
+                            k_t = Ks___(:,:,:,age-1,min(year-1, T_model));
+                            b_t = Bs___(:,:,:,age-1,min(year-1, T_model));
                             
                             % Find indices of nearest values in ks and bs series
                             jk_lt = ones(size(k_t));
@@ -527,6 +527,8 @@ methods (Static, Access = private)
             switch economy
                 case {'steady'}
                     for a = series, Aggregate.(a{1}) = Aggregate_.(a{1})(end); end
+                case {'open', 'closed'}
+                    Aggregate = Aggregate_;
             end
             
         end
