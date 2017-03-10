@@ -4,7 +4,7 @@
 %%
 
 
-function [V, K, LAB, B, INC, PIT, SST, CIT, BEN] = solve_cohort(...
+function [V, OPT] = solve_cohort(...
              T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs_idem, transz, ks, bs, beta, gamma, sigma, surv, V_beq, ...
              mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
              beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubs, ...
@@ -208,6 +208,17 @@ for t = T_active:-1:1
     V_step = V(:,:,:,t);
     
 end
+
+
+% Package optimal decision value arrays into structure
+OPT.K   = K  ;
+OPT.LAB = LAB;
+OPT.B   = B  ;
+OPT.INC = INC;
+OPT.PIT = PIT;
+OPT.SST = SST;
+OPT.CIT = CIT;
+OPT.BEN = BEN;
 
 
 end
