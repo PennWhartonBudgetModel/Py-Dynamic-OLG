@@ -1,5 +1,5 @@
 %%
-% Solve the dynamic optimization problem for a cohort, generating population distributions and aggregates using the optimal decision values.
+% Solve the dynamic optimization problem for a cohort.
 % 
 %%
 
