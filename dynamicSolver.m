@@ -226,7 +226,7 @@ methods (Static, Access = private)
         
         %% Aggregate generation function
         
-        function [Aggregate, LABs_, DISTs] = generate_aggregates(Market, DISTs_steady, LABs_static, DISTs_static)
+        function [Aggregate, LABs, DISTs] = generate_aggregates(Market, DISTs_steady, LABs_static, DISTs_static)
             
             % Define dynamic aggregate generation flag
             isdynamic = isempty(LABs_static);
@@ -234,9 +234,8 @@ methods (Static, Access = private)
             % Set empty values for static optimal decision values if not provided
             if isdynamic, LABs_static = cell(nstartyears, ndem); end
             
-            % Initialize optimal labor, distribution, and cohort aggregate arrays
-            LABs_ = cell(nstartyears, ndem);
-            
+            % Initialize optimal labor and distribution arrays
+            LABs  = cell(nstartyears, ndem);
             DISTs = repmat({double.empty(nz,nk,nb,T_life,0)}, [1,ndem]);
             
             % Initialize aggregates
@@ -269,8 +268,6 @@ methods (Static, Access = private)
                     % (Note that active time is set to full lifetime)
                     [V, OPT] = solve_cohort_(T_pasts(end), T_shifts(end), T_life, V0, []);
                     
-                    LABs_{end,idem} = OPT.LAB;
-                    
                     % Define series of terminal utility values
                     V0s = cat(4, V(:,:,:,2:T_life), V0);
                     
@@ -284,7 +281,7 @@ methods (Static, Access = private)
                     case 'steady'
                         
                         for o = os, OPTs.(o{1}) = OPT.(o{1}); end
-                        
+                        LABs{1,idem} = OPT.LAB;
                         
                     case {'open', 'closed'}
                         
@@ -296,9 +293,10 @@ methods (Static, Access = private)
                             % Extract terminal utility values
                             V0 = V0s(:,:,:,T_ends(i)); %#ok<PFBNS>
                             
+                            % Solve dynamic optimization
                             [~, OPTs_cohort{i}] = solve_cohort_(T_pasts(i), T_shifts(i), T_actives(i), V0, LABs_static{i,idem});
                             
-                            LABs_{i,idem} = OPTs_cohort{i}.LAB;
+                            LABs{i,idem} = OPTs_cohort{i}.LAB;
                             
                         end
                         

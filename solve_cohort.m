@@ -1,5 +1,5 @@
 %%
-% Solve the dynamic optimization problem for a cohort.
+% Solve dynamic optimization problem for a cohort.
 % 
 %%
 
@@ -67,18 +67,18 @@ assert( isa(isdynamic   , 'logical' ) && (size(isdynamic    , 1) == 1       ) &&
 
 %% Dynamic optimization
 
-% Initialize optimal decision value arrays
-V   = zeros(nz,nk,nb,T_active);   % Utility
+% Initialize utility and optimal decision value arrays
+V       = zeros(nz,nk,nb,T_active);   % Utility
 
-K   = zeros(nz,nk,nb,T_active);   % Savings
-LAB = zeros(nz,nk,nb,T_active);   % Labor level
-B   = zeros(nz,nk,nb,T_active);   % Average earnings
+OPT.K   = zeros(nz,nk,nb,T_active);   % Savings
+OPT.LAB = zeros(nz,nk,nb,T_active);   % Labor level
+OPT.B   = zeros(nz,nk,nb,T_active);   % Average earnings
 
-INC = zeros(nz,nk,nb,T_active);   % Taxable income
-PIT = zeros(nz,nk,nb,T_active);   % Personal income tax
-SST = zeros(nz,nk,nb,T_active);   % Social Security tax
-CIT = zeros(nz,nk,nb,T_active);   % Corporate income tax
-BEN = zeros(nz,nk,nb,T_active);   % Social Security benefits
+OPT.INC = zeros(nz,nk,nb,T_active);   % Taxable income
+OPT.PIT = zeros(nz,nk,nb,T_active);   % Personal income tax
+OPT.SST = zeros(nz,nk,nb,T_active);   % Social Security tax
+OPT.CIT = zeros(nz,nk,nb,T_active);   % Corporate income tax
+OPT.BEN = zeros(nz,nk,nb,T_active);   % Social Security benefits
 
 % Initialize forward-looking utility values
 V_step = V0;
@@ -131,20 +131,20 @@ for t = T_active:-1:1
                     % Solve dynamic optimization subproblem
                     [k, v] = fminsearch(@value_retirement, ks(ik), optim_options);
                     
-                    % Record optimal decision values
-                    V(:,ik,ib,t) = -v;
-                    K(:,ik,ib,t) = k ;
+                    % Record utility and optimal decision values
+                    V    (:,ik,ib,t) = -v;
+                    OPT.K(:,ik,ib,t) = k ;
                     
                 end
                 
-                LAB(:,ik,ib,t) = 0     ;
-                B  (:,ik,ib,t) = bs(ib);
+                OPT.LAB(:,ik,ib,t) = 0     ;
+                OPT.B  (:,ik,ib,t) = bs(ib);
                 
-                INC(:,ik,ib,t) = inc   ;
-                PIT(:,ik,ib,t) = pit   ;
-                SST(:,ik,ib,t) = 0     ;
-                CIT(:,ik,ib,t) = cit   ;
-                BEN(:,ik,ib,t) = labinc;
+                OPT.INC(:,ik,ib,t) = inc   ;
+                OPT.PIT(:,ik,ib,t) = pit   ;
+                OPT.SST(:,ik,ib,t) = 0     ;
+                OPT.CIT(:,ik,ib,t) = cit   ;
+                OPT.BEN(:,ik,ib,t) = labinc;
                 
             else
                 
@@ -177,9 +177,9 @@ for t = T_active:-1:1
                         k   = x(1);
                         lab = x(2);
                         
-                        % Record optimal decision values
-                        V(iz,ik,ib,t) = -v;
-                        K(iz,ik,ib,t) = k ;
+                        % Record utility and optimal decision values
+                        V    (iz,ik,ib,t) = -v;
+                        OPT.K(iz,ik,ib,t) = k ;
                         
                     else
                         lab = LAB_static(iz,ik,ib,t);
@@ -188,14 +188,14 @@ for t = T_active:-1:1
                     labinc = wage_eff * lab;
                     [~, inc, pit, sst, cit] = calculate_resources(labinc);
                     
-                    LAB(iz,ik,ib,t) = lab;
-                    B  (iz,ik,ib,t) = calculate_b(labinc);
+                    OPT.LAB(iz,ik,ib,t) = lab;
+                    OPT.B  (iz,ik,ib,t) = calculate_b(labinc);
                     
-                    INC(iz,ik,ib,t) = inc;
-                    PIT(iz,ik,ib,t) = pit;
-                    SST(iz,ik,ib,t) = sst;
-                    CIT(iz,ik,ib,t) = cit;
-                    BEN(iz,ik,ib,t) = 0  ;
+                    OPT.INC(iz,ik,ib,t) = inc;
+                    OPT.PIT(iz,ik,ib,t) = pit;
+                    OPT.SST(iz,ik,ib,t) = sst;
+                    OPT.CIT(iz,ik,ib,t) = cit;
+                    OPT.BEN(iz,ik,ib,t) = 0  ;
                     
                 end
                 
@@ -208,17 +208,6 @@ for t = T_active:-1:1
     V_step = V(:,:,:,t);
     
 end
-
-
-% Package optimal decision value arrays into structure
-OPT.K   = K  ;
-OPT.LAB = LAB;
-OPT.B   = B  ;
-OPT.INC = INC;
-OPT.PIT = PIT;
-OPT.SST = SST;
-OPT.CIT = CIT;
-OPT.BEN = BEN;
 
 
 end
