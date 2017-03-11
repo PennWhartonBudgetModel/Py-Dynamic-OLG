@@ -9,8 +9,19 @@ classdef mexBuilder
 methods (Static)
     
     % Build all mex functions
-    function [] = build()
-        mexBuilder.build_function('solve_cohort')
+    function [] = all()
+        mexBuilder.solve_cohort();
+        mexBuilder.generate_distribution();
+    end
+    
+    % Build solve_cohort
+    function [] = solve_cohort()
+        mexBuilder.build('solve_cohort');
+    end
+    
+    % Build generate_distribution
+    function [] = generate_distribution()
+        mexBuilder.build('generate_distribution');
     end
     
 end
@@ -18,7 +29,7 @@ end
 methods (Static, Access = private)
     
     % Build mex function according to source function name
-    function [] = build_function(fname)
+    function [] = build(fname)
         
         fprintf('\nBuilding mex function for %s.', fname)
         
@@ -38,7 +49,7 @@ methods (Static, Access = private)
         % Clean up code generation directory
         rmdir(codegen_dir, 's')
         
-        fprintf('\nBuild complete.\n\n')
+        fprintf('\nBuild complete.\n')
         
     end
     

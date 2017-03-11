@@ -320,12 +320,12 @@ methods (Static, Access = private)
                 % Define initial distributions
                 if isdynamic
                     
+                    DIST_new = zeros(nz,nk,nb,T_life);
+                    DIST_new(:,1,1,1) = reshape(DISTz, [nz,1,1,1]);
+                    
                     switch economy
-                        case 'steady'
-                            DIST = zeros(nz,nk,nb,T_life);
-                            DIST(:,1,1,1) = reshape(DISTz, [nz,1,1,1]);
-                        case {'open', 'closed'}
-                            DIST = DISTs_steady{1,idem}(:,:,:,:,end);
+                        case 'steady'          , DIST = DIST_new;
+                        case {'open', 'closed'}, DIST = DISTs_steady{1,idem}(:,:,:,:,end);
                     end
                     
                 else
@@ -347,29 +347,29 @@ methods (Static, Access = private)
                     
                     DIST_mu2 = DIST .* repmat(reshape(mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]);
                     
-                    AA.assets  = DIST_mu2 .* OPTs.K  (:,:,:,:,min(year, T_model)).*(1 + repmat(reshape(mu3(idem,:)./mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]));
-                    AA.beqs    = DIST_mu2 .* OPTs.K  (:,:,:,:,min(year, T_model)).*(0 + repmat(reshape(mu3(idem,:)./mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]));
-                    AA.labeffs = DIST_mu2 .* OPTs.LAB(:,:,:,:,min(year, T_model)).*repmat(reshape(zs(:,:,idem), [nz,1,1,T_life]), [1,nk,nb,1]);
-                    AA.labs    = DIST_mu2 .* OPTs.LAB(:,:,:,:,min(year, T_model));
-                    AA.lfprs   = DIST_mu2 .* (OPTs.LAB(:,:,:,:,min(year, T_model)) > 0);
-                    AA.incs    = DIST_mu2 .* OPTs.INC(:,:,:,:,min(year, T_model));
-                    AA.pits    = DIST_mu2 .* OPTs.PIT(:,:,:,:,min(year, T_model));
-                    AA.ssts    = DIST_mu2 .* OPTs.SST(:,:,:,:,min(year, T_model));
-                    AA.cits    = DIST_mu2 .* OPTs.CIT(:,:,:,:,min(year, T_model));
-                    AA.bens    = DIST_mu2 .* OPTs.BEN(:,:,:,:,min(year, T_model));
+                    D.assets  = DIST_mu2 .* OPTs.K  (:,:,:,:,min(year, T_model)).*(1 + repmat(reshape(mu3(idem,:)./mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]));
+                    D.beqs    = DIST_mu2 .* OPTs.K  (:,:,:,:,min(year, T_model)).*(0 + repmat(reshape(mu3(idem,:)./mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]));
+                    D.labeffs = DIST_mu2 .* OPTs.LAB(:,:,:,:,min(year, T_model)).*repmat(reshape(zs(:,:,idem), [nz,1,1,T_life]), [1,nk,nb,1]);
+                    D.labs    = DIST_mu2 .* OPTs.LAB(:,:,:,:,min(year, T_model));
+                    D.lfprs   = DIST_mu2 .* (OPTs.LAB(:,:,:,:,min(year, T_model)) > 0);
+                    D.incs    = DIST_mu2 .* OPTs.INC(:,:,:,:,min(year, T_model));
+                    D.pits    = DIST_mu2 .* OPTs.PIT(:,:,:,:,min(year, T_model));
+                    D.ssts    = DIST_mu2 .* OPTs.SST(:,:,:,:,min(year, T_model));
+                    D.cits    = DIST_mu2 .* OPTs.CIT(:,:,:,:,min(year, T_model));
+                    D.bens    = DIST_mu2 .* OPTs.BEN(:,:,:,:,min(year, T_model));
                     
-                    % AA.assets  = DIST .* repmat(reshape(ks, [1,nk,1,1]), [nz,1,nb,T_life]);
-                    % AA.beqs    = DIST .* OPTs.K  (:,:,:,:,min(year, T_model)).*repmat(reshape(1-surv, [1,1,1,T_life]), [nz,nk,nb,1]);
-                    % AA.labeffs = DIST .* OPTs.LAB(:,:,:,:,min(year, T_model)).*repmat(reshape(zs(:,:,idem), [nz,1,1,T_life]), [1,nk,nb,1]);
-                    % AA.labs    = DIST .* OPTs.LAB(:,:,:,:,min(year, T_model));
-                    % AA.lfprs   = DIST .* (OPTs.LAB(:,:,:,:,min(year, T_model)) > 0);
-                    % AA.incs    = DIST .* OPTs.INC(:,:,:,:,min(year, T_model));
-                    % AA.pits    = DIST .* OPTs.PIT(:,:,:,:,min(year, T_model));
-                    % AA.ssts    = DIST .* OPTs.SST(:,:,:,:,min(year, T_model));
-                    % AA.cits    = DIST .* OPTs.CIT(:,:,:,:,min(year, T_model));
-                    % AA.bens    = DIST .* OPTs.BEN(:,:,:,:,min(year, T_model));
+                    % D.assets  = DIST .* repmat(reshape(ks, [1,nk,1,1]), [nz,1,nb,T_life]);
+                    % D.beqs    = DIST .* OPTs.K  (:,:,:,:,min(year, T_model)).*repmat(reshape(1-surv, [1,1,1,T_life]), [nz,nk,nb,1]);
+                    % D.labeffs = DIST .* OPTs.LAB(:,:,:,:,min(year, T_model)).*repmat(reshape(zs(:,:,idem), [nz,1,1,T_life]), [1,nk,nb,1]);
+                    % D.labs    = DIST .* OPTs.LAB(:,:,:,:,min(year, T_model));
+                    % D.lfprs   = DIST .* (OPTs.LAB(:,:,:,:,min(year, T_model)) > 0);
+                    % D.incs    = DIST .* OPTs.INC(:,:,:,:,min(year, T_model));
+                    % D.pits    = DIST .* OPTs.PIT(:,:,:,:,min(year, T_model));
+                    % D.ssts    = DIST .* OPTs.SST(:,:,:,:,min(year, T_model));
+                    % D.cits    = DIST .* OPTs.CIT(:,:,:,:,min(year, T_model));
+                    % D.bens    = DIST .* OPTs.BEN(:,:,:,:,min(year, T_model));
                     
-                    for a = series, Aggregate.(a{1})(year) = Aggregate.(a{1})(year) + sum(AA.(a{1})(:)); end
+                    for a = series, Aggregate.(a{1})(year) = Aggregate.(a{1})(year) + sum(D.(a{1})(:)); end
                     
                     
                     if (year < lastyear), year = year + 1; else, break, end
@@ -377,59 +377,15 @@ methods (Static, Access = private)
                     
                     if isdynamic
                         
-                        DIST_next = zeros(nz,nk,nb,T_life);
-                        DIST_next(:,1,1,1) = reshape(DISTz, [nz,1,1,1]);
+                        DIST_last = DIST;
                         
-                        for age = 2:T_life
-                            
-                            % Extract optimal k and b decision values
-                            k_t = OPTs.K(:,:,:,age-1,min(year-1, T_model));
-                            b_t = OPTs.B(:,:,:,age-1,min(year-1, T_model));
-                            
-                            % Find indices of nearest values in ks and bs series
-                            jk_lt = ones(size(k_t));
-                            for elem = 1:length(k_t(:))
-                                jk_lt(elem) = find(ks(1:end-1) <= k_t(elem), 1, 'last');
-                            end
-                            jk_gt = jk_lt + 1;
-                            
-                            jb_lt = ones(size(b_t));
-                            for elem = 1:length(b_t(:))
-                                jb_lt(elem) = find(bs(1:end-1) <= b_t(elem), 1, 'last');
-                            end
-                            jb_gt = jb_lt + 1;
-                            
-                            % Calculate linear weights for nearest values
-                            wk_lt = (ks(jk_gt) - k_t) ./ (ks(jk_gt) - ks(jk_lt));
-                            wk_gt = 1 - wk_lt;
-                            
-                            wb_lt = (bs(jb_gt) - b_t) ./ (bs(jb_gt) - bs(jb_lt));
-                            wb_gt = 1 - wb_lt;
-                            
-                            for jz = 1:nz
-                                
-                                % Apply survival and productivity transformations to cohort distribution from current year
-                                DIST_transz = DIST(:,:,:,age-1) .* repmat(reshape(transz(:,jz), [nz,1,1]), [1,nk,nb]);
-                                % DIST_transz = DIST__(:,:,:,age-1) * surv(age-1) .* repmat(reshape(transz(:,jz), [nz,1,1]), [1,nk,nb]);
-                                
-                                % Redistribute cohort for next year according to target indices and weights
-                                for elem = 1:numel(DIST_transz)
-                                    DIST_next(jz, jk_lt(elem), jb_lt(elem), age) = DIST_next(jz, jk_lt(elem), jb_lt(elem), age) + wk_lt(elem)*wb_lt(elem)*DIST_transz(elem);
-                                    DIST_next(jz, jk_gt(elem), jb_lt(elem), age) = DIST_next(jz, jk_gt(elem), jb_lt(elem), age) + wk_gt(elem)*wb_lt(elem)*DIST_transz(elem);
-                                    DIST_next(jz, jk_lt(elem), jb_gt(elem), age) = DIST_next(jz, jk_lt(elem), jb_gt(elem), age) + wk_lt(elem)*wb_gt(elem)*DIST_transz(elem);
-                                    DIST_next(jz, jk_gt(elem), jb_gt(elem), age) = DIST_next(jz, jk_gt(elem), jb_gt(elem), age) + wk_gt(elem)*wb_gt(elem)*DIST_transz(elem);
-                                end
-                                
-                            end
-                            
-                        end
+                        K = OPTs.K(:,:,:,:,min(year-1, T_model));
+                        B = OPTs.B(:,:,:,:,min(year-1, T_model));
                         
-                        DIST = DIST_next;
+                        DIST = generate_distribution(DIST_last, DIST_new, K, B, nz, nk, nb, T_life, transz, ks, bs);
                         
                     else
-                        
                         DIST = DISTs_static{idem}(:,:,:,:,year);
-                        
                     end
                     
                 end
