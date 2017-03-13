@@ -1,10 +1,10 @@
 %%
-% Generate population distribution.
+% Generate population distribution for a year.
 % 
 %%
 
 
-function [DIST] = generate_distribution(DIST_last, DIST_new, K, B, nz, nk, nb, T_life, transz, ks, bs) %#codegen
+function [DIST_year] = generate_distribution(DIST_last, DIST_new, K, B, nz, nk, nb, T_life, transz, ks, bs) %#codegen
 
 
 %% Argument verification
@@ -31,7 +31,7 @@ assert( isa(bs          , 'double'  ) && (size(bs           , 1) <= nb_max  ) &&
 
 %% Distribution generation
 
-DIST = DIST_new;
+DIST_year = DIST_new;
 
 for age = 2:T_life
 
@@ -67,10 +67,10 @@ for age = 2:T_life
 
         % Redistribute cohort for next year according to target indices and weights
         for elem = 1:numel(DIST_transz)
-            DIST(jz, jk_lt(elem), jb_lt(elem), age) = DIST(jz, jk_lt(elem), jb_lt(elem), age) + wk_lt(elem)*wb_lt(elem)*DIST_transz(elem);
-            DIST(jz, jk_gt(elem), jb_lt(elem), age) = DIST(jz, jk_gt(elem), jb_lt(elem), age) + wk_gt(elem)*wb_lt(elem)*DIST_transz(elem);
-            DIST(jz, jk_lt(elem), jb_gt(elem), age) = DIST(jz, jk_lt(elem), jb_gt(elem), age) + wk_lt(elem)*wb_gt(elem)*DIST_transz(elem);
-            DIST(jz, jk_gt(elem), jb_gt(elem), age) = DIST(jz, jk_gt(elem), jb_gt(elem), age) + wk_gt(elem)*wb_gt(elem)*DIST_transz(elem);
+            DIST_year(jz, jk_lt(elem), jb_lt(elem), age) = DIST_year(jz, jk_lt(elem), jb_lt(elem), age) + wk_lt(elem)*wb_lt(elem)*DIST_transz(elem);
+            DIST_year(jz, jk_gt(elem), jb_lt(elem), age) = DIST_year(jz, jk_gt(elem), jb_lt(elem), age) + wk_gt(elem)*wb_lt(elem)*DIST_transz(elem);
+            DIST_year(jz, jk_lt(elem), jb_gt(elem), age) = DIST_year(jz, jk_lt(elem), jb_gt(elem), age) + wk_lt(elem)*wb_gt(elem)*DIST_transz(elem);
+            DIST_year(jz, jk_gt(elem), jb_gt(elem), age) = DIST_year(jz, jk_gt(elem), jb_gt(elem), age) + wk_gt(elem)*wb_gt(elem)*DIST_transz(elem);
         end
 
     end

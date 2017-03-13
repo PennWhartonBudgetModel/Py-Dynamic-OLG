@@ -226,7 +226,7 @@ methods (Static, Access = private)
         
         %% Aggregate generation function
         
-        function [Aggregate, LABs, DISTs] = generate_aggregates(Market, DISTs_steady, LABs_static, DISTs_static)
+        function [Aggregate, LABs, DIST] = generate_aggregates(Market, DIST_steady, LABs_static, DIST_static)
             
             % Define dynamic aggregate generation flag
             isdynamic = isempty(LABs_static);
@@ -234,9 +234,11 @@ methods (Static, Access = private)
             % Set empty values for static optimal decision values if not provided
             if isdynamic, LABs_static = cell(nstartyears, ndem); end
             
-            % Initialize optimal labor and distribution arrays
+            % Initialize array of cohort optimal labor values
             LABs  = cell(nstartyears, ndem);
-            DISTs = repmat({double.empty(nz,nk,nb,T_life,0)}, [1,ndem]);
+            
+            % Initialize distribution array
+            DIST = double.empty(nz,nk,nb,T_life,0,ndem);
             
             % Initialize aggregates
             series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'incs', 'pits', 'ssts', 'cits', 'bens'};
@@ -254,21 +256,19 @@ methods (Static, Access = private)
                     V0, LAB_static, isdynamic);
                 
                 
+                % Initialize series of terminal utility values
+                V0s = zeros(nz,nk,nb,T_life);
+                
                 % Solve steady state / post-transition path cohort
                 if isdynamic
                     
-                    % Define terminal utility values
-                    V0 = zeros(nz,nk,nb);
-                    
                     % Solve dynamic optimization
                     % (Note that active time is set to full lifetime)
-                    [V, OPT] = solve_cohort_(T_pasts(end), T_shifts(end), T_life, V0, []);
+                    [V, OPT] = solve_cohort_(T_pasts(end), T_shifts(end), T_life, V0s(:,:,:,T_life), []);
                     
                     % Define series of terminal utility values
-                    V0s = cat(4, V(:,:,:,2:T_life), V0);
+                    V0s(:,:,:,1:T_life-1) = V(:,:,:,2:T_life);
                     
-                else
-                    V0s = zeros(nz,nk,nb,T_life);
                 end
                 
                 
@@ -280,7 +280,7 @@ methods (Static, Access = private)
                     case 'steady'
                         
                         for o = os, OPTs.(o{1}) = OPT.(o{1}); end
-                        LABs{idem} = OPT.LAB;
+                        LABs{1,idem} = OPT.LAB;
                         
                     case {'open', 'closed'}
                         
@@ -317,19 +317,19 @@ methods (Static, Access = private)
                         
                 end
                 
-                % Define initial distributions
+                % Define initial population distribution
                 if isdynamic
                     
                     DIST_new = zeros(nz,nk,nb,T_life);
                     DIST_new(:,1,1,1) = reshape(DISTz, [nz,1,1,1]);
                     
                     switch economy
-                        case 'steady'          , DIST = DIST_new;
-                        case {'open', 'closed'}, DIST = DISTs_steady{idem};
+                        case 'steady'          , DIST_year = DIST_new;
+                        case {'open', 'closed'}, DIST_year = DIST_steady(:,:,:,:,1,idem);
                     end
                     
                 else
-                    DIST = DISTs_static{idem}(:,:,:,:,1);
+                    DIST_year = DIST_static(:,:,:,:,1,idem);
                 end
                 
                 year = 1;
@@ -341,11 +341,11 @@ methods (Static, Access = private)
                 
                 while (true)
                     
-                    DISTs{idem} = cat(5, DISTs{idem}, DIST);
+                    DIST(:,:,:,:,year,idem) = DIST_year;
                     
                     for a = series, if (length(Aggregate.(a{1})) < year), Aggregate.(a{1})(year) = 0; end, end
                     
-                    DIST_mu2 = DIST .* repmat(reshape(mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]);
+                    DIST_mu2 = DIST_year .* repmat(reshape(mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]);
                     
                     D.assets  = DIST_mu2 .* OPTs.K  (:,:,:,:,min(year, T_model)).*(1 + repmat(reshape(mu3(idem,:)./mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]));
                     D.beqs    = DIST_mu2 .* OPTs.K  (:,:,:,:,min(year, T_model)).*(0 + repmat(reshape(mu3(idem,:)./mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]));
@@ -377,15 +377,15 @@ methods (Static, Access = private)
                     
                     if isdynamic
                         
-                        DIST_last = DIST;
+                        DIST_last = DIST_year;
                         
                         K = OPTs.K(:,:,:,:,min(year-1, T_model));
                         B = OPTs.B(:,:,:,:,min(year-1, T_model));
                         
-                        DIST = generate_distribution(DIST_last, DIST_new, K, B, nz, nk, nb, T_life, transz, ks, bs);
+                        DIST_year = generate_distribution(DIST_last, DIST_new, K, B, nz, nk, nb, T_life, transz, ks, bs);
                         
                     else
-                        DIST = DISTs_static{idem}(:,:,:,:,year);
+                        DIST_year = DIST_static(:,:,:,:,year,idem);
                     end
                     
                 end
@@ -394,7 +394,7 @@ methods (Static, Access = private)
             
             switch economy
                 case {'steady'}
-                    for idem = 1:ndem, DISTs{idem} = DISTs{idem}(:,:,:,:,end); end
+                    DIST = DIST(:,:,:,:,end,:);
                     for a = series, Aggregate.(a{1}) = Aggregate.(a{1})(end); end
             end
             
@@ -410,19 +410,19 @@ methods (Static, Access = private)
             base_generator = @() dynamicSolver.solve(economy, basedef, [], callingtag);
             base_dir = dirFinder.save(economy, basedef);
             
-            % Load baseline market conditions, optimal decision values, and distributions
-            Market = hardyload('market.mat'       , base_generator, base_dir);
+            % Load baseline market conditions, optimal decision values, and population distribution
+            Market = hardyload('market.mat'      , base_generator, base_dir);
             
-            s      = hardyload('decisions.mat'    , base_generator, base_dir);
+            s      = hardyload('decisions.mat'   , base_generator, base_dir);
             LABs_static  = s.LABs ;
             
-            s      = hardyload('distributions.mat', base_generator, base_dir);
-            DISTs_static = s.DISTs;
+            s      = hardyload('distribution.mat', base_generator, base_dir);
+            DIST_static = s.DIST;
             
             
             % Generate static aggregates
             % (Intermediary structure used to filter out extraneous fields)
-            [Static_] = generate_aggregates(Market, {}, LABs_static, DISTs_static);
+            [Static_] = generate_aggregates(Market, {}, LABs_static, DIST_static);
             
             for oo = {'incs', 'pits', 'ssts', 'cits', 'bens'}
                 Static.(oo{1}) = Static_.(oo{1});
@@ -462,7 +462,7 @@ methods (Static, Access = private)
                 % Load neutral market conditions as initial conditions
                 Market0 = load(fullfile(param_dir, 'market0.mat'));
                 
-                DISTs_steady = {};
+                DIST_steady = {};
                 
             case {'open', 'closed'}
                 
@@ -471,12 +471,12 @@ methods (Static, Access = private)
                 steady_dir = dirFinder.save('steady', basedef);
                 
                 % Load steady state market conditions as initial conditions
-                Market0 = hardyload('market.mat'       , steady_generator, steady_dir);
+                Market0 = hardyload('market.mat'      , steady_generator, steady_dir);
                 
-                % Load steady state distributions
-                s       = hardyload('distributions.mat', steady_generator, steady_dir);
+                % Load steady state population distribution
+                s       = hardyload('distribution.mat', steady_generator, steady_dir);
                 
-                DISTs_steady = s.DISTs;
+                DIST_steady = s.DIST;
                 
         end
         
@@ -616,7 +616,7 @@ methods (Static, Access = private)
             
             
             % Generate dynamic aggregates
-            [Dynamic, LABs, DISTs] = generate_aggregates(Market, DISTs_steady, {}, {});
+            [Dynamic, LABs, DIST] = generate_aggregates(Market, DIST_steady, {}, {});
             
             
             % Calculate additional dynamic aggregates
@@ -731,10 +731,10 @@ methods (Static, Access = private)
         if (iter == itermax), warning('Maximum iterations reached.'), end
         
         
-        % Save optimal decision values and distributions for baseline
+        % Save baseline optimal decision values and population distribution
         if isbase
-            save(fullfile(save_dir, 'decisions.mat'    ), 'LABs' )
-            save(fullfile(save_dir, 'distributions.mat'), 'DISTs')
+            save(fullfile(save_dir, 'decisions.mat'   ), 'LABs' )
+            save(fullfile(save_dir, 'distribution.mat'), 'DIST')
         end
         
         % Save final market conditions
@@ -762,8 +762,8 @@ methods (Static, Access = private)
                 
                 for jdem = 1:ndem
                     
-                    LAB_  = LABs {jdem};
-                    DIST_ = DISTs{jdem} .* repmat(reshape(mu2(jdem,:), [1,1,1,T_life]), [nz,nk,nb,1]);
+                    LAB_  = LABs {1,jdem};
+                    DIST_ = DIST(:,:,:,:,1,jdem) .* repmat(reshape(mu2(jdem,:), [1,1,1,T_life]), [nz,nk,nb,1]);
                     
                     workind = (LAB_ > 0.01);
                     
