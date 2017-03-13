@@ -245,10 +245,6 @@ methods (Static, Access = private)
             
             for idem = 1:ndem
                 
-                % Initialize optimal decision value arrays
-                os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN'};
-                for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model); end
-                
                 
                 % Package fixed dynamic optimization parameters into anonymous function
                 solve_cohort_ = @(T_past, T_shift, T_active, V0, LAB_static) solve_cohort(...
@@ -276,18 +272,21 @@ methods (Static, Access = private)
                 end
                 
                 
+                % Define list of optimal decision values
+                os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN'};
+                
                 switch economy
                     
                     case 'steady'
                         
                         for o = os, OPTs.(o{1}) = OPT.(o{1}); end
-                        LABs{1,idem} = OPT.LAB;
+                        LABs{idem} = OPT.LAB;
                         
                     case {'open', 'closed'}
                         
+                        % Solve transition path cohorts
                         OPTs_cohort = cell(1, nstartyears);
                         
-                        % Solve transition path cohorts
                         parfor i = 1:nstartyears
                             
                             % Extract terminal utility values
@@ -299,6 +298,9 @@ methods (Static, Access = private)
                             LABs{i,idem} = OPTs_cohort{i}.LAB;
                             
                         end
+                        
+                        % Construct optimal decision value arrays
+                        for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model); end
                         
                         for i = 1:nstartyears
                             
@@ -323,7 +325,7 @@ methods (Static, Access = private)
                     
                     switch economy
                         case 'steady'          , DIST = DIST_new;
-                        case {'open', 'closed'}, DIST = DISTs_steady{1,idem}(:,:,:,:,end);
+                        case {'open', 'closed'}, DIST = DISTs_steady{idem};
                     end
                     
                 else
@@ -392,6 +394,7 @@ methods (Static, Access = private)
             
             switch economy
                 case {'steady'}
+                    for idem = 1:ndem, DISTs{idem} = DISTs{idem}(:,:,:,:,end); end
                     for a = series, Aggregate.(a{1}) = Aggregate.(a{1})(end); end
             end
             
@@ -759,8 +762,8 @@ methods (Static, Access = private)
                 
                 for jdem = 1:ndem
                     
-                    LAB_  = LABs {1,jdem};
-                    DIST_ = DISTs{1,jdem}(:,:,:,:,end) .* repmat(reshape(mu2(jdem,:), [1,1,1,T_life]), [nz,nk,nb,1]);
+                    LAB_  = LABs {jdem};
+                    DIST_ = DISTs{jdem} .* repmat(reshape(mu2(jdem,:), [1,1,1,T_life]), [nz,nk,nb,1]);
                     
                     workind = (LAB_ > 0.01);
                     
