@@ -392,10 +392,13 @@ methods (Static, Access = private)
                 
             end
             
+            % Extract and normalize steady state population distribution and aggregates
             switch economy
                 case {'steady'}
                     DIST = DIST(:,:,:,:,end,:);
-                    for a = series, Aggregate.(a{1}) = Aggregate.(a{1})(end); end
+                    P = sum(DIST(:));
+                    DIST = DIST / P;
+                    for a = series, Aggregate.(a{1}) = Aggregate.(a{1})(end) / P; end
             end
             
         end
