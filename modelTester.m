@@ -77,7 +77,7 @@ ismatch = true;
 
 % Define function to flag issues
 function flag(str)
-    fprintf('\t%-15s%-20s%s.\n', setname, valuename, str)
+    fprintf('\t%-15s%-20s%s\n', setname, valuename, str)
     ismatch = false;
 end
 
@@ -98,9 +98,16 @@ for i = 1:length(setnames)
         
         valuename = targetvaluenames{j};
         
-        % Identify missing value
         if ~isfield(outputset, valuename)
+            
+            % Flag missing value
             flag('Not found');
+        
+        elseif any(isnan(outputset.(valuename)(:)))
+            
+            % Flag NaN value
+            flag('NaN value');
+            
         else
             
             % Identify value deviation
