@@ -174,7 +174,6 @@ methods (Static, Access = private)
         
         zs     = s.z;
         transz = s.tr_z;
-        DISTz  = s.proddist(:,1)';
         ks     = s.kgrid;
         bs     = s.bgrid; bs(1) = 0;
         
@@ -183,7 +182,7 @@ methods (Static, Access = private)
         d   = s.d;
         
         surv = s.surv(1:T_life); surv(T_life) = 0;
-        V_beq = s.phi1.*((1+ks./s.phi2).^(1-s.phi3));
+        V_beq = s.phi1.*((1 + ks./s.phi2).^(1 - s.phi3));
         
         mpci = s.mpci;
         rpci = s.rpci;
@@ -201,7 +200,7 @@ methods (Static, Access = private)
         imm_age      = s.imm_age;
         DISTz_age    = s.proddist_age;
         
-        % Define population group index mappings
+        % Define population group index mapping
         groups = {'citizen', 'legal', 'illegal'};
         ngroups = length(groups);
         for igroup = 1:ngroups
@@ -272,7 +271,7 @@ methods (Static, Access = private)
             LABs  = cell(nstartyears, ndem);
             
             % Initialize distribution array
-            DIST = double.empty(nz,nk,nb,T_life,0,ndem);
+            DIST = double.empty(nz,nk,nb,T_life,ngroups,0,ndem);
             
             % Initialize aggregates
             series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'incs', 'pits', 'ssts', 'cits', 'bens'};
@@ -355,19 +354,14 @@ methods (Static, Access = private)
                 % Define initial population distribution
                 if isdynamic
                     
-                    DIST_new = zeros(nz,nk,nb,T_life);
-                    DIST_new(:,1,1,1) = reshape(DISTz, [nz,1,1,1]);
-                    
                     switch economy
-                        case 'steady'          , DIST_year = DIST_new;
-                        case {'open', 'closed'}, DIST_year = DIST_steady(:,:,:,:,1,idem);
+                        case 'steady'          , DIST_year = ones(nz,nk,nb,T_life,ngroups); DIST_year = DIST_year / numel(DIST_year);
+                        case {'open', 'closed'}, DIST_year = DIST_steady(:,:,:,:,:,1,idem);
                     end
                     
                 else
-                    DIST_year = DIST_static(:,:,:,:,1,idem);
+                    DIST_year = DIST_static(:,:,:,:,:,1,idem);
                 end
-                
-                DIST_age = ones(1,T_life) / T_life;
                 
                 
                 % Define distribution generation termination conditions
@@ -380,20 +374,20 @@ methods (Static, Access = private)
                 
                 while (disteps > disttol)
                     
-                    DIST(:,:,:,:,year,idem) = DIST_year;
+                    DIST(:,:,:,:,:,year,idem) = DIST_year;
                     
                     for a = series, if (length(Aggregate.(a{1})) < year), Aggregate.(a{1})(year) = 0; end, end
                     
-                    D.assets  = DIST_year .* repmat(reshape(ks, [1,nk,1,1]), [nz,1,nb,T_life]);
-                    D.beqs    = DIST_year .* OPTs.K  (:,:,:,:,min(year, T_model)).*repmat(reshape(1-surv, [1,1,1,T_life]), [nz,nk,nb,1]);
-                    D.labeffs = DIST_year .* OPTs.LAB(:,:,:,:,min(year, T_model)).*repmat(reshape(zs(:,:,idem), [nz,1,1,T_life]), [1,nk,nb,1]);
-                    D.labs    = DIST_year .* OPTs.LAB(:,:,:,:,min(year, T_model));
-                    D.lfprs   = DIST_year .* (OPTs.LAB(:,:,:,:,min(year, T_model)) > 0);
-                    D.incs    = DIST_year .* OPTs.INC(:,:,:,:,min(year, T_model));
-                    D.pits    = DIST_year .* OPTs.PIT(:,:,:,:,min(year, T_model));
-                    D.ssts    = DIST_year .* OPTs.SST(:,:,:,:,min(year, T_model));
-                    D.cits    = DIST_year .* OPTs.CIT(:,:,:,:,min(year, T_model));
-                    D.bens    = DIST_year .* OPTs.BEN(:,:,:,:,min(year, T_model));
+                    D.assets  = sum(DIST_year, 5) .* repmat(reshape(ks, [1,nk,1,1]), [nz,1,nb,T_life]);
+                    D.beqs    = sum(DIST_year, 5) .* OPTs.K  (:,:,:,:,min(year, T_model)).*repmat(reshape(1-surv, [1,1,1,T_life]), [nz,nk,nb,1]);
+                    D.labeffs = sum(DIST_year, 5) .* OPTs.LAB(:,:,:,:,min(year, T_model)).*repmat(reshape(zs(:,:,idem), [nz,1,1,T_life]), [1,nk,nb,1]);
+                    D.labs    = sum(DIST_year, 5) .* OPTs.LAB(:,:,:,:,min(year, T_model));
+                    D.lfprs   = sum(DIST_year, 5) .* (OPTs.LAB(:,:,:,:,min(year, T_model)) > 0.01);
+                    D.incs    = sum(DIST_year, 5) .* OPTs.INC(:,:,:,:,min(year, T_model));
+                    D.pits    = sum(DIST_year, 5) .* OPTs.PIT(:,:,:,:,min(year, T_model));
+                    D.ssts    = sum(DIST_year, 5) .* OPTs.SST(:,:,:,:,min(year, T_model));
+                    D.cits    = sum(DIST_year, 5) .* OPTs.CIT(:,:,:,:,min(year, T_model));
+                    D.bens    = sum(DIST_year, 5) .* OPTs.BEN(:,:,:,:,min(year, T_model));
                     
                     for a = series, Aggregate.(a{1})(year) = Aggregate.(a{1})(year) + sum(D.(a{1})(:)); end
                     
@@ -401,23 +395,30 @@ methods (Static, Access = private)
                     if (year < lastyear), year = year + 1; else, break, end
                     
                     
+                    DIST_last = DIST_year;
+                    
                     if isdynamic
                         
-                        DIST_last = DIST_year;
-                        
+                        % Extract optimal decision values
                         K = OPTs.K(:,:,:,:,min(year-1, T_model));
                         B = OPTs.B(:,:,:,:,min(year-1, T_model));
                         
-                        DIST_year = generate_distribution(DIST_last, DIST_new, K, B, nz, nk, nb, T_life, transz, ks, bs);
+                        % Define population growth distribution
+                        population = sum(DIST_last(:));
+                        DIST_grow = zeros(nz,nk,nb,T_life,ngroups);
+                        DIST_grow(:,1,1,1,g.citizen) = reshape(DISTz_age(:,1,g.citizen), [nz,1,1,1     ,1]) * population * pgr;
+                        DIST_grow(:,1,1,:,g.legal  ) = reshape(DISTz_age(:,:,g.legal  ), [nz,1,1,T_life,1]) * population * legal_rate   .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
+                        DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz_age(:,:,g.illegal), [nz,1,1,T_life,1]) * population * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
+                        
+                        % Generate distribution
+                        DIST_year = generate_distribution(DIST_last, DIST_grow, K, B, nz, nk, nb, T_life, ngroups, transz, ks, bs, surv);
                         
                     else
-                        DIST_year = DIST_static(:,:,:,:,year,idem);
+                        DIST_year = DIST_static(:,:,:,:,:,year,idem);
                     end
                     
                     % Calculate age distribution convergence error
-                    DIST_age_last = DIST_age;
-                    DIST_age = sum(reshape(DIST_year, [], T_life), 1);
-                    disteps = max(abs(DIST_age - DIST_age_last));
+                    disteps = max(abs(sum(sum(reshape(DIST_year - DIST_last, [], T_life, ngroups), 1), 3)));
                     
                 end
                 
@@ -426,7 +427,7 @@ methods (Static, Access = private)
             % Extract and normalize steady state population distribution and aggregates
             switch economy
                 case {'steady'}
-                    DIST = DIST(:,:,:,:,end,:);
+                    DIST = DIST(:,:,:,:,:,end,:);
                     P = sum(DIST(:));
                     DIST = DIST / P;
                     for a = series, Aggregate.(a{1}) = Aggregate.(a{1})(end) / P; end
@@ -796,13 +797,13 @@ methods (Static, Access = private)
                 
                 for jdem = 1:ndem
                     
-                    LAB_  = LABs {1,jdem};
-                    DIST_ = DIST(:,:,:,:,1,jdem);
+                    LAB_  = LABs{1,jdem};
+                    DIST_ = sum(DIST(:,:,:,:,:,1,jdem), 5);
                     
                     workind = (LAB_ > 0.01);
                     
                     workmass = workmass + sum(DIST_(workind));
-                    frisch   = frisch   + sum(DIST_(workind).*(1-LAB_(workind))./LAB_(workind))*(1-gamma*(1-sigma))/sigma;
+                    frisch   = frisch   + sum(DIST_(workind).*(1-LAB_(workind))./LAB_(workind))*(1 - gamma*(1-sigma))/sigma;
                     
                 end
                 
