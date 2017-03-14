@@ -45,12 +45,16 @@ methods (Static)
     function [basedef_tag, counterdef_tag] = generate_tags(basedef, counterdef)
         
         % Define baseline and counterfactual parameter formats
-        basedef_format    = struct( 'beta'      , '%0.3f'   , ...
-                                    'gamma'     , '%0.3f'   , ...
-                                    'sigma'     , '%05.2f'  );
+        basedef_format    = struct( 'beta'          , '%.3f'    , ...
+                                    'gamma'         , '%.3f'    , ...
+                                    'sigma'         , '%.2f'    );
         
-        counterdef_format = struct( 'taxplan'   , '%s'      , ...
-                                    'gcut'      , '%+0.2f'  );
+        counterdef_format = struct( 'taxplan'       , '%s'      , ...
+                                    'gcut'          , '%+.2f'   , ...
+                                    'legal_scale'   , '%.1f'    , ...
+                                    'prem_legal'    , '%.3f'    , ...
+                                    'amnesty'       , '%.2f'    , ...
+                                    'deportation'   , '%.2f'    );
         
         % Define function to construct tag from definition and format specifications
         function tag = construct_tag(def, format)
@@ -83,8 +87,12 @@ methods (Static, Access = private)
         
         % Define default counterfactual parameter values
         % (These are the values used for a baseline run)
-        counterdef_filled = struct( 'taxplan' , 'base'    , ...
-                                    'gcut'    , +0.00     );
+        counterdef_filled = struct( 'taxplan'       , 'base', ...
+                                    'gcut'          , +0.00 , ...
+                                    'legal_scale'   , 1.0   , ...
+                                    'prem_legal'    , 1.000 , ...
+                                    'amnesty'       , 0.00  , ...
+                                    'deportation'   , 0.00  );
         
         % Override default parameter values with values from counterfactual definition
         for field = fields(counterdef)'
@@ -116,8 +124,12 @@ methods (Static, Access = private)
         counterdef_filled = dynamicSolver.fill_default(counterdef);
         
         % Unpack parameters from filled counterfactual definition
-        taxplan = counterdef_filled.taxplan;
-        gcut    = counterdef_filled.gcut   ;
+        taxplan     = counterdef_filled.taxplan    ;
+        gcut        = counterdef_filled.gcut       ;
+        legal_scale = counterdef_filled.legal_scale;
+        prem_legal  = counterdef_filled.prem_legal ;
+        amnesty     = counterdef_filled.amnesty    ;
+        deportation = counterdef_filled.deportation;
         
         
         % Identify working directories
@@ -164,13 +176,13 @@ methods (Static, Access = private)
         transz = s.tr_z;
         DISTz  = s.proddist(:,1)';
         ks     = s.kgrid;
-        bs     = [0; s.bgrid(2:end)];
+        bs     = s.bgrid; bs(1) = 0;
         
         A   = s.A;
         alp = s.alp;
         d   = s.d;
         
-        surv = [s.surv(1:T_life-1), 0];
+        surv = s.surv(1:T_life); surv(T_life) = 0;
         V_beq = s.phi1.*((1+ks./s.phi2).^(1-s.phi3));
         
         mpci = s.mpci;
@@ -178,6 +190,31 @@ methods (Static, Access = private)
         
         deducscale  = s.deduc_scale;
         sstaxcredit = s.ss_tax_cred;
+        
+        
+        % Load immigration parameters
+        s = load(fullfile(param_dir, 'param_immigration.mat'));
+        
+        pgr          = s.pgr;
+        legal_rate   = s.legal_rate * legal_scale;
+        illegal_rate = s.illegal_rate;
+        imm_age      = s.imm_age;
+        DISTz_age    = s.proddist_age;
+        
+        % Define population group index mappings
+        groups = {'citizen', 'legal', 'illegal'};
+        ngroups = length(groups);
+        for igroup = 1:ngroups
+            g.(groups{igroup}) = igroup;
+        end
+        
+        % Shift legal immigrant productivity distribution according to policy parameter
+        for age_ = 1:T_life
+            v = mean(zs(:, age_, :), 3);
+            ztarget = sum(v .* DISTz_age(:, age_, g.legal)) * prem_legal;
+            p = (v(nz) - ztarget) / (v(nz)*(nz-1) - sum(v(1:nz-1)));
+            DISTz_age(:, age_, g.legal) = [ p*ones(nz-1,1) ; 1 - p*(nz-1) ];
+        end
         
         
         % Load social security parameters
