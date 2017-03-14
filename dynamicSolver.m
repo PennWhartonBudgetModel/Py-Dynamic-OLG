@@ -413,6 +413,15 @@ methods (Static, Access = private)
                         % Generate distribution
                         DIST_year = generate_distribution(DIST_last, DIST_grow, K, B, nz, nk, nb, T_life, ngroups, transz, ks, bs, surv);
                         
+                        % Increase legal immigrant population for amnesty, maintaining productivity distributions
+                        DISTz_legal = DIST_year(:,:,:,:,g.legal) ./ repmat(sum(DIST_year(:,:,:,:,g.legal), 1), [nz,1,1,1,1]);
+                        DISTz_legal(isnan(DISTz_legal)) = 1/nz;
+                        
+                        DIST_year(:,:,:,:,g.legal) = DIST_year(:,:,:,:,g.legal) + repmat(sum(amnesty*DIST_year(:,:,:,:,g.illegal), 1), [nz,1,1,1,1]).*DISTz_legal;
+                        
+                        % Reduce illegal immigrant population for amnesty and deportation
+                        DIST_year(:,:,:,:,g.illegal) = (1-amnesty-deportation)*DIST_year(:,:,:,:,g.illegal);
+                        
                     else
                         DIST_year = DIST_static(:,:,:,:,:,year,idem);
                     end
