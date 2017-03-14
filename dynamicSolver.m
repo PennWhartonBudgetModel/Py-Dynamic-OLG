@@ -267,15 +267,15 @@ methods (Static, Access = private)
             % Set empty values for static optimal decision values if not provided
             if isdynamic, LABs_static = cell(nstartyears, ndem); end
             
+            % Initialize optimal decision value arrays
+            os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN'};
+            for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model,ndem); end
+            
             % Initialize array of cohort optimal labor values
             LABs  = cell(nstartyears, ndem);
             
             % Initialize distribution array
             DIST = double.empty(nz,nk,nb,T_life,ngroups,0,ndem);
-            
-            % Initialize aggregates
-            series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'incs', 'pits', 'ssts', 'cits', 'bens'};
-            for a = series, Aggregate.(a{1}) = []; end
             
             
             for idem = 1:ndem
@@ -305,14 +305,11 @@ methods (Static, Access = private)
                 end
                 
                 
-                % Define list of optimal decision values
-                os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN'};
-                
                 switch economy
                     
                     case 'steady'
                         
-                        for o = os, OPTs.(o{1}) = OPT.(o{1}); end
+                        for o = os, OPTs.(o{1})(:,:,:,:,1,idem) = OPT.(o{1}); end
                         LABs{1,idem} = OPT.LAB;
                         
                     case {'open', 'closed'}
@@ -332,9 +329,6 @@ methods (Static, Access = private)
                             
                         end
                         
-                        % Construct optimal decision value arrays
-                        for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model); end
-                        
                         for i = 1:nstartyears
                             
                             for t = 1:T_actives(i)
@@ -342,7 +336,7 @@ methods (Static, Access = private)
                                 age  = t + T_pasts (i);
                                 year = t + T_shifts(i);
                                 
-                                for o = os, OPTs.(o{1})(:,:,:,age,year) = OPTs_cohort{i}.(o{1})(:,:,:,t); end
+                                for o = os, OPTs.(o{1})(:,:,:,age,year,idem) = OPTs_cohort{i}.(o{1})(:,:,:,t); end
                                 
                             end
                             
@@ -351,57 +345,37 @@ methods (Static, Access = private)
                 end
                 
                 
-                % Define initial population distribution
                 if isdynamic
                     
+                    % Define initial population distribution and distribution generation termination conditions
                     switch economy
-                        case 'steady'          , DIST_year = ones(nz,nk,nb,T_life,ngroups); DIST_year = DIST_year / numel(DIST_year);
-                        case {'open', 'closed'}, DIST_year = DIST_steady(:,:,:,:,:,1,idem);
+                        
+                        case 'steady'
+                            DIST_year = ones(nz,nk,nb,T_life,ngroups); DIST_year = DIST_year / numel(DIST_year);
+                            lastyear = Inf;
+                            disttol = 1e-4;
+                            
+                        case {'open', 'closed'}
+                            DIST_year = DIST_steady(:,:,:,:,:,1,idem);
+                            lastyear = T_model;
+                            disttol = -Inf;
+                            
                     end
                     
-                else
-                    DIST_year = DIST_static(:,:,:,:,:,1,idem);
-                end
-                
-                
-                % Define distribution generation termination conditions
-                switch economy                    
-                    case 'steady'          , lastyear = Inf    ; disttol = 1e-4;
-                    case {'open', 'closed'}, lastyear = T_model; disttol = -Inf;
-                end
-                year = 1; disteps = Inf;
-                
-                
-                while (disteps > disttol)
+                    year = 1;
+                    disteps = Inf;
                     
-                    DIST(:,:,:,:,:,year,idem) = DIST_year;
-                    
-                    for a = series, if (length(Aggregate.(a{1})) < year), Aggregate.(a{1})(year) = 0; end, end
-                    
-                    D.assets  = sum(DIST_year, 5) .* repmat(reshape(ks, [1,nk,1,1]), [nz,1,nb,T_life]);
-                    D.beqs    = sum(DIST_year, 5) .* OPTs.K  (:,:,:,:,min(year, T_model)).*repmat(reshape(1-surv, [1,1,1,T_life]), [nz,nk,nb,1]);
-                    D.labeffs = sum(DIST_year, 5) .* OPTs.LAB(:,:,:,:,min(year, T_model)).*repmat(reshape(zs(:,:,idem), [nz,1,1,T_life]), [1,nk,nb,1]);
-                    D.labs    = sum(DIST_year, 5) .* OPTs.LAB(:,:,:,:,min(year, T_model));
-                    D.lfprs   = sum(DIST_year, 5) .* (OPTs.LAB(:,:,:,:,min(year, T_model)) > 0.01);
-                    D.incs    = sum(DIST_year, 5) .* OPTs.INC(:,:,:,:,min(year, T_model));
-                    D.pits    = sum(DIST_year, 5) .* OPTs.PIT(:,:,:,:,min(year, T_model));
-                    D.ssts    = sum(DIST_year, 5) .* OPTs.SST(:,:,:,:,min(year, T_model));
-                    D.cits    = sum(DIST_year, 5) .* OPTs.CIT(:,:,:,:,min(year, T_model));
-                    D.bens    = sum(DIST_year, 5) .* OPTs.BEN(:,:,:,:,min(year, T_model));
-                    
-                    for a = series, Aggregate.(a{1})(year) = Aggregate.(a{1})(year) + sum(D.(a{1})(:)); end
-                    
-                    
-                    if (year < lastyear), year = year + 1; else, break, end
-                    
-                    
-                    DIST_last = DIST_year;
-                    
-                    if isdynamic
+                    while (disteps > disttol)
+                        
+                        DIST(:,:,:,:,:,year,idem) = DIST_year;
+                        
+                        if (year < lastyear), year = year + 1; else, break, end
+                        
+                        DIST_last = DIST_year;
                         
                         % Extract optimal decision values
-                        K = OPTs.K(:,:,:,:,min(year-1, T_model));
-                        B = OPTs.B(:,:,:,:,min(year-1, T_model));
+                        K = OPTs.K(:,:,:,:,min(year-1, T_model),idem);
+                        B = OPTs.B(:,:,:,:,min(year-1, T_model),idem);
                         
                         % Define population growth distribution
                         population = sum(DIST_last(:));
@@ -422,25 +396,41 @@ methods (Static, Access = private)
                         % Reduce illegal immigrant population for amnesty and deportation
                         DIST_year(:,:,:,:,g.illegal) = (1-amnesty-deportation)*DIST_year(:,:,:,:,g.illegal);
                         
-                    else
-                        DIST_year = DIST_static(:,:,:,:,:,year,idem);
+                        % Calculate age distribution convergence error
+                        disteps = max(abs(sum(sum(reshape(DIST_year - DIST_last, [], T_life, ngroups), 1), 3)));
+                        
                     end
                     
-                    % Calculate age distribution convergence error
-                    disteps = max(abs(sum(sum(reshape(DIST_year - DIST_last, [], T_life, ngroups), 1), 3)));
-                    
+                else
+                    DIST = DIST_static;
                 end
                 
             end
             
-            % Extract and normalize steady state population distribution and aggregates
+            
+            % Extract and normalize steady state population distribution
             switch economy
-                case {'steady'}
+                case 'steady'
                     DIST = DIST(:,:,:,:,:,end,:);
                     P = sum(DIST(:));
                     DIST = DIST / P;
-                    for a = series, Aggregate.(a{1}) = Aggregate.(a{1})(end) / P; end
             end
+            
+            
+            % Generate aggregates
+            DIST_g = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model,ndem]);
+            f = @(F) sum(sum(reshape(DIST_g .* F, [], T_model, ndem), 1), 3);
+            
+            Aggregate.assets  = f(repmat(reshape(ks, [1,nk,1,1,1,1]), [nz,1,nb,T_life,T_model,ndem]));
+            Aggregate.beqs    = f(OPTs.K   .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));
+            Aggregate.labeffs = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));
+            Aggregate.labs    = f(OPTs.LAB);
+            Aggregate.lfprs   = f(OPTs.LAB > 0.01);
+            Aggregate.incs    = f(OPTs.INC);
+            Aggregate.pits    = f(OPTs.PIT);
+            Aggregate.ssts    = f(OPTs.SST);
+            Aggregate.cits    = f(OPTs.CIT);
+            Aggregate.bens    = f(OPTs.BEN);
             
         end
         
