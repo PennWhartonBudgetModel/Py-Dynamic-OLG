@@ -278,7 +278,6 @@ methods (Static, Access = private)
             
             for idem = 1:ndem
                 
-                
                 % Package fixed dynamic optimization parameters into anonymous function
                 solve_cohort_ = @(T_past, T_shift, T_active, V0, LAB_static) solve_cohort(...
                     T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs(:,:,idem), transz, ks, bs, beta, gamma, sigma, surv, V_beq, ...
@@ -394,7 +393,9 @@ methods (Static, Access = private)
                         DIST_next(:,:,:,:,g.illegal) = (1-amnesty-deportation)*DIST_next(:,:,:,:,g.illegal);
                         
                         % Calculate age distribution convergence error
-                        disteps = max(abs(sum(sum(reshape(DIST_next - DIST_year, [], T_life, ng), 1), 3)));
+                        f = @(D) sum(sum(reshape(D, [], T_life, ng), 1), 3) / sum(D(:));
+                        disteps = max(abs(f(DIST_next) - f(DIST_year)));
+                        
                         year = year + 1;
                         
                     end
@@ -419,7 +420,7 @@ methods (Static, Access = private)
             Aggregate.bequests = f(OPTs.K   .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));  % Bequests
             Aggregate.labs     = f(OPTs.LAB);                                                                            % Labor
             Aggregate.labeffs  = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));      % Effective labor
-            Aggregate.lfprs    = f(OPTs.LAB > 0.01);                                                                     % Labor force participation rate
+            Aggregate.lfprs    = f(OPTs.LAB > 0.01) ./ f(1);                                                             % Labor force participation rate
             Aggregate.incs     = f(OPTs.INC);                                                                            % Income
             Aggregate.pits     = f(OPTs.PIT);                                                                            % Personal income tax
             Aggregate.ssts     = f(OPTs.SST);                                                                            % Social Security tax
@@ -747,7 +748,7 @@ methods (Static, Access = private)
             end
             
             
-            % Check market clearing series
+            % Calculate maximum error in market clearing series
             eps = max(abs(clearing));
             
             fprintf('Error term = %7.4f\n', eps)
@@ -764,7 +765,7 @@ methods (Static, Access = private)
         
         % Save baseline optimal decision values and population distribution
         if isbase
-            save(fullfile(save_dir, 'decisions.mat'   ), 'LABs' )
+            save(fullfile(save_dir, 'decisions.mat'   ), 'LABs')
             save(fullfile(save_dir, 'distribution.mat'), 'DIST')
         end
         
