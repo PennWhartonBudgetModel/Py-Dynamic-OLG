@@ -349,7 +349,7 @@ methods (Static, Access = private)
                     switch economy
                         
                         case 'steady'
-                            DIST_next = ones(nz,nk,nb,T_life,ng); DIST_next = DIST_next / numel(DIST_next);
+                            DIST_next = ones(nz,nk,nb,T_life,ng) / (nz*nk*nb*T_life*ng*ndem);
                             lastyear = Inf;
                             disttol = 1e-4;
                             
@@ -414,16 +414,17 @@ methods (Static, Access = private)
             DIST_g = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model,ndem]);
             f = @(F) sum(sum(reshape(DIST_g .* F, [], T_model, ndem), 1), 3);
             
-            Aggregate.assets  = f(repmat(reshape(ks, [1,nk,1,1,1,1]), [nz,1,nb,T_life,T_model,ndem]));
-            Aggregate.beqs    = f(OPTs.K   .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));
-            Aggregate.labeffs = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));
-            Aggregate.labs    = f(OPTs.LAB);
-            Aggregate.lfprs   = f(OPTs.LAB > 0.01);
-            Aggregate.incs    = f(OPTs.INC);
-            Aggregate.pits    = f(OPTs.PIT);
-            Aggregate.ssts    = f(OPTs.SST);
-            Aggregate.cits    = f(OPTs.CIT);
-            Aggregate.bens    = f(OPTs.BEN);
+            Aggregate.pops     = f(1);                                                                                   % Population
+            Aggregate.assets   = f(repmat(reshape(ks, [1,nk,1,1,1,1]), [nz,1,nb,T_life,T_model,ndem]));                  % Assets
+            Aggregate.bequests = f(OPTs.K   .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));  % Bequests
+            Aggregate.labs     = f(OPTs.LAB);                                                                            % Labor
+            Aggregate.labeffs  = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));      % Effective labor
+            Aggregate.lfprs    = f(OPTs.LAB > 0.01);                                                                     % Labor force participation rate
+            Aggregate.incs     = f(OPTs.INC);                                                                            % Income
+            Aggregate.pits     = f(OPTs.PIT);                                                                            % Personal income tax
+            Aggregate.ssts     = f(OPTs.SST);                                                                            % Social Security tax
+            Aggregate.cits     = f(OPTs.CIT);                                                                            % Capital income tax
+            Aggregate.bens     = f(OPTs.BEN);                                                                            % Social Security benefits
             
         end
         
@@ -661,6 +662,7 @@ methods (Static, Access = private)
                     
                     % Calculate market clearing series
                     Dynamic.rhos = (max(Dynamic.assets - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
+                    Dynamic.beqs = Dynamic.bequests;
                     clearing = Market.rhos - Dynamic.rhos;
                     
                 case 'open'
@@ -669,7 +671,7 @@ methods (Static, Access = private)
                     Dynamic.caps = Market.rhos .* Dynamic.labeffs;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
                     
-                    Dynamic.caps_domestic = Market.capshares .* [Market0.assets, Dynamic.assets(1:end-1)];
+                    Dynamic.caps_domestic = Market.capshares .* [Market0.assets, Dynamic.assets(1:T_model-1)];
                     Dynamic.caps_foreign  = qtobin*Dynamic.caps - Dynamic.caps_domestic;
                     
                     % Calculate debt
@@ -702,6 +704,7 @@ methods (Static, Access = private)
                     
                     % Calculate market clearing series
                     Dynamic.rhos = Market.rhos;
+                    Dynamic.beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1)./Dynamic.pops(2:T_model)];
                     clearing = Market.beqs - Dynamic.beqs;
                     
                 case 'closed'
@@ -723,10 +726,10 @@ methods (Static, Access = private)
                     Dynamic.debts_foreign  = zeros(1,T_model);
                     
                     % Calculate capital and output
-                    Dynamic.caps = ([(Market0.assets - Market0.debts)/qtobin0, (Dynamic.assets(1:end-1) - Dynamic.debts(2:end))/qtobin]);
+                    Dynamic.caps = ([(Market0.assets - Market0.debts)/qtobin0, (Dynamic.assets(1:T_model-1) - Dynamic.debts(2:T_model))/qtobin]);
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
                     
-                    Dynamic.caps_domestic = [qtobin0 * Dynamic.caps(1), qtobin * Dynamic.caps(2:end)];
+                    Dynamic.caps_domestic = [qtobin0 * Dynamic.caps(1), qtobin * Dynamic.caps(2:T_model)];
                     Dynamic.caps_foreign  = zeros(1,T_model);
                     
                     % Calculate income
@@ -737,7 +740,8 @@ methods (Static, Access = private)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate market clearing series
-                    Dynamic.rhos = (max([Market0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
+                    Dynamic.rhos = (max([Market0.assets, Dynamic.assets(1:T_model-1)] - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
+                    Dynamic.beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1)./Dynamic.pops(2:T_model)];
                     clearing = Market.rhos - Dynamic.rhos;
                     
             end

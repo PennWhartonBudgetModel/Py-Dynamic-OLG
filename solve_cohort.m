@@ -263,7 +263,7 @@ sst = sstax * min(labinc, ssincmax);
 cit = capshare*ks_ik*(taucap*(caprate - expsub)*captaxshare + taucapgain*(year == 1)*(qtobin - qtobin0)/qtobin0);
 
 % Calculate available resources
-resources = (1 + totrate)*ks_ik + labinc - (pit + sst + cit) + (year == 1)*ks_ik*capshare*(qtobin - qtobin0)/qtobin0;
+resources = (1 + totrate)*ks_ik + labinc - (pit + sst + cit) + beq + (year == 1)*ks_ik*capshare*(qtobin - qtobin0)/qtobin0;
 
 end
 
