@@ -13,10 +13,10 @@ function [V, OPT] = solve_cohort(...
 
 %% Argument verification
 
-T_max  = 100;
 nz_max =  50;
 nk_max =  50;
 nb_max =  50;
+T_max  = 100;
 
 assert( isa(T_past      , 'double'  ) && (size(T_past       , 1) == 1       ) && (size(T_past       , 2) == 1       ) );
 assert( isa(T_shift     , 'double'  ) && (size(T_shift      , 1) == 1       ) && (size(T_shift      , 2) == 1       ) );
