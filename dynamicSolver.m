@@ -264,7 +264,7 @@ methods (Static, Access = private)
             % Define dynamic aggregate generation flag
             isdynamic = isempty(LABs_static);
             
-            % Set empty values for static optimal decision values if not provided
+            % Set static optimal decision values to empty values for dynamic aggregate generation
             if isdynamic, LABs_static = cell(nstartyears, ndem); end
             
             % Initialize optimal decision value arrays
@@ -274,8 +274,8 @@ methods (Static, Access = private)
             % Initialize array of cohort optimal labor values
             LABs  = cell(nstartyears, ndem);
             
-            % Initialize distribution array
-            DIST = double.empty(nz,nk,nb,T_life,ngroups,0,ndem);
+            % Initialize population distribution array
+            DIST = zeros(nz,nk,nb,T_life,ngroups,T_model,ndem);
             
             
             for idem = 1:ndem
@@ -365,17 +365,15 @@ methods (Static, Access = private)
                     year = 1;
                     disteps = Inf;
                     
-                    while (disteps > disttol)
+                    while (disteps > disttol && year <= lastyear)
                         
-                        DIST(:,:,:,:,:,year,idem) = DIST_year;
-                        
-                        if (year < lastyear), year = year + 1; else, break, end
-                        
+                        % Store population distribution for current year
+                        DIST(:,:,:,:,:,min(year, T_model),idem) = DIST_year;
                         DIST_last = DIST_year;
                         
-                        % Extract optimal decision values
-                        K = OPTs.K(:,:,:,:,min(year-1, T_model),idem);
-                        B = OPTs.B(:,:,:,:,min(year-1, T_model),idem);
+                        % Extract optimal decision values for current year
+                        K = OPTs.K(:,:,:,:,min(year, T_model),idem);
+                        B = OPTs.B(:,:,:,:,min(year, T_model),idem);
                         
                         % Define population growth distribution
                         population = sum(DIST_last(:));
@@ -384,7 +382,7 @@ methods (Static, Access = private)
                         DIST_grow(:,1,1,:,g.legal  ) = reshape(DISTz_age(:,:,g.legal  ), [nz,1,1,T_life,1]) * population * legal_rate   .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
                         DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz_age(:,:,g.illegal), [nz,1,1,T_life,1]) * population * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
                         
-                        % Generate distribution
+                        % Generate distribution for next year
                         DIST_year = generate_distribution(DIST_last, DIST_grow, K, B, nz, nk, nb, T_life, ngroups, transz, ks, bs, surv);
                         
                         % Increase legal immigrant population for amnesty, maintaining productivity distributions
@@ -398,6 +396,7 @@ methods (Static, Access = private)
                         
                         % Calculate age distribution convergence error
                         disteps = max(abs(sum(sum(reshape(DIST_year - DIST_last, [], T_life, ngroups), 1), 3)));
+                        year = year + 1;
                         
                     end
                     
@@ -408,13 +407,8 @@ methods (Static, Access = private)
             end
             
             
-            % Extract and normalize steady state population distribution
-            switch economy
-                case 'steady'
-                    DIST = DIST(:,:,:,:,:,end,:);
-                    P = sum(DIST(:));
-                    DIST = DIST / P;
-            end
+            % Normalize steady state population distribution
+            switch economy, case 'steady', DIST = DIST / sum(DIST(:)); end
             
             
             % Generate aggregates
@@ -775,9 +769,7 @@ methods (Static, Access = private)
         save(fullfile(save_dir, 'market.mat'), '-struct', 'Market')
         
         % Save dynamic aggregates
-        switch economy
-            case {'open', 'closed'}, save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic')
-        end
+        switch economy, case {'open', 'closed'}, save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic'), end
         
         
         
