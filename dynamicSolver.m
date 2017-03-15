@@ -202,10 +202,8 @@ methods (Static, Access = private)
         
         % Define population group index mapping
         groups = {'citizen', 'legal', 'illegal'};
-        ngroups = length(groups);
-        for igroup = 1:ngroups
-            g.(groups{igroup}) = igroup;
-        end
+        ng = length(groups);
+        for igroup = 1:ng, g.(groups{igroup}) = igroup; end
         
         % Shift legal immigrant productivity distribution according to policy parameter
         for age_ = 1:T_life
@@ -275,7 +273,7 @@ methods (Static, Access = private)
             LABs  = cell(nstartyears, ndem);
             
             % Initialize population distribution array
-            DIST = zeros(nz,nk,nb,T_life,ngroups,T_model,ndem);
+            DIST = zeros(nz,nk,nb,T_life,ng,T_model,ndem);
             
             
             for idem = 1:ndem
@@ -351,7 +349,7 @@ methods (Static, Access = private)
                     switch economy
                         
                         case 'steady'
-                            DIST_year = ones(nz,nk,nb,T_life,ngroups); DIST_year = DIST_year / numel(DIST_year);
+                            DIST_year = ones(nz,nk,nb,T_life,ng); DIST_year = DIST_year / numel(DIST_year);
                             lastyear = Inf;
                             disttol = 1e-4;
                             
@@ -375,27 +373,13 @@ methods (Static, Access = private)
                         K = OPTs.K(:,:,:,:,min(year, T_model),idem);
                         B = OPTs.B(:,:,:,:,min(year, T_model),idem);
                         
-                        % Define population growth distribution
-                        population = sum(DIST_last(:));
-                        DIST_grow = zeros(nz,nk,nb,T_life,ngroups);
-                        DIST_grow(:,1,1,1,g.citizen) = reshape(DISTz_age(:,1,g.citizen), [nz,1,1,1     ,1]) * population * pgr;
-                        DIST_grow(:,1,1,:,g.legal  ) = reshape(DISTz_age(:,:,g.legal  ), [nz,1,1,T_life,1]) * population * legal_rate   .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
-                        DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz_age(:,:,g.illegal), [nz,1,1,T_life,1]) * population * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
-                        
                         % Generate distribution for next year
-                        DIST_year = generate_distribution(DIST_last, DIST_grow, K, B, nz, nk, nb, T_life, ngroups, transz, ks, bs, surv);
-                        
-                        % Increase legal immigrant population for amnesty, maintaining productivity distributions
-                        DISTz_legal = DIST_year(:,:,:,:,g.legal) ./ repmat(sum(DIST_year(:,:,:,:,g.legal), 1), [nz,1,1,1,1]);
-                        DISTz_legal(isnan(DISTz_legal)) = 1/nz;
-                        
-                        DIST_year(:,:,:,:,g.legal) = DIST_year(:,:,:,:,g.legal) + repmat(sum(amnesty*DIST_year(:,:,:,:,g.illegal), 1), [nz,1,1,1,1]).*DISTz_legal;
-                        
-                        % Reduce illegal immigrant population for amnesty and deportation
-                        DIST_year(:,:,:,:,g.illegal) = (1-amnesty-deportation)*DIST_year(:,:,:,:,g.illegal);
+                        DIST_year = generate_distribution(DIST_last, K, B, ...
+                            nz, nk, nb, T_life, ng, transz, ks, bs, surv, g, ...
+                            pgr, legal_rate, illegal_rate, imm_age, DISTz_age, amnesty, deportation);
                         
                         % Calculate age distribution convergence error
-                        disteps = max(abs(sum(sum(reshape(DIST_year - DIST_last, [], T_life, ngroups), 1), 3)));
+                        disteps = max(abs(sum(sum(reshape(DIST_year - DIST_last, [], T_life, ng), 1), 3)));
                         year = year + 1;
                         
                     end
