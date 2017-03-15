@@ -349,12 +349,12 @@ methods (Static, Access = private)
                     switch economy
                         
                         case 'steady'
-                            DIST_year = ones(nz,nk,nb,T_life,ng); DIST_year = DIST_year / numel(DIST_year);
+                            DIST_next = ones(nz,nk,nb,T_life,ng); DIST_next = DIST_next / numel(DIST_next);
                             lastyear = Inf;
                             disttol = 1e-4;
                             
                         case {'open', 'closed'}
-                            DIST_year = DIST_steady(:,:,:,:,:,1,idem);
+                            DIST_next = DIST_steady(:,:,:,:,:,1,idem);
                             lastyear = T_model;
                             disttol = -Inf;
                             
@@ -366,20 +366,35 @@ methods (Static, Access = private)
                     while (disteps > disttol && year <= lastyear)
                         
                         % Store population distribution for current year
+                        DIST_year = DIST_next;
                         DIST(:,:,:,:,:,min(year, T_model),idem) = DIST_year;
-                        DIST_last = DIST_year;
                         
                         % Extract optimal decision values for current year
                         K = OPTs.K(:,:,:,:,min(year, T_model),idem);
                         B = OPTs.B(:,:,:,:,min(year, T_model),idem);
                         
-                        % Generate distribution for next year
-                        DIST_year = generate_distribution(DIST_last, K, B, ...
-                            nz, nk, nb, T_life, ng, transz, ks, bs, surv, g, ...
-                            pgr, legal_rate, illegal_rate, imm_age, DISTz_age, amnesty, deportation);
+                        % Define population growth distribution
+                        DIST_grow = zeros(nz,nk,nb,T_life,ng);
+                        P = sum(DIST_year(:));
+                        
+                        DIST_grow(:,1,1,1,g.citizen) = reshape(DISTz_age(:,1,g.citizen), [nz,1,1,1     ,1]) * P * pgr;
+                        DIST_grow(:,1,1,:,g.legal  ) = reshape(DISTz_age(:,:,g.legal  ), [nz,1,1,T_life,1]) * P * legal_rate   .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
+                        DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz_age(:,:,g.illegal), [nz,1,1,T_life,1]) * P * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
+                        
+                        % Generate population distribution for next year
+                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, ks, bs, surv);
+                        
+                        % Increase legal immigrant population for amnesty, maintaining distributions over productivity
+                        DISTz_legal = DIST_next(:,:,:,:,g.legal) ./ repmat(sum(DIST_next(:,:,:,:,g.legal), 1), [nz,1,1,1,1]);
+                        DISTz_legal(isnan(DISTz_legal)) = 1/nz;
+                        
+                        DIST_next(:,:,:,:,g.legal) = DIST_next(:,:,:,:,g.legal) + repmat(sum(amnesty*DIST_next(:,:,:,:,g.illegal), 1), [nz,1,1,1,1]).*DISTz_legal;
+                        
+                        % Reduce illegal immigrant population for amnesty and deportation
+                        DIST_next(:,:,:,:,g.illegal) = (1-amnesty-deportation)*DIST_next(:,:,:,:,g.illegal);
                         
                         % Calculate age distribution convergence error
-                        disteps = max(abs(sum(sum(reshape(DIST_year - DIST_last, [], T_life, ng), 1), 3)));
+                        disteps = max(abs(sum(sum(reshape(DIST_next - DIST_year, [], T_life, ng), 1), 3)));
                         year = year + 1;
                         
                     end
