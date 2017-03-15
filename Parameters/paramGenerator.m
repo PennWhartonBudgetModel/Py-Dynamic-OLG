@@ -8,12 +8,12 @@ methods (Static)
         
         %% Miscelaneous deep parameters of the model
         
-        mpci = 3.25;%.35;  % model per capita income
-        rpci = 119000; % Real per capita income in dollars.  Chosen to match the percentage of individuals above the "taxmax," defined below in the Social Security section.
+        mpci = 3.25;   % Model per capita income -- obsolete.  Should be updated in every different baseline.
+        rpci = 119000; % Real per capita income in dollars.  Chosen to match the percentage of individuals above the "taxmax," defined below in the Social Security section. (6%)
         
-        A    = 1;    % Total factor productivity
+        A    = 1;    % Total factor productivity.
         alp  = 0.45;    % Capital share of output.  "alp" is short for "alpha," the Greek letter commonly reserved for this parameter.
-        d = .085;   % depreciation
+        d = .085;   % Depreciation rate.
         T_life = 80;    % Maximum possible lifetime.
         
         T_model = 24;    % Length of transition path.
