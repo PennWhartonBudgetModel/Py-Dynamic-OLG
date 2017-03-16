@@ -238,6 +238,10 @@ methods (Static, Access = private)
             % Define dynamic aggregate generation flag
             isdynamic = isempty(LABs_static);
             
+            % Initialize optimal decision value arrays
+            os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN'};
+            for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model,ndem); end
+            
             % Set empty values for static optimal decision values if not provided
             if isdynamic, LABs_static = cell(nstartyears, ndem); end
             
@@ -245,15 +249,10 @@ methods (Static, Access = private)
             LABs  = cell(nstartyears, ndem);
             
             % Initialize distribution array
-            DIST = double.empty(nz,nk,nb,T_life,0,ndem);
-            
-            % Initialize aggregates
-            series = {'assets', 'beqs', 'labeffs', 'labs', 'lfprs', 'incs', 'pits', 'ssts', 'cits', 'bens'};
-            for a = series, Aggregate.(a{1}) = []; end
+            DIST = zeros(nz,nk,nb,T_life,T_model,ndem);
             
             
             for idem = 1:ndem
-                
                 
                 % Package fixed dynamic optimization parameters into anonymous function
                 solve_cohort_ = @(T_past, T_shift, T_active, V0, LAB_static) solve_cohort(...
@@ -279,14 +278,12 @@ methods (Static, Access = private)
                 end
                 
                 
-                % Define list of optimal decision values
-                os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN'};
-                
                 switch economy
                     
                     case 'steady'
                         
-                        for o = os, OPTs.(o{1}) = OPT.(o{1}); end
+                        % Store optimal decision values
+                        for o = os, OPTs.(o{1})(:,:,:,:,1,idem) = OPT.(o{1}); end
                         LABs{1,idem} = OPT.LAB;
                         
                     case {'open', 'closed'}
@@ -307,19 +304,12 @@ methods (Static, Access = private)
                         end
                         
                         % Construct optimal decision value arrays
-                        for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model); end
-                        
                         for i = 1:nstartyears
-                            
                             for t = 1:T_actives(i)
-                                
                                 age  = t + T_pasts (i);
                                 year = t + T_shifts(i);
-                                
-                                for o = os, OPTs.(o{1})(:,:,:,age,year) = OPTs_cohort{i}.(o{1})(:,:,:,t); end
-                                
+                                for o = os, OPTs.(o{1})(:,:,:,age,year,idem) = OPTs_cohort{i}.(o{1})(:,:,:,t); end
                             end
-                            
                         end
                         
                 end
@@ -339,55 +329,33 @@ methods (Static, Access = private)
                     DIST_year = DIST_static(:,:,:,:,1,idem);
                 end
                 
-                year = 1;
-                
                 switch economy
-                    case 'steady'          , lastyear = T_life ;
-                    case {'open', 'closed'}, lastyear = T_model;
+                    
+                    case 'steady'
+                        lastyear = T_life ;
+                        disttol = -Inf;
+                        
+                    case {'open', 'closed'}
+                        lastyear = T_model;
+                        disttol = -Inf;
+                        
                 end
                 
-                while (true)
+                year = 1;
+                disteps = Inf;
+                
+                while (disteps > disttol)
                     
-                    DIST(:,:,:,:,year,idem) = DIST_year;
-                    
-                    for a = series, if (length(Aggregate.(a{1})) < year), Aggregate.(a{1})(year) = 0; end, end
-                    
-                    DIST_mu2 = DIST_year .* repmat(reshape(mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]);
-                    
-                    D.assets  = DIST_mu2 .* OPTs.K  (:,:,:,:,min(year, T_model)).*(1 + repmat(reshape(mu3(idem,:)./mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]));
-                    D.beqs    = DIST_mu2 .* OPTs.K  (:,:,:,:,min(year, T_model)).*(0 + repmat(reshape(mu3(idem,:)./mu2(idem,:), [1,1,1,T_life]), [nz,nk,nb,1]));
-                    D.labeffs = DIST_mu2 .* OPTs.LAB(:,:,:,:,min(year, T_model)).*repmat(reshape(zs(:,:,idem), [nz,1,1,T_life]), [1,nk,nb,1]);
-                    D.labs    = DIST_mu2 .* OPTs.LAB(:,:,:,:,min(year, T_model));
-                    D.lfprs   = DIST_mu2 .* (OPTs.LAB(:,:,:,:,min(year, T_model)) > 0);
-                    D.incs    = DIST_mu2 .* OPTs.INC(:,:,:,:,min(year, T_model));
-                    D.pits    = DIST_mu2 .* OPTs.PIT(:,:,:,:,min(year, T_model));
-                    D.ssts    = DIST_mu2 .* OPTs.SST(:,:,:,:,min(year, T_model));
-                    D.cits    = DIST_mu2 .* OPTs.CIT(:,:,:,:,min(year, T_model));
-                    D.bens    = DIST_mu2 .* OPTs.BEN(:,:,:,:,min(year, T_model));
-                    
-                    % D.assets  = DIST .* repmat(reshape(ks, [1,nk,1,1]), [nz,1,nb,T_life]);
-                    % D.beqs    = DIST .* OPTs.K  (:,:,:,:,min(year, T_model)).*repmat(reshape(1-surv, [1,1,1,T_life]), [nz,nk,nb,1]);
-                    % D.labeffs = DIST .* OPTs.LAB(:,:,:,:,min(year, T_model)).*repmat(reshape(zs(:,:,idem), [nz,1,1,T_life]), [1,nk,nb,1]);
-                    % D.labs    = DIST .* OPTs.LAB(:,:,:,:,min(year, T_model));
-                    % D.lfprs   = DIST .* (OPTs.LAB(:,:,:,:,min(year, T_model)) > 0);
-                    % D.incs    = DIST .* OPTs.INC(:,:,:,:,min(year, T_model));
-                    % D.pits    = DIST .* OPTs.PIT(:,:,:,:,min(year, T_model));
-                    % D.ssts    = DIST .* OPTs.SST(:,:,:,:,min(year, T_model));
-                    % D.cits    = DIST .* OPTs.CIT(:,:,:,:,min(year, T_model));
-                    % D.bens    = DIST .* OPTs.BEN(:,:,:,:,min(year, T_model));
-                    
-                    for a = series, Aggregate.(a{1})(year) = Aggregate.(a{1})(year) + sum(D.(a{1})(:)); end
-                    
+                    DIST(:,:,:,:,min(year, T_model),idem) = DIST_year;
                     
                     if (year < lastyear), year = year + 1; else, break, end
-                    
                     
                     if isdynamic
                         
                         DIST_last = DIST_year;
                         
-                        K = OPTs.K(:,:,:,:,min(year-1, T_model));
-                        B = OPTs.B(:,:,:,:,min(year-1, T_model));
+                        K = OPTs.K(:,:,:,:,min(year-1, T_model),idem);
+                        B = OPTs.B(:,:,:,:,min(year-1, T_model),idem);
                         
                         DIST_year = generate_distribution(DIST_last, DIST_new, K, B, nz, nk, nb, T_life, transz, ks, bs);
                         
@@ -399,11 +367,21 @@ methods (Static, Access = private)
                 
             end
             
-            switch economy
-                case {'steady'}
-                    DIST = DIST(:,:,:,:,end,:);
-                    for a = series, Aggregate.(a{1}) = Aggregate.(a{1})(end); end
-            end
+            
+            % Generate aggregates
+            DIST_mu2 = DIST .* repmat(reshape(mu2', [1,1,1,T_life,1,ndem]), [nz,nk,nb,1,T_model,1]);
+            f = @(F) sum(sum(reshape(DIST_mu2 .* F, [], T_model, ndem), 1), 3);
+            
+            Aggregate.assets  = f(OPTs.K   .* (1 + repmat(reshape(mu3'./mu2', [1,1,1,T_life,1,ndem]), [nz,nk,nb,1,T_model,1])));
+            Aggregate.beqs    = f(OPTs.K   .* (0 + repmat(reshape(mu3'./mu2', [1,1,1,T_life,1,ndem]), [nz,nk,nb,1,T_model,1])));
+            Aggregate.labs    = f(OPTs.LAB);
+            Aggregate.labeffs = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));
+            Aggregate.lfprs   = f(OPTs.LAB > 0);
+            Aggregate.incs    = f(OPTs.INC);
+            Aggregate.pits    = f(OPTs.PIT);
+            Aggregate.ssts    = f(OPTs.SST);
+            Aggregate.cits    = f(OPTs.CIT);
+            Aggregate.bens    = f(OPTs.BEN);
             
         end
         
