@@ -173,7 +173,14 @@ methods (Static, Access = private)
         surv = [s.surv(1:T_life-1), 0];
         V_beq = s.phi1.*((1+ks./s.phi2).^(1-s.phi3));
         
-        mu2 = s.demdist_2015 * (s.Mu2/sum(s.Mu2));
+        pgr = 0.02;
+        Mu2 = zeros(1,T_life);
+        Mu2(1) = 1;
+        for age_ = 2:T_life
+             Mu2(age_) = (s.surv(age_)/(1+pgr)) * Mu2(age_-1);
+        end
+        
+        mu2 = s.demdist_2015 * (Mu2/sum(Mu2));
         mu3 = repmat(1-surv, [ndem,1]) .* mu2;
         
         mpci = s.mpci;
