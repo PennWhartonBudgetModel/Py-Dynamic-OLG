@@ -177,10 +177,10 @@ methods (Static, Access = private)
         Mu2 = zeros(1,T_life);
         Mu2(1) = 1;
         for age_ = 2:T_life
-             Mu2(age_) = (s.surv(age_)/(1+pgr)) * Mu2(age_-1);
+            Mu2(age_) = surv(age_-1) * Mu2(age_-1) / (1+pgr);
         end
         
-        mu2 = s.demdist_2015 * (Mu2/sum(Mu2));
+        mu2 = repmat(Mu2/sum(Mu2), [ndem,1])/ndem;
         mu3 = repmat(1-surv, [ndem,1]) .* mu2;
         
         mpci = s.mpci;
