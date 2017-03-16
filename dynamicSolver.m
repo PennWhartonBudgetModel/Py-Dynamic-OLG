@@ -314,55 +314,51 @@ methods (Static, Access = private)
                         
                 end
                 
-                % Define initial population distribution
+                
                 if isdynamic
                     
-                    DIST_new = zeros(nz,nk,nb,T_life);
-                    DIST_new(:,1,1,1) = reshape(DISTz, [nz,1,1,1]);
-                    
+                    % Define initial population distribution and distribution generation termination conditions
                     switch economy
-                        case 'steady'          , DIST_year = DIST_new;
-                        case {'open', 'closed'}, DIST_year = DIST_steady(:,:,:,:,1,idem);
+                        
+                        case 'steady'
+                            DIST_next = zeros(nz,nk,nb,T_life); DIST_next(:,1,1,1) = reshape(DISTz, [nz,1,1,1]);
+                            lastyear = T_life;
+                            disttol = -Inf;
+                            
+                        case {'open', 'closed'}
+                            DIST_next = DIST_steady(:,:,:,:,1,idem);
+                            lastyear = T_model;
+                            disttol = -Inf;
+                            
+                    end
+                    
+                    year = 1;
+                    disteps = Inf;
+                    
+                    while (disteps > disttol && year <= lastyear)
+                        
+                        % Store population distribution for current year
+                        DIST_year = DIST_next;
+                        DIST(:,:,:,:,min(year, T_model),idem) = DIST_next;
+                        
+                        % Extract optimal decision values for current year
+                        K = OPTs.K(:,:,:,:,min(year, T_model),idem);
+                        B = OPTs.B(:,:,:,:,min(year, T_model),idem);
+                    
+                        % Define population growth distribution
+                        DIST_grow = zeros(nz,nk,nb,T_life);
+                        
+                        DIST_grow(:,1,1,1) = reshape(DISTz, [nz,1,1,1]);
+                        
+                        % Generate population distribution for next year
+                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, transz, ks, bs);
+                        
+                        year = year + 1;
+                        
                     end
                     
                 else
-                    DIST_year = DIST_static(:,:,:,:,1,idem);
-                end
-                
-                switch economy
-                    
-                    case 'steady'
-                        lastyear = T_life ;
-                        disttol = -Inf;
-                        
-                    case {'open', 'closed'}
-                        lastyear = T_model;
-                        disttol = -Inf;
-                        
-                end
-                
-                year = 1;
-                disteps = Inf;
-                
-                while (disteps > disttol)
-                    
-                    DIST(:,:,:,:,min(year, T_model),idem) = DIST_year;
-                    
-                    if (year < lastyear), year = year + 1; else, break, end
-                    
-                    if isdynamic
-                        
-                        DIST_last = DIST_year;
-                        
-                        K = OPTs.K(:,:,:,:,min(year-1, T_model),idem);
-                        B = OPTs.B(:,:,:,:,min(year-1, T_model),idem);
-                        
-                        DIST_year = generate_distribution(DIST_last, DIST_new, K, B, nz, nk, nb, T_life, transz, ks, bs);
-                        
-                    else
-                        DIST_year = DIST_static(:,:,:,:,year,idem);
-                    end
-                    
+                    DIST = DIST_static;
                 end
                 
             end

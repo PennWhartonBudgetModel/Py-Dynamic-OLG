@@ -4,18 +4,18 @@
 %%
 
 
-function [DIST_year] = generate_distribution(DIST_last, DIST_new, K, B, nz, nk, nb, T_life, transz, ks, bs) %#codegen
+function [DIST_next] = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, transz, ks, bs) %#codegen
 
 
 %% Argument verification
 
-T_max  = 100;
 nz_max =  50;
 nk_max =  50;
 nb_max =  50;
+T_max  = 100;
 
-assert( isa(DIST_last   , 'double'  ) && (size(DIST_last    , 1) <= nz_max  ) && (size(DIST_last    , 2) <= nk_max  ) && (size(DIST_last    , 3) <= nb_max  ) && (size(DIST_last    , 4) <= T_max   ) );
-assert( isa(DIST_new    , 'double'  ) && (size(DIST_new     , 1) <= nz_max  ) && (size(DIST_new     , 2) <= nk_max  ) && (size(DIST_new     , 3) <= nb_max  ) && (size(DIST_new     , 4) <= T_max   ) );
+assert( isa(DIST_year   , 'double'  ) && (size(DIST_year    , 1) <= nz_max  ) && (size(DIST_year    , 2) <= nk_max  ) && (size(DIST_year    , 3) <= nb_max  ) && (size(DIST_year    , 4) <= T_max   ) );
+assert( isa(DIST_grow   , 'double'  ) && (size(DIST_grow    , 1) <= nz_max  ) && (size(DIST_grow    , 2) <= nk_max  ) && (size(DIST_grow    , 3) <= nb_max  ) && (size(DIST_grow    , 4) <= T_max   ) );
 assert( isa(K           , 'double'  ) && (size(K            , 1) <= nz_max  ) && (size(K            , 2) <= nk_max  ) && (size(K            , 3) <= nb_max  ) && (size(K            , 4) <= T_max   ) );
 assert( isa(B           , 'double'  ) && (size(B            , 1) <= nz_max  ) && (size(B            , 2) <= nk_max  ) && (size(B            , 3) <= nb_max  ) && (size(B            , 4) <= T_max   ) );
 
@@ -31,7 +31,7 @@ assert( isa(bs          , 'double'  ) && (size(bs           , 1) <= nb_max  ) &&
 
 %% Distribution generation
 
-DIST_year = DIST_new;
+DIST_next = DIST_grow;
 
 for age = 2:T_life
 
@@ -62,15 +62,15 @@ for age = 2:T_life
     for jz = 1:nz
 
         % Apply survival and productivity transformations to cohort distribution from current year
-        DIST_transz = DIST_last(:,:,:,age-1) .* repmat(reshape(transz(:,jz), [nz,1,1]), [1,nk,nb]);
+        DIST_transz = DIST_year(:,:,:,age-1) .* repmat(reshape(transz(:,jz), [nz,1,1]), [1,nk,nb]);
         % DIST_transz = DIST__(:,:,:,age-1) * surv(age-1) .* repmat(reshape(transz(:,jz), [nz,1,1]), [1,nk,nb]);
 
         % Redistribute cohort for next year according to target indices and weights
         for elem = 1:numel(DIST_transz)
-            DIST_year(jz, jk_lt(elem), jb_lt(elem), age) = DIST_year(jz, jk_lt(elem), jb_lt(elem), age) + wk_lt(elem)*wb_lt(elem)*DIST_transz(elem);
-            DIST_year(jz, jk_gt(elem), jb_lt(elem), age) = DIST_year(jz, jk_gt(elem), jb_lt(elem), age) + wk_gt(elem)*wb_lt(elem)*DIST_transz(elem);
-            DIST_year(jz, jk_lt(elem), jb_gt(elem), age) = DIST_year(jz, jk_lt(elem), jb_gt(elem), age) + wk_lt(elem)*wb_gt(elem)*DIST_transz(elem);
-            DIST_year(jz, jk_gt(elem), jb_gt(elem), age) = DIST_year(jz, jk_gt(elem), jb_gt(elem), age) + wk_gt(elem)*wb_gt(elem)*DIST_transz(elem);
+            DIST_next(jz, jk_lt(elem), jb_lt(elem), age) = DIST_next(jz, jk_lt(elem), jb_lt(elem), age) + wk_lt(elem)*wb_lt(elem)*DIST_transz(elem);
+            DIST_next(jz, jk_gt(elem), jb_lt(elem), age) = DIST_next(jz, jk_gt(elem), jb_lt(elem), age) + wk_gt(elem)*wb_lt(elem)*DIST_transz(elem);
+            DIST_next(jz, jk_lt(elem), jb_gt(elem), age) = DIST_next(jz, jk_lt(elem), jb_gt(elem), age) + wk_lt(elem)*wb_gt(elem)*DIST_transz(elem);
+            DIST_next(jz, jk_gt(elem), jb_gt(elem), age) = DIST_next(jz, jk_gt(elem), jb_gt(elem), age) + wk_gt(elem)*wb_gt(elem)*DIST_transz(elem);
         end
 
     end
