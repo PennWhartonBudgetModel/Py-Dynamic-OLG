@@ -4,7 +4,7 @@
 %%
 
 
-function [DIST_next] = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, transz, ks, bs) %#codegen
+function [DIST_next] = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, transz, ks, bs, surv) %#codegen
 
 
 %% Argument verification
@@ -26,6 +26,7 @@ assert( isa(T_life      , 'double'  ) && (size(T_life       , 1) == 1       ) &&
 assert( isa(transz      , 'double'  ) && (size(transz       , 1) <= nz_max  ) && (size(transz       , 2) <= nz_max  ) );
 assert( isa(ks          , 'double'  ) && (size(ks           , 1) <= nk_max  ) && (size(ks           , 2) == 1       ) );
 assert( isa(bs          , 'double'  ) && (size(bs           , 1) <= nb_max  ) && (size(bs           , 2) == 1       ) );
+assert( isa(surv        , 'double'  ) && (size(surv         , 1) == 1       ) && (size(surv         , 2) <= T_max   ) );
 
 
 
@@ -62,8 +63,7 @@ for age = 2:T_life
     for jz = 1:nz
 
         % Apply survival and productivity transformations to cohort distribution from current year
-        DIST_transz = DIST_year(:,:,:,age-1) .* repmat(reshape(transz(:,jz), [nz,1,1]), [1,nk,nb]);
-        % DIST_transz = DIST__(:,:,:,age-1) * surv(age-1) .* repmat(reshape(transz(:,jz), [nz,1,1]), [1,nk,nb]);
+        DIST_transz = DIST_year(:,:,:,age-1) * surv(age-1) .* repmat(reshape(transz(:,jz), [nz,1,1]), [1,nk,nb]);
 
         % Redistribute cohort for next year according to target indices and weights
         for elem = 1:numel(DIST_transz)

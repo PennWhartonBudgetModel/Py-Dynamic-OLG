@@ -173,21 +173,17 @@ methods (Static, Access = private)
         surv = [s.surv(1:T_life-1), 0];
         V_beq = s.phi1.*((1+ks./s.phi2).^(1-s.phi3));
         
-        pgr = 0.0045536;
-        Mu2 = zeros(1,T_life);
-        Mu2(1) = 1;
-        for age_ = 2:T_life
-            Mu2(age_) = surv(age_-1) * Mu2(age_-1) / (1+pgr);
-        end
-        
-        mu2 = repmat(Mu2/sum(Mu2), [ndem,1])/ndem;
-        mu3 = repmat(1-surv, [ndem,1]) .* mu2;
-        
         mpci = s.mpci;
         rpci = s.rpci;
         
         deducscale  = s.deduc_scale;
         sstaxcredit = s.ss_tax_cred;
+        
+        
+        % Load immigration parameters
+        s = load(fullfile(param_dir, 'param_immigration.mat'));
+        
+        birth_rate   = s.pgr;
         
         
         % Load social security parameters
@@ -321,9 +317,9 @@ methods (Static, Access = private)
                     switch economy
                         
                         case 'steady'
-                            DIST_next = zeros(nz,nk,nb,T_life); DIST_next(:,1,1,1) = reshape(DISTz, [nz,1,1,1]);
-                            lastyear = T_life;
-                            disttol = -Inf;
+                            DIST_next = ones(nz,nk,nb,T_life) / (nz*nk*nb*T_life*ndem);
+                            lastyear = Inf;
+                            disttol = 1e-6;
                             
                         case {'open', 'closed'}
                             DIST_next = DIST_steady(:,:,:,:,1,idem);
@@ -347,11 +343,16 @@ methods (Static, Access = private)
                     
                         % Define population growth distribution
                         DIST_grow = zeros(nz,nk,nb,T_life);
+                        P = sum(DIST_year(:));
                         
-                        DIST_grow(:,1,1,1) = reshape(DISTz, [nz,1,1,1]);
+                        DIST_grow(:,1,1,1) = reshape(DISTz, [nz,1,1,1]) * P * birth_rate;
                         
                         % Generate population distribution for next year
-                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, transz, ks, bs);
+                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, transz, ks, bs, surv);
+                        
+                        % Calculate age distribution convergence error
+                        f = @(D) sum(reshape(D, [], T_life), 1) / sum(D(:));
+                        disteps = max(abs(f(DIST_next) - f(DIST_year)));
                         
                         year = year + 1;
                         
@@ -364,12 +365,15 @@ methods (Static, Access = private)
             end
             
             
-            % Generate aggregates
-            DIST_mu2 = DIST .* repmat(reshape(mu2', [1,1,1,T_life,1,ndem]), [nz,nk,nb,1,T_model,1]);
-            f = @(F) sum(sum(reshape(DIST_mu2 .* F, [], T_model, ndem), 1), 3);
+            % Normalize steady state population distribution
+            switch economy, case 'steady', DIST = DIST / sum(DIST(:)); end
             
-            Aggregate.assets  = f(OPTs.K   .* (1 + repmat(reshape(mu3'./mu2', [1,1,1,T_life,1,ndem]), [nz,nk,nb,1,T_model,1])));
-            Aggregate.beqs    = f(OPTs.K   .* (0 + repmat(reshape(mu3'./mu2', [1,1,1,T_life,1,ndem]), [nz,nk,nb,1,T_model,1])));
+            
+            % Generate aggregates
+            f = @(F) sum(sum(reshape(DIST .* F, [], T_model, ndem), 1), 3);
+            
+            Aggregate.assets  = f(OPTs.K   .* repmat(reshape(2-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));
+            Aggregate.beqs    = f(OPTs.K   .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));
             Aggregate.labs    = f(OPTs.LAB);
             Aggregate.labeffs = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));
             Aggregate.lfprs   = f(OPTs.LAB > 0);
@@ -513,7 +517,7 @@ methods (Static, Access = private)
         % Display header
         fprintf('\n[')
         switch economy
-    
+            
             case 'steady'
                 fprintf('Steady state')
             
@@ -744,7 +748,7 @@ methods (Static, Access = private)
                 for jdem = 1:ndem
                     
                     LAB_  = LABs {1,jdem};
-                    DIST_ = DIST(:,:,:,:,1,jdem) .* repmat(reshape(mu2(jdem,:), [1,1,1,T_life]), [nz,nk,nb,1]);
+                    DIST_ = DIST(:,:,:,:,1,jdem);
                     
                     workind = (LAB_ > 0.01);
                     
