@@ -173,7 +173,7 @@ methods (Static, Access = private)
         surv = [s.surv(1:T_life-1), 0];
         V_beq = s.phi1.*((1+ks./s.phi2).^(1-s.phi3));
         
-        pgr = 0.02;
+        pgr = 0.0045536;
         Mu2 = zeros(1,T_life);
         Mu2(1) = 1;
         for age_ = 2:T_life
