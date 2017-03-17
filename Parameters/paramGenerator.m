@@ -26,7 +26,7 @@ methods (Static)
         Mu2 = zeros(1,T_life);
         Mu2(1) = 1;
         for i1 = 2:T_life
-            Mu2(i1) = (surv(i1)/(1+pgr))*Mu2(i1-1);
+            Mu2(i1) = (surv(i1-1)/(1+pgr))*Mu2(i1-1);
         end
         
         
@@ -54,7 +54,7 @@ methods (Static)
         end
         
         
-        % transitory shock 
+        % Transitory shock 
 
         nt = 2;  % number of transitory shocks
         sig_t = (.0630)^(.5);
@@ -576,7 +576,7 @@ function surv = calculate_survival()
            0
            0                ];
        
-       surv = surv';
+       surv = 1 - surv';
                    
 end
 
