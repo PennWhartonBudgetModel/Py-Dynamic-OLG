@@ -195,8 +195,8 @@ methods (Static, Access = private)
         s = load(fullfile(param_dir, 'param_immigration.mat'));
         
         birth_rate   = s.pgr;
-        legal_rate   = s.legal_rate * legal_scale;
-        illegal_rate = s.illegal_rate;
+        legal_rate   = s.legal_rate * legal_scale;  legal_rate   = 0;
+        illegal_rate = s.illegal_rate;              illegal_rate = 0;
         imm_age      = s.imm_age;
         DISTz_age    = s.proddist_age;
         
