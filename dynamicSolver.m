@@ -45,12 +45,16 @@ methods (Static)
     function [basedef_tag, counterdef_tag] = generate_tags(basedef, counterdef)
         
         % Define baseline and counterfactual parameter formats
-        basedef_format    = struct( 'beta'      , '%0.3f'   , ...
-                                    'gamma'     , '%0.3f'   , ...
-                                    'sigma'     , '%05.2f'  );
+        basedef_format    = struct( 'beta'          , '%.3f'    , ...
+                                    'gamma'         , '%.3f'    , ...
+                                    'sigma'         , '%.2f'    );
         
-        counterdef_format = struct( 'taxplan'   , '%s'      , ...
-                                    'gcut'      , '%+0.2f'  );
+        counterdef_format = struct( 'taxplan'       , '%s'      , ...
+                                    'gcut'          , '%+.2f'   , ...
+                                    'legal_scale'   , '%.1f'    , ...
+                                    'prem_legal'    , '%.3f'    , ...
+                                    'amnesty'       , '%.2f'    , ...
+                                    'deportation'   , '%.2f'    );
         
         % Define function to construct tag from definition and format specifications
         function tag = construct_tag(def, format)
@@ -83,8 +87,12 @@ methods (Static, Access = private)
         
         % Define default counterfactual parameter values
         % (These are the values used for a baseline run)
-        counterdef_filled = struct( 'taxplan' , 'base'    , ...
-                                    'gcut'    , +0.00     );
+        counterdef_filled = struct( 'taxplan'       , 'base', ...
+                                    'gcut'          , +0.00 , ...
+                                    'legal_scale'   , 1.0   , ...
+                                    'prem_legal'    , 1.000 , ...
+                                    'amnesty'       , 0.00  , ...
+                                    'deportation'   , 0.00  );
         
         % Override default parameter values with values from counterfactual definition
         for field = fields(counterdef)'
@@ -116,8 +124,12 @@ methods (Static, Access = private)
         counterdef_filled = dynamicSolver.fill_default(counterdef);
         
         % Unpack parameters from filled counterfactual definition
-        taxplan = counterdef_filled.taxplan;
-        gcut    = counterdef_filled.gcut   ;
+        taxplan     = counterdef_filled.taxplan    ;
+        gcut        = counterdef_filled.gcut       ;
+        legal_scale = counterdef_filled.legal_scale;
+        prem_legal  = counterdef_filled.prem_legal ;
+        amnesty     = counterdef_filled.amnesty    ;
+        deportation = counterdef_filled.deportation;
         
         
         % Identify working directories
@@ -162,16 +174,15 @@ methods (Static, Access = private)
         
         zs     = s.z;
         transz = s.tr_z;
-        DISTz  = s.proddist(:,1)';
         ks     = s.kgrid;
-        bs     = [0; s.bgrid(2:end)];
+        bs     = s.bgrid; bs(1) = 0;
         
         A   = s.A;
         alp = s.alp;
         d   = s.d;
         
-        surv = [s.surv(1:T_life-1), 0];
-        V_beq = s.phi1.*((1+ks./s.phi2).^(1-s.phi3));
+        surv = s.surv(1:T_life); surv(T_life) = 0;
+        V_beq = s.phi1.*((1 + ks./s.phi2).^(1 - s.phi3));
         
         mpci = s.mpci;
         rpci = s.rpci;
@@ -184,6 +195,23 @@ methods (Static, Access = private)
         s = load(fullfile(param_dir, 'param_immigration.mat'));
         
         birth_rate   = s.pgr;
+        legal_rate   = s.legal_rate * legal_scale;
+        illegal_rate = s.illegal_rate;
+        imm_age      = s.imm_age;
+        DISTz_age    = s.proddist_age;
+        
+        % Define population group index mapping
+        groups = {'citizen', 'legal', 'illegal'};
+        ng = length(groups);
+        for igroup = 1:ng, g.(groups{igroup}) = igroup; end
+        
+        % Shift legal immigrant productivity distribution according to policy parameter
+        for age_ = 1:T_life
+            v = mean(zs(:, age_, :), 3);
+            ztarget = sum(v .* DISTz_age(:, age_, g.legal)) * prem_legal;
+            p = (v(nz) - ztarget) / (v(nz)*(nz-1) - sum(v(1:nz-1)));
+            DISTz_age(:, age_, g.legal) = [ p*ones(nz-1,1) ; 1 - p*(nz-1) ];
+        end
         
         
         % Load social security parameters
@@ -234,18 +262,18 @@ methods (Static, Access = private)
             % Define dynamic aggregate generation flag
             isdynamic = isempty(LABs_static);
             
+            % Set static optimal decision values to empty values for dynamic aggregate generation
+            if isdynamic, LABs_static = cell(nstartyears, ndem); end
+            
             % Initialize optimal decision value arrays
             os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN'};
             for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model,ndem); end
             
-            % Set empty values for static optimal decision values if not provided
-            if isdynamic, LABs_static = cell(nstartyears, ndem); end
-            
             % Initialize array of cohort optimal labor values
             LABs  = cell(nstartyears, ndem);
             
-            % Initialize distribution array
-            DIST = zeros(nz,nk,nb,T_life,T_model,ndem);
+            % Initialize population distribution array
+            DIST = zeros(nz,nk,nb,T_life,ng,T_model,ndem);
             
             
             for idem = 1:ndem
@@ -317,12 +345,12 @@ methods (Static, Access = private)
                     switch economy
                         
                         case 'steady'
-                            DIST_next = ones(nz,nk,nb,T_life) / (nz*nk*nb*T_life*ndem);
+                            DIST_next = ones(nz,nk,nb,T_life,ng) / (nz*nk*nb*T_life*ng*ndem);
                             lastyear = Inf;
                             disttol = 1e-6;
                             
                         case {'open', 'closed'}
-                            DIST_next = DIST_steady(:,:,:,:,1,idem);
+                            DIST_next = DIST_steady(:,:,:,:,:,1,idem);
                             lastyear = T_model;
                             disttol = -Inf;
                             
@@ -335,23 +363,34 @@ methods (Static, Access = private)
                         
                         % Store population distribution for current year
                         DIST_year = DIST_next;
-                        DIST(:,:,:,:,min(year, T_model),idem) = DIST_next;
+                        DIST(:,:,:,:,:,min(year, T_model),idem) = DIST_year;
                         
                         % Extract optimal decision values for current year
                         K = OPTs.K(:,:,:,:,min(year, T_model),idem);
                         B = OPTs.B(:,:,:,:,min(year, T_model),idem);
-                    
+                        
                         % Define population growth distribution
-                        DIST_grow = zeros(nz,nk,nb,T_life);
+                        DIST_grow = zeros(nz,nk,nb,T_life,ng);
                         P = sum(DIST_year(:));
                         
-                        DIST_grow(:,1,1,1) = reshape(DISTz, [nz,1,1,1]) * P * birth_rate;
+                        DIST_grow(:,1,1,1,g.citizen) = reshape(DISTz_age(:,1,g.citizen), [nz,1,1,1     ,1]) * P * birth_rate   ;
+                        DIST_grow(:,1,1,:,g.legal  ) = reshape(DISTz_age(:,:,g.legal  ), [nz,1,1,T_life,1]) * P * legal_rate   .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
+                        DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz_age(:,:,g.illegal), [nz,1,1,T_life,1]) * P * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
                         
                         % Generate population distribution for next year
-                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, transz, ks, bs, surv);
+                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, ks, bs, surv);
+                        
+                        % Increase legal immigrant population for amnesty, maintaining distributions over productivity
+                        DISTz_legal = DIST_next(:,:,:,:,g.legal) ./ repmat(sum(DIST_next(:,:,:,:,g.legal), 1), [nz,1,1,1,1]);
+                        DISTz_legal(isnan(DISTz_legal)) = 1/nz;
+                        
+                        DIST_next(:,:,:,:,g.legal) = DIST_next(:,:,:,:,g.legal) + repmat(sum(amnesty*DIST_next(:,:,:,:,g.illegal), 1), [nz,1,1,1,1]).*DISTz_legal;
+                        
+                        % Reduce illegal immigrant population for amnesty and deportation
+                        DIST_next(:,:,:,:,g.illegal) = (1-amnesty-deportation)*DIST_next(:,:,:,:,g.illegal);
                         
                         % Calculate age distribution convergence error
-                        f = @(D) sum(reshape(D, [], T_life), 1) / sum(D(:));
+                        f = @(D) sum(sum(reshape(D, [], T_life, ng), 1), 3) / sum(D(:));
                         disteps = max(abs(f(DIST_next) - f(DIST_year)));
                         
                         % Calculate net population growth rate
@@ -374,7 +413,8 @@ methods (Static, Access = private)
             
             
             % Generate aggregates
-            f = @(F) sum(sum(reshape(DIST .* F, [], T_model, ndem), 1), 3);
+            DIST_gs = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model,ndem]);
+            f = @(F) sum(sum(reshape(DIST_gs .* F, [], T_model, ndem), 1), 3);
             
             Aggregate.pops     = f(1);                                                                                   % Population
             Aggregate.assets   = f(repmat(reshape(ks, [1,nk,1,1,1,1]), [nz,1,nb,T_life,T_model,ndem]));                  % Assets
@@ -634,7 +674,7 @@ methods (Static, Access = private)
                     Dynamic.caps = Market.rhos .* Dynamic.labeffs;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
                     
-                    Dynamic.caps_domestic = Market.capshares .* [Market0.assets, Dynamic.assets(1:end-1)];
+                    Dynamic.caps_domestic = Market.capshares .* [Market0.assets, Dynamic.assets(1:T_model-1)];
                     Dynamic.caps_foreign  = qtobin*Dynamic.caps - Dynamic.caps_domestic;
                     
                     % Calculate debt
@@ -689,10 +729,10 @@ methods (Static, Access = private)
                     Dynamic.debts_foreign  = zeros(1,T_model);
                     
                     % Calculate capital and output
-                    Dynamic.caps = ([(Market0.assets - Market0.debts)/qtobin0, (Dynamic.assets(1:end-1) - Dynamic.debts(2:end))/qtobin]);
+                    Dynamic.caps = ([(Market0.assets - Market0.debts)/qtobin0, (Dynamic.assets(1:T_model-1) - Dynamic.debts(2:T_model))/qtobin]);
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
                     
-                    Dynamic.caps_domestic = [qtobin0 * Dynamic.caps(1), qtobin * Dynamic.caps(2:end)];
+                    Dynamic.caps_domestic = [qtobin0 * Dynamic.caps(1), qtobin * Dynamic.caps(2:T_model)];
                     Dynamic.caps_foreign  = zeros(1,T_model);
                     
                     % Calculate income
@@ -710,7 +750,7 @@ methods (Static, Access = private)
             end
             
             
-            % Check market clearing series
+            % Calculate maximum error in market clearing series
             eps = max(abs(clearing));
             
             fprintf('Error term = %7.4f\n', eps)
@@ -727,7 +767,7 @@ methods (Static, Access = private)
         
         % Save baseline optimal decision values and population distribution
         if isbase
-            save(fullfile(save_dir, 'decisions.mat'   ), 'LABs' )
+            save(fullfile(save_dir, 'decisions.mat'   ), 'LABs')
             save(fullfile(save_dir, 'distribution.mat'), 'DIST')
         end
         
@@ -735,9 +775,7 @@ methods (Static, Access = private)
         save(fullfile(save_dir, 'market.mat'), '-struct', 'Market')
         
         % Save dynamic aggregates
-        switch economy
-            case {'open', 'closed'}, save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic')
-        end
+        switch economy, case {'open', 'closed'}, save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic'), end
         
         
         
@@ -756,13 +794,13 @@ methods (Static, Access = private)
                 
                 for jdem = 1:ndem
                     
-                    LAB_  = LABs {1,jdem};
-                    DIST_ = DIST(:,:,:,:,1,jdem);
+                    LAB_  = LABs{1,jdem};
+                    DIST_ = sum(DIST(:,:,:,:,:,1,jdem), 5);
                     
                     workind = (LAB_ > 0.01);
                     
                     workmass = workmass + sum(DIST_(workind));
-                    frisch   = frisch   + sum(DIST_(workind).*(1-LAB_(workind))./LAB_(workind))*(1-gamma*(1-sigma))/sigma;
+                    frisch   = frisch   + sum(DIST_(workind).*(1-LAB_(workind))./LAB_(workind))*(1 - gamma*(1-sigma))/sigma;
                     
                 end
                 
