@@ -445,7 +445,7 @@ methods (Static, Access = private)
             Market = hardyload('market.mat'      , base_generator, base_dir);
             
             s      = hardyload('decisions.mat'   , base_generator, base_dir);
-            LABs_static  = s.LABs ;
+            LABs_static = s.LABs;
             
             s      = hardyload('distribution.mat', base_generator, base_dir);
             DIST_static = s.DIST;
@@ -490,7 +490,7 @@ methods (Static, Access = private)
             
             case 'steady'
                 
-                % Load neutral market conditions as initial conditions
+                % Load initial conditions
                 Market0 = load(fullfile(param_dir, 'market0.mat'));
                 
                 DIST_steady = {};
@@ -501,7 +501,7 @@ methods (Static, Access = private)
                 steady_generator = @() dynamicSolver.steady(basedef, callingtag);
                 steady_dir = dirFinder.save('steady', basedef);
                 
-                % Load steady state market conditions as initial conditions
+                % Load steady state market conditions
                 Market0 = hardyload('market.mat'      , steady_generator, steady_dir);
                 
                 % Load steady state population distribution
@@ -771,11 +771,9 @@ methods (Static, Access = private)
             save(fullfile(save_dir, 'distribution.mat'), 'DIST')
         end
         
-        % Save final market conditions
-        save(fullfile(save_dir, 'market.mat'), '-struct', 'Market')
-        
-        % Save dynamic aggregates
-        switch economy, case {'open', 'closed'}, save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic'), end
+        % Save market conditions and dynamic aggregates
+        save(fullfile(save_dir, 'market.mat'  ), '-struct', 'Market' )
+        save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic')
         
         
         
