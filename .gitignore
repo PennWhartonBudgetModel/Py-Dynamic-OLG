@@ -12,11 +12,8 @@ Logs/
 # Ignore designated directories
 .ignore/
 
-# Ignore Linux mex files -- i.e. mex files built on the HPCC
+# Ignore Linux mex files (i.e. mex files built on the HPCC)
 *.mexa64
 
 # Ignore Matlab code generation directories
 /*_codegen
-
-# Ignore temporary immigration intermediate results directory
-/Immigration/Freeze/Cohorts
