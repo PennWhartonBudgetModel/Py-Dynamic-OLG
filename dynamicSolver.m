@@ -229,7 +229,7 @@ methods (Static, Access = private)
         
         %% Aggregate generation function
         
-        function [Aggregate, LABs, DIST] = generate_aggregates(Market, DIST_steady, LABs_static, DIST_static)
+        function [Aggregate, LABs, DIST, pgr] = generate_aggregates(Market, DIST_steady, LABs_static, DIST_static)
             
             % Define dynamic aggregate generation flag
             isdynamic = isempty(LABs_static);
@@ -354,6 +354,10 @@ methods (Static, Access = private)
                         f = @(D) sum(reshape(D, [], T_life), 1) / sum(D(:));
                         disteps = max(abs(f(DIST_next) - f(DIST_year)));
                         
+                        % Calculate net population growth rate
+                        % (Note that rate is assumed to be independent of demographic)
+                        pgr = sum(DIST_next(:)) / sum(DIST_year(:));
+                        
                         year = year + 1;
                         
                     end
@@ -372,6 +376,7 @@ methods (Static, Access = private)
             % Generate aggregates
             f = @(F) sum(sum(reshape(DIST .* F, [], T_model, ndem), 1), 3);
             
+            Aggregate.pops    = f(1);
             Aggregate.assets  = f(OPTs.K   .* repmat(reshape(2-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));
             Aggregate.beqs    = f(OPTs.K   .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));
             Aggregate.labs    = f(OPTs.LAB);
@@ -551,13 +556,13 @@ methods (Static, Access = private)
                     else
                         switch economy
                             case 'steady'
-                                Market.rhos  = 0.5*Market.rhos + 0.5*Dynamic.rhos;
+                                Market.rhos  = 0.5*Market.rhos + 0.5*rhos;
                                 Market.debts = debtout*Dynamic.outs;
                             case 'closed'
                                 Market.rhos  = 0.3*Market.rhos + 0.7*Dynamic.rhos;
                                 Market.debts = Dynamic.debts;
                         end
-                        Market.beqs   = Dynamic.beqs  ;
+                        Market.beqs   = beqs;
                         Market.assets = Dynamic.assets;
                         Market.caps   = Dynamic.caps  ;
                     end
@@ -590,7 +595,7 @@ methods (Static, Access = private)
                         Market.beqs   = Market0.beqs  *ones(1,T_model);
                         
                     else
-                        Market.beqs   = Dynamic.beqs;
+                        Market.beqs   = beqs;
                         Market.caps   = Dynamic.caps;
                     end
                     
@@ -601,7 +606,7 @@ methods (Static, Access = private)
             
             
             % Generate dynamic aggregates
-            [Dynamic, LABs, DIST] = generate_aggregates(Market, DIST_steady, {}, {});
+            [Dynamic, LABs, DIST, pgr] = generate_aggregates(Market, DIST_steady, {}, {});
             
             
             % Calculate additional dynamic aggregates
@@ -618,8 +623,9 @@ methods (Static, Access = private)
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
                     
                     % Calculate market clearing series
-                    Dynamic.rhos = (max(Dynamic.assets - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
-                    clearing = Market.rhos - Dynamic.rhos;
+                    rhos = (max(Dynamic.assets - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
+                    beqs = Dynamic.beqs / pgr;
+                    clearing = Market.rhos - rhos;
                     
                 case 'open'
                     
@@ -660,7 +666,8 @@ methods (Static, Access = private)
                     
                     % Calculate market clearing series
                     Dynamic.rhos = Market.rhos;
-                    clearing = Market.beqs - Dynamic.beqs;
+                    beqs = [Market0.beqs, Dynamic.beqs(1:T_model-1)] ./ Dynamic.pops;
+                    clearing = Market.beqs - beqs;
                     
                 case 'closed'
                     
@@ -696,6 +703,7 @@ methods (Static, Access = private)
                     
                     % Calculate market clearing series
                     Dynamic.rhos = (max([Market0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
+                    beqs = [Market0.beqs, Dynamic.beqs(1:T_model-1)] ./ Dynamic.pops;
                     clearing = Market.rhos - Dynamic.rhos;
                     
             end
