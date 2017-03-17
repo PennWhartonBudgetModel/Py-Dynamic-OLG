@@ -7,7 +7,7 @@
 function [V, OPT] = solve_cohort(...
              T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs_idem, transz, ks, bs, beta, gamma, sigma, surv, V_beq, ...
              mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-             beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubs, ...
+             beqs, wages, capshares, caprates, govrates, totrates, expsubs, ...
              V0, LAB_static, isdynamic) %#codegen
 
 
@@ -53,7 +53,6 @@ assert( isa(qtobin0     , 'double'  ) && (size(qtobin0      , 1) == 1       ) &&
 assert( isa(beqs        , 'double'  ) && (size(beqs         , 1) == 1       ) && (size(beqs         , 2) <= T_max   ) );
 assert( isa(wages       , 'double'  ) && (size(wages        , 1) == 1       ) && (size(wages        , 2) <= T_max   ) );
 assert( isa(capshares   , 'double'  ) && (size(capshares    , 1) == 1       ) && (size(capshares    , 2) <= T_max   ) );
-assert( isa(debtshares  , 'double'  ) && (size(debtshares   , 1) == 1       ) && (size(debtshares   , 2) <= T_max   ) );
 assert( isa(caprates    , 'double'  ) && (size(caprates     , 1) == 1       ) && (size(caprates     , 2) <= T_max   ) );
 assert( isa(govrates    , 'double'  ) && (size(govrates     , 1) == 1       ) && (size(govrates     , 2) <= T_max   ) );
 assert( isa(totrates    , 'double'  ) && (size(totrates     , 1) == 1       ) && (size(totrates     , 2) <= T_max   ) );
@@ -103,7 +102,6 @@ for t = T_active:-1:1
     caprate    = caprates     (year);
     govrate    = govrates     (year);
     capshare   = capshares    (year);
-    debtshare  = debtshares   (year);
     totrate    = totrates     (year);
     expsub     = expsubs      (year);
     
@@ -118,7 +116,7 @@ for t = T_active:-1:1
                 [resources, inc, pit, ~, cit] = calculate_resources(...
                     labinc, ks(ik), year, ...
                     mpci, rpci, sstaxcredit, 0, 0, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-                    beq, capshare, debtshare, caprate, govrate, totrate, expsub);
+                    beq, capshare, caprate, govrate, totrate, expsub);
                 
                 if isdynamic
                     
@@ -157,7 +155,7 @@ for t = T_active:-1:1
                     calculate_resources(...
                         [], ks(ik), year, ...
                         mpci, rpci, 0, sstax, ssincmax, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-                        beq, capshare, debtshare, caprate, govrate, totrate, expsub);
+                        beq, capshare, caprate, govrate, totrate, expsub);
                     
                     if isdynamic
                         
@@ -219,7 +217,7 @@ end
 function [resources, inc, pit, sst, cit] = calculate_resources(...
              labinc, ks_ik_, year_, ...
              mpci_, rpci_, sstaxcredit_, sstax_, ssincmax_, deduc_coefs_, pit_coefs_, captaxshare_, taucap_, taucapgain_, qtobin_, qtobin0_, ...
-             beq_, capshare_, debtshare_, caprate_, govrate_, totrate_, expsub_) %#codegen
+             beq_, capshare_, caprate_, govrate_, totrate_, expsub_) %#codegen
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -227,14 +225,14 @@ coder.inline('always');
 % Define parameters as persistent variables
 persistent ks_ik year ...
            mpci rpci sstaxcredit sstax ssincmax deduc_coefs pit_coefs captaxshare taucap taucapgain qtobin qtobin0 ...
-           beq capshare debtshare caprate govrate totrate expsub ...
+           beq capshare caprate govrate totrate expsub ...
            initialized
 
 % Initialize parameters for C code generation
 if isempty(initialized)
     ks_ik = 0; year = 0;
     mpci = 0; rpci = 0; sstaxcredit = 0; sstax = 0; ssincmax = 0; deduc_coefs = 0; pit_coefs = 0; captaxshare = 0; taucap = 0; taucapgain = 0; qtobin = 0; qtobin0 = 0;
-    beq = 0; capshare = 0; debtshare = 0; caprate = 0; govrate = 0; totrate = 0; expsub = 0;
+    beq = 0; capshare = 0; caprate = 0; govrate = 0; totrate = 0; expsub = 0;
     initialized = true;
 end
 
@@ -242,13 +240,13 @@ end
 if (nargin > 1)
     ks_ik = ks_ik_; year = year_;
     mpci = mpci_; rpci = rpci_; sstaxcredit = sstaxcredit_; sstax = sstax_; ssincmax = ssincmax_; deduc_coefs = deduc_coefs_; pit_coefs = pit_coefs_; captaxshare = captaxshare_; taucap = taucap_; taucapgain = taucapgain_; qtobin = qtobin_; qtobin0 = qtobin0_;
-    beq = beq_; capshare = capshare_; debtshare = debtshare_; caprate = caprate_; govrate = govrate_; totrate = totrate_; expsub = expsub_;
+    beq = beq_; capshare = capshare_; caprate = caprate_; govrate = govrate_; totrate = totrate_; expsub = expsub_;
     if isempty(labinc), return, end
 end
 
 
 % Calculate taxable income
-inc     = (rpci/mpci)*max(0, capshare*caprate*ks_ik*(1-captaxshare) + debtshare*govrate*ks_ik + (1-sstaxcredit)*labinc);
+inc     = (rpci/mpci)*max(0, capshare*caprate*ks_ik*(1-captaxshare) + (1-capshare)*govrate*ks_ik + (1-sstaxcredit)*labinc);
 deduc   = max(0, deduc_coefs*inc.^[0; 1; 0.5]);
 inc_eff = max(inc - deduc, 0);
 inc     = (mpci/rpci)*inc;

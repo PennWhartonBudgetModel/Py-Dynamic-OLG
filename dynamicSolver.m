@@ -282,7 +282,7 @@ methods (Static, Access = private)
                 solve_cohort_ = @(T_past, T_shift, T_active, V0, LAB_static) solve_cohort(...
                     T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs(:,:,idem), transz, ks, bs, beta, gamma, sigma, surv, V_beq, ...
                     mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-                    Market.beqs, Market.wages, Market.capshares, Market.debtshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs, ...
+                    Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs, ...
                     V0, LAB_static, isdynamic);
                 
                 
@@ -394,7 +394,7 @@ methods (Static, Access = private)
                         disteps = max(abs(f(DIST_next) - f(DIST_year)));
                         
                         % Calculate net population growth rate
-                        % (Note that rate is assumed to be independent of demographic)
+                        % (Note that rate is assumed to be independent of demographic type)
                         pgr = sum(DIST_next(:)) / sum(DIST_year(:));
                         
                         year = year + 1;
@@ -609,13 +609,12 @@ methods (Static, Access = private)
                     end
                     
                     Market.capshares  = (Market.assets - Market.debts) ./ Market.assets;
-                    Market.debtshares = 1 - Market.capshares;
                     Market.caprates   = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
                     switch economy
                         case 'steady', Market.govrates = cbomeanrate;
                         case 'closed', Market.govrates = cborates   ;
                     end
-                    Market.totrates   = Market.capshares.*Market.caprates + Market.debtshares.*Market.govrates;
+                    Market.totrates   = Market.capshares.*Market.caprates + (1 - Market.capshares).*Market.govrates;
                     
                     
                 case 'open'
@@ -627,7 +626,6 @@ methods (Static, Access = private)
                         Market.caps   = (Market.assets - Market.debts)/qtobin0;
                         
                         Market.capshares  = Market0.capshares *ones(1,T_model);
-                        Market.debtshares = Market0.debtshares*ones(1,T_model);
                         Market.caprates   = Market0.caprates  *ones(1,T_model)*(1-taucap_base)/(1-taucap);
                         Market.govrates   = Market0.govrates  *ones(1,T_model);
                         Market.totrates   = Market0.totrates  *ones(1,T_model);
