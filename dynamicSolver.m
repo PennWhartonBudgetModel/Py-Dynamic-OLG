@@ -60,7 +60,7 @@ methods (Static)
         function tag = construct_tag(def, format)
             strs = {};
             for field = fields(def)'
-                strs = [strs, {sprintf([field{1}, '=', format.(field{1})], def.(field{1}))}]; %#ok<AGROW>
+                strs = [strs, {sprintf(format.(field{1}), def.(field{1}))}]; %#ok<AGROW>
             end
             tag = strjoin(strs, '_');
         end
