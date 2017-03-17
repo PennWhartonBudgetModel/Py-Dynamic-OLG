@@ -376,17 +376,18 @@ methods (Static, Access = private)
             % Generate aggregates
             f = @(F) sum(sum(reshape(DIST .* F, [], T_model, ndem), 1), 3);
             
-            Aggregate.pops     = f(1);
-            Aggregate.assets   = f(OPTs.K   .* repmat(reshape(2-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));
-            Aggregate.bequests = f(OPTs.K   .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));
-            Aggregate.labs     = f(OPTs.LAB);
-            Aggregate.labeffs  = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));
-            Aggregate.lfprs    = f(OPTs.LAB > 0);
-            Aggregate.incs     = f(OPTs.INC);
-            Aggregate.pits     = f(OPTs.PIT);
-            Aggregate.ssts     = f(OPTs.SST);
-            Aggregate.cits     = f(OPTs.CIT);
-            Aggregate.bens     = f(OPTs.BEN);
+            Aggregate.pops     = f(1);                                                                                   % Population
+            Aggregate.assets   = f(repmat(reshape(ks, [1,nk,1,1,1,1]), [nz,1,nb,T_life,T_model,ndem]));                  % Assets
+            Aggregate.bequests = f(OPTs.K .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));    % Bequests
+            Aggregate.labs     = f(OPTs.LAB);                                                                            % Labor
+            Aggregate.labeffs  = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));      % Effective labor
+            Aggregate.lfprs    = f(OPTs.LAB > 0.01) ./ f(1);                                                             % Labor force participation rate
+            Aggregate.incs     = f(OPTs.INC);                                                                            % Income
+            Aggregate.pits     = f(OPTs.PIT);                                                                            % Personal income tax
+            Aggregate.ssts     = f(OPTs.SST);                                                                            % Social Security tax
+            Aggregate.cits     = f(OPTs.CIT);                                                                            % Capital income tax
+            Aggregate.bens     = f(OPTs.BEN);                                                                            % Social Security benefits
+            
             
         end
         
