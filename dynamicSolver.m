@@ -376,17 +376,17 @@ methods (Static, Access = private)
             % Generate aggregates
             f = @(F) sum(sum(reshape(DIST .* F, [], T_model, ndem), 1), 3);
             
-            Aggregate.pops    = f(1);
-            Aggregate.assets  = f(OPTs.K   .* repmat(reshape(2-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));
-            Aggregate.beqs    = f(OPTs.K   .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));
-            Aggregate.labs    = f(OPTs.LAB);
-            Aggregate.labeffs = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));
-            Aggregate.lfprs   = f(OPTs.LAB > 0);
-            Aggregate.incs    = f(OPTs.INC);
-            Aggregate.pits    = f(OPTs.PIT);
-            Aggregate.ssts    = f(OPTs.SST);
-            Aggregate.cits    = f(OPTs.CIT);
-            Aggregate.bens    = f(OPTs.BEN);
+            Aggregate.pops     = f(1);
+            Aggregate.assets   = f(OPTs.K   .* repmat(reshape(2-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));
+            Aggregate.bequests = f(OPTs.K   .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));
+            Aggregate.labs     = f(OPTs.LAB);
+            Aggregate.labeffs  = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));
+            Aggregate.lfprs    = f(OPTs.LAB > 0);
+            Aggregate.incs     = f(OPTs.INC);
+            Aggregate.pits     = f(OPTs.PIT);
+            Aggregate.ssts     = f(OPTs.SST);
+            Aggregate.cits     = f(OPTs.CIT);
+            Aggregate.bens     = f(OPTs.BEN);
             
         end
         
@@ -559,7 +559,7 @@ methods (Static, Access = private)
                                 Market.rhos  = 0.5*Market.rhos + 0.5*rhos;
                                 Market.debts = debtout*Dynamic.outs;
                             case 'closed'
-                                Market.rhos  = 0.3*Market.rhos + 0.7*Dynamic.rhos;
+                                Market.rhos  = 0.3*Market.rhos + 0.7*rhos;
                                 Market.debts = Dynamic.debts;
                         end
                         Market.beqs   = beqs;
@@ -624,7 +624,7 @@ methods (Static, Access = private)
                     
                     % Calculate market clearing series
                     rhos = (max(Dynamic.assets - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
-                    beqs = Dynamic.beqs / pgr;
+                    beqs = Dynamic.bequests / pgr;
                     clearing = Market.rhos - rhos;
                     
                 case 'open'
@@ -665,8 +665,8 @@ methods (Static, Access = private)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate market clearing series
-                    Dynamic.rhos = Market.rhos;
-                    beqs = [Market0.beqs, Dynamic.beqs(1:T_model-1)] ./ Dynamic.pops;
+                    rhos = Market.rhos;
+                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1)] ./ Dynamic.pops;
                     clearing = Market.beqs - beqs;
                     
                 case 'closed'
@@ -702,9 +702,9 @@ methods (Static, Access = private)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate market clearing series
-                    Dynamic.rhos = (max([Market0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
-                    beqs = [Market0.beqs, Dynamic.beqs(1:T_model-1)] ./ Dynamic.pops;
-                    clearing = Market.rhos - Dynamic.rhos;
+                    rhos = (max([Market0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
+                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1)] ./ Dynamic.pops;
+                    clearing = Market.rhos - rhos;
                     
             end
             
