@@ -103,7 +103,7 @@ methods (Static, Access = private)
     
     
     % Solve dynamic model
-    function [save_dir] = solve(economy, basedef, counterdef, callertag)
+    function [save_dir] = solve(economy, basedef, counterdef, callertag) %#ok<*FXUP>
         
         
         %% Initialization
@@ -203,14 +203,14 @@ methods (Static, Access = private)
         % Define population group index mapping
         groups = {'citizen', 'legal', 'illegal'};
         ng = length(groups);
-        for igroup = 1:ng, g.(groups{igroup}) = igroup; end
+        for ig = 1:ng, g.(groups{ig}) = ig; end
         
         % Shift legal immigrant productivity distribution according to policy parameter
-        for age_ = 1:T_life
-            v = mean(zs(:, age_, :), 3);
-            ztarget = sum(v .* DISTz_age(:, age_, g.legal)) * prem_legal;
+        for age = 1:T_life
+            v = mean(zs(:,age,:), 3);
+            ztarget = sum(v .* DISTz_age(:,age,g.legal)) * prem_legal;
             p = (v(nz) - ztarget) / (v(nz)*(nz-1) - sum(v(1:nz-1)));
-            DISTz_age(:, age_, g.legal) = [ p*ones(nz-1,1) ; 1 - p*(nz-1) ];
+            DISTz_age(:,age,g.legal) = [ p*ones(nz-1,1) ; 1 - p*(nz-1) ];
         end
         
         
@@ -454,16 +454,16 @@ methods (Static, Access = private)
             % (Intermediary structure used to filter out extraneous fields)
             [Static_] = generate_aggregates(Market, {}, LABs_static, DIST_static);
             
-            for oo = {'incs', 'pits', 'ssts', 'cits', 'bens'}
-                Static.(oo{1}) = Static_.(oo{1});
+            for series = {'incs', 'pits', 'ssts', 'cits', 'bens'}
+                Static.(series{1}) = Static_.(series{1});
             end
             
             
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
             
-            for oo = {'labeffs', 'caps', 'lfprs', 'labincs', 'capincs', 'outs', 'caps_domestic', 'caps_foreign', 'debts_domestic', 'debts_foreign'}
-                Static.(oo{1}) = Dynamic_base.(oo{1});
+            for series = {'labeffs', 'caps', 'lfprs', 'labincs', 'capincs', 'outs', 'caps_domestic', 'caps_foreign', 'debts_domestic', 'debts_foreign'}
+                Static.(series{1}) = Dynamic_base.(series{1});
             end
             
             
@@ -613,7 +613,6 @@ methods (Static, Access = private)
                         Market.expsubs   = [expshare * max(diff(Market.caps), 0), 0] ./ Market.caps;
                     end
                     
-                    
                 case 'open'
                     
                     if (iter == 1)
@@ -634,7 +633,6 @@ methods (Static, Access = private)
                         Market.wages     = A*(1-alp)*(Market.rhos.^alp);
                         Market.expsubs   = [expshare * max(diff(Market.caps), 0), 0] ./ Market.caps;
                     end
-                    
                     
                 case 'closed'
                     
@@ -663,7 +661,6 @@ methods (Static, Access = private)
                         Market.wages     = A*(1-alp)*(Market.rhos.^alp);
                         Market.expsubs   = [expshare * max(diff(Market.caps), 0), 0] ./ Market.caps;
                     end
-                    
                     
             end
             
@@ -711,8 +708,8 @@ methods (Static, Access = private)
                     
                     Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
                     Dynamic.debts = [Market0.debts, zeros(1,T_model-1)];
-                    for y = 1:T_model-1
-                        Dynamic.debts(y+1) = Gtilde(y) - Ttilde(y) - Dynamic.revs(y) + Dynamic.debts(y)*(1 + cborates(y));
+                    for year = 1:T_model-1
+                        Dynamic.debts(year+1) = Gtilde(year) - Ttilde(year) - Dynamic.revs(year) + Dynamic.debts(year)*(1 + cborates(year));
                     end
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
@@ -741,8 +738,8 @@ methods (Static, Access = private)
                     
                     Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
                     Dynamic.debts = [Market0.debts, zeros(1,T_model-1)];
-                    for y = 1:T_model-1
-                        Dynamic.debts(y+1) = Gtilde(y) - Ttilde(y) - Dynamic.revs(y) + Dynamic.debts(y)*(1 + cborates(y));
+                    for year = 1:T_model-1
+                        Dynamic.debts(year+1) = Gtilde(year) - Ttilde(year) - Dynamic.revs(year) + Dynamic.debts(year)*(1 + cborates(year));
                     end
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
@@ -812,15 +809,15 @@ methods (Static, Access = private)
                 workmass = 0;
                 frisch   = 0;
                 
-                for jdem = 1:ndem
+                for idem = 1:ndem
                     
-                    LAB_  = LABs{1,jdem};
-                    DIST_ = sum(DIST(:,:,:,:,:,1,jdem), 5);
+                    LAB_idem  = LABs{1,idem};
+                    DIST_idem = sum(DIST(:,:,:,:,:,1,idem), 5);
                     
-                    workind = (LAB_ > 0.01);
+                    workind = (LAB_idem > 0.01);
                     
-                    workmass = workmass + sum(DIST_(workind));
-                    frisch   = frisch   + sum(DIST_(workind).*(1-LAB_(workind))./LAB_(workind))*(1 - gamma*(1-sigma))/sigma;
+                    workmass = workmass + sum(DIST_idem(workind));
+                    frisch   = frisch   + sum(DIST_idem(workind) .* (1 - LAB_idem(workind)) ./ LAB_idem(workind)) * (1 - gamma*(1-sigma))/sigma;
                     
                 end
                 
