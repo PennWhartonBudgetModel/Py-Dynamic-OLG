@@ -147,7 +147,7 @@ methods (Static)
         % such as any parameters used to calibrate to match savings and labor supply elasticities.
     end
     
-    function [param_inctax, param_bustax] = generate_counterfactual_parameters(plan, save_results) %, param_bustax, param_socsec, param_immigration
+    function [param_inctax, param_bustax, param_socsec] = generate_counterfactual_parameters(plan, save_results) % param_immigration
         % This method generates the counterfactual parameters.  This includes any parameters that might change to define counterfactuals, as well as their baseline counterparts.
         param_global = paramGenerator.generate_global_parameters();
         mpci  = param_global.mpci;
@@ -317,6 +317,12 @@ methods (Static)
         end
         
         NRA_baseline = 47;    % Baseline normal retirement age.
+        
+        param_socsec.b_scale      = b_scale;
+        param_socsec.v_ss_max     = v_ss_max;
+        param_socsec.ss_tax_cred  = ss_tax_cred;
+        param_socsec.tau_ss       = tau_ss;
+        param_socsec.NRA_baseline = NRA_baseline;
         
         
         
