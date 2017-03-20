@@ -151,6 +151,11 @@ methods (Static, Access = private)
         % Load global parameters
         s = load(fullfile(param_dir, 'param_global.mat'));
         
+        nz   = s.nz;
+        nk   = s.nk;
+        nb   = s.nb;
+        ndem = s.ndem;
+        
         T_life = s.T_life;
         switch economy
             case 'steady'
@@ -166,11 +171,6 @@ methods (Static, Access = private)
         T_shifts  = max(+startyears, 0);                          % Model years before first life year
         T_actives = min(startyears+T_life, T_model) - T_shifts;   % Life years within modeling period
         T_ends    = min(T_model-startyears, T_life);              % Maximum age within modeling period
-        
-        nz   = s.nz;
-        nk   = s.nk;
-        nb   = s.nb;
-        ndem = s.ndem;
         
         zs     = s.z;
         transz = s.tr_z;
@@ -279,11 +279,10 @@ methods (Static, Access = private)
             for idem = 1:ndem
                 
                 % Package fixed dynamic optimization parameters into anonymous function
-                solve_cohort_ = @(T_past, T_shift, T_active, V0, LAB_static) solve_cohort(...
-                    T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs(:,:,idem), transz, ks, bs, beta, gamma, sigma, surv, V_beq, ...
+                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active) solve_cohort(V0, LAB_static, isdynamic, ...
+                    nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, ks, bs, beta, gamma, sigma, surv, V_beq, ...
                     mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-                    Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs, ...
-                    V0, LAB_static, isdynamic);
+                    Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);
                 
                 
                 % Initialize series of terminal utility values
@@ -294,7 +293,7 @@ methods (Static, Access = private)
                     
                     % Solve dynamic optimization
                     % (Note that active time is set to full lifetime)
-                    [V, OPT] = solve_cohort_(T_pasts(end), T_shifts(end), T_life, V0s(:,:,:,T_life), []);
+                    [V, OPT] = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life);
                     
                     % Define series of terminal utility values
                     V0s(:,:,:,1:T_life-1) = V(:,:,:,2:T_life);
@@ -321,7 +320,7 @@ methods (Static, Access = private)
                             V0 = V0s(:,:,:,T_ends(i)); %#ok<PFBNS>
                             
                             % Solve dynamic optimization
-                            [~, OPTs_cohort{i}] = solve_cohort_(T_pasts(i), T_shifts(i), T_actives(i), V0, LABs_static{i,idem});
+                            [~, OPTs_cohort{i}] = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i));
                             
                             LABs{i,idem} = OPTs_cohort{i}.LAB;
                             
