@@ -840,11 +840,10 @@ methods (Static, Access = private)
                 % Save and display elasticities
                 save(fullfile(save_dir, 'elasticities.mat'), 'capout', 'labelas', 'savelas')
                 
-                elasticities = { 'Capital to output ratio' , capout  ;
-                                 'Labor elasticity'        , labelas ;
-                                 'Savings elasticity'      , savelas };
-                for j = 1:size(elasticities, 1)
-                    fprintf('\t%-25s= % 7.4f\n', elasticities{j,:})
+                for label = { {'Capital to output ratio' , capout  } , ...
+                              {'Labor elasticity'        , labelas } , ...
+                              {'Savings elasticity'      , savelas } }
+                    fprintf('\t%-25s= % 7.4f\n', label{1}{:})
                 end
                 fprintf('\n')
                 
