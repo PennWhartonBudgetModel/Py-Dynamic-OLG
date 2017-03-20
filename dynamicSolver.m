@@ -607,7 +607,7 @@ methods (Static, Access = private)
                             case 'closed', Market.govrates = cborates;
                         end
                     else
-                        Market.rhos      = 0.7*rhos + 0.3*Market.rhos;
+                        Market.rhos      = rhos;
                         Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
                     end
                     
@@ -691,7 +691,6 @@ methods (Static, Access = private)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate market clearing series
-                    rhos = Market.rhos;
                     beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1) ./ Dynamic.pops(2:T_model)];
                     clearing = Market.beqs - beqs;
                     
