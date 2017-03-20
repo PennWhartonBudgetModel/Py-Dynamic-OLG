@@ -250,7 +250,9 @@ methods (Static, Access = private)
         qtobin = 1 - taucap*expshare;
         
         s_base = load(fullfile(param_dir, 'param_bustax_base.mat'));
+        
         taucap_base = s_base.tau_cap;
+        
         qtobin0 = 1 - taucap_base*s_base.exp_share;
         
         
@@ -500,11 +502,12 @@ methods (Static, Access = private)
                 steady_generator = @() dynamicSolver.steady(basedef, callingtag);
                 steady_dir = dirFinder.save('steady', basedef);
                 
-                % Load steady state market conditions
-                Market0 = hardyload('market.mat'      , steady_generator, steady_dir);
+                % Load steady state market conditions and dynamic aggregates
+                Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
+                Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
                 
                 % Load steady state population distribution
-                s       = hardyload('distribution.mat', steady_generator, steady_dir);
+                s        = hardyload('distribution.mat', steady_generator, steady_dir);
                 
                 DIST_steady = s.DIST;
                 
@@ -590,48 +593,39 @@ methods (Static, Access = private)
                     if (iter == 1)
                         Market.rhos      = Market0.rhos*ones(1,T_model);
                         Market.beqs      = Market0.beqs*ones(1,T_model);
-                        Market.assets    = Market0.assets*ones(1,T_model);
-                        Market.debts     = Market0.debts*ones(1,T_model);
-                        Market.caps      = (Market.assets - Market.debts)/qtobin;
-                        Market.capshares = (Market.assets - Market.debts) ./ Market.assets;
+                        Market.wages     = A*(1-alp)*(Market.rhos.^alp);
+                        Market.expsubs   = zeros(1,T_model);
+                        
+                        Market.capshares = Market0.capshares*ones(1,T_model);
                         Market.caprates  = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
                         Market.govrates  = cbomeanrate;
-                        Market.totrates  = Market.capshares.*Market.caprates + (1 - Market.capshares).*Market.govrates;
-                        Market.wages     = A*(1-alp)*(Market.rhos.^alp);
-                        Market.expsubs   = [expshare * max(diff(Market.caps), 0), 0] ./ Market.caps;
+                        Market.totrates  = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
                     else
-                        Market.rhos      = 0.5*Market.rhos + 0.5*rhos;
-                        Market.debts     = debtout*Dynamic.outs;
+                        Market.rhos      = 0.3*Market.rhos + 0.7*rhos;
                         Market.beqs      = beqs;
-                        Market.assets    = Dynamic.assets;
-                        Market.caps      = Dynamic.caps;
-                        Market.capshares = (Market.assets - Market.debts) ./ Market.assets;
-                        Market.caprates  = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
-                        Market.govrates  = cbomeanrate;
-                        Market.totrates  = Market.capshares.*Market.caprates + (1 - Market.capshares).*Market.govrates;
                         Market.wages     = A*(1-alp)*(Market.rhos.^alp);
-                        Market.expsubs   = [expshare * max(diff(Market.caps), 0), 0] ./ Market.caps;
+                        Market.expsubs   = [expshare * max(diff(Dynamic.caps), 0), 0] ./ Dynamic.caps;
+                        
+                        Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
+                        Market.caprates  = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
+                        Market.totrates  = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
                     end
                     
                 case 'open'
                     
                     if (iter == 1)
-                        Market.assets    = Market0.assets*ones(1,T_model);
-                        Market.debts     = Market0.debts*ones(1,T_model);
-                        Market.caps      = (Market.assets - Market.debts)/qtobin0;
                         Market.capshares = Market0.capshares*ones(1,T_model);
                         Market.caprates  = Market0.caprates*ones(1,T_model)*(1-taucap_base)/(1-taucap);
                         Market.govrates  = Market0.govrates*ones(1,T_model);
                         Market.totrates  = Market0.totrates*ones(1,T_model);
+                        
                         Market.rhos      = ((qtobin*Market.caprates + d)/alp).^(1/(alp-1));
                         Market.beqs      = Market0.beqs*ones(1,T_model);
                         Market.wages     = A*(1-alp)*(Market.rhos.^alp);
-                        Market.expsubs   = [expshare * max(diff(Market.caps), 0), 0] ./ Market.caps;
+                        Market.expsubs   = zeros(1,T_model);
                     else
                         Market.beqs      = beqs;
-                        Market.caps      = Dynamic.caps;
-                        Market.wages     = A*(1-alp)*(Market.rhos.^alp);
-                        Market.expsubs   = [expshare * max(diff(Market.caps), 0), 0] ./ Market.caps;
+                        Market.expsubs   = [expshare * max(diff(Dynamic.caps), 0), 0] ./ Dynamic.caps;
                     end
                     
                 case 'closed'
@@ -639,27 +633,22 @@ methods (Static, Access = private)
                     if (iter == 1)
                         Market.rhos      = Market0.rhos*ones(1,T_model);
                         Market.beqs      = Market0.beqs*ones(1,T_model);
-                        Market.assets    = Market0.assets*ones(1,T_model);
-                        Market.debts     = Market0.debts*ones(1,T_model);
-                        Market.caps      = (Market.assets - Market.debts)/qtobin;
-                        Market.capshares = (Market.assets - Market.debts) ./ Market.assets;
+                        Market.wages     = A*(1-alp)*(Market.rhos.^alp);
+                        Market.expsubs   = zeros(1,T_model);
+                        
+                        Market.capshares = Market0.capshares*ones(1,T_model);
                         Market.caprates  = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
                         Market.govrates  = cborates;
-                        Market.totrates  = Market.capshares.*Market.caprates + (1 - Market.capshares).*Market.govrates;
-                        Market.wages     = A*(1-alp)*(Market.rhos.^alp);
-                        Market.expsubs   = [expshare * max(diff(Market.caps), 0), 0] ./ Market.caps;
+                        Market.totrates  = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
                     else
                         Market.rhos      = 0.3*Market.rhos + 0.7*rhos;
-                        Market.debts     = Dynamic.debts;
                         Market.beqs      = beqs;
-                        Market.assets    = Dynamic.assets;
-                        Market.caps      = Dynamic.caps;
-                        Market.capshares = (Market.assets - Market.debts) ./ Market.assets;
-                        Market.caprates  = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
-                        Market.govrates  = cborates;
-                        Market.totrates  = Market.capshares.*Market.caprates + (1 - Market.capshares).*Market.govrates;
                         Market.wages     = A*(1-alp)*(Market.rhos.^alp);
-                        Market.expsubs   = [expshare * max(diff(Market.caps), 0), 0] ./ Market.caps;
+                        Market.expsubs   = [expshare * max(diff(Dynamic.caps), 0), 0] ./ Dynamic.caps;
+                        
+                        Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
+                        Market.caprates  = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
+                        Market.totrates  = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
                     end
                     
             end
@@ -675,15 +664,18 @@ methods (Static, Access = private)
                 
                 case 'steady'
                     
-                    % Calculate debt
-                    Dynamic.debts = Market.debts;
-                    
-                    % Calculate capital and output
-                    Dynamic.caps = (Dynamic.assets - Dynamic.debts)/qtobin;
-                    Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
+                    % Calculate capital, output, and debt
+                    % (Iterative method used due to lack of closed form solution)
+                    Dynamic.debts = 0; debts = Inf;
+                    while (abs(Dynamic.debts - debts) > 1e-6)
+                        debts = Dynamic.debts;
+                        Dynamic.caps  = (Dynamic.assets - debts)/qtobin;
+                        Dynamic.outs  = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
+                        Dynamic.debts = debtout*Dynamic.outs;
+                    end
                     
                     % Calculate market clearing series
-                    rhos = (max(Dynamic.assets - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
+                    rhos = max(Dynamic.caps, 0) / Dynamic.labeffs;
                     beqs = Dynamic.bequests / pgr;
                     clearing = Market.rhos - rhos;
                     
@@ -693,7 +685,7 @@ methods (Static, Access = private)
                     Dynamic.caps = Market.rhos .* Dynamic.labeffs;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
                     
-                    Dynamic.caps_domestic = Market.capshares .* [Market0.assets, Dynamic.assets(1:T_model-1)];
+                    Dynamic.caps_domestic = Market.capshares .* [Dynamic0.assets, Dynamic.assets(1:T_model-1)];
                     Dynamic.caps_foreign  = qtobin*Dynamic.caps - Dynamic.caps_domestic;
                     
                     % Calculate debt
@@ -707,7 +699,7 @@ methods (Static, Access = private)
                     end
                     
                     Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
-                    Dynamic.debts = [Market0.debts, zeros(1,T_model-1)];
+                    Dynamic.debts = [Dynamic0.debts, zeros(1,T_model-1)];
                     for year = 1:T_model-1
                         Dynamic.debts(year+1) = Gtilde(year) - Ttilde(year) - Dynamic.revs(year) + Dynamic.debts(year)*(1 + cborates(year));
                     end
@@ -726,7 +718,7 @@ methods (Static, Access = private)
                     
                     % Calculate market clearing series
                     rhos = Market.rhos;
-                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1)] ./ Dynamic.pops;
+                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1) ./ Dynamic.pops(2:T_model)];
                     clearing = Market.beqs - beqs;
                     
                 case 'closed'
@@ -737,7 +729,7 @@ methods (Static, Access = private)
                     Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
                     
                     Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
-                    Dynamic.debts = [Market0.debts, zeros(1,T_model-1)];
+                    Dynamic.debts = [Dynamic0.debts, zeros(1,T_model-1)];
                     for year = 1:T_model-1
                         Dynamic.debts(year+1) = Gtilde(year) - Ttilde(year) - Dynamic.revs(year) + Dynamic.debts(year)*(1 + cborates(year));
                     end
@@ -748,7 +740,7 @@ methods (Static, Access = private)
                     Dynamic.debts_foreign  = zeros(1,T_model);
                     
                     % Calculate capital and output
-                    Dynamic.caps = ([(Market0.assets - Market0.debts)/qtobin0, (Dynamic.assets(1:T_model-1) - Dynamic.debts(2:T_model))/qtobin]);
+                    Dynamic.caps = ([(Dynamic0.assets - Dynamic0.debts)/qtobin0, (Dynamic.assets(1:T_model-1) - Dynamic.debts(2:T_model))/qtobin]);
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
                     
                     Dynamic.caps_domestic = [qtobin0 * Dynamic.caps(1), qtobin * Dynamic.caps(2:T_model)];
@@ -762,8 +754,8 @@ methods (Static, Access = private)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate market clearing series
-                    rhos = (max([Market0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
-                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1)] ./ Dynamic.pops;
+                    rhos = (max([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
+                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1) ./ Dynamic.pops(2:T_model)];
                     clearing = Market.rhos - rhos;
                     
             end
