@@ -583,75 +583,49 @@ methods (Static, Access = private)
             % Increment iteration count
             iter = iter + 1;
             fprintf('\tIteration %2d  ...  ', iter)
+            initial = iter == 1;
             
             
             % Define prices
+            if initial
+                Market.beqs      = Market0.beqs*ones(1,T_model);
+                Market.capshares = Market0.capshares*ones(1,T_model);
+                Market.expsubs   = zeros(1,T_model);
+            else
+                Market.beqs      = beqs;
+                Market.expsubs   = [expshare * max(diff(Dynamic.caps), 0), 0] ./ Dynamic.caps;
+            end
+            
             switch economy
                 
-                case 'steady'
+                case {'steady', 'closed'}
                     
-                    if (iter == 1)
+                    if initial
                         Market.rhos      = Market0.rhos*ones(1,T_model);
-                        Market.beqs      = Market0.beqs*ones(1,T_model);
-                        Market.wages     = A*(1-alp)*(Market.rhos.^alp);
-                        Market.expsubs   = zeros(1,T_model);
-                        
-                        Market.capshares = Market0.capshares*ones(1,T_model);
-                        Market.caprates  = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
-                        Market.govrates  = cbomeanrate;
-                        Market.totrates  = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
+                        switch economy
+                            case 'steady', Market.govrates = cbomeanrate;
+                            case 'closed', Market.govrates = cborates;
+                        end
                     else
-                        Market.rhos      = 0.3*Market.rhos + 0.7*rhos;
-                        Market.beqs      = beqs;
-                        Market.wages     = A*(1-alp)*(Market.rhos.^alp);
-                        Market.expsubs   = [expshare * max(diff(Dynamic.caps), 0), 0] ./ Dynamic.caps;
-                        
+                        Market.rhos      = 0.7*rhos + 0.3*Market.rhos;
                         Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
-                        Market.caprates  = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
-                        Market.totrates  = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
                     end
+                    
+                    Market.caprates = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
+                    Market.totrates = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
                     
                 case 'open'
                     
-                    if (iter == 1)
-                        Market.capshares = Market0.capshares*ones(1,T_model);
+                    if initial
                         Market.caprates  = Market0.caprates*ones(1,T_model)*(1-taucap_base)/(1-taucap);
                         Market.govrates  = Market0.govrates*ones(1,T_model);
                         Market.totrates  = Market0.totrates*ones(1,T_model);
-                        
                         Market.rhos      = ((qtobin*Market.caprates + d)/alp).^(1/(alp-1));
-                        Market.beqs      = Market0.beqs*ones(1,T_model);
-                        Market.wages     = A*(1-alp)*(Market.rhos.^alp);
-                        Market.expsubs   = zeros(1,T_model);
-                    else
-                        Market.beqs      = beqs;
-                        Market.expsubs   = [expshare * max(diff(Dynamic.caps), 0), 0] ./ Dynamic.caps;
-                    end
-                    
-                case 'closed'
-                    
-                    if (iter == 1)
-                        Market.rhos      = Market0.rhos*ones(1,T_model);
-                        Market.beqs      = Market0.beqs*ones(1,T_model);
-                        Market.wages     = A*(1-alp)*(Market.rhos.^alp);
-                        Market.expsubs   = zeros(1,T_model);
-                        
-                        Market.capshares = Market0.capshares*ones(1,T_model);
-                        Market.caprates  = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
-                        Market.govrates  = cborates;
-                        Market.totrates  = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
-                    else
-                        Market.rhos      = 0.3*Market.rhos + 0.7*rhos;
-                        Market.beqs      = beqs;
-                        Market.wages     = A*(1-alp)*(Market.rhos.^alp);
-                        Market.expsubs   = [expshare * max(diff(Dynamic.caps), 0), 0] ./ Dynamic.caps;
-                        
-                        Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
-                        Market.caprates  = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
-                        Market.totrates  = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
                     end
                     
             end
+            
+            Market.wages = A*(1-alp)*(Market.rhos.^alp);
             
             
             % Generate dynamic aggregates
