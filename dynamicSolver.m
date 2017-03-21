@@ -226,7 +226,7 @@ methods (Static, Access = private)
         % Load CBO parameters
         s = load(fullfile(param_dir, 'param_cbo.mat'));
         
-        debtout     = s.FederalDebtHeldbythePublic(1)/100;
+        debttoout   = s.FederalDebtHeldbythePublic(1)/100;
         fedgovtnis  = s.fedgovtnis(1:T_model);
         cborates    = s.r_cbo(1:T_model);
         cbomeanrate = mean(s.r_cbo);
@@ -262,7 +262,7 @@ methods (Static, Access = private)
         function [Aggregate, LABs, DIST, pgr] = generate_aggregates(Market, DIST_steady, LABs_static, DIST_static)
             
             % Define dynamic aggregate generation flag
-            isdynamic = isempty(LABs_static);
+            isdynamic = isempty(LABs_static) || isempty(DIST_static);
             
             % Set static optimal decision values to empty values for dynamic aggregate generation
             if isdynamic, LABs_static = cell(nstartyears, ndem); end
@@ -272,7 +272,7 @@ methods (Static, Access = private)
             for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model,ndem); end
             
             % Initialize array of cohort optimal labor values
-            LABs  = cell(nstartyears, ndem);
+            LABs = cell(nstartyears, ndem);
             
             % Initialize population distribution array
             DIST = zeros(nz,nk,nb,T_life,ng,T_model,ndem);
@@ -314,7 +314,7 @@ methods (Static, Access = private)
                     case {'open', 'closed'}
                         
                         % Solve transition path cohorts
-                        OPTs_cohort = cell(1, nstartyears);
+                        OPTs_cohort = cell(1,nstartyears);
                         
                         parfor i = 1:nstartyears
                             
@@ -550,7 +550,7 @@ methods (Static, Access = private)
         end
         
         
-        % Define convergence tolerance and initialize error term
+        % Define marketing clearing tolerance and initialize error term
         tol = 1e-3;
         eps = Inf;
         
@@ -583,11 +583,11 @@ methods (Static, Access = private)
             % Increment iteration count
             iter = iter + 1;
             fprintf('\tIteration %2d  ...  ', iter)
-            initial = iter == 1;
+            isinitial = iter == 1;
             
             
-            % Define prices
-            if initial
+            % Define market conditions
+            if isinitial
                 Market.beqs      = Market0.beqs*ones(1,T_model);
                 Market.capshares = Market0.capshares*ones(1,T_model);
                 Market.expsubs   = zeros(1,T_model);
@@ -600,7 +600,7 @@ methods (Static, Access = private)
                 
                 case {'steady', 'closed'}
                     
-                    if initial
+                    if isinitial
                         Market.rhos      = Market0.rhos*ones(1,T_model);
                         switch economy
                             case 'steady', Market.govrates = cbomeanrate;
@@ -616,7 +616,7 @@ methods (Static, Access = private)
                     
                 case 'open'
                     
-                    if initial
+                    if isinitial
                         Market.caprates  = Market0.caprates*ones(1,T_model)*(1-taucap_base)/(1-taucap);
                         Market.govrates  = Market0.govrates*ones(1,T_model);
                         Market.totrates  = Market0.totrates*ones(1,T_model);
@@ -645,7 +645,7 @@ methods (Static, Access = private)
                         debts = Dynamic.debts;
                         Dynamic.caps  = (Dynamic.assets - debts)/qtobin;
                         Dynamic.outs  = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
-                        Dynamic.debts = debtout*Dynamic.outs;
+                        Dynamic.debts = debttoout*Dynamic.outs;
                     end
                     
                     % Calculate market clearing series
@@ -767,7 +767,7 @@ methods (Static, Access = private)
             case 'steady'
                 
                 % Calculate capital to output ratio
-                capout = (Dynamic.assets - Dynamic.debts) / Dynamic.outs;
+                captoout = (Dynamic.assets - Dynamic.debts) / Dynamic.outs;
                 
                 
                 % Calculate labor elasticity
@@ -803,11 +803,11 @@ methods (Static, Access = private)
                 
                 
                 % Save and display elasticities
-                save(fullfile(save_dir, 'elasticities.mat'), 'capout', 'labelas', 'savelas')
+                save(fullfile(save_dir, 'elasticities.mat'), 'captoout', 'labelas', 'savelas')
                 
-                for label = { {'Capital to output ratio' , capout  } , ...
-                              {'Labor elasticity'        , labelas } , ...
-                              {'Savings elasticity'      , savelas } }
+                for label = { {'Capital to output ratio' , captoout } , ...
+                              {'Labor elasticity'        , labelas  } , ...
+                              {'Savings elasticity'      , savelas  } }
                     fprintf('\t%-25s= % 7.4f\n', label{1}{:})
                 end
                 fprintf('\n')
