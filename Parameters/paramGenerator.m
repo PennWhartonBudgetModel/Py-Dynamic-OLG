@@ -9,7 +9,7 @@ methods (Static)
         %% Miscelaneous deep parameters of the model
         
         mpci = 3.25;   % Model per capita income -- obsolete.  Should be updated in every different baseline.
-        rpci = 119000; % Real per capita income in dollars.  Chosen to match the percentage of individuals above the "taxmax," defined below in the Social Security section. (6%)
+        rpci = 119000; % Real per capita income in dollars -- obsolete/erroneous.  Chosen to match the percentage of individuals above the "taxmax," defined below in the Social Security section. (6%)
         
         A    = 1;    % Total factor productivity.
         alp  = 0.45;    % Capital share of output.  "alp" is short for "alpha," the Greek letter commonly reserved for this parameter.
@@ -17,7 +17,7 @@ methods (Static)
         T_life = 80;    % Maximum possible lifetime.
         
         T_model = 24;    % Length of transition path.
-        pgr = 0.02;    % Population annual growth rate
+        pgr = 0.02;    % Population annual growth rate -- used in the immigration code as the birth rate -- needs update.
         
         surv = calculate_survival();    % Calculating survival probabilities using a function.
 
@@ -147,7 +147,7 @@ methods (Static)
         % such as any parameters used to calibrate to match savings and labor supply elasticities.
     end
     
-    function [param_inctax, param_bustax, param_socsec] = generate_counterfactual_parameters(plan, save_results) % param_immigration
+    function [param_inctax, param_bustax, param_socsec] = generate_policy_parameters(plan, save_results) % param_immigration
         % This method generates the counterfactual parameters.  This includes any parameters that might change to define counterfactuals, as well as their baseline counterparts.
         param_global = paramGenerator.generate_global_parameters();
         mpci  = param_global.mpci;
