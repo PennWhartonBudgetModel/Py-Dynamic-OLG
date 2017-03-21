@@ -331,6 +331,25 @@ methods (Static)
         
         
         %% Generate immigration parameters
+        
+        % Discretized CDF of immigrants by 5 year age intervals
+        meas = [0.0323 0.1625	0.3408	0.5213	0.6646	0.7613	0.8390	0.8899	0.9269	0.9548	0.9701	0.9848	0.9919	0.9964	1.0000];
+        n1 = length(meas)-1;
+        age = 20:(100-20)/(n1-1):100;
+        pdf = (meas(2:end)-meas(1:end-1));
+        pdf = pdf./sum(pdf);
+        plot(age,pdf)
+
+        imm_age = interp1(age,pdf,20:1:100,'spline','extrap');
+
+        plot(20:1:100,imm_age)
+
+        imm_age = imm_age./sum(imm_age);
+
+        plot(20:1:100,imm_age)
+
+
+        
     end
     
 end
