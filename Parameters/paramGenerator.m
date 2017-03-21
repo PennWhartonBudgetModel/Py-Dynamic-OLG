@@ -147,7 +147,7 @@ methods (Static)
         % such as any parameters used to calibrate to match savings and labor supply elasticities.
     end
     
-    function [param_inctax, param_bustax, param_socsec] = generate_policy_parameters(plan, save_results) % param_immigration
+    function [param_inctax, param_bustax, param_socsec, param_immigration] = generate_policy_parameters(plan, save_results) 
         % This method generates the counterfactual parameters.  This includes any parameters that might change to define counterfactuals, as well as their baseline counterparts.
         param_global = paramGenerator.generate_global_parameters();
         mpci  = param_global.mpci;
@@ -336,19 +336,12 @@ methods (Static)
         meas = [0.0323 0.1625	0.3408	0.5213	0.6646	0.7613	0.8390	0.8899	0.9269	0.9548	0.9701	0.9848	0.9919	0.9964	1.0000];
         n1 = length(meas)-1;
         age = 20:(100-20)/(n1-1):100;
-        pdf = (meas(2:end)-meas(1:end-1));
-        pdf = pdf./sum(pdf);
-        plot(age,pdf)
-
-        imm_age = interp1(age,pdf,20:1:100,'spline','extrap');
-
-        plot(20:1:100,imm_age)
-
-        imm_age = imm_age./sum(imm_age);
-
-        plot(20:1:100,imm_age)
-
-
+        pdf = (meas(2:end)-meas(1:end-1));  % Numeric PDF generation.
+        pdf = pdf./sum(pdf);    % Normalizing to one.
+        imm_age = interp1(age,pdf,20:1:100,'spline','extrap');    % Interpolating to get all age flows.
+        imm_age = imm_age./sum(imm_age);    % Renormalizing to one.
+        
+        param_immigration.imm_age = imm_age;
         
     end
     
