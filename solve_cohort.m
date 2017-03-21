@@ -1,31 +1,34 @@
 %%
-% Solve the dynamic optimization problem for a cohort, generating population distributions and aggregates using the optimal decision values.
+% Solve dynamic optimization problem for a cohort.
 % 
 %%
 
 
-function [LAB, DIST, Cohort, V] = solve_cohort(...
-             T_past, T_shift, T_active, T_work, T_model, nz, nk, nb, zs_idem, transz, ks, bs, beta, gamma, sigma, surv, V_beq, mu2_idem, mu3_idem, ...
-             mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-             beqs, wages, capshares, debtshares, caprates, govrates, totrates, expsubs, ...
-             V0, DIST0, LAB_static, DIST_static, isdynamic) %#codegen
+function [V, OPT] = solve_cohort(V0, LAB_static, isdynamic, ...
+                        nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs_idem, transz, ks, bs, beta, gamma, sigma, surv, V_beq, ...
+                        mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                        beqs, wages, capshares, caprates, govrates, totrates, expsubs) %#codegen
 
 
 %% Argument verification
 
-T_max  = 100;
 nz_max =  50;
 nk_max =  50;
 nb_max =  50;
+T_max  = 100;
 
+assert( isa(V0          , 'double'  ) && (size(V0           , 1) <= nz_max  ) && (size(V0           , 2) <= nk_max  ) && (size(V0           , 3) <= nb_max  ) );
+assert( isa(LAB_static  , 'double'  ) && (size(LAB_static   , 1) <= nz_max  ) && (size(LAB_static   , 2) <= nk_max  ) && (size(LAB_static   , 3) <= nb_max  ) && (size(LAB_static   , 4) <= T_max   ) );
+assert( isa(isdynamic   , 'logical' ) && (size(isdynamic    , 1) == 1       ) && (size(isdynamic    , 2) == 1       ) );
+
+assert( isa(nz          , 'double'  ) && (size(nz           , 1) == 1       ) && (size(nz           , 2) == 1       ) );
+assert( isa(nk          , 'double'  ) && (size(nk           , 1) == 1       ) && (size(nk           , 2) == 1       ) );
+assert( isa(nb          , 'double'  ) && (size(nb           , 1) == 1       ) && (size(nb           , 2) == 1       ) );
 assert( isa(T_past      , 'double'  ) && (size(T_past       , 1) == 1       ) && (size(T_past       , 2) == 1       ) );
 assert( isa(T_shift     , 'double'  ) && (size(T_shift      , 1) == 1       ) && (size(T_shift      , 2) == 1       ) );
 assert( isa(T_active    , 'double'  ) && (size(T_active     , 1) == 1       ) && (size(T_active     , 2) == 1       ) );
 assert( isa(T_work      , 'double'  ) && (size(T_work       , 1) == 1       ) && (size(T_work       , 2) == 1       ) );
 assert( isa(T_model     , 'double'  ) && (size(T_model      , 1) == 1       ) && (size(T_model      , 2) == 1       ) );
-assert( isa(nz          , 'double'  ) && (size(nz           , 1) == 1       ) && (size(nz           , 2) == 1       ) );
-assert( isa(nk          , 'double'  ) && (size(nk           , 1) == 1       ) && (size(nk           , 2) == 1       ) );
-assert( isa(nb          , 'double'  ) && (size(nb           , 1) == 1       ) && (size(nb           , 2) == 1       ) );
 assert( isa(zs_idem     , 'double'  ) && (size(zs_idem      , 1) <= nz_max  ) && (size(zs_idem      , 2) <= T_max   ) );
 assert( isa(transz      , 'double'  ) && (size(transz       , 1) <= nz_max  ) && (size(transz       , 2) <= nz_max  ) );
 assert( isa(ks          , 'double'  ) && (size(ks           , 1) <= nk_max  ) && (size(ks           , 2) == 1       ) );
@@ -35,8 +38,6 @@ assert( isa(gamma       , 'double'  ) && (size(gamma        , 1) == 1       ) &&
 assert( isa(sigma       , 'double'  ) && (size(sigma        , 1) == 1       ) && (size(sigma        , 2) == 1       ) );
 assert( isa(surv        , 'double'  ) && (size(surv         , 1) == 1       ) && (size(surv         , 2) <= T_max   ) );
 assert( isa(V_beq       , 'double'  ) && (size(V_beq        , 1) <= nk_max  ) && (size(V_beq        , 2) == 1       ) );
-assert( isa(mu2_idem    , 'double'  ) && (size(mu2_idem     , 1) == 1       ) && (size(mu2_idem     , 2) <= T_max   ) );
-assert( isa(mu3_idem    , 'double'  ) && (size(mu3_idem     , 1) == 1       ) && (size(mu3_idem     , 2) <= T_max   ) );
 
 assert( isa(mpci        , 'double'  ) && (size(mpci         , 1) == 1       ) && (size(mpci         , 2) == 1       ) );
 assert( isa(rpci        , 'double'  ) && (size(rpci         , 1) == 1       ) && (size(rpci         , 2) == 1       ) );
@@ -55,34 +56,27 @@ assert( isa(qtobin0     , 'double'  ) && (size(qtobin0      , 1) == 1       ) &&
 assert( isa(beqs        , 'double'  ) && (size(beqs         , 1) == 1       ) && (size(beqs         , 2) <= T_max   ) );
 assert( isa(wages       , 'double'  ) && (size(wages        , 1) == 1       ) && (size(wages        , 2) <= T_max   ) );
 assert( isa(capshares   , 'double'  ) && (size(capshares    , 1) == 1       ) && (size(capshares    , 2) <= T_max   ) );
-assert( isa(debtshares  , 'double'  ) && (size(debtshares   , 1) == 1       ) && (size(debtshares   , 2) <= T_max   ) );
 assert( isa(caprates    , 'double'  ) && (size(caprates     , 1) == 1       ) && (size(caprates     , 2) <= T_max   ) );
 assert( isa(govrates    , 'double'  ) && (size(govrates     , 1) == 1       ) && (size(govrates     , 2) <= T_max   ) );
 assert( isa(totrates    , 'double'  ) && (size(totrates     , 1) == 1       ) && (size(totrates     , 2) <= T_max   ) );
 assert( isa(expsubs     , 'double'  ) && (size(expsubs      , 1) == 1       ) && (size(expsubs      , 2) <= T_max   ) );
 
-assert( isa(V0          , 'double'  ) && (size(V0           , 1) <= nz_max  ) && (size(V0           , 2) <= nk_max  ) && (size(V0           , 3) <= nb_max  ) );
-assert( isa(DIST0       , 'double'  ) && (size(DIST0        , 1) <= nz_max  ) && (size(DIST0        , 2) <= nk_max  ) && (size(DIST0        , 3) <= nb_max  ) );
-assert( isa(LAB_static  , 'double'  ) && (size(LAB_static   , 1) <= nz_max  ) && (size(LAB_static   , 2) <= nk_max  ) && (size(LAB_static   , 3) <= nb_max  ) && (size(LAB_static   , 4) <= T_max   ) );
-assert( isa(DIST_static , 'double'  ) && (size(DIST_static  , 1) <= nz_max  ) && (size(DIST_static  , 2) <= nk_max  ) && (size(DIST_static  , 3) <= nb_max  ) && (size(DIST_static  , 4) <= T_max   ) );
-assert( isa(isdynamic   , 'logical' ) && (size(isdynamic    , 1) == 1       ) && (size(isdynamic    , 2) == 1       ) );
-
 
 
 %% Dynamic optimization
 
-% Initialize optimal decision value arrays
-V   = zeros(nz,nk,nb,T_active);   % Utility
+% Initialize utility and optimal decision value arrays
+V       = zeros(nz,nk,nb,T_active);   % Utility
 
-K   = zeros(nz,nk,nb,T_active);   % Savings
-LAB = zeros(nz,nk,nb,T_active);   % Labor level
-B   = zeros(nz,nk,nb,T_active);   % Average earnings
+OPT.K   = zeros(nz,nk,nb,T_active);   % Savings
+OPT.LAB = zeros(nz,nk,nb,T_active);   % Labor level
+OPT.B   = zeros(nz,nk,nb,T_active);   % Average earnings
 
-INC = zeros(nz,nk,nb,T_active);   % Taxable income
-PIT = zeros(nz,nk,nb,T_active);   % Personal income tax
-SST = zeros(nz,nk,nb,T_active);   % Social Security tax
-CIT = zeros(nz,nk,nb,T_active);   % Corporate income tax
-BEN = zeros(nz,nk,nb,T_active);   % Social Security benefits
+OPT.INC = zeros(nz,nk,nb,T_active);   % Taxable income
+OPT.PIT = zeros(nz,nk,nb,T_active);   % Personal income tax
+OPT.SST = zeros(nz,nk,nb,T_active);   % Social Security tax
+OPT.CIT = zeros(nz,nk,nb,T_active);   % Corporate income tax
+OPT.BEN = zeros(nz,nk,nb,T_active);   % Social Security benefits
 
 % Initialize forward-looking utility values
 V_step = V0;
@@ -107,7 +101,6 @@ for t = T_active:-1:1
     caprate    = caprates     (year);
     govrate    = govrates     (year);
     capshare   = capshares    (year);
-    debtshare  = debtshares   (year);
     totrate    = totrates     (year);
     expsub     = expsubs      (year);
     
@@ -122,7 +115,7 @@ for t = T_active:-1:1
                 [resources, inc, pit, ~, cit] = calculate_resources(...
                     labinc, ks(ik), year, ...
                     mpci, rpci, sstaxcredit, 0, 0, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-                    beq, capshare, debtshare, caprate, govrate, totrate, expsub);
+                    beq, capshare, caprate, govrate, totrate, expsub);
                 
                 if isdynamic
                     
@@ -135,20 +128,20 @@ for t = T_active:-1:1
                     % Solve dynamic optimization subproblem
                     [k, v] = fminsearch(@value_retirement, ks(ik), optim_options);
                     
-                    % Record optimal decision values
-                    V(:,ik,ib,t) = -v;
-                    K(:,ik,ib,t) = k ;
+                    % Record utility and optimal decision values
+                    V    (:,ik,ib,t) = -v;
+                    OPT.K(:,ik,ib,t) = k ;
                     
                 end
                 
-                LAB(:,ik,ib,t) = 0     ;
-                B  (:,ik,ib,t) = bs(ib);
+                OPT.LAB(:,ik,ib,t) = 0     ;
+                OPT.B  (:,ik,ib,t) = bs(ib);
                 
-                INC(:,ik,ib,t) = inc   ;
-                PIT(:,ik,ib,t) = pit   ;
-                SST(:,ik,ib,t) = 0     ;
-                CIT(:,ik,ib,t) = cit   ;
-                BEN(:,ik,ib,t) = labinc;
+                OPT.INC(:,ik,ib,t) = inc   ;
+                OPT.PIT(:,ik,ib,t) = pit   ;
+                OPT.SST(:,ik,ib,t) = 0     ;
+                OPT.CIT(:,ik,ib,t) = cit   ;
+                OPT.BEN(:,ik,ib,t) = labinc;
                 
             else
                 
@@ -161,7 +154,7 @@ for t = T_active:-1:1
                     calculate_resources(...
                         [], ks(ik), year, ...
                         mpci, rpci, 0, sstax, ssincmax, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
-                        beq, capshare, debtshare, caprate, govrate, totrate, expsub);
+                        beq, capshare, caprate, govrate, totrate, expsub);
                     
                     if isdynamic
                         
@@ -181,9 +174,9 @@ for t = T_active:-1:1
                         k   = x(1);
                         lab = x(2);
                         
-                        % Record optimal decision values
-                        V(iz,ik,ib,t) = -v;
-                        K(iz,ik,ib,t) = k ;
+                        % Record utility and optimal decision values
+                        V    (iz,ik,ib,t) = -v;
+                        OPT.K(iz,ik,ib,t) = k ;
                         
                     else
                         lab = LAB_static(iz,ik,ib,t);
@@ -192,14 +185,14 @@ for t = T_active:-1:1
                     labinc = wage_eff * lab;
                     [~, inc, pit, sst, cit] = calculate_resources(labinc);
                     
-                    LAB(iz,ik,ib,t) = lab;
-                    B  (iz,ik,ib,t) = calculate_b(labinc);
+                    OPT.LAB(iz,ik,ib,t) = lab;
+                    OPT.B  (iz,ik,ib,t) = calculate_b(labinc);
                     
-                    INC(iz,ik,ib,t) = inc;
-                    PIT(iz,ik,ib,t) = pit;
-                    SST(iz,ik,ib,t) = sst;
-                    CIT(iz,ik,ib,t) = cit;
-                    BEN(iz,ik,ib,t) = 0  ;
+                    OPT.INC(iz,ik,ib,t) = inc;
+                    OPT.PIT(iz,ik,ib,t) = pit;
+                    OPT.SST(iz,ik,ib,t) = sst;
+                    OPT.CIT(iz,ik,ib,t) = cit;
+                    OPT.BEN(iz,ik,ib,t) = 0  ;
                     
                 end
                 
@@ -214,89 +207,6 @@ for t = T_active:-1:1
 end
 
 
-
-%% Distribution generation
-
-% Extract distribution scaling parameters
-mu2_cohort = mu2_idem(T_past+(1:T_active));
-mu3_cohort = mu3_idem(T_past+(1:T_active));
-
-
-if isdynamic
-    
-    % Initialize distributions
-    DIST = zeros(nz,nk,nb,T_active);
-    DIST(:,:,:,1) = DIST0;
-    
-    % Generate distributions through forward propagation
-    for t = 1:T_active-1
-        
-        % Extract optimal k and b values
-        k_t = K(:,:,:,t);
-        b_t = B(:,:,:,t);
-        
-        % Find indices of nearest values in ks and bs series
-        jk_lt = ones(size(k_t));
-        for elem = 1:length(k_t(:))
-            jk_lt(elem) = find(ks(1:end-1) <= k_t(elem), 1, 'last');
-        end
-        jk_gt = jk_lt + 1;
-        
-        jb_lt = ones(size(b_t));
-        for elem = 1:length(b_t(:))
-            jb_lt(elem) = find(bs(1:end-1) <= b_t(elem), 1, 'last');
-        end
-        jb_gt = jb_lt + 1;
-        
-        % Calculate linear weights for nearest values
-        wk_lt = (ks(jk_gt) - k_t) ./ (ks(jk_gt) - ks(jk_lt));
-        wk_gt = 1 - wk_lt;
-        
-        wb_lt = (bs(jb_gt) - b_t) ./ (bs(jb_gt) - bs(jb_lt));
-        wb_gt = 1 - wb_lt;
-        
-        for jz = 1:nz
-            
-            % Perform productivity transformation
-            DIST_step = repmat(transz(:,jz), [1,nk,nb]) .* DIST(:,:,:,t);
-            
-            % Generate distribution for next time step
-            for elem = 1:numel(DIST_step)
-                DIST(jz, jk_lt(elem), jb_lt(elem), t+1) = DIST(jz, jk_lt(elem), jb_lt(elem), t+1) + wb_lt(elem) * wk_lt(elem) * DIST_step(elem);
-                DIST(jz, jk_gt(elem), jb_lt(elem), t+1) = DIST(jz, jk_gt(elem), jb_lt(elem), t+1) + wb_lt(elem) * wk_gt(elem) * DIST_step(elem);
-                DIST(jz, jk_lt(elem), jb_gt(elem), t+1) = DIST(jz, jk_lt(elem), jb_gt(elem), t+1) + wb_gt(elem) * wk_lt(elem) * DIST_step(elem);
-                DIST(jz, jk_gt(elem), jb_gt(elem), t+1) = DIST(jz, jk_gt(elem), jb_gt(elem), t+1) + wb_gt(elem) * wk_gt(elem) * DIST_step(elem);
-            end
-            
-        end
-        
-    end
-    
-    % Adjust distributions based on demographics
-    DIST = repmat(reshape(mu2_cohort, [1,1,1,T_active]), [nz,nk,nb,1]) .* DIST;
-    
-else
-    
-    DIST = DIST_static;
-    
-end
-
-
-
-%% Aggregate generation
-
-Cohort.assets  = sum(reshape(K   .* DIST, [], T_active), 1) .* (1 + (mu3_cohort ./ mu2_cohort));
-Cohort.beqs    = sum(reshape(K   .* DIST, [], T_active), 1) .* (0 + (mu3_cohort ./ mu2_cohort));
-Cohort.labeffs = sum(reshape(LAB .* repmat(reshape(zs_idem(:,T_past+(1:T_active)), [nz,1,1,T_active]), [1,nk,nb,1]) .* DIST, [], T_active), 1);
-Cohort.labs    = sum(reshape(LAB .* DIST, [], T_active), 1);
-Cohort.lfprs   = sum(reshape((LAB >= 0.01) .* DIST, [], T_active), 1);
-Cohort.incs    = sum(reshape(INC .* DIST, [], T_active), 1);
-Cohort.pits    = sum(reshape(PIT .* DIST, [], T_active), 1);
-Cohort.ssts    = sum(reshape(SST .* DIST, [], T_active), 1);
-Cohort.cits    = sum(reshape(CIT .* DIST, [], T_active), 1);
-Cohort.bens    = sum(reshape(BEN .* DIST, [], T_active), 1);
-
-
 end
 
 
@@ -306,7 +216,7 @@ end
 function [resources, inc, pit, sst, cit] = calculate_resources(...
              labinc, ks_ik_, year_, ...
              mpci_, rpci_, sstaxcredit_, sstax_, ssincmax_, deduc_coefs_, pit_coefs_, captaxshare_, taucap_, taucapgain_, qtobin_, qtobin0_, ...
-             beq_, capshare_, debtshare_, caprate_, govrate_, totrate_, expsub_) %#codegen
+             beq_, capshare_, caprate_, govrate_, totrate_, expsub_) %#codegen
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -314,14 +224,14 @@ coder.inline('always');
 % Define parameters as persistent variables
 persistent ks_ik year ...
            mpci rpci sstaxcredit sstax ssincmax deduc_coefs pit_coefs captaxshare taucap taucapgain qtobin qtobin0 ...
-           beq capshare debtshare caprate govrate totrate expsub ...
+           beq capshare caprate govrate totrate expsub ...
            initialized
 
 % Initialize parameters for C code generation
 if isempty(initialized)
     ks_ik = 0; year = 0;
     mpci = 0; rpci = 0; sstaxcredit = 0; sstax = 0; ssincmax = 0; deduc_coefs = 0; pit_coefs = 0; captaxshare = 0; taucap = 0; taucapgain = 0; qtobin = 0; qtobin0 = 0;
-    beq = 0; capshare = 0; debtshare = 0; caprate = 0; govrate = 0; totrate = 0; expsub = 0;
+    beq = 0; capshare = 0; caprate = 0; govrate = 0; totrate = 0; expsub = 0;
     initialized = true;
 end
 
@@ -329,13 +239,13 @@ end
 if (nargin > 1)
     ks_ik = ks_ik_; year = year_;
     mpci = mpci_; rpci = rpci_; sstaxcredit = sstaxcredit_; sstax = sstax_; ssincmax = ssincmax_; deduc_coefs = deduc_coefs_; pit_coefs = pit_coefs_; captaxshare = captaxshare_; taucap = taucap_; taucapgain = taucapgain_; qtobin = qtobin_; qtobin0 = qtobin0_;
-    beq = beq_; capshare = capshare_; debtshare = debtshare_; caprate = caprate_; govrate = govrate_; totrate = totrate_; expsub = expsub_;
+    beq = beq_; capshare = capshare_; caprate = caprate_; govrate = govrate_; totrate = totrate_; expsub = expsub_;
     if isempty(labinc), return, end
 end
 
 
 % Calculate taxable income
-inc     = (rpci/mpci)*max(0, capshare*caprate*ks_ik*(1-captaxshare) + debtshare*govrate*ks_ik + (1-sstaxcredit)*labinc);
+inc     = (rpci/mpci)*max(0, capshare*caprate*ks_ik*(1-captaxshare) + (1-capshare)*govrate*ks_ik + (1-sstaxcredit)*labinc);
 deduc   = max(0, deduc_coefs*inc.^[0; 1; 0.5]);
 inc_eff = max(inc - deduc, 0);
 inc     = (mpci/rpci)*inc;

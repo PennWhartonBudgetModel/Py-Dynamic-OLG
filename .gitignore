@@ -5,14 +5,14 @@
 *.o*
 *.e*
 
-# Ignore testing directory and log directory
-/Testing
-/Logs
+# Ignore testing directories and log directories
+Testing/
+Logs/
 
 # Ignore designated directories
 .ignore/
 
-# Ignore Linux mex files -- i.e. mex files built on the HPCC
+# Ignore Linux mex files (i.e. mex files built on the HPCC)
 *.mexa64
 
 # Ignore Matlab code generation directories

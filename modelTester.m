@@ -8,8 +8,16 @@ classdef modelTester
 
 properties (Constant)
     
-    % Specify baseline definition
+    % Define baseline for all tests
     basedef = get_basedef(6);
+    
+    % Define counterfactual for counterfactual tests
+    counterdef = struct('taxplan'       , 'ryan', ...
+                        'gcut'          , +0.10 , ...
+                        'legal_scale'   , 1.5   , ...
+                        'prem_legal'    , 1.117 , ...
+                        'amnesty'       , 0.05  , ...
+                        'deportation'   , 0.05  );
     
 end
 
@@ -19,7 +27,7 @@ methods (Static)
     % Test steady state solution and elasticities
     function [] = steady()
         save_dir = dynamicSolver.steady(modelTester.basedef);
-        setnames = {'market', 'elasticities'};
+        setnames = {'market', 'dynamics', 'elasticities'};
         test_output(save_dir, setnames);
     end
     
@@ -34,7 +42,7 @@ methods (Static)
     
     % Test open economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = open_counter()
-        save_dir = dynamicSolver.open(modelTester.basedef, struct('taxplan', 'ryan', 'gcut', +0.10));
+        save_dir = dynamicSolver.open(modelTester.basedef, modelTester.counterdef);
         setnames = {'market', 'dynamics', 'statics'};
         test_output(save_dir, setnames);
     end
@@ -50,7 +58,7 @@ methods (Static)
     
     % Test closed economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = closed_counter()
-        save_dir = dynamicSolver.closed(modelTester.basedef, struct('taxplan', 'ryan', 'gcut', +0.10));
+        save_dir = dynamicSolver.closed(modelTester.basedef, modelTester.counterdef);
         setnames = {'market', 'dynamics', 'statics'};
         test_output(save_dir, setnames);
     end
@@ -77,7 +85,7 @@ ismatch = true;
 
 % Define function to flag issues
 function flag(str)
-    fprintf('\t%-15s%-20s%s.\n', setname, valuename, str)
+    fprintf('\t%-15s%-20s%s\n', setname, valuename, str)
     ismatch = false;
 end
 
@@ -98,9 +106,16 @@ for i = 1:length(setnames)
         
         valuename = targetvaluenames{j};
         
-        % Identify missing value
         if ~isfield(outputset, valuename)
+            
+            % Flag missing value
             flag('Not found');
+        
+        elseif any(isnan(outputset.(valuename)(:)))
+            
+            % Flag NaN value
+            flag('NaN value');
+            
         else
             
             % Identify value deviation
