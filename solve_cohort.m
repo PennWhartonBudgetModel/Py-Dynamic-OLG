@@ -88,11 +88,11 @@ optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
 % Solve dynamic optimization problem through backward induction
 for t = T_active:-1:1
     
-    % Determine age and year, bounded by parameter period
+    % Determine age and year, bounded by modeling period
     age  = t + T_past;
     year = min(t + T_shift, T_model);
     
-    % Extract annual parameters
+    % Extract parameters for current year
     ssbenefit  = ssbenefits(:, year);
     sstax      = sstaxs       (year);
     ssincmax   = ssincmaxs    (year);
@@ -293,10 +293,10 @@ consumption = resources - k;
 % Perform bound checks
 if (ks(1) <= k) && (k <= ks(end)) && (0 <= consumption)
     
-    % Calculate value
+    % Calculate utility
     v = interp1(ks, EV_ib, k, 'linear') + (consumption^(gamma*(1-sigma)))/(1-sigma);
     
-    % Negate for minimization and force to scalar for C code generation
+    % Negate utility for minimization and force to scalar for C code generation
     v = -v(1);
     
 else
@@ -358,10 +358,10 @@ if ~(0 <= consumption)
     return
 end
 
-% Calculate value
+% Calculate utility
 v = interp2(ks', bs, EV', k, b, 'linear') + (1/(1-sigma))*((consumption^gamma)*((1-lab)^(1-gamma)))^(1-sigma);
 
-% Negate for minimization and force to scalar for C code generation
+% Negate utility for minimization and force to scalar for C code generation
 v = -v(1);
 
 end
@@ -392,6 +392,7 @@ if (nargin > 1)
 end
 
 
+% Calculate average earnings
 b = (bs_ib*(age-1) + min(labinc, ssincmax))/age;
 
 end

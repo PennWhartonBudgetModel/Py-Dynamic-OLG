@@ -43,7 +43,7 @@ for age = 2:T_life
     k_t = K(:,:,:,age-1);
     b_t = B(:,:,:,age-1);
     
-    % Find indices of nearest values in ks and bs series
+    % Find indices of nearest values in decision value discretization vectors
     jk_lt = ones(size(k_t));
     for elem = 1:length(k_t(:))
         jk_lt(elem) = find(ks(1:end-1) <= k_t(elem), 1, 'last');
@@ -68,7 +68,7 @@ for age = 2:T_life
         % Apply survival and productivity transformations to population distribution for current year
         DIST_transz = DIST_year(:,:,:,age-1,:) * surv(age-1) .* repmat(reshape(transz(:,jz), [nz,1,1,1,1]), [1,nk,nb,1,ng]);
         
-        % Redistribute population distribution for current year according to target indices and weights
+        % Redistribute population distribution from current year to next year according to target indices and weights
         for ib = 1:nb, for ik = 1:nk, for iz = 1:nz %#ok<ALIGN>
             DIST_next(jz, jk_lt(iz,ik,ib), jb_lt(iz,ik,ib), age, :) = DIST_next(jz, jk_lt(iz,ik,ib), jb_lt(iz,ik,ib), age, :) + wk_lt(iz,ik,ib)*wb_lt(iz,ik,ib)*DIST_transz(iz,ik,ib,1,:);
             DIST_next(jz, jk_gt(iz,ik,ib), jb_lt(iz,ik,ib), age, :) = DIST_next(jz, jk_gt(iz,ik,ib), jb_lt(iz,ik,ib), age, :) + wk_gt(iz,ik,ib)*wb_lt(iz,ik,ib)*DIST_transz(iz,ik,ib,1,:);
