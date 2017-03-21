@@ -326,22 +326,26 @@ methods (Static)
         
         
         
-        
-        
-        
-        
         %% Generate immigration parameters
         
         % Discretized CDF of immigrants by 5 year age intervals
-        meas = [0.0323 0.1625	0.3408	0.5213	0.6646	0.7613	0.8390	0.8899	0.9269	0.9548	0.9701	0.9848	0.9919	0.9964	1.0000];
-        n1 = length(meas)-1;
-        age = 20:(100-20)/(n1-1):100;
-        pdf = (meas(2:end)-meas(1:end-1));  % Numeric PDF generation.
-        pdf = pdf./sum(pdf);    % Normalizing to one.
+        meas    = [0.0323 0.1625	0.3408	0.5213	0.6646	0.7613	0.8390	0.8899	0.9269	0.9548	0.9701	0.9848	0.9919	0.9964	1.0000];
+        n1      = length(meas)-1;
+        age     = 20:(100-20)/(n1-1):100;
+        pdf     = (meas(2:end)-meas(1:end-1));  % Numeric PDF generation.
+        pdf     = pdf./sum(pdf);    % Normalizing to one.
         imm_age = interp1(age,pdf,20:1:100,'spline','extrap');    % Interpolating to get all age flows.
         imm_age = imm_age./sum(imm_age);    % Renormalizing to one.
         
-        param_immigration.imm_age = imm_age;
+        % Other immigration parameters
+        illegal_rate = 0.0016;
+        legal_rate   = 0.0024;
+        pgr = 0.02;    % Population growth rate: this is redundant!  Also in global parameters, should be removed.
+        
+        param_immigration.imm_age      = imm_age;
+        param_immigration.illegal_rate = illegal_rate;
+        param_immigration.legal_rate   = legal_rate;
+        param_immigration.pgr          = pgr;
         
     end
     
