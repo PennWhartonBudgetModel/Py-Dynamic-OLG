@@ -166,7 +166,7 @@ methods (Static, Access = private)
                 startyears = (-T_life+1):(T_model-1);
         end
         nstartyears = length(startyears);
-                        
+        
         T_pasts   = max(-startyears, 0);                          % Life years before first model year
         T_shifts  = max(+startyears, 0);                          % Model years before first life year
         T_actives = min(startyears+T_life, T_model) - T_shifts;   % Life years within modeling period
@@ -442,7 +442,7 @@ methods (Static, Access = private)
             base_generator = @() dynamicSolver.solve(economy, basedef, [], callingtag);
             base_dir = dirFinder.save(economy, basedef);
             
-            % Load baseline market conditions, optimal decision values, and population distribution
+            % Load baseline market conditions, optimal labor values, and population distribution
             Market = hardyload('market.mat'      , base_generator, base_dir);
             
             s      = hardyload('decisions.mat'   , base_generator, base_dir);
@@ -749,7 +749,7 @@ methods (Static, Access = private)
         if (iter == itermax), warning('Maximum iterations reached.'), end
         
         
-        % Save baseline optimal decision values and population distribution
+        % Save baseline optimal labor values and population distribution
         if isbase
             save(fullfile(save_dir, 'decisions.mat'   ), 'LABs')
             save(fullfile(save_dir, 'distribution.mat'), 'DIST')
