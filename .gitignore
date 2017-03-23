@@ -9,6 +9,9 @@
 Testing/
 Logs/
 
+# Ignore batch directory
+/Batches
+
 # Ignore designated directories
 .ignore/
 
