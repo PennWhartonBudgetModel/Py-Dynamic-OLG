@@ -23,7 +23,6 @@ end
 
 methods (Static)
     
-    
     % Test steady state solution and elasticities
     function [] = steady()
         save_dir = dynamicSolver.steady(modelTester.basedef);
@@ -62,7 +61,6 @@ methods (Static)
         setnames = {'market', 'dynamics', 'statics'};
         test_output(save_dir, setnames);
     end
-    
     
 end
 

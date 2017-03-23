@@ -638,15 +638,15 @@ methods (Static, Access = private)
                 
                 case 'steady'
                     
-                    % Calculate capital, output, and debt
-                    % (Iterative method used due to lack of closed form solution)
-                    Dynamic.debts = 0; debts = Inf;
-                    while (abs(Dynamic.debts - debts) > 1e-6)
-                        debts = Dynamic.debts;
-                        Dynamic.caps  = (Dynamic.assets - debts)/qtobin;
-                        Dynamic.outs  = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
-                        Dynamic.debts = debttoout*Dynamic.outs;
-                    end
+                    % Calculate debt, capital, and output
+                    % (Numerical solver used due to absence of closed form solution)
+                    f_debts = @(outs ) debttoout*outs;
+                    f_caps  = @(debts) (Dynamic.assets - debts)/qtobin;
+                    f_outs  = @(caps ) A*(max(caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
+                    x_ = fsolve(@(x) x - [f_debts(x(3)); f_caps(x(1)); f_outs(x(2))], zeros(3,1), optimoptions('fsolve', 'Display', 'none'));
+                    Dynamic.debts = x_(1);
+                    Dynamic.caps  = x_(2);
+                    Dynamic.outs  = x_(3);
                     
                     % Calculate market clearing series
                     rhos = max(Dynamic.caps, 0) / Dynamic.labeffs;
