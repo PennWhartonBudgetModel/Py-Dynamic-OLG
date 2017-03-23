@@ -17,7 +17,7 @@ properties (Constant)
     nelas = length(modelCalibrator.elaslist);
     
     % Define number of discretization points for each parameter
-    npoint = 20;
+    npoint = 2;
     
     % Define number of parameter sets per batch
     batchsize = 5;
