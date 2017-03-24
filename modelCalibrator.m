@@ -37,8 +37,8 @@ methods (Static)
     function [] = initialize_batches()
         
         % Specify parameter lower and upper bounds
-        lb.beta  = 0.970; lb.gamma = 0.150; lb.sigma =  1.50;
-        ub.beta  = 1.110; ub.gamma = 0.900; ub.sigma = 22.00;
+        lb.beta = 0.970; lb.gamma = 0.150; lb.sigma =  1.50;
+        ub.beta = 1.110; ub.gamma = 0.900; ub.sigma = 22.00;
         
         % Construct vectors of parameter values
         for p = modelCalibrator.paramlist, v.(p{1}) = linspace(lb.(p{1}), ub.(p{1}), modelCalibrator.npoint); end

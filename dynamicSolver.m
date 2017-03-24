@@ -210,7 +210,7 @@ methods (Static, Access = private)
             v = mean(zs(:,age,:), 3);
             ztarget = sum(v .* DISTz_age(:,age,g.legal)) * prem_legal;
             p = (v(nz) - ztarget) / (v(nz)*(nz-1) - sum(v(1:nz-1)));
-            DISTz_age(:,age,g.legal) = [ p*ones(nz-1,1) ; 1 - p*(nz-1) ];
+            DISTz_age(:,age,g.legal) = [p*ones(nz-1,1); 1 - p*(nz-1)];
         end
         
         
@@ -607,7 +607,8 @@ methods (Static, Access = private)
                             case 'closed', Market.govrates = cborates;
                         end
                     else
-                        Market.rhos      = rhos;
+                        rhostep = 0.5;
+                        Market.rhos      = rhostep*rhos + (1-rhostep)*Market.rhos;
                         Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
                     end
                     
