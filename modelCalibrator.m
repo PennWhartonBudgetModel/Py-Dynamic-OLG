@@ -17,7 +17,7 @@ properties (Constant)
     nelas = length(modelCalibrator.elaslist);
     
     % Define number of discretization points for each parameter
-    npoint = 2;
+    npoint = 40;
     
     % Define number of parameter sets per batch
     batchsize = 5;
@@ -76,7 +76,10 @@ methods (Static)
             save_dir = dynamicSolver.steady(parambatch(i));
             
             % Extract elasticity set
-            elasbatch(i) = load(fullfile(save_dir, 'elasticities.mat')); %#ok<NASGU,PFOUS>
+            elasbatch(i) = load(fullfile(save_dir, 'elasticities.mat')); %#ok<PFOUS>
+            
+            % Check if stable solution found
+            solved(i) = (elasbatch(i).captoout > 0.5) && (size(csvread(fullfile(save_dir, 'iterations.csv')), 1) < 25); %#ok<NASGU,PFOUS>
             
             % Delete save directory
             rmdir(save_dir, 's')
@@ -88,8 +91,8 @@ methods (Static)
             
         end
         
-        % Save elasticity sets to batch file
-        save(batchfile, '-append', 'elasbatch')
+        % Save elasticity sets and stable solution checks to batch file
+        save(batchfile, '-append', 'elasbatch', 'solved')
         
     end
     
@@ -100,15 +103,16 @@ methods (Static)
         if ~exist('clean', 'var'), clean = false; end
         
         % Load parameter and elasticity sets from batch files
-        for p = modelCalibrator.paramlist, paramsets(modelCalibrator.nset).(p{1}) = 0; end %#ok<AGROW>
-        for e = modelCalibrator.elaslist , elassets (modelCalibrator.nset).(e{1}) = 0; end %#ok<AGROW>
+        for p = modelCalibrator.paramlist, paramsets.(p{1}) = NaN; end
+        for e = modelCalibrator.elaslist , elassets.( e{1}) = NaN; end
         
         for ibatch = 1:modelCalibrator.nbatch
             s = load(fullfile(modelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch)));
-            shift = (ibatch-1)*modelCalibrator.batchsize;
-            paramsets(shift+1 : min(shift+modelCalibrator.batchsize, end)) = s.parambatch;
-            elassets (shift+1 : min(shift+modelCalibrator.batchsize, end)) = s.elasbatch ;
+            paramsets = [paramsets, s.parambatch(s.solved)]; %#ok<AGROW>
+            elassets  = [elassets , s.elasbatch( s.solved)]; %#ok<AGROW>
         end
+        paramsets(1) = [];
+        elassets (1) = [];
         
         % Construct inverse interpolants that map elasticities to parameters
         for p = modelCalibrator.paramlist, interp.(p{1}) = scatteredInterpolant([elassets.captoout]', [elassets.labelas]', [elassets.savelas]', [paramsets.(p{1})]', 'nearest'); end
