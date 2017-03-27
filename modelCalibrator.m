@@ -78,8 +78,9 @@ methods (Static)
             % Extract elasticity set
             elasbatch(i) = load(fullfile(save_dir, 'elasticities.mat')); %#ok<PFOUS>
             
-            % Check if stable solution found
-            solved(i) = (elasbatch(i).captoout > 0.5) && (size(csvread(fullfile(save_dir, 'iterations.csv')), 1) < 25); %#ok<NASGU,PFOUS>
+            % Check solution condition
+            % (Stable solution identified as reasonable capital-to-output ratio and robust solver convergence rate)
+            solvedbatch(i) = (elasbatch(i).captoout > 0.5) && (size(csvread(fullfile(save_dir, 'iterations.csv')), 1) < 25); %#ok<NASGU,PFOUS>
             
             % Delete save directory
             rmdir(save_dir, 's')
@@ -91,8 +92,8 @@ methods (Static)
             
         end
         
-        % Save elasticity sets and stable solution checks to batch file
-        save(batchfile, '-append', 'elasbatch', 'solved')
+        % Save elasticity sets and solution conditions to batch file
+        save(batchfile, '-append', 'elasbatch', 'solvedbatch')
         
     end
     
@@ -102,7 +103,7 @@ methods (Static)
         
         if ~exist('clean', 'var'), clean = false; end
         
-        % Initialize vectors of parameters and elasticities
+        % Initialize vectors of parameters, elasticities, and solution conditions
         for p = modelCalibrator.paramlist, paramv.(p{1}) = []; end
         for e = modelCalibrator.elaslist , elasv.( e{1}) = []; end
         solved = [];
@@ -116,7 +117,7 @@ methods (Static)
             
             for p = modelCalibrator.paramlist, paramv.(p{1}) = [paramv.(p{1}), s.parambatch.(p{1})]; end
             for e = modelCalibrator.elaslist , elasv.( e{1}) = [elasv.( e{1}), s.elasbatch.( e{1})]; end
-            solved = [solved, s.solved]; %#ok<AGROW>
+            solved = [solved, s.solvedbatch]; %#ok<AGROW>
             
         end
         solved = boolean(solved);
@@ -133,31 +134,41 @@ methods (Static)
         % Save elasticity inverter
         save(fullfile(dirFinder.source, 'invert.mat'), 'invert', 'paramv', 'elasv', 'solved');
         
+        % Delete batch directory
+        if clean, rmdir(modelCalibrator.batch_dir, 's'), end
         
-        % Initialize plot
+    end
+    
+    
+    % Plot calibration solution conditions
+    function [] = plot_conditions()
+        
+        % Load vectors of parameters, elasticities, and solution conditions
+        s = load(fullfile(dirFinder.source, 'invert.mat'));
+        paramv = s.paramv;
+        elasv  = s.elasv ;
+        solved = s.solved;
+        
+        % Initialize figure
         fig = figure; ax = axes;
         
         % Determine colors
         cv = zeros(modelCalibrator.nset, 3);
-        devs = min(abs(elasv.captoout(solved)' - 3).^2, 1);
+        devs = min(abs(elasv.captoout(solved)' - 3).^0.5, 1);
         cv( solved, :) = [devs, ones(size(devs)), devs]*180/256;        % Gray to green
         cv(~solved, :) = repmat([200/256, 0, 0], [sum(~solved), 1]);    % Red
         
         % Plot parameter sets
-        scatter3(paramv.beta, paramv.gamma, paramv.sigma, 12, cv, 'filled');
+        scatter3(paramv.beta, paramv.gamma, paramv.sigma, 40, cv, 'filled');
         
-        % Format plot
+        % Format axes
         axis(ax, 'tight'), box(ax, 'on'), grid(ax, 'on'), view(3), pbaspect([1,1,1])
-        xlabel('beta' ), ax.XTickMode = 'manual'; ax.XTick = linspace(ax.XLim(1), ax.XLim(2), modelCalibrator.npoint);
-        ylabel('gamma'), ax.YTickMode = 'manual'; ax.YTick = linspace(ax.YLim(1), ax.YLim(2), modelCalibrator.npoint);
-        zlabel('sigma'), ax.ZTickMode = 'manual'; ax.ZTick = linspace(ax.ZLim(1), ax.ZLim(2), modelCalibrator.npoint);
+        xlabel('beta' ), ax.XTickMode = 'manual'; ax.XTick = linspace(ax.XLim(1), ax.XLim(2), 3);
+        ylabel('gamma'), ax.YTickMode = 'manual'; ax.YTick = linspace(ax.YLim(1), ax.YLim(2), 3);
+        zlabel('sigma'), ax.ZTickMode = 'manual'; ax.ZTick = linspace(ax.ZLim(1), ax.ZLim(2), 3);
         
-        % Save plot
+        % Save figure
         savefig(fig, fullfile(dirFinder.source, 'invert.fig'))
-        
-        
-        % Delete batch directory
-        if clean, rmdir(modelCalibrator.batch_dir, 's'), end
         
     end
     
