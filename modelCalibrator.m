@@ -102,20 +102,27 @@ methods (Static)
         
         if ~exist('clean', 'var'), clean = false; end
         
-        % Load parameter and elasticity sets from batch files
-        for p = modelCalibrator.paramlist, paramsets.(p{1}) = NaN; end
-        for e = modelCalibrator.elaslist , elassets.( e{1}) = NaN; end
+        % Initialize vectors of parameters and elasticities
+        for p = modelCalibrator.paramlist, paramv.(p{1}) = []; end
+        for e = modelCalibrator.elaslist , elasv.( e{1}) = []; end
+        solved = [];
         
+        % Load parameter and elasticity sets from batch files
         for ibatch = 1:modelCalibrator.nbatch
+            
+            fprintf('Reading batch %5d of %5d\n', ibatch, modelCalibrator.nbatch)
+            
             s = load(fullfile(modelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch)));
-            paramsets = [paramsets, s.parambatch(s.solved)]; %#ok<AGROW>
-            elassets  = [elassets , s.elasbatch( s.solved)]; %#ok<AGROW>
+            
+            for p = modelCalibrator.paramlist, paramv.(p{1}) = [paramv.(p{1}), s.parambatch.(p{1})]; end
+            for e = modelCalibrator.elaslist , elasv.( e{1}) = [elasv.( e{1}), s.elasbatch.( e{1})]; end
+            solved = [solved, s.solved]; %#ok<AGROW>
+            
         end
-        paramsets(1) = [];
-        elassets (1) = [];
+        solved = boolean(solved);
         
         % Construct inverse interpolants that map elasticities to parameters
-        for p = modelCalibrator.paramlist, interp.(p{1}) = scatteredInterpolant([elassets.captoout]', [elassets.labelas]', [elassets.savelas]', [paramsets.(p{1})]', 'nearest'); end
+        for p = modelCalibrator.paramlist, interp.(p{1}) = scatteredInterpolant(elasv.captoout(solved)', elasv.labelas(solved)', elasv.savelas(solved)', paramv.(p{1})(solved)', 'nearest'); end
         
         % Construct elasticity inverter by consolidating inverse interpolants
         function [inverse] = invert_(target)
@@ -124,7 +131,30 @@ methods (Static)
         invert = @invert_; %#ok<NASGU>
         
         % Save elasticity inverter
-        save(fullfile(dirFinder.source, 'invert.mat'), 'invert');
+        save(fullfile(dirFinder.source, 'invert.mat'), 'invert', 'paramv', 'elasv', 'solved');
+        
+        
+        % Initialize plot
+        fig = figure; ax = axes;
+        
+        % Determine colors
+        cv = zeros(modelCalibrator.nset, 3);
+        devs = min(abs(elasv.captoout(solved)' - 3).^2, 1);
+        cv( solved, :) = [devs, ones(size(devs)), devs]*180/256;        % Gray to green
+        cv(~solved, :) = repmat([200/256, 0, 0], [sum(~solved), 1]);    % Red
+        
+        % Plot parameter sets
+        scatter3(paramv.beta, paramv.gamma, paramv.sigma, 12, cv, 'filled');
+        
+        % Format plot
+        axis(ax, 'tight'), box(ax, 'on'), grid(ax, 'on'), view(3), pbaspect([1,1,1])
+        xlabel('beta' ), ax.XTickMode = 'manual'; ax.XTick = linspace(ax.XLim(1), ax.XLim(2), modelCalibrator.npoint);
+        ylabel('gamma'), ax.YTickMode = 'manual'; ax.YTick = linspace(ax.YLim(1), ax.YLim(2), modelCalibrator.npoint);
+        zlabel('sigma'), ax.ZTickMode = 'manual'; ax.ZTick = linspace(ax.ZLim(1), ax.ZLim(2), modelCalibrator.npoint);
+        
+        % Save plot
+        savefig(fig, fullfile(dirFinder.source, 'invert.fig'))
+        
         
         % Delete batch directory
         if clean, rmdir(modelCalibrator.batch_dir, 's'), end
