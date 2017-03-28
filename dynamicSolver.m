@@ -133,7 +133,7 @@ methods (Static, Access = private)
         
         
         % Identify working directories
-        param_dir = dirFinder.param;
+        param_dir = dirFinder.param();
         [save_dir, ~, counterdef_tag] = dirFinder.save(economy, basedef, counterdef);
         
         % Append caller tag to save directory name and generate calling tag

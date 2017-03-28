@@ -1,5 +1,5 @@
 %%
-% Dynamic model calibrator.
+% Dynamic model baseline parameter calibrator.
 % 
 %%
 
@@ -26,15 +26,16 @@ properties (Constant)
     nset   = modelCalibrator.npoint ^ modelCalibrator.nparam;
     nbatch = ceil(modelCalibrator.nset / modelCalibrator.batchsize);
     
-    % Define batch directory
-    batch_dir = fullfile(dirFinder.source(), 'Batches');
+    % Define batch directory and batch file path
+    batch_dir  = fullfile(dirFinder.source(), 'Batches');
+    batch_file = @(ibatch) fullfile(modelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch));
     
 end
 
 methods (Static)
     
-    % Initialize batch files
-    function [] = initialize_batches()
+    % Define batches of parameter sets
+    function [] = define_batches()
         
         % Specify parameter lower and upper bounds
         lb.beta = 0.990; lb.gamma = 0.100; lb.sigma =  1.50;
@@ -54,9 +55,12 @@ methods (Static)
         
         % Extract and save batches of parameter sets
         for ibatch = 1:modelCalibrator.nbatch
+            
             shift = (ibatch-1)*modelCalibrator.batchsize;
             parambatch = paramsets(shift+1 : min(shift+modelCalibrator.batchsize, end)); %#ok<NASGU>
-            save(fullfile(modelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch)), 'parambatch')
+            
+            save(modelCalibrator.batch_file(ibatch), 'parambatch')
+            
         end
         
     end
@@ -65,12 +69,8 @@ methods (Static)
     % Solve dynamic model steady states for all parameter sets in a batch
     function [] = solve_batch(ibatch)
         
-        % Identify batch file
-        batchfile = fullfile(modelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch));
-        
         % Load batch of parameter sets
-        s = load(batchfile);
-        parambatch = s.parambatch;
+        s = load(modelCalibrator.batch_file(ibatch)); parambatch = s.parambatch; clear('s')
         
         parfor i = 1:length(parambatch)
             
@@ -90,7 +90,7 @@ methods (Static)
         end
         
         % Save elasticity sets and solution conditions to batch file
-        save(batchfile, '-append', 'elasbatch', 'solvedbatch')
+        save(modelCalibrator.batch_file(ibatch), '-append', 'elasbatch', 'solvedbatch')
         
     end
     

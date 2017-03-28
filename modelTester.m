@@ -9,7 +9,7 @@ classdef modelTester
 properties (Constant)
     
     % Define baseline for all tests
-    basedef = get_basedef(6);
+    basedef = struct('beta', 1.0274, 'gamma', 0.59231, 'sigma', 5.1795);
     
     % Define counterfactual for counterfactual tests
     counterdef = struct('taxplan'       , 'ryan', ...
