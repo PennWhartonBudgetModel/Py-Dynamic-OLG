@@ -38,10 +38,12 @@ methods (Static)
         
         % Specify parameter lower and upper bounds
         lb.beta = 0.990; lb.gamma = 0.150; lb.sigma =  1.50;
-        ub.beta = 1.150; ub.gamma = 0.900; ub.sigma = 25.00;
+        ub.beta = 1.200; ub.gamma = 0.900; ub.sigma = 30.00;
         
         % Construct vectors of parameter values
-        for p = modelCalibrator.paramlist, v.(p{1}) = linspace(lb.(p{1}), ub.(p{1}), modelCalibrator.npoint); end
+        v.beta  = linspace(lb.beta        , ub.beta        , modelCalibrator.npoint);
+        v.gamma = linspace(lb.gamma       , ub.gamma       , modelCalibrator.npoint);
+        v.sigma = logspace(log10(lb.sigma), log10(ub.sigma), modelCalibrator.npoint);
         
         % Generate parameter sets as unique combinations of parameter values
         [grid.beta, grid.gamma, grid.sigma] = ndgrid(v.beta, v.gamma, v.sigma);
@@ -163,9 +165,9 @@ methods (Static)
         
         % Format axes
         axis(ax, 'tight'), box(ax, 'on'), grid(ax, 'on'), view(3), pbaspect([1,1,1])
-        xlabel('beta' ), ax.XTickMode = 'manual'; ax.XTick = linspace(ax.XLim(1), ax.XLim(2), 3);
-        ylabel('gamma'), ax.YTickMode = 'manual'; ax.YTick = linspace(ax.YLim(1), ax.YLim(2), 3);
-        zlabel('sigma'), ax.ZTickMode = 'manual'; ax.ZTick = linspace(ax.ZLim(1), ax.ZLim(2), 3);
+        xlabel('beta' ), ax.XScale = 'linear'; ax.XTickMode = 'manual'; ax.XTick = linspace(ax.XLim(1)       , ax.XLim(2)       , 3);
+        ylabel('gamma'), ax.YScale = 'linear'; ax.YTickMode = 'manual'; ax.YTick = linspace(ax.YLim(1)       , ax.YLim(2)       , 3);
+        zlabel('sigma'), ax.ZScale = 'log'   ; ax.ZTickMode = 'manual'; ax.ZTick = logspace(log10(ax.ZLim(1)), log10(ax.ZLim(2)), 3);
         
         % Save figure
         savefig(fig, fullfile(dirFinder.source, 'invert.fig'))
