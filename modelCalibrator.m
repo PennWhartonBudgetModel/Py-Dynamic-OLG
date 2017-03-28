@@ -129,7 +129,8 @@ methods (Static)
         
         % Construct elasticity inverter by consolidating inverse interpolants
         function [inverse] = invert_(target)
-            for p_ = modelCalibrator.paramlist, inverse.(p_{1}) = interp.(p_{1})(target.captoout, target.labelas, target.savelas); end
+            captoout = 3;
+            for p_ = modelCalibrator.paramlist, inverse.(p_{1}) = interp.(p_{1})(captoout, target.labelas, target.savelas); end
         end
         invert = @invert_; %#ok<NASGU>
         
