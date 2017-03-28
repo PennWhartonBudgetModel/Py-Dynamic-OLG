@@ -23,7 +23,7 @@ properties (Constant)
     batchsize = 25;
     
     % Determine number of parameter sets and number of batches
-    nset   = modelCalibrator.npoint^modelCalibrator.nparam;
+    nset   = modelCalibrator.npoint ^ modelCalibrator.nparam;
     nbatch = ceil(modelCalibrator.nset / modelCalibrator.batchsize);
     
     % Define batch directory
@@ -37,7 +37,7 @@ methods (Static)
     function [] = initialize_batches()
         
         % Specify parameter lower and upper bounds
-        lb.beta = 0.990; lb.gamma = 0.150; lb.sigma =  1.50;
+        lb.beta = 0.990; lb.gamma = 0.100; lb.sigma =  1.50;
         ub.beta = 1.200; ub.gamma = 0.900; ub.sigma = 30.00;
         
         % Construct vectors of parameter values
