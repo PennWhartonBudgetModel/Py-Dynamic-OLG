@@ -27,7 +27,7 @@ properties (Constant)
     nbatch = ceil(modelCalibrator.nset / modelCalibrator.batchsize);
     
     % Define batch directory
-    batch_dir = fullfile(dirFinder.source, 'Batches');
+    batch_dir = fullfile(dirFinder.source(), 'Batches');
     
 end
 
@@ -84,13 +84,8 @@ methods (Static)
             % (Stable solution identified as reasonable capital-to-output ratio and robust solver convergence rate)
             solvedbatch(i) = (elasbatch(i).captoout > 0.5) && (size(csvread(fullfile(save_dir, 'iterations.csv')), 1) < 25); %#ok<NASGU,PFOUS>
             
-            % Delete save directory
-            rmdir(save_dir, 's')
-            
-            % Delete parent directories if empty
-            [~] = rmdir(fullfile(save_dir, '..'));
-            [~] = rmdir(fullfile(save_dir, '..', '..'));
-            [~] = rmdir(fullfile(save_dir, '..', '..', '..'));
+            % Delete save directory along with parent directories
+            rmdir(fullfile(save_dir, '..', '..'), 's')
             
         end
         
@@ -135,7 +130,7 @@ methods (Static)
         invert = @invert_; %#ok<NASGU>
         
         % Save elasticity inverter
-        save(fullfile(dirFinder.source, 'invert.mat'), 'invert', 'paramv', 'elasv', 'solved');
+        save(fullfile(dirFinder.saveroot(), 'invert.mat'), 'invert', 'paramv', 'elasv', 'solved');
         
         % Delete batch directory
         if clean, rmdir(modelCalibrator.batch_dir, 's'), end
@@ -147,7 +142,7 @@ methods (Static)
     function [] = plot_conditions()
         
         % Load vectors of parameters, elasticities, and solution conditions
-        s = load(fullfile(dirFinder.source, 'invert.mat'));
+        s = load(fullfile(dirFinder.saveroot(), 'invert.mat'));
         paramv = s.paramv;
         elasv  = s.elasv ;
         solved = s.solved;
@@ -171,7 +166,7 @@ methods (Static)
         zlabel('sigma'), ax.ZScale = 'log'   ; ax.ZTickMode = 'manual'; ax.ZTick = logspace(log10(ax.ZLim(1)), log10(ax.ZLim(2)), 3);
         
         % Save figure
-        savefig(fig, fullfile(dirFinder.source, 'invert.fig'))
+        savefig(fig, fullfile(dirFinder.saveroot(), 'invert.fig'))
         
     end
     
