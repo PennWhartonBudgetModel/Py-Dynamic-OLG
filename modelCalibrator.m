@@ -38,8 +38,8 @@ methods (Static)
     function [] = define_batches()
         
         % Specify parameter lower and upper bounds
-        lb.beta = 0.990; lb.gamma = 0.100; lb.sigma =  1.50;
-        ub.beta = 1.200; ub.gamma = 0.900; ub.sigma = 30.00;
+        lb.beta = 0.990; lb.gamma = 0.150; lb.sigma =  1.50;
+        ub.beta = 1.180; ub.gamma = 0.900; ub.sigma = 32.00;
         
         % Construct vectors of parameter values
         v.beta  = linspace(lb.beta        , ub.beta        , modelCalibrator.npoint);
