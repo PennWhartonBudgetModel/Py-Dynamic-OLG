@@ -747,7 +747,7 @@ methods (Static, Access = private)
         fclose(iterlog);
         
         % Issue warning if maximum iterations reached
-        if (iter == itermax), warning('Maximum iterations reached.'), end
+        if (iter == itermax), warning('Maximum iterations reached'), end
         
         
         % Save baseline optimal labor values and population distribution

@@ -23,7 +23,7 @@ methods (Static)
         if exist(modelProducer.run_dir, 'dir'), rmdir(modelProducer.run_dir, 's'), end, mkdir(modelProducer.run_dir)
         
         % Load elasticity inverter
-        s = load(fullfile(dirFinder.param, 'invert.mat')); invert = s.invert; clear('s')
+        s = load(fullfile(dirFinder.param(), 'invert.mat')); invert = s.invert; clear('s')
         
         % Define vectors of elasticities, to be inverted into baseline parameters
         labelasv = {0.25, 0.50, 0.75, 1.00};
@@ -57,7 +57,7 @@ methods (Static)
         s = load(modelProducer.run_file(irun));
         
         % Execute dynamic model solver
-        % (Closed economy will generate steady state and open economy as dependencies)
+        % (Closed economy will generate corresponding steady state and open economy dependencies)
         save_dir = dynamicSolver.closed(s.basedef, s.counterdef);
         
         % Extract and save solver termination condition
@@ -92,8 +92,7 @@ methods (Static)
             [basedef_tag, counterdef_tag] = dynamicSolver.generate_tags(s.basedef, s.counterdef);
             
             % Store termination condition, setting default values if missing
-            if ~isfield(s.termination, 'iter'), s.termination.iter = Inf; end
-            if ~isfield(s.termination, 'eps' ), s.termination.eps  = Inf; end
+            if ~isfield(s, 'termination'), s.termination = struct('iter', Inf, 'eps', Inf); end
             terminations = [terminations; {basedef_tag, counterdef_tag, s.termination.iter, s.termination.eps}]; %#ok<AGROW>
             
         end
@@ -104,13 +103,11 @@ methods (Static)
         % Save termination conditions to csv file
         fid = fopen(fullfile(dirFinder.saveroot(), 'terminations.csv'), 'w');
         fprintf(fid, 'Baseline Definition,Counterfactual Definition,Termination Iteration,Termination Error Term\n');
-        for irun = 1:nrun
-            fprintf(fid, '%s,%s,%d,%0.4f\n', terminations{sortinds(irun),:});
-        end
+        for irun = 1:nrun, fprintf(fid, '%s,%s,%d,%0.4f\n', terminations{sortinds(irun),:}); end
         fclose(fid);
         
         % Delete run directory
-        if clean, rmdir(modelProducer.run_dir, 's'), end
+        if (exist('clean', 'var') && clean), rmdir(modelProducer.run_dir, 's'), end
         
     end
     
@@ -154,7 +151,7 @@ methods (Static)
         % (Currently, shifting up from 2015 to 2017)
         nshift = 2;
         
-        
+                
         % Load table of run IDs
         tablefile = 'scenario_table.csv';
         tablesource = fullfile(dirFinder.root, 'charts', 'scenario_table', tablefile);
@@ -172,8 +169,16 @@ methods (Static)
                              'Trump'       , 'trump'   , ...
                              'Ryan'        , 'ryan'    );
         
+        % Load elasticity inverter
+        s = load(fullfile(dirFinder.param(), 'invert.mat')); invert = s.invert; clear('s')
+        
+        % Initialize missing aggregates flag
+        missing = false;
+        
         
         for i = 1:nid
+            
+            fprintf('Processing run ID %6d of %6d\n', i, nid)
             
             % Get run ID
             id = idtable{1}(i);
@@ -197,8 +202,7 @@ methods (Static)
             savelas = str2double(def.SavingsElasticity.Text);
             
             % Invert elasticities to get baseline definition
-            s = load(fullfile(dirFinder.param, 'invert.mat'));
-            basedef = s.invert(struct('labelas', labelas, 'savelas', savelas));
+            basedef = invert(struct('labelas', labelas, 'savelas', savelas));
             
             % Get tax plan
             taxplan = taxplanmap.(def.TaxPlan.Text);
@@ -217,17 +221,22 @@ methods (Static)
             end
             
             % Get dynamic baseline flag
-            % (Closed economy runs only)
-            usedynamicbaseline = str2double(def.UseDynamicBaseline.Text) & (openness == 0);
+            % (Applicable to closed economy runs only)
+            usedynamicbaseline = str2double(def.UseDynamicBaseline.Text) & strcmp(economy, 'closed');
             
             
             % Identify working directories
             save_dir = dirFinder.save(economy, basedef, counterdef);
             
-            % Load aggregates    
-            Dynamic = load(fullfile(save_dir, 'dynamics.mat'));
-            if ~isbase
-                Static = load(fullfile(save_dir, 'statics.mat'));
+            % Load aggregates
+            try
+                Dynamic = load(fullfile(save_dir, 'dynamics.mat'));
+                if ~isbase
+                    Static = load(fullfile(save_dir, 'statics.mat'));
+                end
+            catch
+                missing = true;
+                continue
             end
             
             if usedynamicbaseline
@@ -289,7 +298,8 @@ methods (Static)
         fclose(fid);
         
         
-        fprintf('\nResults successfully packaged into csv files:\n\t%s\n', csv_dir)
+        fprintf('\nResults packaged into csv files:\n\t%s\n', csv_dir)
+        if missing, warning('Some aggregates not found'), end
         
     end
     

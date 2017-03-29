@@ -98,8 +98,6 @@ methods (Static)
     % Construct elasticity inverter
     function [] = construct_inverter(clean)
         
-        if ~exist('clean', 'var'), clean = false; end
-        
         % Initialize vectors of parameters, elasticities, and solution conditions
         for p = modelCalibrator.paramlist, paramv.(p{1}) = []; end
         for e = modelCalibrator.elaslist , elasv.( e{1}) = []; end
@@ -133,7 +131,7 @@ methods (Static)
         save(fullfile(dirFinder.saveroot(), 'invert.mat'), 'invert', 'paramv', 'elasv', 'solved');
         
         % Delete batch directory
-        if clean, rmdir(modelCalibrator.batch_dir, 's'), end
+        if (exist('clean', 'var') && clean), rmdir(modelCalibrator.batch_dir, 's'), end
         
     end
     
