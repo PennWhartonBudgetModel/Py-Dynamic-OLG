@@ -160,29 +160,12 @@ methods (Static, Access = private)
         
         
         
-        % Define savings discretization vector
-        nk = 10;
-        ks = zeros(nk-1,1);
-        klb = 1e-3;
-        kub = 150;
-        exppwr = 2;
-        for i1 = 1:nk-1
-            ks(i1) = (kub-klb)*((i1/nk))^exppwr + klb;
-        end
-        ks = [klb; ks];
+        % Define savings and average earnings discretization vectors
+        % (Upper bound of average earnings defined as maximum possible Social Security benefit)
+        f = @(lb, ub, n) lb + (ub-lb)*((0:n-1)/(n-1))'.^2;
+        nk = 10; ks = f(1e-3, 120           , nk);
+        nb =  5; bs = f(0   , 1.5*max(zs(:)), nb);
         
-        
-        % Define average earnings discretization vector
-        % (Note the dependence of the average earnings grid on the maximum of the productivity array)
-        nb = 5;
-        bs = zeros(nb-1,1);
-        blb = 0;
-        bub = 1.5*max(zs(:));  % max possible ss benefit
-        exppwr = 3;
-        for i1 = 1:nb-1
-            bs(i1) = (bub-blb)*(((i1+1)/nb))^exppwr + blb;      % *** Inconsistency in indexing; see ks ***
-        end
-        bs = [blb; bs];
         
         
         
