@@ -146,34 +146,7 @@ methods (Static, Access = private)
         
         
         
-        %% Parameter loading
-        
-        % Load global parameters
-        s = load(fullfile(param_dir, 'param_global.mat'));
-        
-        nz   = s.nz;
-        ndem = s.ndem;
-        
-        zs     = s.z;
-        transz = s.tr_z;
-        
-        
-        
-        
-        % Define savings and average earnings discretization vectors
-        % (Upper bound of average earnings defined as maximum possible Social Security benefit)
-        f = @(lb, ub, n) lb + (ub-lb)*((0:n-1)/(n-1))'.^2;
-        nk = 10; kv = f(1e-3, 120           , nk);
-        nb =  5; bv = f(0   , 1.5*max(zs(:)), nb);
-        
-        
-        
-        
-        % Define utility of bequests
-        % (Currently defined to be zero for all savings levels)
-        phi1 = 0; phi2 = 11.6; phi3 = 1.5;
-        V_beq = phi1 * (1 + kv/phi2).^(1 - phi3);
-        
+        %% Parameter definition
         
         
         
@@ -197,18 +170,40 @@ methods (Static, Access = private)
         
         
         
+        % Load survival rates
+        s = load(fullfile(param_dir, 'surv.mat')); surv = s.surv; clear('s')
+        
+        
+        % Calculate productivities
+        [nz, zs, transz, ndem] = calculate_productivities(T_life);
+        
+        
+        
+        % Define savings and average earnings discretization vectors
+        % (Upper bound of average earnings defined as maximum possible Social Security benefit)
+        f = @(lb, ub, n) lb + (ub-lb)*((0:n-1)/(n-1))'.^2;
+        nk = 10; kv = f(1e-3, 120           , nk);
+        nb =  5; bv = f(0   , 1.5*max(zs(:)), nb);
+        
+        
+        
+        
+        % Define utility of bequests
+        % (Currently defined to be zero for all savings levels)
+        phi1 = 0; phi2 = 11.6; phi3 = 1.5;
+        V_beq = phi1 * (1 + kv/phi2).^(1 - phi3);
+        
+        
+        
+        
         A     = 1;      % Total factor productivity
         alpha = 0.45;   % Capital share of output
         d     = 0.085;  % Depreciation rate
         
         
-        s = load(fullfile(param_dir, 'surv.mat')); surv = s.surv; clear('s')
         
-        
-        mpci = 3.25;    % Model per capita income (to be updated; should be different for each baseline)
-        rpci = 1.19e5;  % Real per capita income in dollars (to be updated; currently chosen to match percentage of individuals above Social Security maximum taxable earning level)
-        
-        sstaxcredit = 0.15;             % Percentage tax credit on Social Security benefits
+        mpci = 3.25;    % Model per capita income            (To be updated; should be specific to each baseline)
+        rpci = 1.19e5;  % Real per capita income in dollars  (To be updated; currently chosen to match percentage of individuals above Social Security maximum taxable earning level)
         
         
         
@@ -221,8 +216,9 @@ methods (Static, Access = private)
         legal_rate   = 0.0016 * legal_scale;        % Annual legal immigration rate
         illegal_rate = 0.0024;                      % Annual illegal immigration rate
         
+        
         imm_age      = s.imm_age;                   % New immigrant age distribution
-        DISTz_age    = s.proddist_age;
+        DISTz_age    = s.proddist_age;              % Productivity distribution over age and population group
         
         
         
@@ -252,9 +248,11 @@ methods (Static, Access = private)
                       max(min(bv, ssthresholds(2)) - ssthresholds(1), 0) , ...
                       max(min(bv, Inf            ) - ssthresholds(2), 0) ] * ssrates' * ss_scale;
         
-        ssbenefits = repmat(ssbenefit          , [1,T_model]);  % Social Security benefits
-        sstaxs     = repmat(0.124              , [1,T_model]);  % Social Security tax rates
-        ssincmaxs  = repmat(1.185e5*(mpci/rpci), [1,T_model]);  % Social Security maximum taxable earnings
+        ssbenefits  = repmat(ssbenefit          , [1,T_model]);  % Social Security benefits
+        sstaxs      = repmat(0.124              , [1,T_model]);  % Social Security tax rates
+        ssincmaxs   = repmat(1.185e5*(mpci/rpci), [1,T_model]);  % Social Security maximum taxable earnings
+        
+        sstaxcredit = 0.15; % Social Security benefit tax credit percentage
         
         
         
@@ -269,8 +267,6 @@ methods (Static, Access = private)
         fedgovtnis  = s.fedgovtnis(1:T_model);
         cborates    = s.r_cbo(1:T_model);
         cbomeanrate = mean(s.r_cbo);
-        
-        
         
         
         
@@ -873,55 +869,188 @@ end
 
 
 %%
+% Calculate productivities.
+% 
+%%
+
+
+function [nz, zs, transz, ndem] = calculate_productivities(T_life)
+    
+    function [y] = generate_normdist_shocks(nt,sigt)
+        
+        % This function gives the cutoff points for nt slices of a normal
+        % distribution with equal weight.
+        
+        epsgrid = zeros(nt+1,1);    % creates grid for endpoints
+        
+        for i = 1:nt+1
+            epsgrid(i) = sigt*norminv((i-1)/nt,0,1);
+        end
+        
+        y = zeros(nt,1);    % grid of conditional means
+        for i = 1:nt
+            e1 = (epsgrid(i))/sigt;
+            e2 = (epsgrid(i+1))/sigt;
+            y(i) = nt*sigt*(normpdf(e1,0,1) - normpdf(e2,0,1));
+        end
+        
+    end
+    
+    function [y, yprob, epsgrid] = generate_persistent_shocks(ny,const,lambda,sigep)
+        
+        % This function creates a Markov matrix that approximates an AR(1) process.  Written for C-code generation.
+        % ny = gridsize
+        % const = constant on ar1 process
+        % lambda = coefficient on ar1 process
+        % sigep = standard deviation of error terms
+        % y(t) = mu*(1-lambda) + lambda(t-1) + eps
+        % recovering mu
+        
+        mu = const/(1-lambda);
+        sigy = sigep/(sqrt(1-lambda^2));
+        epsgrid = zeros(ny+1,1);    % creates grid for endpoints
+        
+        for i = 1:ny+1    
+            epsgrid(i) = sigy*norminv((i-1)/ny,0,1) + mu;
+        end
+        
+        y = zeros(ny,1);    % grid of conditional means
+        for i = 1:ny    
+            e1 = (epsgrid(i)-mu)/sigy;
+            e2 = (epsgrid(i+1)-mu)/sigy;
+            y(i) = ny*sigy*(normpdf(e1,0,1) - normpdf(e2,0,1)) + mu;
+        end
+        
+        yprob = zeros(ny,ny);
+        for i = 1:ny
+            for i2 = 1:ny
+                ei1 = epsgrid(i);
+                ei2 = epsgrid(i+1);
+                ej1 = epsgrid(i2);
+                ej2 = epsgrid(i2+1);
+                yprob(i,i2) = (ny/(sqrt(2*pi*(sigy^2))))*quadgk(@(x) integrand(x,ej1,ej2,sigy,sigep,mu,lambda), ei1, ei2);
+            end
+        end
+        
+    end
+    
+    function [c2] = integrand(x,ej1,ej2,sigy,sigep,mu,lambda)
+        
+        nx = length(x);
+        c2 = zeros(1,nx);
+        
+        for i1 = 1:nx
+            term1 = exp(-((x(i1)-mu)^2)/(2*sigy^2));
+            term2 = normcdf((ej2-mu*(1-lambda)-lambda*x(i1))/sigep,0,1);
+            term3 = normcdf((ej1-mu*(1-lambda)-lambda*x(i1))/sigep,0,1);
+            c2(i1) = term1*(term2-term3);
+        end
+
+    end
+    
+    
+    % [Storesletten, Telmer, and Yaron (2004)]
+    
+    % Permanent shock
+    np = 2;  % Number of permanent shocks
+    sig_p = 0.2105^0.5;    % Standard deviation
+    z_perm = generate_normdist_shocks(np,sig_p);
+    
+    % Persistent shock
+    nz = 2;
+    sigep_1 = 0.124^0.5;
+    const = 0;
+    pep = 0.973;    % coefficient on lagged productivity 
+    sigep = 0.018^0.5;    % conditional stdev of productivity 
+    [z1, tr_z1, epsgrid] = generate_persistent_shocks(nz,const,pep,sigep);    % returns the transition matrix
+    proddist = zeros(1,nz);
+    for i = 1:nz
+        proddist(i) = normcdf(epsgrid(i+1),0,sigep_1) - normcdf(epsgrid(i),0,sigep_1);
+    end
+    
+    % Transitory shock 
+    nt = 2;  % Number of transitory shocks
+    sig_t = (.0630)^(.5);
+    z_trans = generate_normdist_shocks(nt,sig_t); 
+    tr_t = (1/nt).*ones(nt);  % Initial distribution over transitory shocks.
+    
+    transz = kron(tr_z1,tr_t);    % Provides final productivity Markov transition matrix.
+    
+    
+    zs = zeros(nz*nt, T_life, np);
+    % Deterministic component of lifecycle productivity.  Estimates are from Barro and Barnes Medicaid working paper.
+    for t1 = 1:T_life
+        for d1 = 1:np
+            shock_node = 0;
+            for idio_shock = 1:nz
+                for trans_shock = 1:nt
+                    shock_node = shock_node+1;
+                    zs(shock_node,t1,d1) = (t1+19)* 0.2891379 -0.0081467*(t1+19)^2 +  0.000105*(t1+19)^3 -5.25E-07*(t1+19)^4 -1.203521 + z1(idio_shock) + z_trans(trans_shock) + z_perm(d1);
+                end
+            end
+        end
+    end
+    
+    zs = max(zs, 0);
+    nz = nz*nt;  % reassigning nz so that we don't have to make any other adjustments in the code.
+    
+    ndem = np;    % Redefining "np" as "ndem" to reflect patch for the creation of demographic types.
+    
+end
+
+
+
+
+%%
 % Check if file exists and generate before loading if necessary, handling parallel write and read conflicts.
 % 
 %%
 
 
 function [s] = hardyload(filename, generator, save_dir)
-
-% Check if file exists and generate if necessary
-filepath = fullfile(save_dir, filename);
-if ~exist(filepath, 'file')
     
-    tagged_dir = generator();
-    
-    % Check for file again, possibly generated by a parallel run
+    % Check if file exists and generate if necessary
+    filepath = fullfile(save_dir, filename);
     if ~exist(filepath, 'file')
-        % Attempt to copy to save directory and continue if error encountered
-        % (Errors are typically due to multiple simultaneous copy attempts, which should result in at least one successful copy)
-        try copyfile(tagged_dir, save_dir); catch, end
-    end
-    
-    % Clean up temporary directory
-    rmdir(tagged_dir, 's')
-    
-end
-
-
-% Turn on pause and store current pause state
-pause0 = pause('on');
-
-% Set maximum number of attempts and maximum pause time in seconds
-maxtries = 200;
-maxpause = 2.0;
-
-for itry = 1:maxtries
-    try
-        % Attempt load
-        s = load(filepath);
-        break
-    catch e
-        if (itry == maxtries)
-            error('Failed to load ''%s'' after %d attempts.\n%s', filepath, maxtries, e.message)
+        
+        tagged_dir = generator();
+        
+        % Check for file again, possibly generated by a parallel run
+        if ~exist(filepath, 'file')
+            % Attempt to copy to save directory and continue if error encountered
+            % (Errors are typically due to multiple simultaneous copy attempts, which should result in at least one successful copy)
+            try copyfile(tagged_dir, save_dir); catch, end
         end
-        % Take a breather
-        pause(rand * maxpause)
+        
+        % Clean up temporary directory
+        rmdir(tagged_dir, 's')
+        
     end
-end
-
-% Reset pause state
-pause(pause0)
-
+    
+    
+    % Turn on pause and store current pause state
+    pause0 = pause('on');
+    
+    % Set maximum number of attempts and maximum pause time in seconds
+    maxtries = 200;
+    maxpause = 2.0;
+    
+    for itry = 1:maxtries
+        try
+            % Attempt load
+            s = load(filepath);
+            break
+        catch e
+            if (itry == maxtries)
+                error('Failed to load ''%s'' after %d attempts.\n%s', filepath, maxtries, e.message)
+            end
+            % Take a breather
+            pause(rand * maxpause)
+        end
+    end
+    
+    % Reset pause state
+    pause(pause0)
+    
 end
 
