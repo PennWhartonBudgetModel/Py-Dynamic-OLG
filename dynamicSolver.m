@@ -169,12 +169,17 @@ methods (Static, Access = private)
         
         
         
-        % *** phi1, phi2, phi3 needed ***
-        V_beq = s.phi1.*((1 + kv./s.phi2).^(1 - s.phi3));
+        % Define utility of bequests
+        % (Currently defined to be zero for all savings levels)
+        phi1 = 0; phi2 = 11.6; phi3 = 1.5;
+        V_beq = phi1.*((1 + kv./phi2).^(1 - phi3));
+        
         
         
         
         T_life = 80;                                                % Total life years
+        T_work = 47;                                                % Total working years
+        
         switch economy
             case 'steady'
                 T_model    = 1;                                     % Steady state total modeling years
@@ -212,7 +217,7 @@ methods (Static, Access = private)
         % Load immigration parameters
         s = load(fullfile(param_dir, 'param_immigration.mat'));
         
-        birth_rate   = 0.02;                        % Annual birth rate
+        birth_rate   = 0.0200;                      % Annual birth rate
         legal_rate   = 0.0016 * legal_scale;        % Annual legal immigration rate
         illegal_rate = 0.0024;                      % Annual illegal immigration rate
         
@@ -240,16 +245,30 @@ methods (Static, Access = private)
         
         
         
-        % Load social security parameters
-        s = load(fullfile(param_dir, 'param_socsec.mat'));
+        % Benefit formula parameters
+        v1 = 856*12*(mpci/rpci); % first threshold for social security benefit calculation
+        r1 = .9; % percentage of indexed ss benefit applied to the lowest bracket
+        v2 = 5157*12*(mpci/rpci); % second threshold for social security benefit calculation
+        r2 = .32; % percentage of indexed ss benefit applied to the second lowest bracket
+        r3 = .15; % percentage of indexed ss benefit applied to the highest bracket
         
-        T_work     = 47;                                        % Total working years
+        % Calculate Social Security benefits for average earnings levels
+        ssbenefit = zeros(nb,1);
+        for i1 = 1:nb
+            if bv(i1)<=v1
+                ssbenefit(i1) = r1*bv(i1);
+            elseif (bv(i1)>v1)&&(bv(i1)<=v2)
+                ssbenefit(i1) = r1*v1 + r2*(bv(i1)-v1);
+            elseif bv(i1)>v2
+                ssbenefit(i1) = r1*v1 + r2*(v2-v1) + r3*(bv(i1) - v2);
+            end
+        end
         
+        ben_scale = 1.6;    % Social Security benefits scaling factor used to match total outlays as a percentage of GDP
         
-        % *** Need not be vectors over modeling period ***
-        ssbenefits = s.ss_benefit(:,1:T_model);
-        sstaxs     = 0.124               * ones(1,T_model);     % Social Security tax rates
-        ssincmaxs  = 1.185e5*(mpci/rpci) * ones(1,T_model);     % Social Security maximum taxable earnings
+        ssbenefits = repmat(ssbenefit*ben_scale, [1,T_model]);  % Social Security benefits
+        sstaxs     = repmat(0.124              , [1,T_model]);  % Social Security tax rates
+        ssincmaxs  = repmat(1.185e5*(mpci/rpci), [1,T_model]);  % Social Security maximum taxable earnings
         
         
         
