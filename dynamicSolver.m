@@ -262,6 +262,7 @@ methods (Static, Access = private)
         
         
         % Load CBO parameters
+        % (Values originally extracted from PWBM_GrowthAdjustedBudget.xlsx)
         s = load(fullfile(param_dir, 'param_cbo.mat'));
         
         debttoout   = s.FederalDebtHeldbythePublic(1)/100;
