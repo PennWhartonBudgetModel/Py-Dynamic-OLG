@@ -148,18 +148,17 @@ methods (Static, Access = private)
         
         %% Parameter definition
         
-        
-        
-        T_life = 80;                                                % Total life years
-        T_work = 47;                                                % Total working years
+        % Define time constants
+        T_life = 80;    % Total life years
+        T_work = 47;    % Total working years
         
         switch economy
             case 'steady'
-                T_model    = 1;                                     % Steady state total modeling years
-                startyears = 0;                                     % Steady state cohort start year
+                T_model    = 1;                         % Steady state total modeling years
+                startyears = 0;                         % Steady state cohort start year
             case {'open', 'closed'}
-                T_model    = 24;                                    % Transition path total modeling years
-                startyears = (-T_life+1):(T_model-1);               % Transition path cohort start years
+                T_model    = 24;                        % Transition path total modeling years
+                startyears = (-T_life+1):(T_model-1);   % Transition path cohort start years
         end
         nstartyears = length(startyears);
         
@@ -168,16 +167,8 @@ methods (Static, Access = private)
         T_actives = min(startyears+T_life, T_model) - T_shifts;     % Life years within modeling period
         T_ends    = min(T_model-startyears, T_life);                % Maximum age within modeling period
         
-        
-        
-        % Load survival rates
-        s = load(fullfile(param_dir, 'surv.mat')); surv = s.surv; clear('s')
-        
-        
         % Calculate productivities
         [nz, zs, transz, ndem] = calculate_productivities(T_life);
-        
-        
         
         % Define savings and average earnings discretization vectors
         % (Upper bound of average earnings defined as maximum possible Social Security benefit)
@@ -185,43 +176,31 @@ methods (Static, Access = private)
         nk = 10; kv = f(1e-3, 120           , nk);
         nb =  5; bv = f(0   , 1.5*max(zs(:)), nb);
         
-        
-        
-        
         % Define utility of bequests
         % (Currently defined to be zero for all savings levels)
         phi1 = 0; phi2 = 11.6; phi3 = 1.5;
         V_beq = phi1 * (1 + kv/phi2).^(1 - phi3);
         
-        
-        
-        
+        % Define output parameters
         A     = 1;      % Total factor productivity
         alpha = 0.45;   % Capital share of output
         d     = 0.085;  % Depreciation rate
         
-        
-        
+        % Define constants relating model units to real units
         mpci = 3.25;    % Model per capita income            (To be updated; should be specific to each baseline)
         rpci = 1.19e5;  % Real per capita income in dollars  (To be updated; currently chosen to match percentage of individuals above Social Security maximum taxable earning level)
         
+        % Define population growth parameters
+        birth_rate   = 0.0200;                  % Annual birth rate
+        legal_rate   = 0.0016 * legal_scale;    % Annual legal immigration rate
+        illegal_rate = 0.0024;                  % Annual illegal immigration rate
         
-        
-        
-        
-        % Load immigration parameters
-        s = load(fullfile(param_dir, 'param_immigration.mat'));
-        
-        birth_rate   = 0.0200;                      % Annual birth rate
-        legal_rate   = 0.0016 * legal_scale;        % Annual legal immigration rate
-        illegal_rate = 0.0024;                      % Annual illegal immigration rate
-        
-        
-        imm_age      = s.imm_age;                   % New immigrant age distribution
-        DISTz_age    = s.proddist_age;              % Productivity distribution over age and population group
-        
-        
-        
+        % Load age-dependent parameters
+        % (To be updated; original sources outdated)
+        s = load(fullfile(param_dir, 'age.mat'));
+        surv         = s.surv;                  % Survival rates by age
+        imm_age      = s.imm_age;               % New immigrant population distribution over age
+        DISTz_age    = s.DISTz_age;             % Productivity distributions by age
         
         % Define population group index mapping
         groups = {'citizen', 'legal', 'illegal'};
@@ -236,37 +215,32 @@ methods (Static, Access = private)
             DISTz_age(:,age,g.legal) = [p*ones(nz-1,1); 1 - p*(nz-1)];
         end
         
-        
-        
-        
-        
-        ssthresholds = [856, 5157]*12*(mpci/rpci);  % Social Security earnings bracket thresholds
-        ssrates      = [0.9, 0.32, 0.15];           % Social Security marginal benefit rates for earnings brackets
-        ss_scale     = 1.6;                         % Social Security benefit scaling factor used to match total outlays as a percentage of GDP
+        % Define Social Security parameters
+        ssthresholds = [856, 5157]*12*(mpci/rpci);  % Thresholds for earnings brackets
+        ssrates      = [0.9, 0.32, 0.15];           % Marginal benefit rates for earnings brackets
+        ss_scale     = 1.6;                         % Benefit scaling factor used to match total outlays as a percentage of GDP
         
         ssbenefit = [ max(min(bv, ssthresholds(1)) - 0              , 0) , ...
                       max(min(bv, ssthresholds(2)) - ssthresholds(1), 0) , ...
                       max(min(bv, Inf            ) - ssthresholds(2), 0) ] * ssrates' * ss_scale;
         
-        ssbenefits  = repmat(ssbenefit          , [1,T_model]);  % Social Security benefits
-        sstaxs      = repmat(0.124              , [1,T_model]);  % Social Security tax rates
-        ssincmaxs   = repmat(1.185e5*(mpci/rpci), [1,T_model]);  % Social Security maximum taxable earnings
+        ssbenefits  = repmat(ssbenefit          , [1,T_model]);  % Benefits
+        sstaxs      = repmat(0.124              , [1,T_model]);  % Tax rates
+        ssincmaxs   = repmat(1.185e5*(mpci/rpci), [1,T_model]);  % Maximum taxable earnings
         
-        sstaxcredit = 0.15; % Social Security benefit tax credit percentage
-        
-        
-        
-        
-        
+        sstaxcredit = 0.15;     % Benefit tax credit percentage
         
         % Load CBO parameters
         % (Values originally extracted from PWBM_GrowthAdjustedBudget.xlsx)
-        s = load(fullfile(param_dir, 'param_cbo.mat'));
+        s = load(fullfile(param_dir, 'PWBM_GrowthAdjustedBudget.mat'));
         
-        debttoout   = s.FederalDebtHeldbythePublic(1)/100;
-        fedgovtnis  = s.fedgovtnis(1:T_model);
-        cborates    = s.r_cbo(1:T_model);
-        cbomeanrate = mean(s.r_cbo);
+        debttoout   = s.FederalDebtHeldbythePublic(1)/100;  % Debt-to-output ratio
+        fedgovtnis  = s.fedgovtnis(1:T_model);              % Federal government noninterest surplus
+        cborates    = s.r_cbo(1:T_model);                   % Growth-adjusted average interest rates
+        cbomeanrate = mean(s.r_cbo);                        % Mean growth-adjusted interest rate over modeling period
+        
+        
+        
         
         
         
@@ -323,7 +297,7 @@ methods (Static, Access = private)
             
             for idem = 1:ndem
                 
-                % Package fixed dynamic optimization parameters into anonymous function
+                % Package fixed dynamic optimization arguments into anonymous function
                 solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active) solve_cohort(V0, LAB_static, isdynamic, ...
                     nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, kv, bv, beta, gamma, sigma, surv, V_beq, ...
                     mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
@@ -562,7 +536,9 @@ methods (Static, Access = private)
             case 'open'
                 
                 % Load government expenditure adjustment parameters
-                s = load(fullfile(param_dir, 'param_gtilde.mat'));
+                % (revenue_percent originally extracted from RevenuesPctGDP.xlsx)
+                % (GEXP_percent originally derived from data in LTBO2015.xlsx -- Total Non-Interest Spending - Social Security - Medicare)
+                s = load(fullfile(param_dir, 'govexp.mat'));
                 
                 indtaxplan = cellfun(@(str) strncmp(taxplan, str, length(str)), {'base'; 'trump'; 'clinton'; 'ryan'});
                 revperc = s.revenue_percent(indtaxplan,:);
@@ -949,7 +925,7 @@ function [nz, zs, transz, ndem] = calculate_productivities(T_life)
     end
     
     
-    % [Storesletten, Telmer, and Yaron (2004)]
+    % (Storesletten, Telmer, and Yaron, 2004)
     
     % Permanent shock
     np = 2;  % Number of permanent shocks
