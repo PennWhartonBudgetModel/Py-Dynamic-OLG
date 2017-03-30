@@ -176,13 +176,13 @@ methods (Static, Access = private)
         % (Note the dependence of the average earnings grid on the maximum of the productivity array)
         nb = 5;
         bs = zeros(nb-1,1);
+        blb = 0;
         bub = 1.5*max(zs(:));  % max possible ss benefit
-        blb = 0.1;                                              % *** Adjust to zero ***
         exppwr = 3;
         for i1 = 1:nb-1
-            bs(i1) = (bub-blb)*(((i1+1)/nb))^exppwr + blb;      % *** Inconsistency in indexing with ks? ***
+            bs(i1) = (bub-blb)*(((i1+1)/nb))^exppwr + blb;      % *** Inconsistency in indexing; see ks ***
         end
-        bs = [0; bs];
+        bs = [blb; bs];
         
         
         
