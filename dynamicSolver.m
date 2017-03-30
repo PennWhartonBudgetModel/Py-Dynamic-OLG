@@ -163,14 +163,14 @@ methods (Static, Access = private)
         % Define savings and average earnings discretization vectors
         % (Upper bound of average earnings defined as maximum possible Social Security benefit)
         f = @(lb, ub, n) lb + (ub-lb)*((0:n-1)/(n-1))'.^2;
-        nk = 10; ks = f(1e-3, 120           , nk);
-        nb =  5; bs = f(0   , 1.5*max(zs(:)), nb);
+        nk = 10; kv = f(1e-3, 120           , nk);
+        nb =  5; bv = f(0   , 1.5*max(zs(:)), nb);
         
         
         
         
         % *** phi1, phi2, phi3 needed ***
-        V_beq = s.phi1.*((1 + ks./s.phi2).^(1 - s.phi3));
+        V_beq = s.phi1.*((1 + kv./s.phi2).^(1 - s.phi3));
         
         
         
@@ -323,7 +323,7 @@ methods (Static, Access = private)
                 
                 % Package fixed dynamic optimization parameters into anonymous function
                 solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active) solve_cohort(V0, LAB_static, isdynamic, ...
-                    nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, ks, bs, beta, gamma, sigma, surv, V_beq, ...
+                    nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, kv, bv, beta, gamma, sigma, surv, V_beq, ...
                     mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                     Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);
                 
@@ -420,7 +420,7 @@ methods (Static, Access = private)
                         DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz_age(:,:,g.illegal), [nz,1,1,T_life,1]) * P * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
                         
                         % Generate population distribution for next year
-                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, ks, bs, surv);
+                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kv, bv, surv);
                         
                         % Increase legal immigrant population for amnesty, maintaining distributions over productivity
                         DISTz_legal = DIST_next(:,:,:,:,g.legal) ./ repmat(sum(DIST_next(:,:,:,:,g.legal), 1), [nz,1,1,1,1]);
@@ -459,7 +459,7 @@ methods (Static, Access = private)
             f = @(F) sum(sum(reshape(DIST_gs .* F, [], T_model, ndem), 1), 3);
             
             Aggregate.pops     = f(1);                                                                                   % Population
-            Aggregate.assets   = f(repmat(reshape(ks, [1,nk,1,1,1,1]), [nz,1,nb,T_life,T_model,ndem]));                  % Assets
+            Aggregate.assets   = f(repmat(reshape(kv, [1,nk,1,1,1,1]), [nz,1,nb,T_life,T_model,ndem]));                  % Assets
             Aggregate.bequests = f(OPTs.K .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));    % Bequests
             Aggregate.labs     = f(OPTs.LAB);                                                                            % Labor
             Aggregate.labeffs  = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));      % Effective labor
