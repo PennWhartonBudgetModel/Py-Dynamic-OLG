@@ -172,7 +172,7 @@ methods (Static, Access = private)
         % Define utility of bequests
         % (Currently defined to be zero for all savings levels)
         phi1 = 0; phi2 = 11.6; phi3 = 1.5;
-        V_beq = phi1.*((1 + kv./phi2).^(1 - phi3));
+        V_beq = phi1 * (1 + kv/phi2).^(1 - phi3);
         
         
         
@@ -244,29 +244,15 @@ methods (Static, Access = private)
         
         
         
+        ssthresholds = [856, 5157]*12*(mpci/rpci);  % Social Security earnings bracket thresholds
+        ssrates      = [0.9, 0.32, 0.15];           % Social Security marginal benefit rates for earnings brackets
+        ss_scale     = 1.6;                         % Social Security benefit scaling factor used to match total outlays as a percentage of GDP
         
-        % Benefit formula parameters
-        v1 = 856*12*(mpci/rpci); % first threshold for social security benefit calculation
-        r1 = .9; % percentage of indexed ss benefit applied to the lowest bracket
-        v2 = 5157*12*(mpci/rpci); % second threshold for social security benefit calculation
-        r2 = .32; % percentage of indexed ss benefit applied to the second lowest bracket
-        r3 = .15; % percentage of indexed ss benefit applied to the highest bracket
+        ssbenefit = [ max(min(bv, ssthresholds(1)) - 0              , 0) , ...
+                      max(min(bv, ssthresholds(2)) - ssthresholds(1), 0) , ...
+                      max(min(bv, Inf            ) - ssthresholds(2), 0) ] * ssrates' * ss_scale;
         
-        % Calculate Social Security benefits for average earnings levels
-        ssbenefit = zeros(nb,1);
-        for i1 = 1:nb
-            if bv(i1)<=v1
-                ssbenefit(i1) = r1*bv(i1);
-            elseif (bv(i1)>v1)&&(bv(i1)<=v2)
-                ssbenefit(i1) = r1*v1 + r2*(bv(i1)-v1);
-            elseif bv(i1)>v2
-                ssbenefit(i1) = r1*v1 + r2*(v2-v1) + r3*(bv(i1) - v2);
-            end
-        end
-        
-        ben_scale = 1.6;    % Social Security benefits scaling factor used to match total outlays as a percentage of GDP
-        
-        ssbenefits = repmat(ssbenefit*ben_scale, [1,T_model]);  % Social Security benefits
+        ssbenefits = repmat(ssbenefit          , [1,T_model]);  % Social Security benefits
         sstaxs     = repmat(0.124              , [1,T_model]);  % Social Security tax rates
         ssincmaxs  = repmat(1.185e5*(mpci/rpci), [1,T_model]);  % Social Security maximum taxable earnings
         
