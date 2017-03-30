@@ -230,8 +230,9 @@ methods (Static, Access = private)
         s = load(fullfile(param_dir, 'param_immigration.mat'));
         
         birth_rate   = 0.02;                        % Annual birth rate
-        legal_rate   = s.legal_rate * legal_scale;  % Annual legal immigration rate         *** Update with numerical deviation ***
-        illegal_rate = s.illegal_rate;              % Annual illegal immigration rate       *** Update with numerical deviation ***
+        legal_rate   = 0.0016 * legal_scale;        % Annual legal immigration rate
+        illegal_rate = 0.0024;                      % Annual illegal immigration rate
+        
         imm_age      = s.imm_age;                   % New immigrant age distribution
         DISTz_age    = s.proddist_age;
         
