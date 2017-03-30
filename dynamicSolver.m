@@ -152,53 +152,91 @@ methods (Static, Access = private)
         s = load(fullfile(param_dir, 'param_global.mat'));
         
         nz   = s.nz;
-        nk   = s.nk;
-        nb   = s.nb;
         ndem = s.ndem;
-        
-        T_life = s.T_life;
-        switch economy
-            case 'steady'
-                T_model    = 1;
-                startyears = 0;
-            case {'open', 'closed'}
-                T_model    = s.T_model;
-                startyears = (-T_life+1):(T_model-1);
-        end
-        nstartyears = length(startyears);
-        
-        T_pasts   = max(-startyears, 0);                          % Life years before first model year
-        T_shifts  = max(+startyears, 0);                          % Model years before first life year
-        T_actives = min(startyears+T_life, T_model) - T_shifts;   % Life years within modeling period
-        T_ends    = min(T_model-startyears, T_life);              % Maximum age within modeling period
         
         zs     = s.z;
         transz = s.tr_z;
-        ks     = s.kgrid;
-        bs     = s.bgrid; bs(1) = 0;
         
-        A   = s.A;
-        alp = s.alp;
-        d   = s.d;
         
-        surv = s.surv(1:T_life); surv(T_life) = 0;
+        
+        
+        % Define savings discretization vector
+        nk = 10;
+        ks = zeros(nk-1,1);
+        klb = 1e-3;
+        kub = 150;
+        exppwr = 2;
+        for i1 = 1:nk-1
+            ks(i1) = (kub-klb)*((i1/nk))^exppwr + klb;
+        end
+        ks = [klb; ks];
+        
+        
+        % Define average earnings discretization vector
+        % (Note the dependence of the average earnings grid on the maximum of the productivity array)
+        nb = 5;
+        bs = zeros(nb-1,1);
+        bub = 1.5*max(zs(:));  % max possible ss benefit
+        blb = 0.1;                                              % *** Adjust to zero ***
+        exppwr = 3;
+        for i1 = 1:nb-1
+            bs(i1) = (bub-blb)*(((i1+1)/nb))^exppwr + blb;      % *** Inconsistency in indexing with ks? ***
+        end
+        bs = [0; bs];
+        
+        
+        
+        % *** phi1, phi2, phi3 needed ***
         V_beq = s.phi1.*((1 + ks./s.phi2).^(1 - s.phi3));
         
-        mpci = s.mpci;
-        rpci = s.rpci;
         
-        deducscale  = s.deduc_scale;
-        sstaxcredit = s.ss_tax_cred;
+        
+        T_life = 80;                                                % Total life years
+        switch economy
+            case 'steady'
+                T_model    = 1;                                     % Steady state total modeling years
+                startyears = 0;                                     % Steady state cohort start year
+            case {'open', 'closed'}
+                T_model    = 24;                                    % Transition path total modeling years
+                startyears = (-T_life+1):(T_model-1);               % Transition path cohort start years
+        end
+        nstartyears = length(startyears);
+        
+        T_pasts   = max(-startyears, 0);                            % Life years before first model year
+        T_shifts  = max(+startyears, 0);                            % Model years before first life year
+        T_actives = min(startyears+T_life, T_model) - T_shifts;     % Life years within modeling period
+        T_ends    = min(T_model-startyears, T_life);                % Maximum age within modeling period
+        
+        
+        
+        A     = 1;      % Total factor productivity
+        alpha = 0.45;   % Capital share of output
+        d     = 0.085;  % Depreciation rate
+        
+        
+        s = load(fullfile(param_dir, 'surv.mat')); surv = s.surv; clear('s')
+        
+        
+        mpci = 3.25;    % Model per capita income (to be updated; should be different for each baseline)
+        rpci = 1.19e5;  % Real per capita income in dollars (to be updated; currently chosen to match percentage of individuals above Social Security maximum taxable earning level)
+        
+        sstaxcredit = 0.15;             % Percentage tax credit on Social Security benefits
+        
+        
+        
         
         
         % Load immigration parameters
         s = load(fullfile(param_dir, 'param_immigration.mat'));
         
-        birth_rate   = s.pgr;
-        legal_rate   = s.legal_rate * legal_scale;
-        illegal_rate = s.illegal_rate;
-        imm_age      = s.imm_age;
+        birth_rate   = 0.02;                        % Annual birth rate
+        legal_rate   = s.legal_rate * legal_scale;  % Annual legal immigration rate         *** Update with numerical deviation ***
+        illegal_rate = s.illegal_rate;              % Annual illegal immigration rate       *** Update with numerical deviation ***
+        imm_age      = s.imm_age;                   % New immigrant age distribution
         DISTz_age    = s.proddist_age;
+        
+        
+        
         
         % Define population group index mapping
         groups = {'citizen', 'legal', 'illegal'};
@@ -214,13 +252,24 @@ methods (Static, Access = private)
         end
         
         
+        
+        
+        
+        
         % Load social security parameters
         s = load(fullfile(param_dir, 'param_socsec.mat'));
         
-        T_work     = s.NRA(1);
+        T_work     = 47;                                        % Total working years
+        
+        
+        % *** Need not be vectors over modeling period ***
         ssbenefits = s.ss_benefit(:,1:T_model);
-        sstaxs     = s.ss_tax(1:T_model);
-        ssincmaxs  = s.taxmax(1:T_model);
+        sstaxs     = 0.124               * ones(1,T_model);     % Social Security tax rates
+        ssincmaxs  = 1.185e5*(mpci/rpci) * ones(1,T_model);     % Social Security maximum taxable earnings
+        
+        
+        
+        
         
         
         % Load CBO parameters
@@ -232,10 +281,15 @@ methods (Static, Access = private)
         cbomeanrate = mean(s.r_cbo);
         
         
+        
+        
+        
+        
+        
         % Load income tax parameters
         s = load(fullfile(param_dir, sprintf('param_inctax_%s.mat', taxplan)));
         
-        deduc_coefs = [deducscale*s.avg_deduc, s.coefs(1:2)];
+        deduc_coefs = [s.avg_deduc, s.coefs(1:2)];
         pit_coefs   = [s.limit, s.X];
         
         
@@ -254,6 +308,9 @@ methods (Static, Access = private)
         taucap_base = s_base.tau_cap;
         
         qtobin0 = 1 - taucap_base*s_base.exp_share;
+        
+        
+        
         
         
         
@@ -612,7 +669,7 @@ methods (Static, Access = private)
                         Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
                     end
                     
-                    Market.caprates = (A*alp*(Market.rhos.^(alp-1)) - d)/qtobin;
+                    Market.caprates = (A*alpha*(Market.rhos.^(alpha-1)) - d)/qtobin;
                     Market.totrates = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
                     
                 case 'open'
@@ -621,12 +678,12 @@ methods (Static, Access = private)
                         Market.caprates  = Market0.caprates*ones(1,T_model)*(1-taucap_base)/(1-taucap);
                         Market.govrates  = Market0.govrates*ones(1,T_model);
                         Market.totrates  = Market0.totrates*ones(1,T_model);
-                        Market.rhos      = ((qtobin*Market.caprates + d)/alp).^(1/(alp-1));
+                        Market.rhos      = ((qtobin*Market.caprates + d)/alpha).^(1/(alpha-1));
                     end
                     
             end
             
-            Market.wages = A*(1-alp)*(Market.rhos.^alp);
+            Market.wages = A*(1-alpha)*(Market.rhos.^alpha);
             
             
             % Generate dynamic aggregates
@@ -643,7 +700,7 @@ methods (Static, Access = private)
                     % (Numerical solver used due to absence of closed form solution)
                     f_debts = @(outs ) debttoout*outs;
                     f_caps  = @(debts) (Dynamic.assets - debts)/qtobin;
-                    f_outs  = @(caps ) A*(max(caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
+                    f_outs  = @(caps ) A*(max(caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     x_ = fsolve(@(x) x - [f_debts(x(3)); f_caps(x(1)); f_outs(x(2))], zeros(3,1), optimoptions('fsolve', 'Display', 'none'));
                     Dynamic.debts = x_(1);
                     Dynamic.caps  = x_(2);
@@ -658,7 +715,7 @@ methods (Static, Access = private)
                     
                     % Calculate capital and output
                     Dynamic.caps = Market.rhos .* Dynamic.labeffs;
-                    Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
+                    Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     Dynamic.caps_domestic = Market.capshares .* [Dynamic0.assets, Dynamic.assets(1:T_model-1)];
                     Dynamic.caps_foreign  = qtobin*Dynamic.caps - Dynamic.caps_domestic;
@@ -715,7 +772,7 @@ methods (Static, Access = private)
                     
                     % Calculate capital and output
                     Dynamic.caps = ([(Dynamic0.assets - Dynamic0.debts)/qtobin0, (Dynamic.assets(1:T_model-1) - Dynamic.debts(2:T_model))/qtobin]);
-                    Dynamic.outs = A*(max(Dynamic.caps, 0).^alp).*(Dynamic.labeffs.^(1-alp));
+                    Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     Dynamic.caps_domestic = [qtobin0 * Dynamic.caps(1), qtobin * Dynamic.caps(2:T_model)];
                     Dynamic.caps_foreign  = zeros(1,T_model);
