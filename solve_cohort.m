@@ -248,7 +248,7 @@ inc_eff = max(inc - deduc, 0);
 inc     = (mpci/rpci)*inc;
 
 % Calculate personal income tax
-pit = (mpci/rpci)*pit_coefs(1)*(inc_eff - (inc_eff.^(-pit_coefs(2)) + (pit_coefs(3))).^(-1/pit_coefs(2)));
+pit = (mpci/rpci)*pit_coefs(1)*(inc_eff - (inc_eff.^-pit_coefs(2) + pit_coefs(3)).^(-1/pit_coefs(2)));
 
 % Calculate Social Security tax
 sst = sstax * min(labinc, ssincmax);
