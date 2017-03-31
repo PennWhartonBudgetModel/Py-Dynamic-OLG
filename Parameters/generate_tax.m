@@ -35,9 +35,7 @@ for taxplan_ = {'base', 'trump', 'ryan'}, taxplan = taxplan_{1};
     
     % Fit income tax function using least squares
     gouveiastrauss = @(pit_coefs) pit_coefs(1)*(incv - (incv.^-pit_coefs(2) + pit_coefs(3)).^(-1/pit_coefs(2))) ./ incv;
-    
-    pit_coefs = fminsearch(@(pit_coefs) sum((gouveiastrauss(pit_coefs) - inct).^2), ...
-                           [0.36, 0.8, 0.01], optimset('TolFun', 1e-10, 'MaxIter', 1e11, 'MaxFunEvals', 1e11));
+    pit_coefs = lsqnonlin(@(pit_coefs) gouveiastrauss(pit_coefs) - inct, [0.36, 0.8, 0.01], [], [], optimoptions(@lsqnonlin, 'Display', 'off'));
     
     % Define vector of sample incomes and calculate corresponding deductions
     % (Upper bound on deductable income provided by TPC)
@@ -46,7 +44,6 @@ for taxplan_ = {'base', 'trump', 'ryan'}, taxplan = taxplan_{1};
     
     % Fit deduction function using multilinear regression
     exps = [0, 1, 1/2]; % f(x) = b_1 + b_2*x + b_3*x^(1/2)
-    
     deduc_coefs = regress(incd, repmat(incv, [1,length(exps)]) .^ repmat(exps, [length(incv),1]))';
     
     % Store fitted coefficients for income tax and deduction functions
@@ -60,13 +57,14 @@ for taxplan_ = {'base', 'trump', 'ryan'}, taxplan = taxplan_{1};
         case 'ryan' , col = 'E';
     end
     range = sprintf('%1$c2:%1$c5', col);
-    p = readTPC(3, range);
+    
+    busparams = readTPC(3, range);
     
     % Store business tax parameters
-    s.(taxplan).captaxshare = p(2); 
-    s.(taxplan).expshare    = p(4); 
-    s.(taxplan).taucap      = p(1); 
-    s.(taxplan).taucapgain  = 0   ;
+    s.(taxplan).captaxshare = busparams(2); 
+    s.(taxplan).expshare    = busparams(4); 
+    s.(taxplan).taucap      = busparams(1); 
+    s.(taxplan).taucapgain  = 0           ;
     
 end
 
