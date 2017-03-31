@@ -844,49 +844,47 @@ end
 
 function [nz, zs, transz, ndem, DISTz] = calculate_productivities(T_life)
     
-    function [y, yprob, epsgrid] = generate_persistent_shocks(ny, lambda, sigep)
+    function [zpers, tr_z1, epsgrid] = generate_persistent_shocks(npers, pep, sigep)
         
         % This function creates a Markov matrix that approximates an AR(1) process.  Written for C-code generation.
         % ny = gridsize
-        % const = constant on ar1 process
         % lambda = coefficient on ar1 process
         % sigep = standard deviation of error terms
         % y(t) = mu*(1-lambda) + lambda(t-1) + eps
-        % recovering mu
         
-        sigy = sigep/(sqrt(1-lambda^2));
+        sigy = sigep/(sqrt(1-pep^2));
         
-        epsgrid = sigy*norminv(linspace(0, 1, ny+1), 0, 1);
+        epsgrid = sigy*norminv(linspace(0, 1, npers+1));
         
-        y = zeros(ny,1);    % grid of conditional means
-        for i = 1:ny    
+        zpers = zeros(1,npers);    % grid of conditional means
+        for i = 1:npers    
             e1 = epsgrid(i)  /sigy;
             e2 = epsgrid(i+1)/sigy;
-            y(i) = ny*sigy*(normpdf(e1,0,1) - normpdf(e2,0,1));
+            zpers(i) = npers*sigy*(normpdf(e1) - normpdf(e2));
         end
         
-        yprob = zeros(ny,ny);
-        for i = 1:ny
-            for i2 = 1:ny
+        tr_z1 = zeros(npers,npers);
+        for i = 1:npers
+            for i2 = 1:npers
                 ei1 = epsgrid(i);
                 ei2 = epsgrid(i+1);
                 ej1 = epsgrid(i2);
                 ej2 = epsgrid(i2+1);
-                yprob(i,i2) = (ny/(sqrt(2*pi*(sigy^2))))*quadgk(@(x) integrand(x,ej1,ej2,sigy,sigep,lambda), ei1, ei2);
+                tr_z1(i,i2) = (npers/(sqrt(2*pi*(sigy^2))))*quadgk(@(x) integrand(x, ej1, ej2, sigy, sigep, pep), ei1, ei2);
             end
         end
         
     end
     
-    function [c2] = integrand(x, ej1, ej2, sigy, sigep, lambda)
+    function [c2] = integrand(x, ej1, ej2, sigy, sigep, pep)
         
         nx = length(x);
         c2 = zeros(1,nx);
         
         for i1 = 1:nx
             term1 = exp(-x(i1)^2/(2*sigy^2));
-            term2 = normcdf((ej2-lambda*x(i1))/sigep,0,1);
-            term3 = normcdf((ej1-lambda*x(i1))/sigep,0,1);
+            term2 = normcdf((ej2-pep*x(i1))/sigep);
+            term3 = normcdf((ej1-pep*x(i1))/sigep);
             c2(i1) = term1*(term2-term3);
         end
         
@@ -897,59 +895,47 @@ function [nz, zs, transz, ndem, DISTz] = calculate_productivities(T_life)
     % (Method of discretizing shock process derived from Adda and Cooper, 2003)
     
     % Define function to compute cutoff points for equally weighted slices of a normal distribution
-    f = @(n, sig) n * sig * -diff(normpdf(norminv(linspace(0, 1, n+1), 0, 1), 0, 1));
+    f = @(n, sig) n * sig * -diff(normpdf(norminv(linspace(0, 1, n+1))));
     
     
-    % Permanent shock
-    np = 2;  % Number of permanent shocks
-    z_perm = f(np, sqrt(0.2105));
+    % Determine permanent shocks
+    nperm = 2;
+    zperm = f(nperm, sqrt(0.2105));
     
-    % Persistent shock
-    ny = 2;
+    
+    % Determine persistent shocks
+    npers = 2;
     pep = 0.973;    % coefficient on lagged productivity
     sigep = 0.018^0.5;    % conditional stdev of productivity
-    [z1, tr_z1, epsgrid] = generate_persistent_shocks(ny, pep, sigep);  % returns the transition matrix
     
     
-    proddist = zeros(1,ny);
-    sigep_1 = 0.124^0.5;
-    for i = 1:ny
-        proddist(i) = normcdf(epsgrid(i+1), 0, sigep_1) - normcdf(epsgrid(i), 0, sigep_1);
-    end
+    [zpers, tr_z1, epsgrid] = generate_persistent_shocks(npers, pep, sigep);  % returns the transition matrix
     
     
-    % Transitory shock 
-    nt = 2;  % Number of transitory shocks
-    z_trans = f(nt, sqrt(0.0630)); 
-    
-    tr_t = (1/nt).*ones(nt);  % Initial distribution over transitory shocks.
-    
-    transz = kron(tr_z1, tr_t);    % Provides final productivity Markov transition matrix.
+    % Determine transitory shocks
+    ntrans = 2;
+    ztrans = f(ntrans, sqrt(0.0630)); 
     
     
-    nz   = ny*nt;
-    ndem = np;
+    nz   = npers*ntrans;
+    ndem = nperm;
     
-    zs = zeros(nz, T_life, ndem);
     
-    % Deterministic component of lifecycle productivity.  Estimates are from Barro and Barnes Medicaid working paper.
-    for age = 1:T_life
-        for d1 = 1:np
-            shock_node = 0;
-            for idio_shock = 1:ny
-                for trans_shock = 1:nt
-                    shock_node = shock_node + 1;
-                    zs(shock_node,age,d1) = -1.203521 + 0.2891379*(age+19) - 0.0081467*(age+19)^2 + 0.000105*(age+19)^3 - 5.25e-7*(age+19)^4 ...
-                                          + z1(idio_shock) + z_trans(trans_shock) + z_perm(d1);
-                end
-            end
-        end
-    end
-    zs = max(zs, 0);
+    % Deterministic component of lifecycle productivity.  Estimates are from Barro and Barnes Medicaid working paper
+    zage = polyval([-5.25e-7, 0.000105, -0.0081467, 0.2891379, -1.203521], 19+(1:T_life));
+    
+    zs = max(0, repmat(reshape(zage                       , [1 ,T_life,1   ]), [nz,1     ,ndem]) ...
+              + repmat(reshape(zperm                      , [1 ,1     ,ndem]), [nz,T_life,1   ]) ...
+              + repmat(reshape(kron(ones(1,npers), ztrans) ...
+                             + kron(zpers, ones(1,ntrans)), [nz,1     ,1   ]), [1 ,T_life,ndem]));
+    
+    
+    % Construct Markov transition matrix for productivities
+    transz = kron(tr_z1, (1/ntrans)*ones(ntrans));
     
     
     % Initial distribution over all shocks (persistent and idiosyncratic).
-    DISTz0 = kron(proddist, (1/nt)*ones(1,nt));
+    DISTz0 = kron(diff(normcdf(epsgrid/sqrt(0.124))), (1/ntrans)*ones(1,ntrans));
     
     DISTz_g = zeros(nz,T_life);
     DISTz_g(:,1) = reshape(DISTz0, [nz,1]);
