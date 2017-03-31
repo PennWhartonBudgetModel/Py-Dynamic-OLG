@@ -168,7 +168,28 @@ methods (Static, Access = private)
         T_ends    = min(T_model-startyears, T_life);                % Maximum age within modeling period
         
         % Calculate productivities
-        [nz, zs, transz, ndem, DISTz_age] = calculate_productivities(T_life);
+        [nz, zs, transz, ndem, DISTz] = calculate_productivities(T_life);
+        
+        % Define population group index mapping
+        groups = {'citizen', 'legal', 'illegal'};
+        ng = length(groups);
+        for ig = 1:ng, g.(groups{ig}) = ig; end
+        
+        % Shift productivity distributions for legal and illegal immigrants towards highest and lowest productivity levels respectively
+        for age = 1:T_life
+            
+            zmean = mean(zs(:,age,:), 3);
+            
+            zlegal   = sum(zmean .* DISTz(:,age,g.legal  )) * prem_legal;
+            zillegal = sum(zmean .* DISTz(:,age,g.illegal)) * 0.9       ;
+            
+            plegal   = (zmean(nz) - zlegal  ) / (zmean(nz)*(nz-1) - sum(zmean(1:nz-1)));
+            pillegal = (zmean(1)  - zillegal) / (zmean(1) *(nz-1) - sum(zmean(2:nz  )));
+            
+            DISTz(:,age,g.legal  ) = [plegal*ones(nz-1,1); 1 - plegal*(nz-1)    ];
+            DISTz(:,age,g.illegal) = [1 - pillegal*(nz-1); pillegal*ones(nz-1,1)];
+            
+        end
         
         % Define savings and average earnings discretization vectors
         % (Upper bound of average earnings defined as maximum possible Social Security benefit)
@@ -200,19 +221,6 @@ methods (Static, Access = private)
         s = load(fullfile(param_dir, 'age.mat'));
         surv    = s.surv;       % Survival rates by age
         imm_age = s.imm_age;    % New immigrant population distribution over age
-        
-        % Define population group index mapping
-        groups = {'citizen', 'legal', 'illegal'};
-        ng = length(groups);
-        for ig = 1:ng, g.(groups{ig}) = ig; end
-        
-        % Shift legal immigrant productivity distribution according to policy parameter
-        for age = 1:T_life
-            v = mean(zs(:,age,:), 3);
-            ztarget = sum(v .* DISTz_age(:,age,g.legal)) * prem_legal;
-            p = (v(nz) - ztarget) / (v(nz)*(nz-1) - sum(v(1:nz-1)));
-            DISTz_age(:,age,g.legal) = [p*ones(nz-1,1); 1 - p*(nz-1)];
-        end
         
         % Define Social Security parameters
         ssthresholds = [856, 5157]*12*(mpci/rpci);  % Thresholds for earnings brackets
@@ -375,9 +383,9 @@ methods (Static, Access = private)
                         DIST_grow = zeros(nz,nk,nb,T_life,ng);
                         P = sum(DIST_year(:));
                         
-                        DIST_grow(:,1,1,1,g.citizen) = reshape(DISTz_age(:,1,g.citizen), [nz,1,1,1     ,1]) * P * birth_rate   ;
-                        DIST_grow(:,1,1,:,g.legal  ) = reshape(DISTz_age(:,:,g.legal  ), [nz,1,1,T_life,1]) * P * legal_rate   .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
-                        DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz_age(:,:,g.illegal), [nz,1,1,T_life,1]) * P * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
+                        DIST_grow(:,1,1,1,g.citizen) = reshape(DISTz(:,1,g.citizen), [nz,1,1,1     ,1]) * P * birth_rate   ;
+                        DIST_grow(:,1,1,:,g.legal  ) = reshape(DISTz(:,:,g.legal  ), [nz,1,1,T_life,1]) * P * legal_rate   .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
+                        DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz(:,:,g.illegal), [nz,1,1,T_life,1]) * P * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
                         
                         % Generate population distribution for next year
                         DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kv, bv, surv);
@@ -834,29 +842,9 @@ end
 %%
 
 
-function [nz, zs, transz, ndem, DISTz_age] = calculate_productivities(T_life)
+function [nz, zs, transz, ndem, DISTz] = calculate_productivities(T_life)
     
-    function [y] = generate_normdist_shocks(nt,sigt)
-        
-        % This function gives the cutoff points for nt slices of a normal
-        % distribution with equal weight.
-        
-        epsgrid = zeros(nt+1,1);    % creates grid for endpoints
-        
-        for i = 1:nt+1
-            epsgrid(i) = sigt*norminv((i-1)/nt,0,1);
-        end
-        
-        y = zeros(nt,1);    % grid of conditional means
-        for i = 1:nt
-            e1 = (epsgrid(i))/sigt;
-            e2 = (epsgrid(i+1))/sigt;
-            y(i) = nt*sigt*(normpdf(e1,0,1) - normpdf(e2,0,1));
-        end
-        
-    end
-    
-    function [y, yprob, epsgrid] = generate_persistent_shocks(ny,const,lambda,sigep)
+    function [y, yprob, epsgrid] = generate_persistent_shocks(ny, lambda, sigep)
         
         % This function creates a Markov matrix that approximates an AR(1) process.  Written for C-code generation.
         % ny = gridsize
@@ -866,19 +854,15 @@ function [nz, zs, transz, ndem, DISTz_age] = calculate_productivities(T_life)
         % y(t) = mu*(1-lambda) + lambda(t-1) + eps
         % recovering mu
         
-        mu = const/(1-lambda);
         sigy = sigep/(sqrt(1-lambda^2));
-        epsgrid = zeros(ny+1,1);    % creates grid for endpoints
         
-        for i = 1:ny+1    
-            epsgrid(i) = sigy*norminv((i-1)/ny,0,1) + mu;
-        end
+        epsgrid = sigy*norminv(linspace(0, 1, ny+1), 0, 1);
         
         y = zeros(ny,1);    % grid of conditional means
         for i = 1:ny    
-            e1 = (epsgrid(i)-mu)/sigy;
-            e2 = (epsgrid(i+1)-mu)/sigy;
-            y(i) = ny*sigy*(normpdf(e1,0,1) - normpdf(e2,0,1)) + mu;
+            e1 = epsgrid(i)  /sigy;
+            e2 = epsgrid(i+1)/sigy;
+            y(i) = ny*sigy*(normpdf(e1,0,1) - normpdf(e2,0,1));
         end
         
         yprob = zeros(ny,ny);
@@ -888,160 +872,94 @@ function [nz, zs, transz, ndem, DISTz_age] = calculate_productivities(T_life)
                 ei2 = epsgrid(i+1);
                 ej1 = epsgrid(i2);
                 ej2 = epsgrid(i2+1);
-                yprob(i,i2) = (ny/(sqrt(2*pi*(sigy^2))))*quadgk(@(x) integrand(x,ej1,ej2,sigy,sigep,mu,lambda), ei1, ei2);
+                yprob(i,i2) = (ny/(sqrt(2*pi*(sigy^2))))*quadgk(@(x) integrand(x,ej1,ej2,sigy,sigep,lambda), ei1, ei2);
             end
         end
         
     end
     
-    function [c2] = integrand(x,ej1,ej2,sigy,sigep,mu,lambda)
+    function [c2] = integrand(x, ej1, ej2, sigy, sigep, lambda)
         
         nx = length(x);
         c2 = zeros(1,nx);
         
         for i1 = 1:nx
-            term1 = exp(-((x(i1)-mu)^2)/(2*sigy^2));
-            term2 = normcdf((ej2-mu*(1-lambda)-lambda*x(i1))/sigep,0,1);
-            term3 = normcdf((ej1-mu*(1-lambda)-lambda*x(i1))/sigep,0,1);
+            term1 = exp(-x(i1)^2/(2*sigy^2));
+            term2 = normcdf((ej2-lambda*x(i1))/sigep,0,1);
+            term3 = normcdf((ej1-lambda*x(i1))/sigep,0,1);
             c2(i1) = term1*(term2-term3);
         end
-
+        
     end
     
     
     % (Shock process definition from Storesletten, Telmer, and Yaron, 2004)
     % (Method of discretizing shock process derived from Adda and Cooper, 2003)
     
+    % Define function to compute cutoff points for equally weighted slices of a normal distribution
+    f = @(n, sig) n * sig * -diff(normpdf(norminv(linspace(0, 1, n+1), 0, 1), 0, 1));
+    
+    
     % Permanent shock
     np = 2;  % Number of permanent shocks
-    sig_p = 0.2105^0.5;    % Standard deviation
-    z_perm = generate_normdist_shocks(np,sig_p);
+    z_perm = f(np, sqrt(0.2105));
     
     % Persistent shock
     ny = 2;
+    pep = 0.973;    % coefficient on lagged productivity
+    sigep = 0.018^0.5;    % conditional stdev of productivity
+    [z1, tr_z1, epsgrid] = generate_persistent_shocks(ny, pep, sigep);  % returns the transition matrix
+    
+    
+    proddist = zeros(1,ny);
     sigep_1 = 0.124^0.5;
-    const = 0;
-    pep = 0.973;    % coefficient on lagged productivity 
-    sigep = 0.018^0.5;    % conditional stdev of productivity 
-    [z1, tr_z1, epsgrid] = generate_persistent_shocks(ny,const,pep,sigep);    % returns the transition matrix
+    for i = 1:ny
+        proddist(i) = normcdf(epsgrid(i+1), 0, sigep_1) - normcdf(epsgrid(i), 0, sigep_1);
+    end
+    
     
     % Transitory shock 
     nt = 2;  % Number of transitory shocks
-    sig_t = 0.0630^0.5;
-    z_trans = generate_normdist_shocks(nt,sig_t); 
+    z_trans = f(nt, sqrt(0.0630)); 
+    
     tr_t = (1/nt).*ones(nt);  % Initial distribution over transitory shocks.
     
-    transz = kron(tr_z1,tr_t);    % Provides final productivity Markov transition matrix.
+    transz = kron(tr_z1, tr_t);    % Provides final productivity Markov transition matrix.
     
     
+    nz   = ny*nt;
+    ndem = np;
     
-    zs = zeros(ny*nt, T_life, np);
+    zs = zeros(nz, T_life, ndem);
     
     % Deterministic component of lifecycle productivity.  Estimates are from Barro and Barnes Medicaid working paper.
-    for t1 = 1:T_life
+    for age = 1:T_life
         for d1 = 1:np
             shock_node = 0;
             for idio_shock = 1:ny
                 for trans_shock = 1:nt
-                    shock_node = shock_node+1;
-                    zs(shock_node,t1,d1) = -1.203521 + 0.2891379*(t1+19) - 0.0081467*(t1+19)^2 + 0.000105*(t1+19)^3 - 5.25e-7*(t1+19)^4 + z1(idio_shock) + z_trans(trans_shock) + z_perm(d1);
+                    shock_node = shock_node + 1;
+                    zs(shock_node,age,d1) = -1.203521 + 0.2891379*(age+19) - 0.0081467*(age+19)^2 + 0.000105*(age+19)^3 - 5.25e-7*(age+19)^4 ...
+                                          + z1(idio_shock) + z_trans(trans_shock) + z_perm(d1);
                 end
             end
         end
     end
-    
     zs = max(zs, 0);
-    nz = ny*nt;
-    
-    ndem = np;    % Redefining "np" as "ndem" to reflect patch for the creation of demographic types.
     
     
+    % Initial distribution over all shocks (persistent and idiosyncratic).
+    DISTz0 = kron(proddist, (1/nt)*ones(1,nt));
     
-    proddist = zeros(1,ny);
-    for i = 1:ny
-        proddist(i) = normcdf(epsgrid(i+1),0,sigep_1) - normcdf(epsgrid(i),0,sigep_1);
-    end
-    
-    proddist = kron(proddist,(1/nt).*ones(1,nt));    % Initial distribution over all shocks (persistent and idiosyncratic).
-    proddist = repmat(proddist',[1,3]);    % Replicating initial distribution for other immigrant types.
-    DISTz_age = zeros(nz,T_life,3);    % Lengthening dimensionality to allow for age-dependent productivity chosen to match the immigrant premium.
-    
-    
-    
-    for i1 = 1:nz
-        DISTz_age(i1,1,1) = proddist(i1,1);
-        DISTz_age(i1,1,2) = proddist(i1,2);
-        DISTz_age(i1,1,3) = proddist(i1,3);
-    end
+    DISTz_g = zeros(nz,T_life);
+    DISTz_g(:,1) = reshape(DISTz0, [nz,1]);
     
     % constructing the productivity distribution by age
-    for i1 = 1:3
-        for t1 = 1:T_life-1
-            for i2 = 1:nz
-                for i3 = 1:nz
-                    DISTz_age(i3,t1+1,i1) = DISTz_age(i3,t1+1,i1) + transz(i2,i3)*DISTz_age(i2,t1,i1);
-                end
-            end
-        end
+    for age = 2:T_life
+        DISTz_g(:,age) = transz' * DISTz_g(:,age-1);
     end
     
-    prem_imm = [0.0, -0.1];  % premium: [legal,illegal]
-    
-    for i1 = 2 % legal =2
-        for t1 = 1:T_life
-            E_bar = sum(sum(squeeze(zs(:,t1,:))))/8;
-            pub = 1;
-            plb = 0;
-            target_e = E_bar*(1+prem_imm(i1-1));
-            e_error = 100;
-            e_tol = .00001;
-            while e_error>e_tol
-                p_upper = (pub+plb)/2;
-                p_lower = (1-p_upper)/3;
-                val1 = p_lower*zs(1,t1,1) + p_lower*zs(2,t1,1) + p_lower*zs(3,t1,1) + p_upper*zs(4,t1,1);
-                val2 = p_lower*zs(1,t1,2) + p_lower*zs(2,t1,2) + p_lower*zs(3,t1,2) + p_upper*zs(4,t1,2);
-                test_e = .5*(val1+val2);
-                if test_e>target_e
-                    pub = p_upper;
-                elseif test_e<target_e
-                    plb = p_upper;
-                end
-                e_error = abs(test_e-target_e);
-            end
-            DISTz_age(1,t1,i1) = p_lower;
-            DISTz_age(2,t1,i1) = p_lower;
-            DISTz_age(3,t1,i1) = p_lower;
-            DISTz_age(4,t1,i1) = p_upper;
-        end
-    end      
-    
-    for i1 = 3 % illegal=3
-        for t1 = 1:T_life
-            E_bar = sum(sum(squeeze(zs(:,t1,:))))/8;
-            pub = 1;
-            plb = 0;
-            target_e = E_bar*(1+prem_imm(i1-1));
-            e_error = 100;
-            e_tol = .00001;
-            while e_error>e_tol
-                p_lower = (pub+plb)/2;
-                p_upper = (1-p_lower)/3;
-                val1 = p_lower*zs(1,t1,1) + p_upper*zs(2,t1,1) + p_upper*zs(3,t1,1) + p_upper*zs(4,t1,1);
-                val2 = p_lower*zs(1,t1,2) + p_upper*zs(2,t1,2) + p_upper*zs(3,t1,2) + p_upper*zs(4,t1,2);
-                test_e = .5*(val1+val2);
-                if test_e>target_e
-                    plb = p_lower;
-                elseif test_e<target_e
-                    pub = p_lower;
-                end
-                e_error = abs(test_e-target_e);
-            end
-            DISTz_age(1,t1,i1) = p_lower;
-            DISTz_age(2,t1,i1) = p_upper;
-            DISTz_age(3,t1,i1) = p_upper;
-            DISTz_age(4,t1,i1) = p_upper;
-        end
-    end
+    DISTz = repmat(DISTz_g, [1,1,3]);
     
 end
 
