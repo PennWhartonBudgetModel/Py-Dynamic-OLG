@@ -167,13 +167,72 @@ methods (Static, Access = private)
         T_actives = min(startyears+T_life, T_model) - T_shifts;     % Life years within modeling period
         T_ends    = min(T_model-startyears, T_life);                % Maximum age within modeling period
         
-        % Calculate productivities
-        [nz, zs, transz, ndem, DISTz] = calculate_productivities(T_life);
+        
+        % (Shock process definitions from Storesletten, Telmer, and Yaron, 2004)
+        % (Method of discretizing shock process derived from Adda and Cooper, 2003)
+        
+        % Define function to compute cutoff points for equally weighted slices of a normal distribution
+        f = @(n, sig) n*sig*-diff(normpdf(norminv(linspace(0, 1, n+1))));
+        
+        % Determine permanent and transitory shocks
+        nperm  = 2; zperm  = f(nperm , sqrt(0.2105));
+        ntrans = 2; ztrans = f(ntrans, sqrt(0.0630)); 
+        
+        % Determine persistent shocks
+        npers = 2;
+        
+        pep = 0.973;                        % Lagged productivity coefficient
+        sigep = sqrt(0.018);                % Conditional standard deviation of productivity
+        sigpers = sigep/(sqrt(1-pep^2));
+        
+        zpers = f(npers, sigpers);
+        
+        % Construct Markov transition matrix for persistent shocks by approximating an AR(1) process
+        persv = sigpers*norminv(linspace(0, 1, npers+1));
+        transpers = zeros(npers,npers);
+        for ipers = 1:npers
+            integrand = @(x) exp(-x^2/(2*sigpers^2)) * diff(normcdf((persv(ipers:ipers+1) - pep*x)/sigep));
+            for jpers = 1:npers
+                transpers(ipers,jpers) = (npers/(sqrt(2*pi*(sigpers^2)))) * quadgk(@(v) arrayfun(integrand, v), persv(jpers), persv(jpers+1));
+            end
+        end
+        
+        % Determine initial distribution over persistent shocks
+        DISTpers = diff(normcdf(persv/sqrt(0.124)));
+        
+        % Define deterministic lifecycle productivities
+        % (Estimated coefficients from Barro and Barnes Medicaid working paper)
+        zage = polyval([-5.25e-7, 1.05e-4, -8.1467e-3, 0.2891379, -1.203521], 19+(1:T_life));
+        
+        % Calculate total productivity
+        ndem = nperm; nz = ntrans*npers;
+        
+        zs = max(0, repmat(reshape(zage                       , [1 ,T_life,1   ]), [nz,1     ,ndem]) ...
+                  + repmat(reshape(zperm                      , [1 ,1     ,ndem]), [nz,T_life,1   ]) ...
+                  + repmat(reshape(kron(ones(1,npers), ztrans) ...
+                                 + kron(zpers, ones(1,ntrans)), [nz,1     ,1   ]), [1 ,T_life,ndem]));
+        
+        % Construct Markov transition matrix for all shocks / productivities
+        transz = kron(transpers, (1/ntrans)*ones(ntrans,ntrans));
+        
+        % Determine initial distribution over all shocks / productivities
+        DISTz0 = kron(DISTpers , (1/ntrans)*ones(1     ,ntrans));
+        
+        % Determine productivity distributions for ages
+        DISTz_g = zeros(nz,T_life);
+        DISTz_g(:,1) = reshape(DISTz0, [nz,1]);
+        
+        for age = 2:T_life
+            DISTz_g(:,age) = transz' * DISTz_g(:,age-1);
+        end
         
         % Define population group index mapping
         groups = {'citizen', 'legal', 'illegal'};
         ng = length(groups);
         for ig = 1:ng, g.(groups{ig}) = ig; end
+        
+        % Replicate age productivity distributions for population groups
+        DISTz = repmat(DISTz_g, [1,1,ng]);
         
         % Shift productivity distributions for legal and illegal immigrants towards highest and lowest productivity levels respectively
         for age = 1:T_life
@@ -190,6 +249,7 @@ methods (Static, Access = private)
             DISTz(:,age,g.illegal) = [1 - pillegal*(nz-1); pillegal*ones(nz-1,1)];
             
         end
+        
         
         % Define savings and average earnings discretization vectors
         % (Upper bound of average earnings defined as maximum possible Social Security benefit)
@@ -222,6 +282,7 @@ methods (Static, Access = private)
         surv    = s.surv;       % Survival rates by age
         imm_age = s.imm_age;    % New immigrant population distribution over age
         
+        
         % Define Social Security parameters
         ssthresholds = [856, 5157]*12*(mpci/rpci);  % Thresholds for earnings brackets
         ssrates      = [0.9, 0.32, 0.15];           % Marginal benefit rates for earnings brackets
@@ -237,6 +298,7 @@ methods (Static, Access = private)
         
         sstaxcredit = 0.15;     % Benefit tax credit percentage
         
+        
         % Load CBO parameters
         % (Values originally extracted from PWBM_GrowthAdjustedBudget.xlsx)
         s = load(fullfile(param_dir, 'PWBM_GrowthAdjustedBudget.mat'));
@@ -245,6 +307,7 @@ methods (Static, Access = private)
         fedgovtnis  = s.fedgovtnis(1:T_model);              % Federal government noninterest surplus
         cborates    = s.r_cbo(1:T_model);                   % Growth-adjusted average interest rates
         cbomeanrate = mean(s.r_cbo);                        % Mean growth-adjusted interest rate over modeling period
+        
         
         % Load tax parameters
         % (Generated by generate_tax using data from TPC_Inputs.xlsx)
@@ -835,79 +898,6 @@ end
 
 
 
-
-%%
-% Calculate productivities.
-% 
-%%
-
-
-function [nz, zs, transz, ndem, DISTz] = calculate_productivities(T_life)
-    
-    % (Shock process definitions from Storesletten, Telmer, and Yaron, 2004)
-    % (Method of discretizing shock process derived from Adda and Cooper, 2003)
-    
-    % Define function to compute cutoff points for equally weighted slices of a normal distribution
-    f = @(n, sig) n*sig*-diff(normpdf(norminv(linspace(0, 1, n+1))));
-    
-    % Determine permanent and transitory shocks
-    nperm  = 2; zperm  = f(nperm , sqrt(0.2105));
-    ntrans = 2; ztrans = f(ntrans, sqrt(0.0630)); 
-    
-    % Determine persistent shocks
-    npers = 2;
-    
-    pep = 0.973;                        % Lagged productivity coefficient
-    sigep = sqrt(0.018);                % Conditional standard deviation of productivity
-    sigpers = sigep/(sqrt(1-pep^2));
-    
-    zpers = f(npers, sigpers);
-    
-    % Construct Markov transition matrix for persistent shocks by approximating an AR(1) process
-    persv = sigpers*norminv(linspace(0, 1, npers+1));
-    transpers = zeros(npers);
-    
-    for ipers = 1:npers
-        integrand = @(x) exp(-x^2/(2*sigpers^2)) * diff(normcdf((persv(ipers:ipers+1) - pep*x)/sigep));
-        for jpers = 1:npers
-            transpers(ipers,jpers) = (npers/(sqrt(2*pi*(sigpers^2)))) * quadgk(@(v) arrayfun(integrand, v), persv(jpers), persv(jpers+1));
-        end
-    end
-    
-    % Define deterministic lifecycle productivities
-    % (Estimated coefficients from Barro and Barnes Medicaid working paper)
-    zage = polyval([-5.25e-7, 1.05e-4, -8.1467e-3, 0.2891379, -1.203521], 19+(1:T_life));
-    
-    % Calculate total productivity
-    ndem = nperm; nz = ntrans*npers;
-    
-    zs = max(0, repmat(reshape(zage                       , [1 ,T_life,1   ]), [nz,1     ,ndem]) ...
-              + repmat(reshape(zperm                      , [1 ,1     ,ndem]), [nz,T_life,1   ]) ...
-              + repmat(reshape(kron(ones(1,npers), ztrans) ...
-                             + kron(zpers, ones(1,ntrans)), [nz,1     ,1   ]), [1 ,T_life,ndem]));
-    
-    % Construct Markov transition matrix for all shocks / productivities
-    transz = kron(transpers, (1/ntrans)*ones(ntrans));
-    
-    % Define initial distribution over all shocks / productivities
-    DISTz0 = kron(diff(normcdf(persv/sqrt(0.124))), (1/ntrans)*ones(1,ntrans));
-    
-    % Determine productivity distributions across ages
-    DISTz_g = zeros(nz,T_life);
-    DISTz_g(:,1) = reshape(DISTz0, [nz,1]);
-    
-    for age = 2:T_life
-        DISTz_g(:,age) = transz' * DISTz_g(:,age-1);
-    end
-    
-    % Replicate age productivity distributions for population groups
-    DISTz = repmat(DISTz_g, [1,1,3]);
-    
-end
-
-
-
-
 %%
 % Check if file exists and generate before loading if necessary, handling parallel write and read conflicts.
 % 
@@ -960,4 +950,3 @@ function [s] = hardyload(filename, generator, save_dir)
     pause(pause0)
     
 end
-
