@@ -13,84 +13,53 @@ param_dir = dirFinder.param();
 readTPC = @(sheet, range) xlsread(fullfile(param_dir, 'TPC_Inputs.xlsx'), sheet, range);
 
 
-function [sum_sq] = gouveiastrauss(pit_coefs, x1, y1)
+function [sqe] = gouveiastrauss(pit_coefs, incv, inct)
     
-    % Calculate taxable income
-    ytax = pit_coefs(1)*(x1 - (x1.^-pit_coefs(2) + pit_coefs(3)).^(-1/pit_coefs(2)));
+    % Calculate analytical tax rate
+    inct_ = pit_coefs(1)*(incv - (incv.^-pit_coefs(2) + pit_coefs(3)).^(-1/pit_coefs(2))) ./ incv;
     
-    % Fit function to effective income
-    sum_sq = sum(((ytax - y1)./x1).^2);
+    % Calculate squared error
+    sqe = sum((inct_ - inct).^2);
     
 end
 
 
 for taxplan_ = {'base', 'trump', 'ryan'}, taxplan = taxplan_{1};
-    
-    %% Income Tax
-    
+        
     % Read taxable income thresholds
-    income_thresholds = readTPC(1, 'B3:B622');
+    incthresholds = readTPC(1, 'B3:B622');
     
-    % Read tax rates for plans
+    % Read effective tax rates and taxable income ratios from TPC data file
     switch taxplan
         case 'base' , col = 'C';
         case 'trump', col = 'E';
         case 'ryan' , col = 'F';
     end
     range = sprintf('%1$c3:%1$c622', col);
-    effective_tax_rates = readTPC(1, range);    % Effective tax rates on taxable income
     
-    % Estimate income tax function
-    discretized_income = linspace(1, income_thresholds(end), 1e3);
+    taxrates  = readTPC(1, range);
+    taxratios = readTPC(2, range);
     
-    inctax_bills = zeros(1,1e3);
-    for i = 1:1e3
-        income_bin_index = find(discretized_income(i) <= income_thresholds, 1, 'first');   % (Returns integer corresponding to taxable income range provided by TPC)
-        inctax_bills(i) = discretized_income(i)*effective_tax_rates(income_bin_index);
-    end
+    % Define vector of sample incomes and find corresponding tax rates
+    incv = linspace(1, incthresholds(end), 1e3)';
+    inct = arrayfun(@(inc) taxrates(find(inc <= incthresholds, 1)), incv);
     
-    pit_coefs = fminsearch(@(pit_coefs) gouveiastrauss(pit_coefs, discretized_income, inctax_bills), ...
+    % Fit income tax function using least squares
+    pit_coefs = fminsearch(@(pit_coefs) gouveiastrauss(pit_coefs, incv, inct), ...
                            [0.36, 0.8, 0.01], optimset('TolFun', 1e-10, 'MaxIter', 1e11, 'MaxFunEvals', 1e11));
     
-    s.(taxplan).pit_coefs = pit_coefs; 
+    % Define vector of sample incomes and calculate corresponding deductions
+    % (Upper bound on deductable income provided by TPC)
+    incv = logspace(0, log10(2e6), 1e3)';
+    incd = arrayfun(@(inc) inc * (1 - taxratios(find(inc <= incthresholds, 1))), incv);
     
+    % Fit deduction function using multilinear regression
+    exps = [0, 1, 1/2]; % f(x) = b_1 + b_2*x + b_3*x^(1/2)
+    deduc_coefs = regress(incd, repmat(incv, [1,length(exps)]) .^ repmat(exps, [length(incv),1]))';
     
-    %% Deductions
-    
-    % (Upper bound provided by TPC)
-    discretized_income = logspace(0, log10(2e6), 1e3);
-    
-    switch taxplan
-        case 'base' , col = 'C';
-        case 'trump', col = 'E';
-        case 'ryan' , col = 'F';
-    end
-    range = sprintf('%1$c3:%1$c622', col);
-    taxable_income_ratio = readTPC(2, range);
-    
-    deductions = zeros(1,1e3);
-    for i = 1:1e3
-        income_bin_index = find(discretized_income(i) <= income_thresholds, 1, 'first');   % (Returns integer corresponding to taxable income range provided by TPC)
-        deductions(i) = discretized_income(i)*(1 - taxable_income_ratio(income_bin_index));
-    end
-    
-    % Define regression functional form as f(x) = b_1*x^0 + b_2*x^1 + b_3*x^(1/2)
-    regressors = [discretized_income.^0; discretized_income.^1; discretized_income.^(1/2)]';
-    coefficients = regress(deductions', regressors);
-    
-    n_regs = min(size(regressors));     % (Assumes that the number of variables < number of observations, which must be true for estimation)
-    
-    % Limit order of polynomial
-    if n_regs < 5
-        s.(taxplan).coefs = [coefficients(2:n_regs)', zeros(1,4-(n_regs-1))];
-    else
-        s.(taxplan).coefs = coefficients(2:5);
-    end
-    
-    s.(taxplan).avg_deduc = coefficients(1);
-    
-    
-    %% Business Tax
+    % Store fitted income tax and deduction function coefficients
+    s.(taxplan).pit_coefs   = pit_coefs  ;
+    s.(taxplan).deduc_coefs = deduc_coefs;
     
     % Read business tax parameters from TPC data file
     switch taxplan
@@ -101,10 +70,11 @@ for taxplan_ = {'base', 'trump', 'ryan'}, taxplan = taxplan_{1};
     range = sprintf('%1$c2:%1$c5', col);
     p = readTPC(3, range);
     
-    s.(taxplan).cap_tax_share = p(2); 
-    s.(taxplan).exp_share     = p(4); 
-    s.(taxplan).tau_cap       = p(1); 
-    s.(taxplan).tau_capgain   = 0; 
+    % Store business tax parameters
+    s.(taxplan).captaxshare = p(2); 
+    s.(taxplan).expshare    = p(4); 
+    s.(taxplan).taucap      = p(1); 
+    s.(taxplan).taucapgain  = 0   ;
     
 end
 
