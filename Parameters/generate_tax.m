@@ -13,17 +13,6 @@ param_dir = dirFinder.param();
 readTPC = @(sheet, range) xlsread(fullfile(param_dir, 'TPC_Inputs.xlsx'), sheet, range);
 
 
-function [sqe] = gouveiastrauss(pit_coefs, incv, inct)
-    
-    % Calculate analytical tax rate
-    inct_ = pit_coefs(1)*(incv - (incv.^-pit_coefs(2) + pit_coefs(3)).^(-1/pit_coefs(2))) ./ incv;
-    
-    % Calculate squared error
-    sqe = sum((inct_ - inct).^2);
-    
-end
-
-
 for taxplan_ = {'base', 'trump', 'ryan'}, taxplan = taxplan_{1};
         
     % Read taxable income thresholds
@@ -45,7 +34,9 @@ for taxplan_ = {'base', 'trump', 'ryan'}, taxplan = taxplan_{1};
     inct = arrayfun(@(inc) taxrates(find(inc <= incthresholds, 1)), incv);
     
     % Fit income tax function using least squares
-    pit_coefs = fminsearch(@(pit_coefs) gouveiastrauss(pit_coefs, incv, inct), ...
+    gouveiastrauss = @(pit_coefs) pit_coefs(1)*(incv - (incv.^-pit_coefs(2) + pit_coefs(3)).^(-1/pit_coefs(2))) ./ incv;
+    
+    pit_coefs = fminsearch(@(pit_coefs) sum((gouveiastrauss(pit_coefs) - inct).^2), ...
                            [0.36, 0.8, 0.01], optimset('TolFun', 1e-10, 'MaxIter', 1e11, 'MaxFunEvals', 1e11));
     
     % Define vector of sample incomes and calculate corresponding deductions
@@ -55,9 +46,10 @@ for taxplan_ = {'base', 'trump', 'ryan'}, taxplan = taxplan_{1};
     
     % Fit deduction function using multilinear regression
     exps = [0, 1, 1/2]; % f(x) = b_1 + b_2*x + b_3*x^(1/2)
+    
     deduc_coefs = regress(incd, repmat(incv, [1,length(exps)]) .^ repmat(exps, [length(incv),1]))';
     
-    % Store fitted income tax and deduction function coefficients
+    % Store fitted coefficients for income tax and deduction functions
     s.(taxplan).pit_coefs   = pit_coefs  ;
     s.(taxplan).deduc_coefs = deduc_coefs;
     
