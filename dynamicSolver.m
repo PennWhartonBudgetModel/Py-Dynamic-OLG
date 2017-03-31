@@ -918,16 +918,12 @@ function [nz, zs, transz, ndem, DISTz_age] = calculate_productivities(T_life)
     z_perm = generate_normdist_shocks(np,sig_p);
     
     % Persistent shock
-    nz = 2;
+    ny = 2;
     sigep_1 = 0.124^0.5;
     const = 0;
     pep = 0.973;    % coefficient on lagged productivity 
     sigep = 0.018^0.5;    % conditional stdev of productivity 
-    [z1, tr_z1, epsgrid] = generate_persistent_shocks(nz,const,pep,sigep);    % returns the transition matrix
-    proddist = zeros(1,nz);
-    for i = 1:nz
-        proddist(i) = normcdf(epsgrid(i+1),0,sigep_1) - normcdf(epsgrid(i),0,sigep_1);
-    end
+    [z1, tr_z1, epsgrid] = generate_persistent_shocks(ny,const,pep,sigep);    % returns the transition matrix
     
     % Transitory shock 
     nt = 2;  % Number of transitory shocks
@@ -938,33 +934,41 @@ function [nz, zs, transz, ndem, DISTz_age] = calculate_productivities(T_life)
     transz = kron(tr_z1,tr_t);    % Provides final productivity Markov transition matrix.
     
     
-    proddist = kron(proddist,(1/nt).*ones(1,nt));    % Initial distribution over all shocks (persistent and idiosyncratic).
-    proddist = repmat(proddist',[1,3]);    % Replicating initial distribution for other immigrant types.
-    DISTz_age = zeros(length(proddist(:,1)),T_life,3);    % Lengthening dimensionality to allow for age-dependent productivity chosen to match the immigrant premium.
     
-    
-    zs = zeros(nz*nt, T_life, np);
+    zs = zeros(ny*nt, T_life, np);
     
     % Deterministic component of lifecycle productivity.  Estimates are from Barro and Barnes Medicaid working paper.
     for t1 = 1:T_life
         for d1 = 1:np
             shock_node = 0;
-            for idio_shock = 1:nz
+            for idio_shock = 1:ny
                 for trans_shock = 1:nt
                     shock_node = shock_node+1;
-                    zs(shock_node,t1,d1) = (t1+19)* 0.2891379 -0.0081467*(t1+19)^2 +  0.000105*(t1+19)^3 -5.25E-07*(t1+19)^4 -1.203521 + z1(idio_shock) + z_trans(trans_shock) + z_perm(d1);
+                    zs(shock_node,t1,d1) = -1.203521 + 0.2891379*(t1+19) - 0.0081467*(t1+19)^2 + 0.000105*(t1+19)^3 - 5.25e-7*(t1+19)^4 + z1(idio_shock) + z_trans(trans_shock) + z_perm(d1);
                 end
             end
         end
     end
     
     zs = max(zs, 0);
-    nz = nz*nt;  % reassigning nz so that we don't have to make any other adjustments in the code.
+    nz = ny*nt;
     
     ndem = np;    % Redefining "np" as "ndem" to reflect patch for the creation of demographic types.
     
     
-    for i1 = 1:length(proddist(:,1))
+    
+    proddist = zeros(1,ny);
+    for i = 1:ny
+        proddist(i) = normcdf(epsgrid(i+1),0,sigep_1) - normcdf(epsgrid(i),0,sigep_1);
+    end
+    
+    proddist = kron(proddist,(1/nt).*ones(1,nt));    % Initial distribution over all shocks (persistent and idiosyncratic).
+    proddist = repmat(proddist',[1,3]);    % Replicating initial distribution for other immigrant types.
+    DISTz_age = zeros(nz,T_life,3);    % Lengthening dimensionality to allow for age-dependent productivity chosen to match the immigrant premium.
+    
+    
+    
+    for i1 = 1:nz
         DISTz_age(i1,1,1) = proddist(i1,1);
         DISTz_age(i1,1,2) = proddist(i1,2);
         DISTz_age(i1,1,3) = proddist(i1,3);
@@ -973,15 +977,15 @@ function [nz, zs, transz, ndem, DISTz_age] = calculate_productivities(T_life)
     % constructing the productivity distribution by age
     for i1 = 1:3
         for t1 = 1:T_life-1
-            for i2 = 1:length(proddist(:,1))
-                for i3 = 1:length(proddist(:,1))
+            for i2 = 1:nz
+                for i3 = 1:nz
                     DISTz_age(i3,t1+1,i1) = DISTz_age(i3,t1+1,i1) + transz(i2,i3)*DISTz_age(i2,t1,i1);
                 end
             end
         end
     end
     
-    prem_imm = [0,-.1];  % premium: [legal,illegal]
+    prem_imm = [0.0, -0.1];  % premium: [legal,illegal]
     
     for i1 = 2 % legal =2
         for t1 = 1:T_life
