@@ -34,7 +34,7 @@ for taxplan_ = {'base', 'trump', 'ryan'}, taxplan = taxplan_{1};
     inct = arrayfun(@(inc) taxrates(find(inc <= incthresholds, 1)), incv);
     
     % Fit income tax function using least squares
-    gouveiastrauss = @(pit_coefs) pit_coefs(1)*(incv - (incv.^-pit_coefs(2) + pit_coefs(3)).^(-1/pit_coefs(2))) ./ incv;
+    gouveiastrauss = @(pit_coefs) pit_coefs(1)*(incv - max(incv.^-pit_coefs(2) + pit_coefs(3), 0).^(-1/pit_coefs(2))) ./ incv;
     pit_coefs = lsqnonlin(@(pit_coefs) gouveiastrauss(pit_coefs) - inct, [0.36, 0.8, 0.01], [], [], optimoptions(@lsqnonlin, 'Display', 'off'));
     
     % Define vector of sample incomes and calculate corresponding deductions
