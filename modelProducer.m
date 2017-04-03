@@ -22,8 +22,8 @@ methods (Static)
         % Clear or create run directory
         if exist(modelProducer.run_dir, 'dir'), rmdir(modelProducer.run_dir, 's'), end, mkdir(modelProducer.run_dir)
         
-        % Load elasticity inverter
-        s = load(fullfile(dirFinder.param(), 'invert.mat')); invert = s.invert; clear('s')
+        % Construct elasticity inverter
+        [~, invert] = modelCalibrator.invert();
         
         % Define vectors of elasticities, to be inverted into baseline parameters
         labelasv = {0.25, 0.50, 0.75, 1.00};
@@ -49,7 +49,6 @@ methods (Static)
     end
     
     
-    
     % Perform production run
     function [] = run(irun)
         
@@ -70,7 +69,6 @@ methods (Static)
         save(modelProducer.run_file(irun), '-append', 'termination');
         
     end
-    
     
     
     % Check production run termination conditions
@@ -110,7 +108,6 @@ methods (Static)
         if (exist('clean', 'var') && clean), rmdir(modelProducer.run_dir, 's'), end
         
     end
-    
     
     
     % Package production run results into csv files for front end deployment
@@ -169,8 +166,8 @@ methods (Static)
                              'Trump'       , 'trump'   , ...
                              'Ryan'        , 'ryan'    );
         
-        % Load elasticity inverter
-        s = load(fullfile(dirFinder.param(), 'invert.mat')); invert = s.invert; clear('s')
+        % Construct elasticity inverter
+        [~, invert] = modelCalibrator.invert();
         
         % Initialize missing aggregates flag
         missing = false;

@@ -95,15 +95,15 @@ methods (Static)
     end
     
     
-    % Construct elasticity inverter
-    function [] = construct_inverter(clean)
+    % Consolidate solutions from batch runs
+    function [] = consolidate_batches(clean)
         
         % Initialize vectors of parameters, elasticities, and solution conditions
         for p = modelCalibrator.paramlist, paramv.(p{1}) = []; end
         for e = modelCalibrator.elaslist , elasv.( e{1}) = []; end
         solved = [];
         
-        % Load parameter and elasticity sets from batch files
+        % Load and consolidate solutions from batch files
         for ibatch = 1:modelCalibrator.nbatch
             
             fprintf('Reading batch %5d of %5d\n', ibatch, modelCalibrator.nbatch)
@@ -115,20 +115,11 @@ methods (Static)
             solved = [solved, s.solvedbatch]; %#ok<AGROW>
             
         end
-        solved = boolean(solved);
+        solved = boolean(solved); %#ok<NASGU>
         
-        % Construct inverse interpolants that map elasticities to parameters
-        for p = modelCalibrator.paramlist, interp.(p{1}) = scatteredInterpolant(elasv.captoout(solved)', elasv.labelas(solved)', elasv.savelas(solved)', paramv.(p{1})(solved)', 'nearest'); end
-        
-        % Construct elasticity inverter by consolidating inverse interpolants
-        function [inverse] = invert_(target)
-            captoout = 3;
-            for p_ = modelCalibrator.paramlist, inverse.(p_{1}) = interp.(p_{1})(captoout, target.labelas, target.savelas); end
-        end
-        invert = @invert_; %#ok<NASGU>
-        
-        % Save elasticity inverter
-        save(fullfile(dirFinder.saveroot(), 'invert.mat'), 'invert', 'paramv', 'elasv', 'solved');
+        % Save solutions into calibration file
+        % (Note that this file should be copied to the Parameter directory and committed anew following a completed calibration)
+        save(fullfile(dirFinder.saveroot(), 'calibration.mat'), 'paramv', 'elasv', 'solved');
         
         % Delete batch directory
         if (exist('clean', 'var') && clean), rmdir(modelCalibrator.batch_dir, 's'), end
@@ -139,14 +130,14 @@ methods (Static)
     % Plot calibration solution conditions
     function [] = plot_conditions()
         
-        % Load vectors of parameters, elasticities, and solution conditions
-        s = load(fullfile(dirFinder.saveroot(), 'invert.mat'));
+        % Load calibration solutions
+        s = load(fullfile(dirFinder.param(), 'calibration.mat'));
         paramv = s.paramv;
         elasv  = s.elasv ;
         solved = s.solved;
         
         % Initialize figure
-        fig = figure; ax = axes;
+        figure(1); ax = axes;
         
         % Determine colors
         cv = zeros(modelCalibrator.nset, 3);
@@ -164,8 +155,32 @@ methods (Static)
         zlabel('sigma'), ax.ZScale = 'log'   ; ax.ZTickMode = 'manual'; ax.ZTick = logspace(log10(ax.ZLim(1)), log10(ax.ZLim(2)), 3); ax.ZMinorTick = 'off';
         grid(ax, 'minor')
         
-        % Save figure
-        savefig(fig, fullfile(dirFinder.saveroot(), 'invert.fig'))
+    end
+    
+    
+    % Invert target elasticities, constructing a reusable elasticity inverter in the process
+    function [inverse, f] = invert(target)
+        
+        % Load calibration solutions
+        s = load(fullfile(dirFinder.param(), 'calibration.mat'));
+        paramv = s.paramv;
+        elasv  = s.elasv ;
+        solved = s.solved;
+        
+        % Construct inverse interpolants that map individual elasticities to parameters
+        for p = modelCalibrator.paramlist
+            interp.(p{1}) = scatteredInterpolant(elasv.captoout(solved)', elasv.labelas(solved)', elasv.savelas(solved)', paramv.(p{1})(solved)', 'nearest');
+        end
+        
+        % Construct elasticity inverter by consolidating inverse interpolants
+        function [inverse] = f_(target)
+            captoout = 3;
+            for p_ = modelCalibrator.paramlist, inverse.(p_{1}) = interp.(p_{1})(captoout, target.labelas, target.savelas); end
+        end
+        f = @f_;
+        
+        % Invert target
+        if exist('target', 'var'), inverse = f(target); else, inverse = struct(); end
         
     end
     
