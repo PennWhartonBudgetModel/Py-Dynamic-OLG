@@ -75,8 +75,8 @@ callstack = dbstack();
 testname = regexp(callstack(2).name, '(?<=^modelTester\.).*$', 'match', 'once');
 
 % Load target values
-s = load('modelTester.mat');
-target = s.target;
+targetfile = fullfile(fileparts(mfilename('fullpath')), 'modelTester.mat');
+s = load(targetfile); target = s.target; clear('s')
 
 % Initialize match flag
 ismatch = true;
@@ -155,7 +155,7 @@ else
     % Query user for target update
     if strcmp(input(sprintf('\n\tUpdate test target with new values? Y/[N]: '), 's'), 'Y')
         target.(testname) = output.(testname);
-        save('modelTester.mat', 'target')
+        save(targetfile, 'target')
         fprintf('\tTarget updated.\n')
     else
         fprintf('\tTarget retained.\n')
