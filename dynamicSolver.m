@@ -298,7 +298,7 @@ methods (Static, Access = private)
         
         sstaxcredit = 0.15;     % Benefit tax credit percentage
         
-        %%  CBO interest rates and debt
+        %%  CBO interest rates, expenditures, and debt
         
         % Input: CBOInterestRate.csv -- interest rate (as pct) 
         %           Format is (Year), (PctRate) w/ header row.
@@ -312,8 +312,14 @@ methods (Static, Access = private)
         %   NOTE: Initial year should have Revenues - Expenditures = -Debt
         %           So that we do not have to pass in initial debt amount.
         %           Make Revenues=0 and Expenditures = Debt
+        % Input: CBONonInterestSpending.csv -- NIS as pct GDP
+        %           Format is (Year), (PctGDP) w/ header row.
+        % Input: CBOSocialSecuritySpending.csv -- SS spending as pct GDP
+        %           Format is (Year), (PctGDP) w/ header row.
+        % Input: CBOMedicareSpending.csv -- Medicare spending as pct GDP
+        %           Format is (Year), (PctGDP) w/ header row.
         % Output: 
-        %       debttoout, fedgovtnis, cborates
+        %       debttoout, fedgovtnis, cborates, GEXP_by_GDP
         warning( 'off', 'MATLAB:table:ModifiedVarnames' );
         
         filename        = fullfile(dirFinder.param, 'CBOInterestRate.csv');
@@ -332,12 +338,35 @@ methods (Static, Access = private)
         T               = readtable(filename, 'Format', '%u%f');
         SIMExpenditures = table2array(T(:,2));  
 
+        filename        = fullfile(dirFinder.param, 'CBONonInterestSpending.csv');
+        T               = readtable(filename, 'Format', '%u%f');
+        CBONonInterestSpending = table2array(T(:,2));  
+
+        filename        = fullfile(dirFinder.param, 'CBOSocialSecuritySpending.csv');
+        T               = readtable(filename, 'Format', '%u%f');
+        CBOSocialSecuritySpending = table2array(T(:,2));  
+
+        filename        = fullfile(dirFinder.param, 'CBOMedicareSpending.csv');
+        T               = readtable(filename, 'Format', '%u%f');
+        CBOMedicareSpending = table2array(T(:,2));  
+
         if( size(SIMGDP) ~= size(SIMRevenues) ...
             | size(SIMGDP) ~= size(SIMExpenditures) ...
             | size(SIMGDP) ~= size(CBORates) ) ...
             throw(MException('generate_cbo_parameters:SIZE','Inputs are different sizes.'));
         end;
-                
+        if( size(CBONonInterestSpending) ~= size(CBOSocialSecuritySpending) ...
+            | size(CBONonInterestSpending) ~= size(CBOMedicareSpending) ...
+           )
+            throw(MException('generate_cbo_spending:SIZE','Inputs are different sizes.'));
+        end;
+        
+        GEXP_by_GDP     = CBONonInterestSpending./100 ...
+                        - CBOSocialSecuritySpending./100 ...
+                        - CBOMedicareSpending./100
+                    ;
+        GEXP_by_GDP = GEXP_by_GDP';
+                    
         deficit_nis     = SIMRevenues - SIMExpenditures;
         debt            = zeros(size(deficit_nis));
         debt(1)         = -deficit_nis(1);
@@ -644,23 +673,27 @@ methods (Static, Access = private)
         switch economy
             
             case 'open'
-                
-                % Load government expenditure adjustment parameters
-                % (revenue_percent originally extracted from RevenuesPctGDP.xlsx)
-                % (GEXP_percent originally derived from data in LTBO2015.xlsx -- Total Non-Interest Spending - Social Security - Medicare)
-                s = load(fullfile(param_dir, 'govexp.mat'));
-                
-                indtaxplan = cellfun(@(str) strncmp(taxplan, str, length(str)), {'base'; 'trump'; 'clinton'; 'ryan'});
-                revperc = s.revenue_percent(indtaxplan,:);
-                revperc = [revperc, revperc(end)*ones(1, max(T_model-length(revperc), 0))];
+                % Tax revenues as fraction of GDP are loaded from
+                % single-series CSV files which contain data from TPC by
+                % tax plan (base, clinton, trump, ryan)
+                % Input: TPCRevenues_<taxplan>.csv -- TPC estimated of tax
+                %           revenues as percent GDP
+                %           Format is (Year), (PctRevenues) w/ header row.
+                %   NOTE: Initial two years are not used -- skip 2015, 2016
+                filename            = strcat('TPCRevenues_', taxplan, '.csv');
+                filename            = fullfile(dirFinder.param, filename);
+                T                   = readtable(filename, 'Format', '%u%f');
+                tax_revenue_by_GDP  = table2array(T(3:end,2))./100;   % input file is in percent 
+                tax_revenue_by_GDP  = tax_revenue_by_GDP';
+                tax_revenue_by_GDP  = [tax_revenue_by_GDP, tax_revenue_by_GDP(end)*ones(1, max(T_model-length(tax_revenue_by_GDP), 0))];
                 
                 if ~isbase
                     
                     % Calculate government expenditure adjustments
                     Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
                     
-                    Gtilde = Dynamic_base.Gtilde - gcut*s.GEXP_percent(1:T_model).*Dynamic_base.outs;
-                    Ttilde = revperc.*Dynamic_base.outs - Static.pits - Static.ssts - Static.cits;
+                    Gtilde = Dynamic_base.Gtilde - gcut*GEXP_by_GDP(1:T_model).*Dynamic_base.outs;
+                    Ttilde = tax_revenue_by_GDP.*Dynamic_base.outs - Static.pits - Static.ssts - Static.cits;
                     
                 end
                 
@@ -798,8 +831,8 @@ methods (Static, Access = private)
                     Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
                     
                     if isbase
-                        Gtilde = (revperc - fedgovtnis).*Dynamic.outs - Dynamic.bens;
-                        Ttilde = revperc.*Dynamic.outs - Dynamic.pits - Dynamic.ssts - Dynamic.cits;
+                        Gtilde = (tax_revenue_by_GDP - fedgovtnis).*Dynamic.outs - Dynamic.bens;
+                        Ttilde = tax_revenue_by_GDP.*Dynamic.outs - Dynamic.pits - Dynamic.ssts - Dynamic.cits;
                     end
                     
                     Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
