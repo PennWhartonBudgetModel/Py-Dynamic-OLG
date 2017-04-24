@@ -131,6 +131,8 @@ methods (Static, Access = private)
         amnesty     = counterdef_filled.amnesty    ;
         deportation = counterdef_filled.deportation;
         
+        % map model inputs (or outputs) to actual years
+        first_transition_year  = 2016;
         
         % Identify working directories
         param_dir = dirFinder.param();
@@ -278,10 +280,10 @@ methods (Static, Access = private)
         
         % Load age-dependent parameters
         % (To be updated; original sources outdated)
-        s = load(fullfile(param_dir, 'age.mat'));
-        surv    = s.surv;       % Survival rates by age
-        imm_age = s.imm_age;    % New immigrant population distribution over age
-        
+        surv    = read_series('XXXSurvivalProbability.csv', [], dirFinder.param);
+        imm_age = read_series('XXXImmigrantAgeDistribution.csv', [], dirFinder.param);
+        surv    = surv';
+        imm_age = imm_age';
         
         % Define Social Security parameters
         ssthresholds = [856, 5157]*12*(mpci/rpci);  % Thresholds for earnings brackets
@@ -312,6 +314,7 @@ methods (Static, Access = private)
         %   NOTE: Initial year should have Revenues - Expenditures = -Debt
         %           So that we do not have to pass in initial debt amount.
         %           Make Revenues=0 and Expenditures = Debt
+        %  TBD  --- FIX THE ABOVE otherwise there is dependency on year 
         % Input: CBONonInterestSpending.csv -- NIS as pct GDP
         %           Format is (Year), (PctGDP) w/ header row.
         % Input: CBOSocialSecuritySpending.csv -- SS spending as pct GDP
@@ -320,50 +323,30 @@ methods (Static, Access = private)
         %           Format is (Year), (PctGDP) w/ header row.
         % Output: 
         %       debttoout, fedgovtnis, cborates, GEXP_by_GDP
-        warning( 'off', 'MATLAB:table:ModifiedVarnames' );
+        first_year      = first_transition_year - 1;    % first year from which to read series
         
-        filename        = fullfile(dirFinder.param, 'CBOInterestRate.csv');
-        T               = readtable(filename, 'Format', '%u%f');
-        CBORates        = table2array(T(:,2));
-
-        filename        = fullfile(dirFinder.param, 'SIMGDP.csv');
-        T               = readtable(filename, 'Format', '%u%f');
-        SIMGDP          = table2array(T(:,2));  
-
-        filename        = fullfile(dirFinder.param, 'SIMRevenues.csv');
-        T               = readtable(filename, 'Format', '%u%f');
-        SIMRevenues     = table2array(T(:,2));  
-        
-        filename        = fullfile(dirFinder.param, 'SIMExpenditures.csv');
-        T               = readtable(filename, 'Format', '%u%f');
-        SIMExpenditures = table2array(T(:,2));  
-
-        filename        = fullfile(dirFinder.param, 'CBONonInterestSpending.csv');
-        T               = readtable(filename, 'Format', '%u%f');
-        CBONonInterestSpending = table2array(T(:,2));  
-
-        filename        = fullfile(dirFinder.param, 'CBOSocialSecuritySpending.csv');
-        T               = readtable(filename, 'Format', '%u%f');
-        CBOSocialSecuritySpending = table2array(T(:,2));  
-
-        filename        = fullfile(dirFinder.param, 'CBOMedicareSpending.csv');
-        T               = readtable(filename, 'Format', '%u%f');
-        CBOMedicareSpending = table2array(T(:,2));  
+        CBORates                    = read_series('CBOInterestRate.csv', first_year, dirFinder.param );
+        SIMGDP                      = read_series('SIMGDP.csv', first_year, dirFinder.param );
+        SIMRevenues                 = read_series('SIMRevenues.csv', first_year, dirFinder.param );
+        SIMExpenditures             = read_series('SIMExpenditures.csv', first_year, dirFinder.param );
+        CBONonInterestSpending      = read_series('CBONonInterestSpending.csv', first_year, dirFinder.param );
+        CBOSocialSecuritySpending   = read_series('CBOSocialSecuritySpending.csv', first_year, dirFinder.param );
+        CBOMedicareSpending         = read_series('CBOMedicareSpending.csv', first_year, dirFinder.param );
 
         if( size(SIMGDP) ~= size(SIMRevenues) ...
             | size(SIMGDP) ~= size(SIMExpenditures) ...
             | size(SIMGDP) ~= size(CBORates) ) ...
-            throw(MException('generate_cbo_parameters:SIZE','Inputs are different sizes.'));
+            throw(MException('read_cbo_parameters:SIZE','Inputs are different sizes.'));
         end;
         if( size(CBONonInterestSpending) ~= size(CBOSocialSecuritySpending) ...
             | size(CBONonInterestSpending) ~= size(CBOMedicareSpending) ...
            )
-            throw(MException('generate_cbo_spending:SIZE','Inputs are different sizes.'));
+            throw(MException('read_cbo_spending:SIZE','Inputs are different sizes.'));
         end;
         
         GEXP_by_GDP     = CBONonInterestSpending./100 ...
                         - CBOSocialSecuritySpending./100 ...
-                        - CBOMedicareSpending./100
+                        - CBOMedicareSpending./100 ...
                     ;
         GEXP_by_GDP = GEXP_by_GDP';
                     
@@ -374,17 +357,17 @@ methods (Static, Access = private)
             debt(i) = debt(i-1)*(1+CBORates(i)/100.0) - deficit_nis(i);
         end;
         
-        growth_GDP      = zeros(size(SIMGDP));
+        growth_GDP      = zeros(size(SIMGDP), 'double');
         growth_GDP(1)   = 1.0;
         for i = 2:size(growth_GDP)
             growth_GDP(i) = SIMGDP(i)/SIMGDP(i-1);
         end;
         
-        CBO_rates_growth_adjusted   = ((100+CBORates)./growth_GDP)./100 - 1;    
+        CBO_rates_growth_adjusted   = ((100.0+CBORates)./growth_GDP)./100.0 - 1.0;    
         deficit_nis_fraction_GDP    = deficit_nis./SIMGDP;                
         debt_percent_GDP            = debt./SIMGDP;                       
         
-        % Name, transpose, truncate vars to correspond to currently used names in .mat file
+        % Name, transpose, truncate vars to correspond to currently used variables 
         % NOTE: The series must go out to T_model or import will break.
         %       Breaking is good here. (Though gracefully would be better)
         debttoout   = debt_percent_GDP(2);                      % Debt-to-output ratio of initial year
@@ -679,13 +662,16 @@ methods (Static, Access = private)
                 % Input: TPCRevenues_<taxplan>.csv -- TPC estimated of tax
                 %           revenues as percent GDP
                 %           Format is (Year), (PctRevenues) w/ header row.
-                %   NOTE: Initial two years are not used -- skip 2015, 2016
                 filename            = strcat('TPCRevenues_', taxplan, '.csv');
-                filename            = fullfile(dirFinder.param, filename);
-                T                   = readtable(filename, 'Format', '%u%f');
-                tax_revenue_by_GDP  = table2array(T(3:end,2))./100;   % input file is in percent 
-                tax_revenue_by_GDP  = tax_revenue_by_GDP';
-                tax_revenue_by_GDP  = [tax_revenue_by_GDP, tax_revenue_by_GDP(end)*ones(1, max(T_model-length(tax_revenue_by_GDP), 0))];
+                tax_revenue_by_GDP  = read_series(filename, first_transition_year - 1, dirFinder.param);
+                % input file is in percent and drop pre-transition year
+                tax_revenue_by_GDP  = (tax_revenue_by_GDP(2:end)./100)'; 
+                if( T_model - length(tax_revenue_by_GDP) < 0 )
+                    tax_revenue_by_GDP = tax_revenue_by_GDP(1:T_model);
+                else
+                    tax_revenue_by_GDP  = [tax_revenue_by_GDP, ...
+                        tax_revenue_by_GDP(end)*ones(1, T_model-length(tax_revenue_by_GDP))];
+                end;
                 
                 if ~isbase
                     
@@ -989,9 +975,6 @@ end
 %%
 % Check if file exists and generate before loading if necessary, handling parallel write and read conflicts.
 % 
-%%
-
-
 function [s] = hardyload(filename, generator, save_dir)
     
     % Check if file exists and generate if necessary
@@ -1037,4 +1020,42 @@ function [s] = hardyload(filename, generator, save_dir)
     % Reset pause state
     pause(pause0)
     
+end
+
+%%
+% Read a CSV file in format (Index), (Value)
+%    For time series, (Index) is (Year), 
+%       return a vector with first element being the value at
+%       first_index (that is, first_year_transition - 1). The next value is the value at the start of
+%       the transition path.
+%   For other series (e.g. age_survival_probability, (Index) is (Age)
+%       return the series from first_index. 
+%   If first_index is empty, then return whole vector.
+function [series] = read_series(filename, first_index, param_dir )
+
+    warning( 'off', 'MATLAB:table:ModifiedVarnames' );
+
+    % Check if file exists and generate if necessary
+    filepath    = fullfile(param_dir, filename);
+    if ~exist(filepath, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
+        throw(MException('read_series:FILENAME', err_msg ));
+    end;
+        
+    T           = readtable(filepath, 'Format', '%u%f');
+    indices     = table2array(T(:,1));
+    vals        = table2array(T(:,2));
+    
+    if( isempty(first_index) )
+        idx_start   = 1;
+    else
+        idx_start   = find( indices == first_index, 1);
+    end;
+
+    if( isempty(idx_start) )
+        throw(MException('read_series:FIRSTINDEX','Cannot find first index in file.'));
+    end;
+    
+    series      = vals(idx_start:end );
+
 end
