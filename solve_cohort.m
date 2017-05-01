@@ -6,16 +6,19 @@
 
 function [V, OPT] = solve_cohort(V0, LAB_static, isdynamic, ...
                         nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs_idem, transz, kv, bv, beta, gamma, sigma, surv, V_beq, ...
-                        mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                        mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, ...
+                        nthresholds, tax_thresholds, tax_income, tax_rates, ... 
+                        captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                         beqs, wages, capshares, caprates, govrates, totrates, expsubs) %#codegen
 
 
 %% Argument verification
 
-nz_max =  50;
-nk_max =  50;
-nb_max =  50;
-T_max  = 100;
+nz_max          = 50;
+nk_max          = 50;
+nb_max          = 50;
+T_max           = 100;
+nthresholds_max = 20;
 
 assert( isa(V0          , 'double'  ) && (size(V0           , 1) <= nz_max  ) && (size(V0           , 2) <= nk_max  ) && (size(V0           , 3) <= nb_max  ) );
 assert( isa(LAB_static  , 'double'  ) && (size(LAB_static   , 1) <= nz_max  ) && (size(LAB_static   , 2) <= nk_max  ) && (size(LAB_static   , 3) <= nb_max  ) && (size(LAB_static   , 4) <= T_max   ) );
@@ -45,8 +48,12 @@ assert( isa(sstaxcredit , 'double'  ) && (size(sstaxcredit  , 1) == 1       ) &&
 assert( isa(ssbenefits  , 'double'  ) && (size(ssbenefits   , 1) <= nb_max  ) && (size(ssbenefits   , 2) <= T_max   ) );
 assert( isa(sstaxs      , 'double'  ) && (size(sstaxs       , 1) == 1       ) && (size(sstaxs       , 2) <= T_max   ) );
 assert( isa(ssincmaxs   , 'double'  ) && (size(ssincmaxs    , 1) == 1       ) && (size(ssincmaxs    , 2) <= T_max   ) );
-assert( isa(deduc_coefs , 'double'  ) && (size(deduc_coefs  , 1) == 1       ) && (size(deduc_coefs  , 2) == 3       ) );
-assert( isa(pit_coefs   , 'double'  ) && (size(pit_coefs    , 1) == 1       ) && (size(pit_coefs    , 2) == 3       ) );
+
+assert( isa(nthresholds , 'double'  ) && (size(nthresholds  , 1) == 1       ) && (size(nthresholds  , 2) == 1           ) );
+assert( isa(tax_thresholds, 'double') && (size(tax_thresholds,1) == 1       ) && (size(tax_thresholds,2) <= nthresholds_max ) );
+assert( isa(tax_income  , 'double'  ) && (size(tax_income   , 1) == 1       ) && (size(tax_income   , 2) <= nthresholds_max ) );
+assert( isa(tax_rates   , 'double'  ) && (size(tax_rates    , 1) == 1       ) && (size(tax_rates    , 2) <= nthresholds_max ) );
+
 assert( isa(captaxshare , 'double'  ) && (size(captaxshare  , 1) == 1       ) && (size(captaxshare  , 2) == 1       ) );
 assert( isa(taucap      , 'double'  ) && (size(taucap       , 1) == 1       ) && (size(taucap       , 2) == 1       ) );
 assert( isa(taucapgain  , 'double'  ) && (size(taucapgain   , 1) == 1       ) && (size(taucapgain   , 2) == 1       ) );
@@ -113,7 +120,9 @@ for t = T_active:-1:1
                 % Calculate available resources and tax terms
                 labinc = ssbenefit(ib);
                 [resources, inc, pit, ~, cit] = calculate_resources(labinc, kv(ik), year, ...
-                    mpci, rpci, sstaxcredit, 0, 0, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                    mpci, rpci, sstaxcredit, 0, 0, ...
+                    nthresholds, tax_thresholds, tax_income, tax_rates, ... 
+                    captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                     beq, capshare, caprate, govrate, totrate, expsub);
                 
                 if isdynamic
@@ -151,7 +160,9 @@ for t = T_active:-1:1
                     
                     % Call resource calculation function to set parameters
                     calculate_resources([], kv(ik), year, ...
-                        mpci, rpci, 0, sstax, ssincmax, deduc_coefs, pit_coefs, captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                        mpci, rpci, 0, sstax, ssincmax, ...
+                        nthresholds, tax_thresholds, tax_income, tax_rates, ... 
+                        captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                         beq, capshare, caprate, govrate, totrate, expsub);
                     
                     if isdynamic
@@ -212,7 +223,9 @@ end
 
 % Resource and tax calculation function
 function [resources, inc, pit, sst, cit] = calculate_resources(labinc, kv_ik_, year_, ...
-             mpci_, rpci_, sstaxcredit_, sstax_, ssincmax_, deduc_coefs_, pit_coefs_, captaxshare_, taucap_, taucapgain_, qtobin_, qtobin0_, ...
+             mpci_, rpci_, sstaxcredit_, sstax_, ssincmax_, ...
+             nthresholds_, tax_thresholds_, tax_income_, tax_rates_, ... 
+             captaxshare_, taucap_, taucapgain_, qtobin_, qtobin0_, ...
              beq_, capshare_, caprate_, govrate_, totrate_, expsub_) %#codegen
 
 % Enforce function inlining for C code generation
@@ -220,14 +233,18 @@ coder.inline('always');
 
 % Define parameters as persistent variables
 persistent kv_ik year ...
-           mpci rpci sstaxcredit sstax ssincmax deduc_coefs pit_coefs captaxshare taucap taucapgain qtobin qtobin0 ...
+           mpci rpci sstaxcredit sstax ssincmax ...
+           nthresholds tax_thresholds tax_income tax_rates ... 
+           captaxshare taucap taucapgain qtobin qtobin0 ...
            beq capshare caprate govrate totrate expsub ...
            initialized
 
 % Initialize parameters for C code generation
 if isempty(initialized)
     kv_ik = 0; year = 0;
-    mpci = 0; rpci = 0; sstaxcredit = 0; sstax = 0; ssincmax = 0; deduc_coefs = 0; pit_coefs = 0; captaxshare = 0; taucap = 0; taucapgain = 0; qtobin = 0; qtobin0 = 0;
+    mpci = 0; rpci = 0; sstaxcredit = 0; sstax = 0; ssincmax = 0; 
+    nthresholds = 0; tax_thresholds = 0; tax_income = 0; tax_rates = 0;
+    captaxshare = 0; taucap = 0; taucapgain = 0; qtobin = 0; qtobin0 = 0;
     beq = 0; capshare = 0; caprate = 0; govrate = 0; totrate = 0; expsub = 0;
     initialized = true;
 end
@@ -235,20 +252,28 @@ end
 % Set parameters if provided
 if (nargin > 1)
     kv_ik = kv_ik_; year = year_;
-    mpci = mpci_; rpci = rpci_; sstaxcredit = sstaxcredit_; sstax = sstax_; ssincmax = ssincmax_; deduc_coefs = deduc_coefs_; pit_coefs = pit_coefs_; captaxshare = captaxshare_; taucap = taucap_; taucapgain = taucapgain_; qtobin = qtobin_; qtobin0 = qtobin0_;
+    mpci = mpci_; rpci = rpci_; sstaxcredit = sstaxcredit_; sstax = sstax_; ssincmax = ssincmax_; 
+    nthresholds = nthresholds_; tax_thresholds = tax_thresholds_; tax_income = tax_income_; tax_rates = tax_rates_;
+    captaxshare = captaxshare_; taucap = taucap_; taucapgain = taucapgain_; qtobin = qtobin_; qtobin0 = qtobin0_;
     beq = beq_; capshare = capshare_; caprate = caprate_; govrate = govrate_; totrate = totrate_; expsub = expsub_;
     if isempty(labinc), return, end
 end
 
 
-% Calculate taxable income
+% Calculate taxable income in dollars
+%   We do not allow negative incomes
 inc     = (rpci/mpci)*max(0, capshare*caprate*kv_ik*(1-captaxshare) + (1-capshare)*govrate*kv_ik + (1-sstaxcredit)*labinc);
-deduc   = max(0, deduc_coefs*inc.^[0; 1; 0.5]);
-inc_eff = max(inc - deduc, 0);
-inc     = (mpci/rpci)*inc;
 
 % Calculate personal income tax
-pit = (mpci/rpci)*pit_coefs(1)*(inc_eff - (inc_eff.^-pit_coefs(2) + pit_coefs(3)).^(-1/pit_coefs(2)));
+%       Expect equal-size vectors with tax_thresholds(1)=0
+%       tax_rates apply for income between tax_threshold(i-1) and (i)
+%       tax_income are pre-calculated total tax liability at tax_threshold
+%       pit_inc is income tax in dollars
+bracket     = find(tax_thresholds < inc, 1, 'last' );
+bracket     = bracket(1);                               % codegen thinks it is vector  
+tax_rate    = tax_rates(bracket);
+pit_inc     = tax_income(bracket) + tax_rate*(inc - tax_income(bracket));
+pit         = (mpci/rpci)*pit_inc;                      % convert into model units
 
 % Calculate Social Security tax
 sst = sstax * min(labinc, ssincmax);

@@ -1,76 +1,129 @@
 %%
 % Generate tax policy parameters according to predefined plans.
 % 
-%%
-
-
 function [] = generate_tax()
 
-% Identify parameter directory
-param_dir = dirFinder.param();
+    % Identify parameter directory
+    param_dir = dirFinder.param();
 
-% Define anonymous function for reading from TPC data file
-readTPC = @(sheet, range) xlsread(fullfile(param_dir, 'TPC_Inputs.xlsx'), sheet, range);
+    for taxplans = {'base', 'ryan'}, taxplan = taxplans{1};
 
+        % Get tax rates
+        filename    = strcat('TPCPIT_', taxplan, '.csv');
+        [income_thresholds, tax_rates] = read_tax_rates( filename, param_dir );
 
-for taxplan_ = {'base', 'trump', 'ryan'}, taxplan = taxplan_{1};
+        % calculate tax liability at each threshold
+        if( income_thresholds(1) > 0 )
+            inc       = [0; income_thresholds];
+        else
+            inc       = income_thresholds;
+        end;
+        tax_        = cumsum(diff(inc).*tax_rates); 
+        income_tax  = [0; tax_];
+
+        % no deductions, re-calculate effective tax if existent
+        %  TODO: If these thresholds are different, we need to make
+        %        a single vector of the union of the two thresholds
+        %        and calculate effective income tax at those points
         
-    % Read taxable income thresholds
-    incthresholds = readTPC(1, 'B3:B622');
-    
-    % Read effective tax rates and taxable income ratios from TPC data file
-    switch taxplan
-        case 'base' , col = 'C';
-        case 'trump', col = 'E';
-        case 'ryan' , col = 'F';
-    end
-    range = sprintf('%1$c3:%1$c622', col);
-    
-    taxrates  = readTPC(1, range);
-    taxratios = readTPC(2, range);
-    
-    % Define vector of sample incomes and find corresponding tax rates
-    incv = linspace(1, incthresholds(end), 1e3)';
-    inct = arrayfun(@(inc) taxrates(find(inc <= incthresholds, 1)), incv);
-    
-    % Fit income tax function using least squares
-    gouveiastrauss = @(pit_coefs) pit_coefs(1)*(incv - max(incv.^-pit_coefs(2) + pit_coefs(3), 0).^(-1/pit_coefs(2))) ./ incv;
-    pit_coefs = lsqnonlin(@(pit_coefs) gouveiastrauss(pit_coefs) - inct, [0.36, 0.8, 0.01], [], [], optimoptions(@lsqnonlin, 'Display', 'off'));
-    
-    % Define vector of sample incomes and calculate corresponding deductions
-    % (Upper bound on deductable income provided by TPC)
-    incv = logspace(0, log10(2e6), 1e3)';
-    incd = arrayfun(@(inc) inc * (1 - taxratios(find(inc <= incthresholds, 1))), incv);
-    
-    % Fit deduction function using multilinear regression
-    exps = [0, 1, 1/2]; % f(x) = b_1 + b_2*x + b_3*x^(1/2)
-    deduc_coefs = regress(incd, repmat(incv, [1,length(exps)]) .^ repmat(exps, [length(incv),1]))';
-    
-    % Store fitted coefficients for income tax and deduction functions
-    s.(taxplan).pit_coefs   = pit_coefs  ;
-    s.(taxplan).deduc_coefs = deduc_coefs;
-    
-    % Read business tax parameters from TPC data file
-    switch taxplan
-        case 'base' , col = 'B';
-        case 'trump', col = 'D';
-        case 'ryan' , col = 'E';
-    end
-    range = sprintf('%1$c2:%1$c5', col);
-    
-    busparams = readTPC(3, range);
-    
-    % Store business tax parameters
-    s.(taxplan).captaxshare = busparams(2); 
-    s.(taxplan).expshare    = busparams(4); 
-    s.(taxplan).taucap      = busparams(1); 
-    s.(taxplan).taucapgain  = 0           ;
-    
-end
+
+        % Store income tax and deduction functions
+        %   REM: Transpose into row vectors
+        s.(taxplan).tax_thresholds      = inc';
+        s.(taxplan).tax_income          = income_tax';
+        s.(taxplan).tax_rates           = [tax_rates; tax_rates(end)]';
+
+        % Get the capital tax params and store them
+        filename                = strcat('TPCCIT_', taxplan, '.csv');
+        tax_vars                = read_tax_vars( filename, param_dir );
+        s.(taxplan).captaxshare = tax_vars.CapitalTaxShare; 
+        s.(taxplan).expshare    = tax_vars.ExpensingShare; 
+        s.(taxplan).taucap      = tax_vars.CapitalTaxRate; 
+        s.(taxplan).taucapgain  = 0           ;
+    end  % for
+
+    % Save parameters
+    save(fullfile(param_dir, 'tax.mat'), '-struct', 's');
+
+    % show_tax_rates(s.('base').pit_coefs, s.('base').inc_tax, incv);
+
+        %  OLD CODE: FIT TO GS FUNCTION
+        % Define vector of sample incomes and find corresponding tax rates
+        %    Rem: taxrates are marginal rates
+        % topincome   = 1e6; % incthresholds(end);
+        % incv        = linspace(1, topincome, topincome/1e3)'; % put point every $1000
+        % inct        = arrayfun(@(inc) taxrates(find(inc <= incthresholds, 1)), incv);
+        % inc_tax     = cumsum(inct.*1e3);
+
+        % Fit income tax function using least squares
+        %   Fit is on tax liability.
+        %   GS is  ATR = b(1) - b(1)*( b(2)* y^b(3)+1)^(-1/b(3))
+        %   we subtract b(4)/y  as deduction
+        
+%         gouveiastrauss  = @(pit_coefs) pit_coefs(1).* ...
+%                 (1 - (pit_coefs(2).*(incv.^pit_coefs(3)) + 1).^-(1./pit_coefs(3)));
+%                 % - pit_coefs(4);    % deduction addtion
+%         starting_guess = [0.25, 0.03, 0.77];
+%         pit_coefs       = lsqnonlin(@(pit_coefs) gouveiastrauss(pit_coefs).*incv - inc_tax, starting_guess, [], [], optimoptions(@lsqnonlin, 'Display', 'off'));
+% END OLD CODE
+
+end  % generate_tax()
+
+%%
+%  Helper function to read CSV files with format: (Income), (Rate)
+function [incomes, taxrates] = read_tax_rates(filename, param_dir )
+
+    warning( 'off', 'MATLAB:table:ModifiedVarnames' );
+
+    % Check if file exists and generate if necessary
+    filepath    = fullfile(param_dir, filename);
+    if ~exist(filepath, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
+        throw(MException('read_tax_table:FILENAME', err_msg ));
+    end;
+        
+    T           = readtable(filepath, 'Format', '%f%f');
+    incomes     = table2array(T(:,1));
+    taxrates    = table2array(T(:,2));
+
+end % read_tax_rates()
 
 
-% Save parameters
-save(fullfile(param_dir, 'tax.mat'), '-struct', 's');
+%%
+%  Helper function to read CSV file with format:
+%     Header has variable names, then one row of values
+function [tax_vars] = read_tax_vars(filename, param_dir )
+
+    warning( 'off', 'MATLAB:table:ModifiedVarnames' );
+
+    % Check if file exists and generate if necessary
+    filepath    = fullfile(param_dir, filename);
+    if ~exist(filepath, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
+        throw(MException('read_tax_vars:FILENAME', err_msg ));
+    end;
+        
+    T           = readtable(filepath, 'Format', '%f%f%f%f');
+    tax_vars    = table2struct(T);
+
+end % read_tax_vars()
 
 
-end
+%%
+%   Utility to plot the tax liability
+function [] = show_tax_rates( pit_coefs, actual_tax, incomes )
+
+    incv = incomes;
+    gouveiastrauss  = @(pit_coefs) pit_coefs(1).* ...
+                (1 - (pit_coefs(2).*(incv.^pit_coefs(3)) + 1).^-(1./pit_coefs(3)));
+    taxes           = gouveiastrauss(pit_coefs).*incv;
+
+    y(:,1)          = taxes./incv;
+    y(:,2)          = max(actual_tax,0)./incv;
+    y(:,3)          = actual_tax;
+    
+    plot (incv(1:50), y(1:50,3));
+
+end % show_tax_rates
+
+%%
