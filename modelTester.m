@@ -9,7 +9,7 @@ classdef modelTester
 properties (Constant)
     
     % Define baseline for all tests
-    basedef = struct('beta', 1.0274, 'gamma', 0.59231, 'sigma', 5.1795);
+    basedef = struct('beta', 1.1145, 'gamma', 0.5638, 'sigma', 9.0198);
     
     % Define counterfactual for counterfactual tests
     counterdef = struct('taxplan'       , 'ryan', ...
@@ -62,107 +62,136 @@ methods (Static)
         test_output(save_dir, setnames);
     end
     
-end
+    %%
+%   Get the PIT/GDP for the 16 baselines
+function [] = view_PIT_fit()
+    
+    loaded = false;
+    for labelas = 0.25:0.25:1.0
+        for savelas = 0.25:0.25:1.0
+            target = struct('labelas', labelas, 'savelas', savelas);
+            if( loaded == false )
+                [inverse, f_invert] = modelCalibrator.invert(target);
+            else
+                inverse = f_invert(target);
+            end
+            
+            fprintf( '\n CHECKING' );
+            fprintf( '\n beta: %f  gamma: %f   sigma: %f', inverse.beta, inverse.gamma, inverse.sigma );
+            save_dir = dynamicSolver.steady(inverse);
+            load( fullfile(save_dir, 'dynamics.mat' ) );
+            fprintf( '\n INVERT labelas: %f    savelas: %f ', labelas, savelas );
+            fprintf( '\n PIT PERCENT %f', pits/outs );
+        end
+    end
+end % function view_PIT_fit
 
-end
+end % methods
+
+
+
+end % class modelTester
 
     
 % Test solver output against target values
 function [] = test_output(save_dir, setnames)
 
-% Get test name from name of calling method
-callstack = dbstack();
-testname = regexp(callstack(2).name, '(?<=^modelTester\.).*$', 'match', 'once');
+    % Get test name from name of calling method
+    callstack = dbstack();
+    testname = regexp(callstack(2).name, '(?<=^modelTester\.).*$', 'match', 'once');
 
-% Load target values
-targetfile = fullfile(fileparts(mfilename('fullpath')), 'modelTester.mat');
-s = load(targetfile); target = s.target; clear('s')
+    % Load target values
+    targetfile = fullfile(fileparts(mfilename('fullpath')), 'modelTester.mat');
+    s = load(targetfile); target = s.target; clear('s')
 
-% Initialize match flag
-ismatch = true;
+    % Initialize match flag
+    ismatch = true;
 
-% Define function to flag issues
-function flag(str)
-    fprintf('\t%-15s%-20s%s\n', setname, valuename, str)
-    ismatch = false;
-end
+    % Define function to flag issues
+    function flag(str)
+        fprintf('\t%-15s%-20s%s\n', setname, valuename, str)
+        ismatch = false;
+    end
 
-fprintf('\n[Test results]\n')
-for i = 1:length(setnames)
-    
-    % Extract output and target values by set
-    setname = setnames{i};
-    output.(testname).(setname) = load(fullfile(save_dir, sprintf('%s.mat', setname)));
-    
-    outputset = output.(testname).(setname);
-    targetset = target.(testname).(setname);
-    
-    % Iterate over target values
-    targetvaluenames = fieldnames(targetset);
-    
-    for j = 1:length(targetvaluenames)
-        
-        valuename = targetvaluenames{j};
-        
-        if ~isfield(outputset, valuename)
-            
-            % Flag missing value
-            flag('Not found');
-        
-        elseif any(isnan(outputset.(valuename)(:)))
-            
-            % Flag NaN value
-            flag('NaN value');
-            
-        else
-            
-            % Identify value deviation
-            delta = outputset.(valuename)(:) - targetset.(valuename)(:);
-            if any(delta)
-                pdev = abs(nanmean(delta*2 ./ (outputset.(valuename)(:) + targetset.(valuename)(:))))*100;
-                if pdev < 0.01
-                    flag(sprintf('Numerical deviation'));
-                else
-                    flag(sprintf('%06.2f%% deviation', pdev));
+    fprintf('\n[Test results]\n')
+    for i = 1:length(setnames)
+
+        % Extract output and target values by set
+        setname = setnames{i};
+        output.(testname).(setname) = load(fullfile(save_dir, sprintf('%s.mat', setname)));
+
+        outputset = output.(testname).(setname);
+        targetset = target.(testname).(setname);
+
+        % Iterate over target values
+        targetvaluenames = fieldnames(targetset);
+
+        for j = 1:length(targetvaluenames)
+
+            valuename = targetvaluenames{j};
+
+            if ~isfield(outputset, valuename)
+
+                % Flag missing value
+                flag('Not found');
+
+            elseif any(isnan(outputset.(valuename)(:)))
+
+                % Flag NaN value
+                flag('NaN value');
+
+            else
+
+                % Identify value deviation
+                delta = outputset.(valuename)(:) - targetset.(valuename)(:);
+                if any(delta)
+                    pdev = abs(nanmean(delta*2 ./ (outputset.(valuename)(:) + targetset.(valuename)(:))))*100;
+                    if pdev < 0.01
+                        flag(sprintf('Numerical deviation'));
+                    else
+                        flag(sprintf('%06.2f%% deviation', pdev));
+                    end
                 end
+
             end
-            
-        end
-        
-    end
-    
-    % Iterate over output values
-    outputvaluenames = fieldnames(outputset);
-    
-    for j = 1:length(outputvaluenames)
-        
-        valuename = outputvaluenames{j};
-        
-        % Identify new value
-        if ~isfield(targetset, valuename)
-            flag('New');
-        end
-        
-    end
-    
-end
 
-% Check for match
-if ismatch
-    fprintf('\tTarget matched.\n')
-else
-    
-    % Query user for target update
-    if strcmp(input(sprintf('\n\tUpdate test target with new values? Y/[N]: '), 's'), 'Y')
-        target.(testname) = output.(testname);
-        save(targetfile, 'target')
-        fprintf('\tTarget updated.\n')
+        end
+
+        % Iterate over output values
+        outputvaluenames = fieldnames(outputset);
+
+        for j = 1:length(outputvaluenames)
+
+            valuename = outputvaluenames{j};
+
+            % Identify new value
+            if ~isfield(targetset, valuename)
+                flag('New');
+            end
+
+        end
+
+    end
+
+    % Check for match
+    if ismatch
+        fprintf('\tTarget matched.\n')
     else
-        fprintf('\tTarget retained.\n')
-    end
-    
-end
-fprintf('\n')
 
-end
+        % Query user for target update
+        if strcmp(input(sprintf('\n\tUpdate test target with new values? Y/[N]: '), 's'), 'Y')
+            target.(testname) = output.(testname);
+            save(targetfile, 'target')
+            fprintf('\tTarget updated.\n')
+        else
+            fprintf('\tTarget retained.\n')
+        end
+
+    end
+    fprintf('\n')
+
+end % function test_output
+
+
+   
 
