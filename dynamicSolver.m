@@ -47,7 +47,8 @@ methods (Static)
         % Define baseline and counterfactual parameter formats
         basedef_format    = struct( 'beta'          , '%.3f'    , ...
                                     'gamma'         , '%.3f'    , ...
-                                    'sigma'         , '%.2f'    );
+                                    'sigma'         , '%.2f'    , ...
+                                    'modelunit_dollars', '%f'   );
         
         counterdef_format = struct( 'taxplan'       , '%s'      , ...
                                     'gcut'          , '%+.2f'   , ...
@@ -112,9 +113,10 @@ methods (Static, Access = private)
         if usejava('jvm'), gcp; end
         
         % Unpack parameters from baseline definition
-        beta  = basedef.beta ;
-        gamma = basedef.gamma;
-        sigma = basedef.sigma;
+        beta                = basedef.beta ;
+        gamma               = basedef.gamma;
+        sigma               = basedef.sigma;
+        modelunit_dollars   = basedef.modelunit_dollars;
         
         % Identify baseline run by empty counterfactual definition
         if isempty(counterdef), counterdef = struct(); end
@@ -269,10 +271,6 @@ methods (Static, Access = private)
         alpha = 0.45;   % Capital share of output
         d     = 0.085;  % Depreciation rate
         
-        % Define constants relating model units to real units
-        mpci = 7; %3.25;    % Model per capita income            (To be updated; should be specific to each baseline)
-        rpci = 1.19e5;  % Real per capita income in dollars  (To be updated; currently chosen to match percentage of individuals above Social Security maximum taxable earning level)
-        
         % Define population growth parameters
         birth_rate   = 0.0200;                  % Annual birth rate
         legal_rate   = 0.0016 * legal_scale;    % Annual legal immigration rate
@@ -286,7 +284,7 @@ methods (Static, Access = private)
         imm_age = imm_age';
         
         % Define Social Security parameters
-        ssthresholds = [856, 5157]*12*(mpci/rpci);  % Thresholds for earnings brackets
+        ssthresholds = [856, 5157]*12*modelunit_dollars;  % Thresholds for earnings brackets
         ssrates      = [0.9, 0.32, 0.15];           % Marginal benefit rates for earnings brackets
         ss_scale     = 1.6;                         % Benefit scaling factor used to match total outlays as a percentage of GDP
         
@@ -294,9 +292,9 @@ methods (Static, Access = private)
                       max(min(bv, ssthresholds(2)) - ssthresholds(1), 0) , ...
                       max(min(bv, Inf            ) - ssthresholds(2), 0) ] * ssrates' * ss_scale;
         
-        ssbenefits  = repmat(ssbenefit          , [1,T_model]);  % Benefits
-        sstaxs      = repmat(0.124              , [1,T_model]);  % Tax rates
-        ssincmaxs   = repmat(1.185e5*(mpci/rpci), [1,T_model]);  % Maximum taxable earnings
+        ssbenefits  = repmat(ssbenefit                , [1,T_model]);  % Benefits
+        sstaxs      = repmat(0.124                    , [1,T_model]);  % Tax rates
+        ssincmaxs   = repmat(1.185e5*modelunit_dollars, [1,T_model]);  % Maximum taxable earnings
         
         sstaxcredit = 0.15;     % Benefit tax credit percentage
         
@@ -424,7 +422,8 @@ methods (Static, Access = private)
                 % Package fixed dynamic optimization arguments into anonymous function
                 solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active) solve_cohort(V0, LAB_static, isdynamic, ...
                     nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, kv, bv, beta, gamma, sigma, surv, V_beq, ...
-                    mpci, rpci, sstaxcredit, ssbenefits, sstaxs, ssincmaxs, ...
+                    modelunit_dollars, ...
+                    sstaxcredit, ssbenefits, sstaxs, ssincmaxs, ...
                     nthresholds, tax_thresholds, tax_income, tax_rates, ... 
                     captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                     Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);
@@ -1039,7 +1038,7 @@ function [series] = read_series(filename, first_index, param_dir )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );
 
-    % Check if file exists and generate if necessary
+    % Check if file exists 
     filepath    = fullfile(param_dir, filename);
     if ~exist(filepath, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
