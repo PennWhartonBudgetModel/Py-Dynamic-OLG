@@ -62,29 +62,6 @@ methods (Static)
         test_output(save_dir, setnames);
     end
     
-    %%
-%   Get the PIT/GDP for the 16 baselines
-function [] = view_PIT_fit()
-    
-    loaded = false;
-    for labelas = 0.25:0.25:1.0
-        for savelas = 0.25:0.25:1.0
-            target = struct('labelas', labelas, 'savelas', savelas);
-            if( loaded == false )
-                [inverse, f_invert] = modelCalibrator.invert(target);
-            else
-                inverse = f_invert(target);
-            end
-            
-            fprintf( '\n CHECKING' );
-            fprintf( '\n beta: %f  gamma: %f   sigma: %f', inverse.beta, inverse.gamma, inverse.sigma );
-            save_dir = dynamicSolver.steady(inverse);
-            load( fullfile(save_dir, 'dynamics.mat' ) );
-            fprintf( '\n INVERT labelas: %f    savelas: %f ', labelas, savelas );
-            fprintf( '\n PIT PERCENT %f', pits/outs );
-        end
-    end
-end % function view_PIT_fit
 
 end % methods
 

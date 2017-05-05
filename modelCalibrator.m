@@ -183,7 +183,65 @@ methods (Static)
         if exist('target', 'var'), inverse = f(target); else, inverse = struct(); end
         
     end
+
     
-end
+    
+%%
+%   Make a report of various moments for the 16 baselines
+function [] = view_baseline_moments()
+    
+    moment_targets      = struct('r', 0.07, 'PIT', 0.08, 'SSTax', 0.05, 'KbyY', 3.0);
+    
+    % helper function to print results
+    myPrint = @( modelResult, targetResult ) ...
+                fprintf( fileID, ' %f (%f) error = %0.1f%% \r\n', modelResult, targetResult, (modelResult/targetResult - 1)*100.0 );
+
+    outputfilename      = fullfile(dirFinder.saveroot(), 'BaselineMoments.txt');
+    fileID              = fopen(outputfilename,'w');
+    fprintf( fileID, '-------------BASELINE MOMENTS ');
+    fprintf( fileID, '%s \r\n', datestr(now));
+    
+    loaded = false;
+    for labelas = 0.25:0.25:1.0
+        for savelas = 0.25:0.25:1.0
+            target = struct('labelas', labelas, 'savelas', savelas);
+            fprintf( fileID, '\r\nBASELINE labor elas = %0.2f  savings elas = %0.2f \r\n', labelas, savelas ); 
+            if( loaded == false )
+                [inverse, f_invert] = modelCalibrator.invert(target);
+            else
+                inverse = f_invert(target);
+            end
+            
+            save_dir = dynamicSolver.steady(inverse);
+            % find iterations
+            filepath    = fullfile(save_dir, 'iterations.csv');
+            T           = readtable(filepath, 'Format', '%u%f');
+            iterations  = table2array(T(:,1));            
+            fprintf( fileID, '   Computed in %u iterations \r\n', iterations(end) );
+            
+            s_dynamics = load( fullfile(save_dir, 'dynamics.mat' ) );
+            s_elas     = load( fullfile(save_dir, 'elasticities.mat' ) );
+            s_markets  = load( fullfile(save_dir, 'market.mat' ) );
+            pop        = s_dynamics.pops;    % helper variable
+            gdp        = s_dynamics.outs;    % helper variable
+            
+            % print reports
+            fprintf( fileID, '   beta       = %f \r\n', inverse.beta );
+            fprintf( fileID, '   sigma      = %f \r\n', inverse.sigma );
+            fprintf( fileID, '   gamma      = %f \r\n', inverse.gamma );
+            
+            fprintf( fileID, '   lab elas   = ' ); myPrint( s_elas.labelas, labelas );
+            fprintf( fileID, '   sav elas   = ' ); myPrint( s_elas.savelas, savelas );
+            fprintf( fileID, '   K/Y        = ' ); myPrint( s_elas.captoout, moment_targets.KbyY );
+            fprintf( fileID, '   SStax/Y    = ' ); myPrint( s_dynamics.ssts/gdp, moment_targets.SSTax );
+            fprintf( fileID, '   PIT/Y      = ' ); myPrint( s_dynamics.pits/gdp, moment_targets.PIT );
+            fprintf( fileID, '   r          = ' ); myPrint( s_markets.caprates, moment_targets.r );
+        end % for 
+        
+        fclose( fileID );
+    end
+end % function view_PIT_fit
+
+end % methods
 
 end
