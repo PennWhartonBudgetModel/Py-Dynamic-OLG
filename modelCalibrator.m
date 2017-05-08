@@ -74,19 +74,23 @@ methods (Static)
         
         parfor i = 1:length(parambatch)
             
-            % Solve steady state
-            save_dir = dynamicSolver.steady(parambatch(i));
-            
-            % Extract elasticity set
-            elasbatch(i) = load(fullfile(save_dir, 'elasticities.mat')); %#ok<PFOUS>
-            
-            % Check solution condition
-            % (Stable solution identified as reasonable capital-to-output ratio and robust solver convergence rate)
-            solvedbatch(i) = (elasbatch(i).captoout > 0.5) && (size(csvread(fullfile(save_dir, 'iterations.csv')), 1) < 25); %#ok<NASGU,PFOUS>
-            
-            % Delete save directory along with parent directories
-            rmdir(fullfile(save_dir, '..', '..'), 's')
-            
+            % Calibrate steady state on modelunit_dollar
+            [ elasbatch(i), solvedbatch(i) ] = calibrate_dollar( parambatch(i) );
+
+            %  OLD CODE -- to be removed
+%             save_dir = dynamicSolver.steady(parambatch(i));
+%             
+%             % Extract elasticity set
+%             elasbatch(i) = load(fullfile(save_dir, 'elasticities.mat')); %#ok<PFOUS>
+%             
+%             % Check solution condition
+%             % (Stable solution identified as reasonable capital-to-output ratio and robust solver convergence rate)
+%             solvedbatch(i) = (elasbatch(i).captoout > 0.5) && (size(csvread(fullfile(save_dir, 'iterations.csv')), 1) < 25); %#ok<NASGU,PFOUS>
+%             
+%             % Delete save directory along with parent directories
+%             rmdir(fullfile(save_dir, '..', '..'), 's')
+%       
+            % END OLD CODE
         end
         
         % Save elasticity sets and solution conditions to batch file
@@ -184,21 +188,24 @@ methods (Static)
         
     end
 
+ 
     
     
 %%
 %   Make a report of various moments for the 16 baselines
 function [] = view_baseline_moments()
     
-    moment_targets      = struct('r', 0.07, 'PIT', 0.08, 'SSTax', 0.05, 'KbyY', 3.0);
+    moment_targets      = struct('r', 0.07, 'PIT', 0.08, 'SSTax', 0.05 ...
+                            , 'KbyY', 3.0, 'GDPperHH', 1e5);
     
+    outputfilename      = fullfile(dirFinder.saveroot(), 'BaselineMoments.txt');
+    fileID              = fopen(outputfilename,'w');
+
     % helper function to print results
     myPrint = @( modelResult, targetResult ) ...
                 fprintf( fileID, ' %f (%f) error = %0.1f%% \r\n', modelResult, targetResult, (modelResult/targetResult - 1)*100.0 );
-
-    outputfilename      = fullfile(dirFinder.saveroot(), 'BaselineMoments.txt');
-    fileID              = fopen(outputfilename,'w');
-    fprintf( fileID, '-------------BASELINE MOMENTS ');
+    
+    fprintf( fileID, '-------------BASELINE MOMENTS-------------' );
     fprintf( fileID, '%s \r\n', datestr(now));
     
     loaded = false;
@@ -212,6 +219,9 @@ function [] = view_baseline_moments()
                 inverse = f_invert(target);
             end
             
+            % TODO: this is temp: inverse doesn't have modelunit_dollars yet
+            inverse(:).modelunit_dollars = 5.8824e-05;
+            
             save_dir = dynamicSolver.steady(inverse);
             % find iterations
             filepath    = fullfile(save_dir, 'iterations.csv');
@@ -224,24 +234,86 @@ function [] = view_baseline_moments()
             s_markets  = load( fullfile(save_dir, 'market.mat' ) );
             pop        = s_dynamics.pops;    % helper variable
             gdp        = s_dynamics.outs;    % helper variable
+            dollar     = 1/s_elas.modelunit_dollars; % helper variable
             
             % print reports
-            fprintf( fileID, '   beta       = %f \r\n', inverse.beta );
-            fprintf( fileID, '   sigma      = %f \r\n', inverse.sigma );
-            fprintf( fileID, '   gamma      = %f \r\n', inverse.gamma );
+            fprintf( fileID, '   beta               = %f \r\n', inverse.beta );
+            fprintf( fileID, '   sigma              = %f \r\n', inverse.sigma );
+            fprintf( fileID, '   gamma              = %f \r\n', inverse.gamma );
             
-            fprintf( fileID, '   lab elas   = ' ); myPrint( s_elas.labelas, labelas );
-            fprintf( fileID, '   sav elas   = ' ); myPrint( s_elas.savelas, savelas );
-            fprintf( fileID, '   K/Y        = ' ); myPrint( s_elas.captoout, moment_targets.KbyY );
-            fprintf( fileID, '   SStax/Y    = ' ); myPrint( s_dynamics.ssts/gdp, moment_targets.SSTax );
-            fprintf( fileID, '   PIT/Y      = ' ); myPrint( s_dynamics.pits/gdp, moment_targets.PIT );
-            fprintf( fileID, '   r          = ' ); myPrint( s_markets.caprates, moment_targets.r );
+            %  this will come from inverse struct
+            fprintf( fileID, '   model$             = %f \r\n', s_elas.modelunit_dollars );
+            
+            fprintf( fileID, '   lab elas           = ' ); myPrint( s_elas.labelas, labelas );
+            fprintf( fileID, '   sav elas           = ' ); myPrint( s_elas.savelas, savelas );
+            fprintf( fileID, '   K/Y                = ' ); myPrint( s_elas.captoout, moment_targets.KbyY );
+            fprintf( fileID, '   SStax/Y            = ' ); myPrint( s_dynamics.ssts/gdp, moment_targets.SSTax );
+            fprintf( fileID, '   PIT/Y              = ' ); myPrint( s_dynamics.pits/gdp, moment_targets.PIT );
+            fprintf( fileID, '   r                  = ' ); myPrint( s_markets.caprates, moment_targets.r );
+            fprintf( fileID, '   $GDP/worker        = ' ); myPrint( gdp*dollar/pop, moment_targets.GDPperHH );
+            fprintf( fileID, '-------------------------------------\r\n' );
         end % for 
+    end % for 
+    fprintf( fileID, ' ==== DONE ===== \r\n' );    
+    fclose( fileID );
+end % function view_baseline_moments
+
+%%
+%   Single loop to calibrate on modelunit_dollar targets
+function [ targets, is_solved ] = calibrate_dollar( basedef )
+
+    % Set target = $gdp/worker
+    target              = 1.14e05;
+    
+    % Set modelunit_dollars to a default initial value.
+    %      In the future, we could apply a heuristic better initial guess.
+    modelunit_dollars   = 2.9e-05;
+    tolerance           = 0.01;    % as ratio 
+    err_size            = 1;
+    iter_num            = 1;
+ 
+    while ( err_size > tolerance ) 
+
+        basedef.modelunit_dollars   = modelunit_dollars;
+        save_dir                    = dynamicSolver.steady( basedef );
+
+        % find target -- $gdp/pop
+        s_elas          = load( fullfile(save_dir, 'elasticities.mat' ) );
+        actual_value    = s_elas.outperHH;
         
-        fclose( fileID );
-    end
-end % function view_PIT_fit
+        err_size        = abs( actual_value/target - 1 );
+        fprintf( '...MODELUNIT_DOLLAR iteration %u   error=%f\n   modelunit_dollar=%f   GDP/Worker=%f',...
+                        iter_num, err_size, modelunit_dollars, actual_value );
+        
+        % package up answer
+        targets         = struct(   'savelas',      s_elas.savelas ...
+                                 ,  'labelas',      s_elas.labelas ...
+                                 ,  'outperHH',     actual_value ...                       
+                                 ,  'captoout',     s_elas.captoout );
+        % Check solution condition
+        % (Stable solution identified as reasonable capital-to-output ratio and robust solver convergence rate)
+        is_solved = (targets.captoout > 0.5) && (size(csvread(fullfile(save_dir, 'iterations.csv')), 1) < 25); %#ok<NASGU,PFOUS>
+            
+        % update by percent shift
+        modelunit_dollars = modelunit_dollars * (actual_value/target);
+        
+        % Delete save directory along with parent directories
+        rmdir(fullfile(save_dir, '..', '..'), 's')
+
+        iter_num = iter_num + 1;
+
+        if( iter_num > 8 )
+            is_solved = false;
+            fprintf( '...MODELUNIT_DOLLAR -- max iterations reached.' );
+            break;
+        end 
+        
+    end % while
+
+end % calibrate_dollar
+
 
 end % methods
+
 
 end

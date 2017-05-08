@@ -953,13 +953,18 @@ methods (Static, Access = private)
                 
                 savelas = (Dynamic_dev.assets - Dynamic.assets) / (Dynamic.assets * ratedev);
                 
+                % Calculate $GDP/HH
+                outperHH = (Dynamic.outs./Dynamic.pops)./modelunit_dollars;
                 
                 % Save and display elasticities
-                save(fullfile(save_dir, 'elasticities.mat'), 'captoout', 'labelas', 'savelas')
+                save(fullfile(save_dir, 'elasticities.mat') ...
+                    , 'captoout', 'labelas', 'savelas', 'outperHH' ...
+                    , 'beta', 'gamma', 'sigma', 'modelunit_dollars' );
                 
-                for label = { {'Capital to output ratio' , captoout } , ...
+                for label = { {'Capital/Output'          , captoout } , ...
                               {'Labor elasticity'        , labelas  } , ...
-                              {'Savings elasticity'      , savelas  } }
+                              {'Savings elasticity'      , savelas  } , ...
+                              {'Output/Worker'           , outperHH } }
                     fprintf('\t%-25s= % 7.4f\n', label{1}{:})
                 end
                 fprintf('\n')
