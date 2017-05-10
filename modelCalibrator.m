@@ -9,15 +9,16 @@ classdef modelCalibrator
 properties (Constant)
     
     % Define list of parameters to be calibrated
+    %    NOTE: modelunit_dollar is added as a param during solve_batch
     paramlist = {'beta', 'gamma', 'sigma'};
     nparam = length(modelCalibrator.paramlist);
     
     % Define list of elasticities to be targeted
-    elaslist = {'captoout', 'labelas', 'savelas'};
+    elaslist = {'captoout', 'labelas', 'savelas', 'outperHH'};
     nelas = length(modelCalibrator.elaslist);
     
     % Define number of discretization points for each parameter
-    npoint = 30;
+    npoint = 10; % 30;
     
     % Define number of parameter sets per batch
     batchsize = 20;
@@ -49,7 +50,14 @@ methods (Static)
         % Generate parameter sets as unique combinations of parameter values
         [grid.beta, grid.gamma, grid.sigma] = ndgrid(v.beta, v.gamma, v.sigma);
         for i = 1:modelCalibrator.nset, for p = modelCalibrator.paramlist, paramsets(i).(p{1}) = grid.(p{1})(i); end, end %#ok<AGROW>
-        
+ 
+        % Add modelunit_dollars to the params
+        % and set to a default initial value.
+        % In the future, we could apply a heuristic better initial guess.
+        for i = 1:modelCalibrator.nset
+            paramsets(i).modelunit_dollars = 2.88e-05;
+        end
+
         % Clear or create batch directory
         if exist(modelCalibrator.batch_dir, 'dir'), rmdir(modelCalibrator.batch_dir, 's'), end, mkdir(modelCalibrator.batch_dir)
         
@@ -70,31 +78,20 @@ methods (Static)
     function [] = solve_batch(ibatch)
         
         % Load batch of parameter sets
-        s = load(modelCalibrator.batch_file(ibatch)); parambatch = s.parambatch; clear('s')
+        s = load(modelCalibrator.batch_file(ibatch)); params = s.parambatch; clear('s')
         
-        parfor i = 1:length(parambatch)
-            
+        parfor i = 1:length(params)
             % Calibrate steady state on modelunit_dollar
-            [ elasbatch(i), solvedbatch(i) ] = calibrate_dollar( parambatch(i) );
-
-            %  OLD CODE -- to be removed
-%             save_dir = dynamicSolver.steady(parambatch(i));
-%             
-%             % Extract elasticity set
-%             elasbatch(i) = load(fullfile(save_dir, 'elasticities.mat')); %#ok<PFOUS>
-%             
-%             % Check solution condition
-%             % (Stable solution identified as reasonable capital-to-output ratio and robust solver convergence rate)
-%             solvedbatch(i) = (elasbatch(i).captoout > 0.5) && (size(csvread(fullfile(save_dir, 'iterations.csv')), 1) < 25); %#ok<NASGU,PFOUS>
-%             
-%             % Delete save directory along with parent directories
-%             rmdir(fullfile(save_dir, '..', '..'), 's')
-%       
-            % END OLD CODE
+            [ targets(i), modelunit_dollars, solved(i) ] = modelCalibrator.calibrate_dollar( params(i) );
+            % overwrite parambatch w/ new modelunit_dollars
+            params(i).modelunit_dollars = modelunit_dollars;
         end
         
+        
         % Save elasticity sets and solution conditions to batch file
-        save(modelCalibrator.batch_file(ibatch), '-append', 'elasbatch', 'solvedbatch')
+        % Rem: Overwrite parambatch since modelunit_dollar will have been modified
+        save(modelCalibrator.batch_file(ibatch), '-append' ...
+                            , 'targets', 'solved', 'params' );
         
     end
     
@@ -103,8 +100,8 @@ methods (Static)
     function [] = consolidate_batches(clean)
         
         % Initialize vectors of parameters, elasticities, and solution conditions
-        for p = modelCalibrator.paramlist, paramv.(p{1}) = []; end
-        for e = modelCalibrator.elaslist , elasv.( e{1}) = []; end
+        for p = modelCalibrator.paramlist , paramv.(p{1})  = []; end
+        for e = modelCalibrator.targetlist, targetv.(e{1}) = []; end
         solved = [];
         
         % Load and consolidate solutions from batch files
@@ -114,16 +111,16 @@ methods (Static)
             
             s = load(fullfile(modelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch)));
             
-            for p = modelCalibrator.paramlist, paramv.(p{1}) = [paramv.(p{1}), s.parambatch.(p{1})]; end
-            for e = modelCalibrator.elaslist , elasv.( e{1}) = [elasv.( e{1}), s.elasbatch.( e{1})]; end
-            solved = [solved, s.solvedbatch]; %#ok<AGROW>
+            for p = modelCalibrator.paramlist , paramv.(p{1})   = [paramv.(p{1}) , s.params.(p{1}) ]; end
+            for e = modelCalibrator.targetlist, targetv.( e{1}) = [targetv.(e{1}), s.targets.(e{1})]; end
+            solved = [solved, s.solved]; %#ok<AGROW>
             
         end
         solved = boolean(solved); %#ok<NASGU>
         
         % Save solutions into calibration file
         % (Note that this file should be copied to the Parameter directory and committed anew following a completed calibration)
-        save(fullfile(dirFinder.saveroot(), 'calibration.mat'), 'paramv', 'elasv', 'solved');
+        save(fullfile(dirFinder.saveroot(), 'calibration.mat'), 'paramv', 'rargetv', 'solved');
         
         % Delete batch directory
         if (exist('clean', 'var') && clean), rmdir(modelCalibrator.batch_dir, 's'), end
@@ -136,16 +133,16 @@ methods (Static)
         
         % Load calibration solutions
         s = load(fullfile(dirFinder.param(), 'calibration.mat'));
-        paramv = s.paramv;
-        elasv  = s.elasv ;
-        solved = s.solved;
+        paramv  = s.paramv;
+        targetv = s.targetv ;
+        solved  = s.solved;
         
         % Initialize figure
         figure(1); ax = axes;
         
         % Determine colors
         cv = zeros(modelCalibrator.nset, 3);
-        devs = min(abs(elasv.captoout(solved)' - 3).^0.5, 1);
+        devs = min(abs(targetv.captoout(solved)' - 3).^0.5, 1);
         cv( solved, :) = [devs, ones(size(devs)), devs]*180/256;        % Gray to green
         cv(~solved, :) = repmat([200/256, 0, 0], [sum(~solved), 1]);    % Red
         
@@ -167,13 +164,13 @@ methods (Static)
         
         % Load calibration solutions
         s = load(fullfile(dirFinder.param(), 'calibration.mat'));
-        paramv = s.paramv;
-        elasv  = s.elasv ;
-        solved = s.solved;
+        paramv  = s.paramv;
+        targetv = s.targetv ;
+        solved  = s.solved;
         
         % Construct inverse interpolants that map individual elasticities to parameters
         for p = modelCalibrator.paramlist
-            interp.(p{1}) = scatteredInterpolant(elasv.captoout(solved)', elasv.labelas(solved)', elasv.savelas(solved)', paramv.(p{1})(solved)', 'nearest');
+            interp.(p{1}) = scatteredInterpolant(targetv.captoout(solved)', targetv.labelas(solved)', targetv.savelas(solved)', paramv.(p{1})(solved)', 'nearest');
         end
         
         % Construct elasticity inverter by consolidating inverse interpolants
@@ -220,7 +217,7 @@ function [] = view_baseline_moments()
             end
             
             % TODO: this is temp: inverse doesn't have modelunit_dollars yet
-            inverse(:).modelunit_dollars = 5.8824e-05;
+            inverse(:).modelunit_dollars = 2.88e-05;
             
             save_dir = dynamicSolver.steady(inverse);
             % find iterations
@@ -260,20 +257,19 @@ end % function view_baseline_moments
 
 %%
 %   Single loop to calibrate on modelunit_dollar targets
-function [ targets, is_solved ] = calibrate_dollar( basedef )
+function [ targets, modelunit_final, is_solved ] = calibrate_dollar( basedef )
 
     % Set target = $gdp/worker
     target              = 1.14e05;
+    modelunit_dollars   = basedef.modelunit_dollars;
     
-    % Set modelunit_dollars to a default initial value.
-    %      In the future, we could apply a heuristic better initial guess.
-    modelunit_dollars   = 2.9e-05;
     tolerance           = 0.01;    % as ratio 
     err_size            = 1;
     iter_num            = 1;
  
     while ( err_size > tolerance ) 
 
+        modelunit_final             = modelunit_dollars;  % for func output
         basedef.modelunit_dollars   = modelunit_dollars;
         save_dir                    = dynamicSolver.steady( basedef );
 
@@ -282,8 +278,7 @@ function [ targets, is_solved ] = calibrate_dollar( basedef )
         actual_value    = s_elas.outperHH;
         
         err_size        = abs( actual_value/target - 1 );
-        fprintf( '...MODELUNIT_DOLLAR iteration %u   error=%f\n   modelunit_dollar=%f   GDP/Worker=%f',...
-                        iter_num, err_size, modelunit_dollars, actual_value );
+        fprintf( '...MODELUNIT_DOLLAR iteration %u   error=%f\n ', iter_num, err_size );
         
         % package up answer
         targets         = struct(   'savelas',      s_elas.savelas ...
@@ -294,8 +289,12 @@ function [ targets, is_solved ] = calibrate_dollar( basedef )
         % (Stable solution identified as reasonable capital-to-output ratio and robust solver convergence rate)
         is_solved = (targets.captoout > 0.5) && (size(csvread(fullfile(save_dir, 'iterations.csv')), 1) < 25); %#ok<NASGU,PFOUS>
             
-        % update by percent shift
-        modelunit_dollars = modelunit_dollars * (actual_value/target);
+        % Update by percent shift, reduced a bit as it takes 
+        % longer to converge. This approach updates faster for 
+        % "normal" points, which converge quickly, and updates
+        % slower for "odd" points, which converge slower. 
+        exp_reduce        = max( 0.5, 1.0 - iter_num *0.07 );
+        modelunit_dollars = modelunit_dollars*((actual_value/target)^exp_reduce);
         
         % Delete save directory along with parent directories
         rmdir(fullfile(save_dir, '..', '..'), 's')
