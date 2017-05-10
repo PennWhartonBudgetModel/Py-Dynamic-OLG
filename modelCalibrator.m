@@ -21,7 +21,7 @@ properties (Constant)
     npoint = 10; % 30;
     
     % Define number of parameter sets per batch
-    batchsize = 20;
+    batchsize = 10;
     
     % Determine number of parameter sets and number of batches
     nset   = modelCalibrator.npoint ^ modelCalibrator.nparam;
