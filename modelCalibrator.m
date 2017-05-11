@@ -14,11 +14,11 @@ properties (Constant)
     nparam = length(modelCalibrator.paramlist);
     
     % Define list of elasticities to be targeted
-    elaslist = {'captoout', 'labelas', 'savelas', 'outperHH'};
-    nelas = length(modelCalibrator.elaslist);
+    targetlist  = {'captoout', 'labelas', 'savelas', 'outperHH'};
+    ntarget     = length(modelCalibrator.targetlist);
     
     % Define number of discretization points for each parameter
-    npoint = 10; % 30;
+    npoint = 8; % 30;
     
     % Define number of parameter sets per batch
     batchsize = 10;
@@ -65,9 +65,8 @@ methods (Static)
         for ibatch = 1:modelCalibrator.nbatch
             
             shift = (ibatch-1)*modelCalibrator.batchsize;
-            parambatch = paramsets(shift+1 : min(shift+modelCalibrator.batchsize, end)); %#ok<NASGU>
-            
-            save(modelCalibrator.batch_file(ibatch), 'parambatch')
+            params = paramsets(shift+1 : min(shift+modelCalibrator.batchsize, end)); %#ok<NASGU>
+            save(modelCalibrator.batch_file(ibatch), 'params')
             
         end
         
@@ -78,10 +77,10 @@ methods (Static)
     function [] = solve_batch(ibatch)
         
         % Load batch of parameter sets
-        s = load(modelCalibrator.batch_file(ibatch)); params = s.parambatch; clear('s')
+        s = load(modelCalibrator.batch_file(ibatch)); params = s.params; clear('s')
         
         parfor i = 1:length(params)
-            % Calibrate steady state on modelunit_dollar
+            % Calibrate steady state on modelunit_dollars
             [ targets(i), modelunit_dollars, solved(i) ] = modelCalibrator.calibrate_dollar( params(i) );
             % overwrite parambatch w/ new modelunit_dollars
             params(i).modelunit_dollars = modelunit_dollars;
@@ -120,7 +119,7 @@ methods (Static)
         
         % Save solutions into calibration file
         % (Note that this file should be copied to the Parameter directory and committed anew following a completed calibration)
-        save(fullfile(dirFinder.saveroot(), 'calibration.mat'), 'paramv', 'rargetv', 'solved');
+        save(fullfile(dirFinder.saveroot(), 'calibration.mat'), 'paramv', 'targetv', 'solved');
         
         % Delete batch directory
         if (exist('clean', 'var') && clean), rmdir(modelCalibrator.batch_dir, 's'), end
