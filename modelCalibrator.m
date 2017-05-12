@@ -17,7 +17,7 @@ properties (Constant)
     
     % Define list of parameters which define the steady state
     %    This is with modelunit_dollars.
-    fullparamlist = [paramlist 'modelunit_dollars'];
+    fullparamlist = {'beta', 'gamma', 'sigma', 'modelunit_dollars'};
     nfullparam    = length(modelCalibrator.fullparamlist);
     
     % Define list of elasticities to be targeted
