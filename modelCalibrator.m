@@ -10,8 +10,15 @@ properties (Constant)
     
     % Define list of parameters to be calibrated
     %    NOTE: modelunit_dollar is added as a param during solve_batch
+    %          since paramlist defines the grid (and modelunit_dollars  
+    %          is not in grid).
     paramlist = {'beta', 'gamma', 'sigma'};
-    nparam = length(modelCalibrator.paramlist);
+    nparam    = length(modelCalibrator.paramlist);
+    
+    % Define list of parameters which define the steady state
+    %    This is with modelunit_dollars.
+    fullparamlist = [paramlist 'modelunit_dollars'];
+    nfullparam    = length(modelCalibrator.fullparamlist);
     
     % Define list of elasticities to be targeted
     targetlist  = {'captoout', 'labelas', 'savelas', 'outperHH'};
@@ -21,7 +28,7 @@ properties (Constant)
     npoint = 8; % 30;
     
     % Define number of parameter sets per batch
-    batchsize = 10;
+    batchsize = 1;
     
     % Determine number of parameter sets and number of batches
     nset   = modelCalibrator.npoint ^ modelCalibrator.nparam;
@@ -40,7 +47,7 @@ methods (Static)
         
         % Specify parameter lower and upper bounds
         lb.beta = 0.990; lb.gamma = 0.150; lb.sigma =  1.50;
-        ub.beta = 1.180; ub.gamma = 0.900; ub.sigma = 32.00;
+        ub.beta = 1.170; ub.gamma = 0.900; ub.sigma = 30.00;
         
         % Construct vectors of parameter values
         v.beta  = linspace(lb.beta        , ub.beta        , modelCalibrator.npoint);
@@ -168,14 +175,14 @@ methods (Static)
         solved  = s.solved;
         
         % Construct inverse interpolants that map individual elasticities to parameters
-        for p = modelCalibrator.paramlist
+        for p = modelCalibrator.fullparamlist
             interp.(p{1}) = scatteredInterpolant(targetv.captoout(solved)', targetv.labelas(solved)', targetv.savelas(solved)', paramv.(p{1})(solved)', 'nearest');
         end
         
         % Construct elasticity inverter by consolidating inverse interpolants
         function [inverse] = f_(target)
             captoout = 3;
-            for p_ = modelCalibrator.paramlist, inverse.(p_{1}) = interp.(p_{1})(captoout, target.labelas, target.savelas); end
+            for p_ = modelCalibrator.fullparamlist, inverse.(p_{1}) = interp.(p_{1})(captoout, target.labelas, target.savelas); end
         end
         f = @f_;
         
@@ -215,10 +222,8 @@ function [] = view_baseline_moments()
                 inverse = f_invert(target);
             end
             
-            % TODO: this is temp: inverse doesn't have modelunit_dollars yet
-            inverse(:).modelunit_dollars = 2.88e-05;
-            
             save_dir = dynamicSolver.steady(inverse);
+            
             % find iterations
             filepath    = fullfile(save_dir, 'iterations.csv');
             T           = readtable(filepath, 'Format', '%u%f');
@@ -236,9 +241,7 @@ function [] = view_baseline_moments()
             fprintf( fileID, '   beta               = %f \r\n', inverse.beta );
             fprintf( fileID, '   sigma              = %f \r\n', inverse.sigma );
             fprintf( fileID, '   gamma              = %f \r\n', inverse.gamma );
-            
-            %  this will come from inverse struct
-            fprintf( fileID, '   model$             = %f \r\n', s_elas.modelunit_dollars );
+            fprintf( fileID, '   model$             = %f \r\n', inverse.modelunit_dollars );
             
             fprintf( fileID, '   lab elas           = ' ); myPrint( s_elas.labelas, labelas );
             fprintf( fileID, '   sav elas           = ' ); myPrint( s_elas.savelas, savelas );
@@ -265,6 +268,7 @@ function [ targets, modelunit_final, is_solved ] = calibrate_dollar( basedef )
     tolerance           = 0.01;    % as ratio 
     err_size            = 1;
     iter_num            = 1;
+    iter_max            = 8;   % iterations for modelunit_dollars
  
     while ( err_size > tolerance ) 
 
@@ -284,14 +288,19 @@ function [ targets, modelunit_final, is_solved ] = calibrate_dollar( basedef )
                                  ,  'labelas',      s_elas.labelas ...
                                  ,  'outperHH',     actual_value ...                       
                                  ,  'captoout',     s_elas.captoout );
+        
         % Check solution condition
         % (Stable solution identified as reasonable capital-to-output ratio and robust solver convergence rate)
         is_solved = (targets.captoout > 0.5) && (size(csvread(fullfile(save_dir, 'iterations.csv')), 1) < 25); %#ok<NASGU,PFOUS>
-            
-        % Update by percent shift, reduced a bit as it takes 
-        % longer to converge. This approach updates faster for 
-        % "normal" points, which converge quickly, and updates
-        % slower for "odd" points, which converge slower. 
+        if( iter_num >= iter_max )
+            is_solved = false;
+            fprintf( '...MODELUNIT_DOLLAR -- max iterations (%u) reached.', iter_max );
+            break;
+        end 
+        
+        % Update by percent shift, reduced a bit as number of 
+        % iterations increases. This approach slows the update rate
+        % in case of slow convergence -- we're usually bouncing around then.
         exp_reduce        = max( 0.5, 1.0 - iter_num *0.07 );
         modelunit_dollars = modelunit_dollars*((actual_value/target)^exp_reduce);
         
@@ -300,12 +309,6 @@ function [ targets, modelunit_final, is_solved ] = calibrate_dollar( basedef )
 
         iter_num = iter_num + 1;
 
-        if( iter_num > 8 )
-            is_solved = false;
-            fprintf( '...MODELUNIT_DOLLAR -- max iterations reached.' );
-            break;
-        end 
-        
     end % while
 
 end % calibrate_dollar
