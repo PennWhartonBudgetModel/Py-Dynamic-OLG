@@ -62,7 +62,7 @@ methods (Static)
         % and set to a default initial value.
         % In the future, we could apply a heuristic better initial guess.
         for i = 1:modelCalibrator.nset
-            paramsets(i).modelunit_dollars = 2.88e-05;
+            paramsets(i).modelunit_dollars = 4.199e-05;
         end
 
         % Clear or create batch directory
@@ -106,8 +106,8 @@ methods (Static)
     function [] = consolidate_batches(clean)
         
         % Initialize vectors of parameters, elasticities, and solution conditions
-        for p = modelCalibrator.paramlist , paramv.(p{1})  = []; end
-        for e = modelCalibrator.targetlist, targetv.(e{1}) = []; end
+        for p = modelCalibrator.fullparamlist, paramv.(p{1})  = []; end
+        for e = modelCalibrator.targetlist   , targetv.(e{1}) = []; end
         solved = [];
         
         % Load and consolidate solutions from batch files
@@ -117,8 +117,8 @@ methods (Static)
             
             s = load(fullfile(modelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch)));
             
-            for p = modelCalibrator.paramlist , paramv.(p{1})   = [paramv.(p{1}) , s.params.(p{1}) ]; end
-            for e = modelCalibrator.targetlist, targetv.( e{1}) = [targetv.(e{1}), s.targets.(e{1})]; end
+            for p = modelCalibrator.fullparamlist, paramv.(p{1})   = [paramv.(p{1}) , s.params.(p{1}) ]; end
+            for e = modelCalibrator.targetlist   , targetv.( e{1}) = [targetv.(e{1}), s.targets.(e{1})]; end
             solved = [solved, s.solved]; %#ok<AGROW>
             
         end
@@ -191,78 +191,14 @@ methods (Static)
         
     end
 
- 
-    
-    
-%%
-%   Make a report of various moments for the 16 baselines
-function [] = view_baseline_moments()
-    
-    moment_targets      = struct('r', 0.07, 'PIT', 0.08, 'SSTax', 0.05 ...
-                            , 'KbyY', 3.0, 'GDPperHH', 1e5);
-    
-    outputfilename      = fullfile(dirFinder.saveroot(), 'BaselineMoments.txt');
-    fileID              = fopen(outputfilename,'w');
-
-    % helper function to print results
-    myPrint = @( modelResult, targetResult ) ...
-                fprintf( fileID, ' %f (%f) error = %0.1f%% \r\n', modelResult, targetResult, (modelResult/targetResult - 1)*100.0 );
-    
-    fprintf( fileID, '-------------BASELINE MOMENTS-------------' );
-    fprintf( fileID, '%s \r\n', datestr(now));
-    
-    loaded = false;
-    for labelas = 0.25:0.25:1.0
-        for savelas = 0.25:0.25:1.0
-            target = struct('labelas', labelas, 'savelas', savelas);
-            fprintf( fileID, '\r\nBASELINE labor elas = %0.2f  savings elas = %0.2f \r\n', labelas, savelas ); 
-            if( loaded == false )
-                [inverse, f_invert] = modelCalibrator.invert(target);
-            else
-                inverse = f_invert(target);
-            end
-            
-            save_dir = dynamicSolver.steady(inverse);
-            
-            % find iterations
-            filepath    = fullfile(save_dir, 'iterations.csv');
-            T           = readtable(filepath, 'Format', '%u%f');
-            iterations  = table2array(T(:,1));            
-            fprintf( fileID, '   Computed in %u iterations \r\n', iterations(end) );
-            
-            s_dynamics = load( fullfile(save_dir, 'dynamics.mat' ) );
-            s_elas     = load( fullfile(save_dir, 'elasticities.mat' ) );
-            s_markets  = load( fullfile(save_dir, 'market.mat' ) );
-            pop        = s_dynamics.pops;    % helper variable
-            gdp        = s_dynamics.outs;    % helper variable
-            dollar     = 1/s_elas.modelunit_dollars; % helper variable
-            
-            % print reports
-            fprintf( fileID, '   beta               = %f \r\n', inverse.beta );
-            fprintf( fileID, '   sigma              = %f \r\n', inverse.sigma );
-            fprintf( fileID, '   gamma              = %f \r\n', inverse.gamma );
-            fprintf( fileID, '   model$             = %f \r\n', inverse.modelunit_dollars );
-            
-            fprintf( fileID, '   lab elas           = ' ); myPrint( s_elas.labelas, labelas );
-            fprintf( fileID, '   sav elas           = ' ); myPrint( s_elas.savelas, savelas );
-            fprintf( fileID, '   K/Y                = ' ); myPrint( s_elas.captoout, moment_targets.KbyY );
-            fprintf( fileID, '   SStax/Y            = ' ); myPrint( s_dynamics.ssts/gdp, moment_targets.SSTax );
-            fprintf( fileID, '   PIT/Y              = ' ); myPrint( s_dynamics.pits/gdp, moment_targets.PIT );
-            fprintf( fileID, '   r                  = ' ); myPrint( s_markets.caprates, moment_targets.r );
-            fprintf( fileID, '   $GDP/worker        = ' ); myPrint( gdp*dollar/pop, moment_targets.GDPperHH );
-            fprintf( fileID, '-------------------------------------\r\n' );
-        end % for 
-    end % for 
-    fprintf( fileID, ' ==== DONE ===== \r\n' );    
-    fclose( fileID );
-end % function view_baseline_moments
 
 %%
 %   Single loop to calibrate on modelunit_dollar targets
 function [ targets, modelunit_final, is_solved ] = calibrate_dollar( basedef )
 
-    % Set target = $gdp/worker
-    target              = 1.14e05;
+    % Set target = $gdp/adult
+    %     from Alex $79.8k for 2016
+    target              = 7.98e4;
     modelunit_dollars   = basedef.modelunit_dollars;
     
     tolerance           = 0.01;    % as ratio 
@@ -313,6 +249,97 @@ function [ targets, modelunit_final, is_solved ] = calibrate_dollar( basedef )
 
 end % calibrate_dollar
 
+%%
+%  Print moments info on a particular steady state
+function outstr = report_moments( save_dir, moment_targets )
+    
+    filepath    = fullfile(save_dir, 'iterations.csv');
+    T           = readtable(filepath, 'Format', '%u%f');
+    iters       = table2array(T(:,1));  
+    iterations  = iters(end);
+ 
+    s_dynamics = load( fullfile(save_dir, 'dynamics.mat' ) );
+    s_elas     = load( fullfile(save_dir, 'elasticities.mat' ) );
+    s_markets  = load( fullfile(save_dir, 'market.mat' ) );
+    pop        = s_dynamics.pops;    % helper variable
+    gdp        = s_dynamics.outs;    % helper variable
+    dollar     = 1/s_elas.modelunit_dollars; % helper variable
+    
+    % helper function to format results
+    if( isempty(moment_targets) )
+        myPrint = @( lbl, modelResult, blankArg ) ...
+                     sprintf( '%s %f <no target>', lbl, modelResult );
+        moment_targets.labelas = 0; moment_targets.savelas = 0;
+        moment_targets.KbyY = 0; moment_targets.r = 0;
+        moment_targets.SSTax = 0; moment_targets.PIT = 0;
+        moment_targets.GDPperHH = 0;
+    else
+        myPrint = @( lbl, modelResult, targetResult ) ...
+                    sprintf( '%s %f (%f) error = %0.1f%%', lbl, modelResult, targetResult, (modelResult/targetResult - 1)*100.0 );
+    end
+    
+    % make vector of outputs then concatenate 
+    ss     = string(17);
+    ss(1)  =          '   PARAMS ';
+    ss(2)  = sprintf( '   beta               = %f', s_elas.beta );
+    ss(3)  = sprintf( '   sigma              = %f', s_elas.sigma );
+    ss(4)  = sprintf( '   gamma              = %f', s_elas.gamma );
+    ss(5)  = sprintf( '   model$             = %f', s_elas.modelunit_dollars );
+    ss(6)  = ' ';
+    ss(7)  =          '   TARGETS';
+    ss(8)  = myPrint( '   lab elas           =', s_elas.labelas, moment_targets.labelas );
+    ss(9)  = myPrint( '   sav elas           =', s_elas.savelas, moment_targets.savelas );
+    ss(10) = myPrint( '   K/Y                =', s_elas.captoout, moment_targets.KbyY );
+    ss(11) = myPrint( '   SStax/Y            =', s_dynamics.ssts/gdp, moment_targets.SSTax );
+    ss(12) = myPrint( '   PIT/Y              =', s_dynamics.pits/gdp, moment_targets.PIT );
+    ss(13) = myPrint( '   r                  =', s_markets.caprates, moment_targets.r );
+    ss(14) = myPrint( '   $GDP/adult         =', gdp*dollar/pop, moment_targets.GDPperHH );
+    ss(15) = ' ';
+    if( iterations == 25 )
+        s_iter = 'DID NOT converge in 25 iterations.';
+    else
+        s_iter = sprintf('Converged in %u iterations', iterations );
+    end
+    ss(16) = sprintf( ' CONVERENCE: %s', s_iter );      
+ 
+    outstr = strjoin( ss , '\r\n' );
+end % report_moments
+
+%%
+%   Make a report of various moments for the 16 baselines
+function [] = report_baseline_moments()
+    
+    moment_targets      = struct('r', 0.05, 'PIT', 0.08, 'SSTax', 0.05 ...
+                            , 'KbyY', 3.0, 'GDPperHH', 1.14e5);
+    
+    outputfilename      = fullfile(dirFinder.saveroot(), 'BaselineMoments.txt');
+    fileID              = fopen(outputfilename,'w');
+
+    fprintf( fileID, '-------------BASELINE MOMENTS-------------' );
+    fprintf( fileID, '%s \r\n', datestr(now));
+    
+    loaded = false;
+    for labelas = 0.25:0.25:1.0
+        for savelas = 0.25:0.25:1.0
+            target = struct('labelas', labelas, 'savelas', savelas);
+            fprintf( fileID, '\r\nBASELINE labor elas = %0.2f  savings elas = %0.2f \r\n', labelas, savelas ); 
+            if( loaded == false )
+                [inverse, f_invert] = modelCalibrator.invert(target);
+            else
+                inverse = f_invert(target);
+            end
+            
+            save_dir = dynamicSolver.steady(inverse);
+            
+            moment_targets.labelas = labelas; moment_targets.savelas = savelas;
+            outstr   = modelCalibrator.report_moments( save_dir, moment_targets );
+            fprintf( fileID, '%s \r\n', outstr );
+            fprintf( fileID, '-------------------------------------\r\n' );
+        end % for 
+    end % for 
+    fprintf( fileID, ' ==== DONE ===== \r\n' );    
+    fclose( fileID );
+end % function report_baseline_moments
 
 end % methods
 
