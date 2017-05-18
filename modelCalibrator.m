@@ -25,10 +25,10 @@ properties (Constant)
     ntarget     = length(modelCalibrator.targetlist);
     
     % Define number of discretization points for each parameter
-    npoint = 8; % 30;
+    npoint = 30;
     
     % Define number of parameter sets per batch
-    batchsize = 1;
+    batchsize = 4;
     
     % Determine number of parameter sets and number of batches
     nset   = modelCalibrator.npoint ^ modelCalibrator.nparam;
@@ -38,7 +38,15 @@ properties (Constant)
     batch_dir  = fullfile(dirFinder.source(), 'Batches');
     batch_file = @(ibatch) fullfile(modelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch));
     
-end
+    % Define the calibration targets:
+    %   Currently, just output per adult
+    target_outperHH  = 7.98e4;
+    
+    % Define the moment targets for the reports on how we did
+    moment_targets   = struct('r', 0.05, 'PIT', 0.08, 'SSTax', 0.05 ...
+                            , 'KbyY', 3.0, 'GDPperHH', 7.98e4);
+    
+ end
 
 methods (Static)
     
@@ -198,7 +206,7 @@ function [ targets, modelunit_final, is_solved ] = calibrate_dollar( basedef )
 
     % Set target = $gdp/adult
     %     from Alex $79.8k for 2016
-    target              = 7.98e4;
+    target              = modelCalibrator.target_outperHH;
     modelunit_dollars   = basedef.modelunit_dollars;
     
     tolerance           = 0.01;    % as ratio 
@@ -265,18 +273,14 @@ function outstr = report_moments( save_dir, moment_targets )
     gdp        = s_dynamics.outs;    % helper variable
     dollar     = 1/s_elas.modelunit_dollars; % helper variable
     
-    % helper function to format results
     if( isempty(moment_targets) )
-        myPrint = @( lbl, modelResult, blankArg ) ...
-                     sprintf( '%s %f <no target>', lbl, modelResult );
-        moment_targets.labelas = 0; moment_targets.savelas = 0;
-        moment_targets.KbyY = 0; moment_targets.r = 0;
-        moment_targets.SSTax = 0; moment_targets.PIT = 0;
-        moment_targets.GDPperHH = 0;
-    else
-        myPrint = @( lbl, modelResult, targetResult ) ...
-                    sprintf( '%s %f (%f) error = %0.1f%%', lbl, modelResult, targetResult, (modelResult/targetResult - 1)*100.0 );
+        moment_targets = modelCalibrator.moments_targets;
+        moment_targets.labelas = 1; moment_targets.savelas = 1; % dummy vals
     end
+    
+    % helper function to format results
+    myPrint = @( lbl, modelResult, targetResult ) ...
+                sprintf( '%s %f (%f) error = %0.1f%%', lbl, modelResult, targetResult, (modelResult/targetResult - 1)*100.0 );
     
     % make vector of outputs then concatenate 
     ss     = string(17);
@@ -309,9 +313,6 @@ end % report_moments
 %   Make a report of various moments for the 16 baselines
 function [] = report_baseline_moments()
     
-    moment_targets      = struct('r', 0.05, 'PIT', 0.08, 'SSTax', 0.05 ...
-                            , 'KbyY', 3.0, 'GDPperHH', 1.14e5);
-    
     outputfilename      = fullfile(dirFinder.saveroot(), 'BaselineMoments.txt');
     fileID              = fopen(outputfilename,'w');
 
@@ -331,6 +332,7 @@ function [] = report_baseline_moments()
             
             save_dir = dynamicSolver.steady(inverse);
             
+            moment_targets = modelCalibrator.moment_targets;
             moment_targets.labelas = labelas; moment_targets.savelas = savelas;
             outstr   = modelCalibrator.report_moments( save_dir, moment_targets );
             fprintf( fileID, '%s \r\n', outstr );
