@@ -82,15 +82,17 @@ methods (Static)
     function [] = solve_batch(ibatch)
         
         % Load batch of parameter sets
-        s = load(modelCalibrator.batch_file(ibatch)); params = s.params; clear('s')
+        s = load(modelCalibrator.batch_file(ibatch)); 
+        params = s.params; clear('s');
+        nparamsets = length(params);
         
-        parfor i = 1:length(params)
+        parfor i = 1:nparamsets  
             % Calibrate steady state on modelunit_dollars
-            [ targets(i), modelunit_dollars, solved(i) ] = modelCalibrator.calibrate_dollar( params(i) ); %#ok<NASGU,PFOUS,ASGLU>
-            % Overwrite parambatch to add modelunit_dollars
-            params(i).modelunit_dollars = modelunit_dollars;
+            [ targets(i), modelunit_dollars(i), solved(i) ] = modelCalibrator.calibrate_dollar( params(i) ); %#ok<NASGU,PFOUS,ASGLU>
         end
         
+        % Add modelunit_dollars to the params
+        params(:).modelunit_dollars = modelunit_dollars(:);
         
         % Save elasticity sets and solution conditions to batch file
         % Rem: Overwrite parambatch since modelunit_dollar will have been modified
@@ -214,7 +216,7 @@ methods (Static)
         tolerance           = 0.01;    % as ratio 
         err_size            = 1;
         iter_num            = 1;
-        iter_max            = 8;   % iterations for modelunit_dollars
+        iter_max            = 2;   % iterations for modelunit_dollars
 
         while (( err_size > tolerance ) && (iter_num <= iter_max) )
 
@@ -248,7 +250,8 @@ methods (Static)
 
             % Delete save directory along with parent directories
             rmdir(fullfile(save_dir, '..', '..'), 's')
-
+            clear( 's_elas' ); clear( 's_dyn' );
+            
             iter_num = iter_num + 1;
         end % while
    
@@ -257,12 +260,11 @@ methods (Static)
         
         % Check solution condition.
         % Stable solution identified as:
-        %  1. Reasonable capital-to-output ratio 
-        %  2. Robust solver convergence rate
-        %  3. modelunit_dollars convergence
+        %  1. Robust solver convergence rate
+        %  2. modelunit_dollars convergence
         is_solved = is_converged && ( err_size <= tolerance );
         if( iter_num > iter_max )
-            fprintf( '...MODELUNIT_DOLLAR -- max iterations (%u) reached.', iter_max );
+           fprintf( '...MODELUNIT_DOLLAR -- max iterations (%u) reached.\n', iter_max );
         end 
 
     end % calibrate_dollar

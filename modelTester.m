@@ -13,7 +13,11 @@ properties (Constant)
                      'gamma', 0.5638, ...
                      'sigma', 9.0198, ...
                      'modelunit_dollars', 3.98e-05 );
-
+                 
+    extremedef = struct('beta', 1.2, ...
+                     'gamma', 0.9, ...
+                     'sigma', 30.0, ...
+                     'modelunit_dollars', 3.98e-05 );
     % Define counterfactual for counterfactual tests
     counterdef = struct('taxplan'       , 'ryan', ...
                         'gcut'          , +0.10 , ...
@@ -68,8 +72,8 @@ methods (Static)
     
     %%
     %  Testing of calibrations
-    function [] = calibrate_dollar()
-        modelCalibrator.calibrate_dollar( modelTester.basedef )
+    function [] = calibrate_dollar( params )
+        modelCalibrator.calibrate_dollar( params )
     end % calibrate_dollar
 
 end % methods
