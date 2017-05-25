@@ -216,7 +216,7 @@ methods (Static)
         tolerance           = 0.01;    % as ratio 
         err_size            = 1;
         iter_num            = 1;
-        iter_max            = 2;   % iterations for modelunit_dollars
+        iter_max            = 8;   % iterations for modelunit_dollars
 
         while (( err_size > tolerance ) && (iter_num <= iter_max) )
 
