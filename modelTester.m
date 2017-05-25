@@ -12,12 +12,8 @@ properties (Constant)
     basedef = struct('beta', 1.1145, ...
                      'gamma', 0.5638, ...
                      'sigma', 9.0198, ...
-                     'modelunit_dollars', 4.199e-05 );
-    % can uncomment this for some other values to test 
-%     basedef = struct('beta', 1.18000000, ...
-%                      'gamma', 0.90000000, ...
-%                      'sigma', 32.00000000, ...
-%                      'modelunit_dollars', 2.88e-05 );   
+                     'modelunit_dollars', 3.98e-05 );
+
     % Define counterfactual for counterfactual tests
     counterdef = struct('taxplan'       , 'ryan', ...
                         'gcut'          , +0.10 , ...
@@ -69,6 +65,12 @@ methods (Static)
         test_output(save_dir, setnames);
     end
     
+    
+    %%
+    %  Testing of calibrations
+    function [] = calibrate_dollar()
+        modelCalibrator.calibrate_dollar( modelTester.basedef )
+    end % calibrate_dollar
 
 end % methods
 

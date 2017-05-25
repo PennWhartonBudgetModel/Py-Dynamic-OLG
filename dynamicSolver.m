@@ -897,8 +897,11 @@ methods (Static, Access = private)
         fprintf('\n')
         fclose(iterlog);
         
-        % Issue warning if maximum iterations reached
-        if (iter == itermax), warning('Maximum iterations reached'), end
+        Dynamic.is_converged = (eps <= tol);
+        % Issue warning if did not converge
+        if (~Dynamic.is_converged)
+            warning('Model did not converge.')
+        end
         
         
         % Save baseline optimal labor values and population distribution
