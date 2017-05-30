@@ -6,7 +6,7 @@
 
 function [W, OPT] = solve_firms(W0, K_static, DEBT_static, isdynamic, ...
                         nz, nk, nd, T_model, transz, kv, zv, dv, ...
-                        tfp, alpha_k, alpha_n, capital_adjustment_param, depreciation, ...
+                        tfp, alpha_k, alpha_n, k_adjustment_param, depreciation, ...
                         profit_tax, investment_deduction, interest_deduction, ...
                         wages, discount_factors, debt_rates ) %#codegen
 
@@ -34,7 +34,7 @@ assert( isa(dv          , 'double'  ) && (size(dv           , 1) <= nd_max  ) &&
 assert( isa(tfp         , 'double'  ) && (size(tfp          , 1) == 1       ) && (size(tfp          , 2) == 1       ) );
 assert( isa(alpha_k     , 'double'  ) && (size(alpha_k      , 1) == 1       ) && (size(alpha_k      , 2) == 1       ) );
 assert( isa(alpha_n     , 'double'  ) && (size(alpha_n      , 1) == 1       ) && (size(alpha_n      , 2) == 1       ) );
-assert( isa(capital_adjustment_cost, 'double' ) && (size(capital_adjustment_cost, 1) == 1 ) && (size(capital_adjustment_cost, 2) == 1 ) );
+assert( isa(k_adjustment_param, 'double' ) && (size(k_adjustment_param, 1) == 1 ) && (size(k_adjustment_param, 2) == 1 ) );
 assert( isa(depreciation, 'double'  ) && (size(depreciation , 1) == 1       ) && (size(depreciation , 2) == 1       ) );
 
 assert( isa(profit_tax          , 'double'  ) && (size(profit_tax          , 1) == 1 ) && (size(profit_tax          , 2) == 1 ) );
@@ -64,15 +64,6 @@ W_step = W0;
 % Specify settings for dynamic optimization subproblems
 optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
 
-% Use dynamic or static method to find choice vars (capital,debt)
-% We use indirection (function pointer) to avoid an "if" in the loop
-if dynamic
-    find_capital_debt = @(iz, ik, id, t) fminsearch(@value_enterprise, [kv(ik), dv(id)], optim_options);
-else
-    find_capital_debt = @(iz, ik, id, t) deal( [K_static(iz,ik,id,t) DEBT_static(iz,ik,id,t)], ...
-                              value_enterprise(K_static(iz,ik,id,t), DEBT_static(iz,ik,id,t)) );
-end 
-
 % Solve dynamic optimization problem through backward induction
 for t = T_model:-1:1
     
@@ -88,39 +79,39 @@ for t = T_model:-1:1
             for iz = 1:nz
                 
                 % Calculate interest payment due
-                %   TBD: The rate is actually a firm state, NOT a global
-                %   state
+                %   TBD: This is all needs to be redone to add default
+                %      following our understanding of getting
+                %      coupon from future total liability (b_hat).
                 debt_coupon = debt_rate*dv(id);
                 
                 % Calculate expected value curve using forward-looking values
-                % TODO: Fix this calculation
                 EW = discount_factor*reshape(sum(repmat(transz(iz,:)', [1,nk,nd]) .* W_step, 1), [nk, nd]);
 
                 % Call functions to set persistent parameters
-                value_enterprise([], kv, kd, EW);
+                value_enterprise([], kv, dv, EW);
                 calculate_income( 0, 0, ...
                     kv(ik), zv(iz), dv(id), debt_coupon,...
-                    tfp, alpha_k, alpha_n, capital_adjustment_param, depreciation, ...
+                    tfp, alpha_k, alpha_n, k_adjustment_param, depreciation, ...
                     profit_tax, investment_deduction, interest_deduction, ...
                     wage );
                 
-                % Find choice vars (capital, debt)
-                [x, v] = find_capital_debt(iz,ik,id,t);
+                % Find choice (capital,debt)
+                if isdynamic
+                    k0      = kv(ik); 
+                    d0      = dv(id);
+                    [x, v]  = fminsearch(@value_enterprise, [k0, d0], optim_options);
+                    capital     = x(1);
+                    debt        = x(2);
+                else
+                    capital = K_static(iz,ik,id,t);
+                    debt    = DEBT_static (iz,ik,id,t);
+                    v       = value_enterprise( [capital, debt] );
+                end % isdynamic  
                 
-% BEGIN: TEMP -- keep until indirection approach verified
-%                 if isdynamic
-%                     [x, v]  = fminsearch(@value_enterprise, [kv(ik), dv(id)], optim_options);
-%                 else
-%                     x(1)    = K_static    (iz,ik,id,t);
-%                     x(2)    = DEBT_static (iz,ik,id,t);
-%                     v       = value_enterprise(x(1), x(2));
-%                 end % isdynamic  
-% END: TEMP                 
-
                 % Record enterprise value and optimal decision values
                 W       (iz,ik,id,t) = -v;
-                OPT.K   (iz,ik,id,t) = x(1);  % capital
-                OPT.DEBT(iz,ik,id,t) = x(2);  % debt
+                OPT.K   (iz,ik,id,t) = capital;
+                OPT.DEBT(iz,ik,id,t) = debt;
                 
                 % Find derived vars from choice vars
                 [labor, income, cit] = calculate_income( capital, debt );
@@ -145,7 +136,7 @@ end % solve_firms
 
 %%
 % Value function: State is (capital, debt)
-function v = value_enterprise(x, kv_, dv_, EW_)
+function v = value_enterprise(x, kv_, dv_, EW_) %#codegen
 
     % Enforce function inlining for C code generation
     coder.inline('always');
@@ -174,7 +165,8 @@ function v = value_enterprise(x, kv_, dv_, EW_)
     [~, income, ~] = calculate_income( new_capital, new_debt );
     
     % Calculate enterprise value
-    v = discount_factor*interp2(kv', dv', EW', new_capital, new_debt, 'linear') ... 
+    %   REM: EW has already been multiplied by discount_factor
+    v = interp2(kv', dv', EW', new_capital, new_debt, 'linear') ... 
         + income;
 
     % Negate value for minimization and force to scalar for C code generation
@@ -188,7 +180,7 @@ end % value_enterprise
 function [labor, income, cit] = calculate_income( ...
             new_capital, new_debt, ...
             capital_, shock_, debt_, debt_coupon_,...
-            tfp_, alpha_k_, alpha_n_, capital_adjustment_param_, depreciation_, ...
+            tfp_, alpha_k_, alpha_n_, k_adjustment_param_, depreciation_, ...
             profit_tax_, investment_deduction_, interest_deduction_, ...
             wage_ ) %#codegen
 
@@ -197,34 +189,34 @@ function [labor, income, cit] = calculate_income( ...
 
     % Define parameters as persistent variables
     persistent  capital shock debt debt_coupon ...
-                tfp alpha_k alpha_n capital_adjustment_param depreciation ...
+                tfp alpha_k alpha_n k_adjustment_param depreciation ...
                 profit_tax investment_deduction interest_deduction ...
                 wage ...
-                labor_cost revenue ...
+                opt_labor labor_cost revenue ...
                 initialized;
 
     % Initialize parameters for C code generation
     if isempty(initialized)
         capital = 0; shock = 0; debt = 0; debt_coupon = 0;
-        tfp = 0; alpha_k = 0; alpha_n = 0; capital_adjustment_param = 0; depreciation = 0;
+        tfp = 0; alpha_k = 0; alpha_n = 0; k_adjustment_param = 0; depreciation = 0;
         profit_tax = 0; investment_deduction = 0; interest_deduction = 0;
         wage = 0;
-        labor_cost = 0; revenue = 0;
+        opt_labor = 0; labor_cost = 0; revenue = 0;
         initialized = true;
     end
 
     % Set parameters if provided
     if (nargin > 2)
         capital = capital_; shock = shock_; debt = debt_; debt_coupon = debt_coupon_;
-        tfp = tfp_; alpha_k = alpha_k_; alpha_n = alpha_n_; capital_adjustment_param = capital_adjustment_param_; depreciation = depreciation_;
+        tfp = tfp_; alpha_k = alpha_k_; alpha_n = alpha_n_; k_adjustment_param = k_adjustment_param_; depreciation = depreciation_;
         profit_tax = profit_tax_; investment_deduction = investment_deduction_; interest_deduction = interest_deduction_;
         wage = wage_;
         
         % Calculate derived vars: revenue and labor_cost
         %   Optimal labor hiring choice (from FOC)
-        labor                   = (wage/(alpha_n*shock*(capital^alpha_k)))^(1/(1+alpha_n));
-        revenue                 = tfp*(capital^alpha_k)*(labor^alpha_n);
-        labor_cost              = labor*wage;
+        opt_labor               = (wage/(alpha_n*shock*(capital^alpha_k)))^(1/(1+alpha_n));
+        revenue                 = tfp*(capital^alpha_k)*(opt_labor^alpha_n);
+        labor_cost              = opt_labor*wage;
 
         % Assume that if initializing, we do not calculate
         return;
@@ -232,7 +224,7 @@ function [labor, income, cit] = calculate_income( ...
     
     net_investment          = new_capital - capital;
     investment              = net_investment + capital*depreciation;
-    capital_adjustment_cost = (net_investment/capital)*net_investment*capital_adjustment_param;
+    capital_adjustment_cost = (net_investment/capital)*net_investment*k_adjustment_param;
     pretax_revenue          = revenue  ...
                                 - labor_cost ...
                                 - capital_adjustment_cost ...
@@ -245,10 +237,42 @@ function [labor, income, cit] = calculate_income( ...
                                 + (1-interest_deduction)*debt_coupon  );
     % After-tax income includes $ from debt issuance
     income                  = pretax_revenue - cit + (new_debt - debt);
+    
+    % Labor only depends on old capital
+    labor                   = opt_labor;
 
 end % calculate_income
 
 
+%%
+% Probability of default given (capital, debt, shock)
+function p = probability_default(capital, debt, shock, ...
+                    kv_, dv_, EW_) %#codegen
+
+    % Enforce function inlining for C code generation
+    coder.inline('always');
+
+    % Define parameters as persistent variables
+    persistent kv dv EW ...
+               initialized
+
+    % Initialize parameters for C code generation
+    if isempty(initialized)
+        kv = 0; dv = 0; EW = 0; 
+        initialized = true;
+    end
+
+    % Set parameters if provided
+    if (nargin > 1)
+        kv = kv_; dv = dv_; EW = EW_; 
+        
+        % Assume if initializing, then do not continue
+        return;
+    end
+
+    p = 0;  % probability of default
+
+end % probability_default
 
 
 

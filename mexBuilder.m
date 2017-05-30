@@ -12,6 +12,7 @@ methods (Static)
     function [] = all()
         mexBuilder.solve_cohort();
         mexBuilder.generate_distribution();
+        mexBuilder.solve_firms();
     end
     
     % Build solve_cohort
@@ -23,7 +24,12 @@ methods (Static)
     function [] = generate_distribution()
         mexBuilder.build('generate_distribution');
     end
-    
+
+    % Build solve_firms
+    function [] = solve_firms()
+        mexBuilder.build('solve_firms');
+    end
+
 end
 
 methods (Static, Access = private)
