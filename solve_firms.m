@@ -70,19 +70,13 @@ for t = T_model:-1:1
     year = t; 
     
     % Extract parameters for current year
-    wage            = wages             (year);
-    discount_factor = discount_factors  (year);
-    debt_rate       = debt_rates        (year);
+    wage                = wages             (year);
+    discount_factor     = discount_factors  (year);
+    interest_rate_gross = 1/discount_factor - 1;
 
     for ik = 1:nk
         for id = 1:nd
             for iz = 1:nz
-                
-                % Calculate interest payment due
-                %   TBD: This is all needs to be redone to add default
-                %      following our understanding of getting
-                %      coupon from future total liability (b_hat).
-                debt_coupon = debt_rate*dv(id);
                 
                 % Calculate expected value curve using forward-looking values
                 EW = discount_factor*reshape(sum(repmat(transz(iz,:)', [1,nk,nd]) .* W_step, 1), [nk, nd]);
@@ -90,7 +84,7 @@ for t = T_model:-1:1
                 % Call functions to set persistent parameters
                 value_enterprise([], kv, dv, EW);
                 calculate_income( 0, 0, ...
-                    kv(ik), zv(iz), dv(id), debt_coupon,...
+                    kv(ik), zv(iz), dv(id), ...
                     tfp, alpha_k, alpha_n, k_adjustment_param, depreciation, ...
                     profit_tax, investment_deduction, interest_deduction, ...
                     wage );
@@ -179,38 +173,38 @@ end % value_enterprise
 % Calculates firm's budget & taxes
 function [labor, income, cit] = calculate_income( ...
             new_capital, new_debt, ...
-            capital_, shock_, debt_, debt_coupon_,...
+            capital_, shock_, debt_, ...
             tfp_, alpha_k_, alpha_n_, k_adjustment_param_, depreciation_, ...
             profit_tax_, investment_deduction_, interest_deduction_, ...
-            wage_ ) %#codegen
+            wage_, interest_rate_gross_ ) %#codegen
 
     % Enforce function inlining for C code generation
     coder.inline('always');
 
     % Define parameters as persistent variables
-    persistent  capital shock debt debt_coupon ...
+    persistent  capital shock debt ...
                 tfp alpha_k alpha_n k_adjustment_param depreciation ...
                 profit_tax investment_deduction interest_deduction ...
-                wage ...
+                wage interest_rate_gross ...
                 opt_labor labor_cost revenue ...
                 initialized;
 
     % Initialize parameters for C code generation
     if isempty(initialized)
-        capital = 0; shock = 0; debt = 0; debt_coupon = 0;
+        capital = 0; shock = 0; debt = 0; 
         tfp = 0; alpha_k = 0; alpha_n = 0; k_adjustment_param = 0; depreciation = 0;
         profit_tax = 0; investment_deduction = 0; interest_deduction = 0;
-        wage = 0;
+        wage = 0; interest_rate_gross = 0;
         opt_labor = 0; labor_cost = 0; revenue = 0;
         initialized = true;
     end
 
     % Set parameters if provided
     if (nargin > 2)
-        capital = capital_; shock = shock_; debt = debt_; debt_coupon = debt_coupon_;
+        capital = capital_; shock = shock_; debt = debt_; 
         tfp = tfp_; alpha_k = alpha_k_; alpha_n = alpha_n_; k_adjustment_param = k_adjustment_param_; depreciation = depreciation_;
         profit_tax = profit_tax_; investment_deduction = investment_deduction_; interest_deduction = interest_deduction_;
-        wage = wage_;
+        wage = wage_; interest_rate_gross = interest_rate_gross_;
         
         % Calculate derived vars: revenue and labor_cost
         %   Optimal labor hiring choice (from FOC)
@@ -222,9 +216,16 @@ function [labor, income, cit] = calculate_income( ...
         return;
     end % initialize
     
+    % Capital, investment, and equity
     net_investment          = new_capital - capital;
     investment              = net_investment + capital*depreciation;
     capital_adjustment_cost = (net_investment/capital)*net_investment*k_adjustment_param;
+    
+    % Debt and default
+    new_debt_issue          = new_debt/interest_rate_gross ...
+                                * probability_default(capital, debt, shock ); % this is b_prime
+    debt_coupon             = new_debt - new_debt_issue;
+    
     pretax_revenue          = revenue  ...
                                 - labor_cost ...
                                 - capital_adjustment_cost ...
@@ -235,8 +236,9 @@ function [labor, income, cit] = calculate_income( ...
     cit                     = profit_tax*(pretax_revenue ...
                                 + (1-investment_deduction)*investment ...
                                 + (1-interest_deduction)*debt_coupon  );
+    
     % After-tax income includes $ from debt issuance
-    income                  = pretax_revenue - cit + (new_debt - debt);
+    income                  = pretax_revenue - cit + (new_debt_issue - debt);
     
     % Labor only depends on old capital
     labor                   = opt_labor;
@@ -263,7 +265,7 @@ function p = probability_default(capital, debt, shock, ...
     end
 
     % Set parameters if provided
-    if (nargin > 1)
+    if (nargin > 3)
         kv = kv_; dv = dv_; EW = EW_; 
         
         % Assume if initializing, then do not continue
