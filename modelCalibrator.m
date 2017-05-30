@@ -92,7 +92,9 @@ methods (Static)
         end
         
         % Add modelunit_dollars to the params
-        params(:).modelunit_dollars = modelunit_dollars(:);
+        for i = 1:nparamsets
+            params(i).modelunit_dollars = modelunit_dollars(i);
+        end
         
         % Save elasticity sets and solution conditions to batch file
         % Rem: Overwrite parambatch since modelunit_dollar will have been modified
