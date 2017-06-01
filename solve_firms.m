@@ -4,11 +4,12 @@
 %%
 
 
-function [W, OPT] = solve_firms(W0, K_static, DEBT_static, isdynamic, ...
+function OPT = solve_firms(W0, Solvent0, ...
+                        K_static, DEBT_static, isdynamic, ...
                         nz, nk, nd, T_model, transz, kv, zv, dv, ...
-                        tfp, alpha_k, alpha_n, k_adjustment_param, depreciation, ...
+                        tfp, alpha_k, alpha_n, k_adjustment_param, depreciation, k_default_reduction, ...
                         profit_tax, investment_deduction, interest_deduction, ...
-                        wages, discount_factors, debt_rates ) %#codegen
+                        wages, discount_factors ) %#codegen
 
 
 %% Argument verification
@@ -18,6 +19,8 @@ nd_max          = 50;
 T_max           = 100;
 
 assert( isa(W0          , 'double'  ) && (size(W0           , 1) <= nz_max  ) && (size(W0           , 2) <= nk_max  ) && (size(W0         , 3) <= nd_max  ));
+assert( isa(Solvent0    , 'double'  ) && (size(Solvent0     , 1) <= nz_max  ) && (size(Solvent0     , 2) <= nk_max  ) && (size(Solvent0   , 3) <= nd_max  ));
+
 assert( isa(K_static    , 'double'  ) && (size(K_static     , 1) <= nz_max  ) && (size(K_static     , 2) <= nk_max  ) && (size(K_static   , 3) <= nd_max  ) && (size(K_static   , 4) <= T_max   ) );
 assert( isa(DEBT_static , 'double'  ) && (size(DEBT_static  , 1) <= nz_max  ) && (size(DEBT_static  , 2) <= nk_max  ) && (size(DEBT_static, 3) <= nd_max  ) && (size(DEBT_static, 4) <= T_max   ) );
 assert( isa(isdynamic   , 'logical' ) && (size(isdynamic    , 1) == 1       ) && (size(isdynamic    , 2) == 1       ) );
@@ -36,6 +39,7 @@ assert( isa(alpha_k     , 'double'  ) && (size(alpha_k      , 1) == 1       ) &&
 assert( isa(alpha_n     , 'double'  ) && (size(alpha_n      , 1) == 1       ) && (size(alpha_n      , 2) == 1       ) );
 assert( isa(k_adjustment_param, 'double' ) && (size(k_adjustment_param, 1) == 1 ) && (size(k_adjustment_param, 2) == 1 ) );
 assert( isa(depreciation, 'double'  ) && (size(depreciation , 1) == 1       ) && (size(depreciation , 2) == 1       ) );
+assert( isa(k_default_reduction, 'double') && (size(k_default_reduction,1) == 1 ) && (size(k_default_reduction, 2) == 1 ) );
 
 assert( isa(profit_tax          , 'double'  ) && (size(profit_tax          , 1) == 1 ) && (size(profit_tax          , 2) == 1 ) );
 assert( isa(investment_deduction, 'double'  ) && (size(investment_deduction, 1) == 1 ) && (size(investment_deduction, 2) == 1 ) );
@@ -43,23 +47,24 @@ assert( isa(interest_deduction  , 'double'  ) && (size(interest_deduction  , 1) 
 
 assert( isa(wages           , 'double'  ) && (size(wages           , 1) == 1       ) && (size(wages           , 2) <= T_max   ) );
 assert( isa(discount_factors, 'double'  ) && (size(discount_factors, 1) == 1       ) && (size(discount_factors, 2) <= T_max   ) );
-% TODO: These should be firm state, not global state
-assert( isa(debt_rates      , 'double'  ) && (size(debt_rates      , 1) == 1       ) && (size(debt_rates      , 2) <= T_max   ) );
 
 %% Dynamic optimization
 
 % Initialize valuation and optimal decision value arrays
-W        = zeros(nz,nk,nd,T_model);      % Corp value
+OPT.W       = zeros(nz,nk,nd,T_model);      % Corp value
 
-OPT.K    = zeros(nz,nk,nd,T_model);      % Kapital
-OPT.DEBT = zeros(nz,nk,nd,T_model);      % Debt outstanding
+OPT.K       = zeros(nz,nk,nd,T_model);      % Kapital
+OPT.DEBT    = zeros(nz,nk,nd,T_model);      % Debt outstanding
+OPT.SOLVENT = zeros(nz,nk,nd,T_model);      % Defaulted on debt?
 
-OPT.LAB  = zeros(nz,nk,nd,T_model);      % Labor hired
-OPT.INC  = zeros(nz,nk,nd,T_model);      % Corp distribution
-OPT.CIT  = zeros(nz,nk,nd,T_model);      % Corporate income tax
+OPT.LAB    = zeros(nz,nk,nd,T_model);      % Labor hired
+OPT.INC    = zeros(nz,nk,nd,T_model);      % Corp distribution
+OPT.CIT    = zeros(nz,nk,nd,T_model);      % Corporate income tax
+OPT.COUPON = zeros(nz,nk,nd,T_model);      % Debt coupon payment
 
 % Initialize forward-looking corp values
-W_step = W0;
+W_step          = W0;
+Solvent_step    = Solvent0;
 
 % Specify settings for dynamic optimization subproblems
 optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
@@ -80,44 +85,92 @@ for t = T_model:-1:1
                 
                 % Calculate expected value curve using forward-looking values
                 EW = discount_factor*reshape(sum(repmat(transz(iz,:)', [1,nk,nd]) .* W_step, 1), [nk, nd]);
-
-                % Call functions to set persistent parameters
-                value_enterprise([], kv, dv, EW);
+                
+                % Calculate probability of solvency 
+                PS = reshape(sum(repmat(transz(iz,:)', [1, nk, nd]) .* Solvent_step, 1), [nk, nd]);
+                
+                % Initialize functions to set persistent parameters
+                value_equity([], kv, dv, EW);
                 calculate_income( 0, 0, ...
                     kv(ik), zv(iz), dv(id), ...
                     tfp, alpha_k, alpha_n, k_adjustment_param, depreciation, ...
                     profit_tax, investment_deduction, interest_deduction, ...
+                    PS, kv, dv, ...
                     wage );
                 
                 % Find choice (capital,debt)
                 if isdynamic
-                    k0      = kv(ik); 
-                    d0      = dv(id);
-                    [x, v]  = fminsearch(@value_enterprise, [k0, d0], optim_options);
+                    k0          = kv(ik); 
+                    d0          = dv(id);
+                    [x, v]      = fminsearch(@value_equity, [k0, d0], optim_options);
                     capital     = x(1);
                     debt        = x(2);
+                    equity      = -v;
+
+                    is_solvent  = (equity >= 0);
+                    % Are shareholders wiped out?
+                    if( ~is_solvent )
+                        % Are there bondholders to take-over firm?
+                        if( dv(id) > 0 )
+                            % Reduce amount of capital, wipe out debt,
+                            % and operate firm. Bondholders are new
+                            % shareholders.
+                            reduced_capital = kv(ik)*k_default_reduction;
+                            calculate_income( 0, 0, ...
+                                reduced_capital, zv(iz), 0, ...
+                                tfp, alpha_k, alpha_n, k_adjustment_param, depreciation, ...
+                                profit_tax, investment_deduction, interest_deduction, ...
+                                PS, kv, dv, ...
+                                wage );  
+                            % Re-optimize with new "state"
+                            k0          = reduced_capital;
+                            d0          = 0;
+                            [x, v]      = fminsearch(@value_equity, [k0, d0], optim_options);
+                            capital     = x(1);
+                            debt        = x(2);
+                            equity      = -v;
+                        end % debt default
+                        
+                        % Is the firm (still) insolvent?
+                        if( equity < 0 )
+                            % Fire-sale on capital. Liquidate firm
+                            % TODO: Need some way to guarantee positive
+                            % equity. Ideally would also transition to
+                            % different shock (from some initial
+                            % distribution)
+                        end % no equity
+                    end % is_solvent
                 else
-                    capital = K_static(iz,ik,id,t);
-                    debt    = DEBT_static (iz,ik,id,t);
-                    v       = value_enterprise( [capital, debt] );
+                    capital     = K_static(iz,ik,id,t);
+                    debt        = DEBT_static (iz,ik,id,t);
+                    equity      = -value_equity( [capital, debt] );
+                    is_solvent  = (equity >= 0);
+                    % TODO: check that static is correct
+                    
                 end % isdynamic  
                 
-                % Record enterprise value and optimal decision values
-                W       (iz,ik,id,t) = -v;
-                OPT.K   (iz,ik,id,t) = capital;
-                OPT.DEBT(iz,ik,id,t) = debt;
+                % Value of firm to shareholders
+                %    NOTE: This should always be > 0
+                OPT.W       (iz,ik,id,t) = equity;
+
+                % Record optimal decision values
+                OPT.K      (iz,ik,id,t) = capital;
+                OPT.DEBT   (iz,ik,id,t) = debt;
+                OPT.SOLVENT(iz,ik,id,t) = is_solvent;
                 
                 % Find derived vars from choice vars
-                [labor, income, cit] = calculate_income( capital, debt );
-                OPT.LAB(iz,ik,t) = labor;
-                OPT.INC(iz,ik,t) = income;
-                OPT.CIT(iz,ik,t) = cit;
+                [labor, income, cit, debt_coupon] = calculate_income( capital, debt );
+                OPT.LAB   (iz,ik,id,t) = labor;
+                OPT.INC   (iz,ik,id,t) = income;
+                OPT.CIT   (iz,ik,id,t) = cit;
+                OPT.COUPON(iz,id,id,t) = debt_coupon;
             end % iz
         end % id
     end % ik
     
     % Update forward-looking enterprise values
-    W_step = W(:, :, :, t);
+    W_step          = OPT.W(:, :, :, t);
+    Solvent_step    = OPT.SOLVENT(:, :, :, t);
     
 end % t
 
@@ -126,11 +179,9 @@ end % solve_firms
 
 
 
-
-
 %%
 % Value function: State is (capital, debt)
-function v = value_enterprise(x, kv_, dv_, EW_) %#codegen
+function v = value_equity(x, kv_, dv_, EW_) %#codegen
 
     % Enforce function inlining for C code generation
     coder.inline('always');
@@ -171,11 +222,12 @@ end % value_enterprise
 
 %%
 % Calculates firm's budget & taxes
-function [labor, income, cit] = calculate_income( ...
+function [labor, income, cit, debt_coupon] = calculate_income( ...
             new_capital, new_debt, ...
             capital_, shock_, debt_, ...
             tfp_, alpha_k_, alpha_n_, k_adjustment_param_, depreciation_, ...
             profit_tax_, investment_deduction_, interest_deduction_, ...
+            PS_, kv_, dv_, ...
             wage_, interest_rate_gross_ ) %#codegen
 
     % Enforce function inlining for C code generation
@@ -185,6 +237,7 @@ function [labor, income, cit] = calculate_income( ...
     persistent  capital shock debt ...
                 tfp alpha_k alpha_n k_adjustment_param depreciation ...
                 profit_tax investment_deduction interest_deduction ...
+                PS kv dv ...
                 wage interest_rate_gross ...
                 opt_labor labor_cost revenue ...
                 initialized;
@@ -194,6 +247,7 @@ function [labor, income, cit] = calculate_income( ...
         capital = 0; shock = 0; debt = 0; 
         tfp = 0; alpha_k = 0; alpha_n = 0; k_adjustment_param = 0; depreciation = 0;
         profit_tax = 0; investment_deduction = 0; interest_deduction = 0;
+        PS = 0; kv = 0; dv = 0;
         wage = 0; interest_rate_gross = 0;
         opt_labor = 0; labor_cost = 0; revenue = 0;
         initialized = true;
@@ -204,6 +258,7 @@ function [labor, income, cit] = calculate_income( ...
         capital = capital_; shock = shock_; debt = debt_; 
         tfp = tfp_; alpha_k = alpha_k_; alpha_n = alpha_n_; k_adjustment_param = k_adjustment_param_; depreciation = depreciation_;
         profit_tax = profit_tax_; investment_deduction = investment_deduction_; interest_deduction = interest_deduction_;
+        PS = PS_; kv = kv_; dv = dv_;
         wage = wage_; interest_rate_gross = interest_rate_gross_;
         
         % Calculate derived vars: revenue and labor_cost
@@ -222,8 +277,8 @@ function [labor, income, cit] = calculate_income( ...
     capital_adjustment_cost = (net_investment/capital)*net_investment*k_adjustment_param;
     
     % Debt and default
-    new_debt_issue          = new_debt/interest_rate_gross ...
-                                * probability_default(capital, debt, shock ); % this is b_prime
+    probability_solvent     = interp2(kv', dv', PS', new_capital, new_debt, 'linear');
+    new_debt_issue          = new_debt/interest_rate_gross * probability_solvent; 
     debt_coupon             = new_debt - new_debt_issue;
     
     pretax_revenue          = revenue  ...
@@ -245,36 +300,6 @@ function [labor, income, cit] = calculate_income( ...
 
 end % calculate_income
 
-
-%%
-% Probability of default given (capital, debt, shock)
-function p = probability_default(capital, debt, shock, ...
-                    kv_, dv_, EW_) %#codegen
-
-    % Enforce function inlining for C code generation
-    coder.inline('always');
-
-    % Define parameters as persistent variables
-    persistent kv dv EW ...
-               initialized
-
-    % Initialize parameters for C code generation
-    if isempty(initialized)
-        kv = 0; dv = 0; EW = 0; 
-        initialized = true;
-    end
-
-    % Set parameters if provided
-    if (nargin > 3)
-        kv = kv_; dv = dv_; EW = EW_; 
-        
-        % Assume if initializing, then do not continue
-        return;
-    end
-
-    p = 0;  % probability of default
-
-end % probability_default
 
 
 
