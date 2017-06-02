@@ -4,10 +4,11 @@
 %%
 
 
-function OPT = solve_firms(W0, Solvent0, ...
+function OPT = solve_firms(W0, Default0, ...
                         K_static, DEBT_static, isdynamic, ...
                         nz, nk, nd, T_model, transz, kv, zv, dv, ...
-                        tfp, alpha_k, alpha_n, k_adjustment_param, depreciation, k_default_reduction, equity_fixed_cost, equity_linear_cost, fixed_cost_operation, ...
+                        tfp, alpha_k, alpha_n, k_adjustment_param, depreciation, ...
+                        k_default_reduction, equity_fixed_cost, equity_linear_cost, fixed_cost_operation, ...
                         profit_tax, investment_deduction, interest_deduction, ...
                         wages, discount_factors ) %#codegen
 
@@ -19,7 +20,7 @@ nd_max          = 50;
 T_max           = 100;
 
 assert( isa(W0          , 'double'  ) && (size(W0           , 1) <= nz_max  ) && (size(W0           , 2) <= nk_max  ) && (size(W0         , 3) <= nd_max  ));
-assert( isa(Solvent0    , 'double'  ) && (size(Solvent0     , 1) <= nz_max  ) && (size(Solvent0     , 2) <= nk_max  ) && (size(Solvent0   , 3) <= nd_max  ));
+assert( isa(Default0    , 'double'  ) && (size(Default0     , 1) <= nz_max  ) && (size(Default0     , 2) <= nk_max  ) && (size(Default0   , 3) <= nd_max  ));
 
 assert( isa(K_static    , 'double'  ) && (size(K_static     , 1) <= nz_max  ) && (size(K_static     , 2) <= nk_max  ) && (size(K_static   , 3) <= nd_max  ) && (size(K_static   , 4) <= T_max   ) );
 assert( isa(DEBT_static , 'double'  ) && (size(DEBT_static  , 1) <= nz_max  ) && (size(DEBT_static  , 2) <= nk_max  ) && (size(DEBT_static, 3) <= nd_max  ) && (size(DEBT_static, 4) <= T_max   ) );
@@ -39,7 +40,11 @@ assert( isa(alpha_k     , 'double'  ) && (size(alpha_k      , 1) == 1       ) &&
 assert( isa(alpha_n     , 'double'  ) && (size(alpha_n      , 1) == 1       ) && (size(alpha_n      , 2) == 1       ) );
 assert( isa(k_adjustment_param, 'double' ) && (size(k_adjustment_param, 1) == 1 ) && (size(k_adjustment_param, 2) == 1 ) );
 assert( isa(depreciation, 'double'  ) && (size(depreciation , 1) == 1       ) && (size(depreciation , 2) == 1       ) );
-assert( isa(k_default_reduction, 'double') && (size(k_default_reduction,1) == 1 ) && (size(k_default_reduction, 2) == 1 ) );
+
+assert( isa(k_default_reduction , 'double') && (size(k_default_reduction ,1) == 1 ) && (size(k_default_reduction , 2) == 1 ) );
+assert( isa(equity_fixed_cost   , 'double') && (size(equity_fixed_cost   ,1) == 1 ) && (size(equity_fixed_cost   , 2) == 1 ) );
+assert( isa(equity_linear_cost  , 'double') && (size(equity_linear_cost  ,1) == 1 ) && (size(equity_linear_cost  , 2) == 1 ) );
+assert( isa(fixed_cost_operation, 'double') && (size(fixed_cost_operation,1) == 1 ) && (size(fixed_cost_operation, 2) == 1 ) );
 
 assert( isa(profit_tax          , 'double'  ) && (size(profit_tax          , 1) == 1 ) && (size(profit_tax          , 2) == 1 ) );
 assert( isa(investment_deduction, 'double'  ) && (size(investment_deduction, 1) == 1 ) && (size(investment_deduction, 2) == 1 ) );
@@ -53,18 +58,20 @@ assert( isa(discount_factors, 'double'  ) && (size(discount_factors, 1) == 1    
 % Initialize valuation and optimal decision value arrays
 OPT.W       = zeros(nz,nk,nd,T_model);      % Corp value
 
-OPT.K       = zeros(nz,nk,nd,T_model);      % Kapital
-OPT.DEBT    = zeros(nz,nk,nd,T_model);      % Debt outstanding
-OPT.SOLVENT = zeros(nz,nk,nd,T_model);      % Defaulted on debt?
+OPT.K        = zeros(nz,nk,nd,T_model);      % Kapital
+OPT.DEBT     = zeros(nz,nk,nd,T_model);      % Debt outstanding
+OPT.DEFAULT  = zeros(nz,nk,nd,T_model);      % Defaulted on debt?
+OPT.SHUTDOWN = zeros(nz,nk,nd,T_model);      % Is firm operating?
 
-OPT.LAB    = zeros(nz,nk,nd,T_model);      % Labor hired
-OPT.INC    = zeros(nz,nk,nd,T_model);      % Corp distribution
-OPT.CIT    = zeros(nz,nk,nd,T_model);      % Corporate income tax
-OPT.COUPON = zeros(nz,nk,nd,T_model);      % Debt coupon payment
+OPT.DIVIDEND = zeros(nz,nk,nd,T_model);      % Corp distribution
+OPT.LABOR    = zeros(nz,nk,nd,T_model);      % Labor hired
+OPT.OUTPUT   = zeros(nz,nk,nd,T_model);      % Production
+OPT.CIT      = zeros(nz,nk,nd,T_model);      % Corporate income tax
+OPT.COUPON   = zeros(nz,nk,nd,T_model);      % Debt coupon payment
 
 % Initialize forward-looking corp values
 W_step          = W0;
-Solvent_step    = Solvent0;
+Default_step    = Default0;
 
 % Specify settings for dynamic optimization subproblems
 optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
@@ -72,22 +79,22 @@ optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
 % Solve dynamic optimization problem through backward induction
 for t = T_model:-1:1
     
-    year = t; 
+    year = t;  
     
     % Extract parameters for current year
     wage                = wages             (year);
     discount_factor     = discount_factors  (year);
-    interest_rate_gross = 1/discount_factor - 1;
+    interest_rate_gross = 1/discount_factor;
 
     for ik = 1:nk
         for id = 1:nd
             for iz = 1:nz
                 
                 % Calculate expected value curve using forward-looking values
-                EW = discount_factor*reshape(sum(repmat(transz(iz,:)', [1,nk,nd]) .* W_step, 1), [nk, nd]);
+                EW = reshape(sum(repmat(transz(iz,:)', [1, nk, nd]) .* W_step       , 1), [nk, nd]) * discount_factor;
                 
-                % Calculate probability of solvency 
-                PS = reshape(sum(repmat(transz(iz,:)', [1, nk, nd]) .* Solvent_step, 1), [nk, nd]);
+                % Calculate probability of solvency
+                PS = reshape(sum(repmat(transz(iz,:)', [1, nk, nd]) .* ~Default_step, 1), [nk, nd]);
                 
                 % Initialize functions to set persistent parameters
                 value_equity([], kv, dv, EW);
@@ -107,9 +114,32 @@ for t = T_model:-1:1
                     debt        = x(2);
                     equity      = -v;
 
-                    is_solvent  = (equity >= 0);
+                    investment  = capital - kv(id)*(1-depreciation);
+                    
+                    % Find liquidation value.
+                    % It assumes full uninstall of capital and payment of
+                    % current debt.
+                    liquidation_value = max(0, kv(ik) - capital_adjustment_cost(kv(ik), investment, k_adjustment_param)) ...
+                                        - dv(id);
+                    
+                    % Current shareholders pick best option
+                    [~, run_choice] = max([equity, 0, liquidation_value]);
+                                    
+                    % Do we liquidate the firm?
+                    if ( liquidation_value > equity )
+                        capital     = 0;
+                        debt        = 0;
+                        
+                        dividend    = liquidation_value;
+                        labor       = 0;
+                        output      = 0;
+                        cit         = 0;
+                        debt_coupon = 0;
+                        is_shutdown = true;
+                    else 
+                    
                     % Are shareholders wiped out?
-                    if( ~is_solvent )
+                    if( equity < 0 )
                         % Are there bondholders to take-over firm?
                         if( dv(id) > 0 )
                             % Reduce amount of capital, wipe out debt,
@@ -132,14 +162,17 @@ for t = T_model:-1:1
                         end % debt default
                         
                         % Is the firm (still) insolvent?
+                        % If so, shut down.
                         if( equity < 0 )
-                            % Fire-sale on capital. Liquidate firm
-                            % TODO: Need some way to guarantee positive
-                            % equity. Ideally would also transition to
-                            % different shock (from some initial
-                            % distribution)
+                            % Fire-sale on capital will happen in
+                            % distribution transition. (Also, transition to
+                            % initial shock distribution.)
+                            capital     = kv(ik);
+                            debt        = 0;
+                            is_shutdown = true;
                         end % no equity
                     end % is_solvent
+
                 else
                     capital     = K_static(iz,ik,id,t);
                     debt        = DEBT_static (iz,ik,id,t);
@@ -154,23 +187,33 @@ for t = T_model:-1:1
                 OPT.W       (iz,ik,id,t) = equity;
 
                 % Record optimal decision values
-                OPT.K      (iz,ik,id,t) = capital;
-                OPT.DEBT   (iz,ik,id,t) = debt;
-                OPT.SOLVENT(iz,ik,id,t) = is_solvent;
+                OPT.K       (iz,ik,id,t) = capital;
+                OPT.DEBT    (iz,ik,id,t) = debt;
+                OPT.DEFAULT (iz,ik,id,t) = is_solvent;
+                OPT.SHUTDOWN(iz,ik,id,t) = is_shutdown;
                 
                 % Find derived vars from choice vars
-                [labor, income, cit, debt_coupon] = calculate_income( capital, debt );
-                OPT.LAB   (iz,ik,id,t) = labor;
-                OPT.INC   (iz,ik,id,t) = income;
-                OPT.CIT   (iz,ik,id,t) = cit;
-                OPT.COUPON(iz,id,id,t) = debt_coupon;
+                if is_shutdown
+                    labor       = 0;
+                    output      = 0;
+                    dividend    = 0;
+                    cit         = 0;
+                    debt_coupon = 0;
+                else
+                    [dividend, labor, output, cit, debt_coupon] = calculate_income( capital, debt );
+                end
+                OPT.DIVIDEND(iz,ik,id,t) = dividend;
+                OPT.LABOR   (iz,ik,id,t) = labor;
+                OPT.OUTPUT  (iz,ik,id,t) = output;
+                OPT.CIT     (iz,ik,id,t) = cit;
+                OPT.COUPON  (iz,id,id,t) = debt_coupon;
             end % iz
         end % id
     end % ik
     
     % Update forward-looking enterprise values
     W_step          = OPT.W(:, :, :, t);
-    Solvent_step    = OPT.SOLVENT(:, :, :, t);
+    Default_step    = OPT.SOLVENT(:, :, :, t);
     
 end % t
 
@@ -207,12 +250,12 @@ function v = value_equity(x, kv_, dv_, EW_) %#codegen
     new_capital = x(1);
     new_debt    = x(2);
     
-    [~, income, ~] = calculate_income( new_capital, new_debt );
+    [dividend, ~, ~, ~, ~] = calculate_income( new_capital, new_debt );
     
     % Calculate enterprise value
     %   REM: EW has already been multiplied by discount_factor
     v = interp2(kv', dv', EW', new_capital, new_debt, 'linear') ... 
-        + income;
+        + dividend;
 
     % Negate value for minimization and force to scalar for C code generation
     v = -v(1);
@@ -222,10 +265,11 @@ end % value_enterprise
 
 %%
 % Calculates firm's budget & taxes
-function [labor, income, cit, debt_coupon] = calculate_income( ...
+function [dividend, labor, output, cit, debt_coupon] = calculate_income( ...
             new_capital, new_debt, ...
             capital_, shock_, debt_, ...
             tfp_, alpha_k_, alpha_n_, k_adjustment_param_, depreciation_, ...
+            equity_fixed_cost_, equity_linear_cost_, fixed_cost_operation_, ...
             profit_tax_, investment_deduction_, interest_deduction_, ...
             PS_, kv_, dv_, ...
             wage_, interest_rate_gross_ ) %#codegen
@@ -236,6 +280,7 @@ function [labor, income, cit, debt_coupon] = calculate_income( ...
     % Define parameters as persistent variables
     persistent  capital shock debt ...
                 tfp alpha_k alpha_n k_adjustment_param depreciation ...
+                equity_fixed_cost equity_linear_cost fixed_cost_operation ...
                 profit_tax investment_deduction interest_deduction ...
                 PS kv dv ...
                 wage interest_rate_gross ...
@@ -257,6 +302,7 @@ function [labor, income, cit, debt_coupon] = calculate_income( ...
     if (nargin > 2)
         capital = capital_; shock = shock_; debt = debt_; 
         tfp = tfp_; alpha_k = alpha_k_; alpha_n = alpha_n_; k_adjustment_param = k_adjustment_param_; depreciation = depreciation_;
+        equity_fixed_cost = equity_fixed_cost_; equity_linear_cost = equity_linear_cost_; fixed_cost_operation = fixed_cost_operation_; ...
         profit_tax = profit_tax_; investment_deduction = investment_deduction_; interest_deduction = interest_deduction_;
         PS = PS_; kv = kv_; dv = dv_;
         wage = wage_; interest_rate_gross = interest_rate_gross_;
@@ -293,13 +339,21 @@ function [labor, income, cit, debt_coupon] = calculate_income( ...
                                 + (1-interest_deduction)*debt_coupon  );
     
     % After-tax income includes $ from debt issuance
-    income                  = pretax_revenue - cit + (new_debt_issue - debt);
+    dividend                  = pretax_revenue - cit + (new_debt_issue - debt);
     
-    % Labor only depends on old capital
+    % Labor only depends on old capital as does revenue/output
     labor                   = opt_labor;
+    output                  = revenue;
 
 end % calculate_income
 
+
+%%  
+%   Capital adjustment cost function
+%    TODO: Check if this is slowing down calculation
+function cost = capital_adjustment_cost( capital, investment, param)
+    cost = (investment/capital)*investment*param;
+end
 
 
 
