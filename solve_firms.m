@@ -122,36 +122,31 @@ for t = T_model:-1:1
                     liquidation_value = max(0, kv(ik) - capital_adjustment_cost(kv(ik), investment, k_adjustment_param)) ...
                                         - dv(id);
                     
-                    % Current shareholders pick best option
-                    [~, run_choice] = max([equity, 0, liquidation_value]);
-                                    
-                    % Do we liquidate the firm?
-                    if ( liquidation_value > equity )
-                        capital     = 0;
-                        debt        = 0;
-                        
-                        dividend    = liquidation_value;
-                        labor       = 0;
-                        output      = 0;
-                        cit         = 0;
-                        debt_coupon = 0;
-                        is_shutdown = true;
-                    else 
                     
-                    % Are shareholders wiped out?
-                    if( equity < 0 )
-                        % Are there bondholders to take-over firm?
-                        if( dv(id) > 0 )
-                            % Reduce amount of capital, wipe out debt,
-                            % and operate firm. Bondholders are new
-                            % shareholders.
+                    %  Current shareholders pick best option
+                    if dv(id)>0  %Check if default if an option
+                      
+                        [~, run_choice] = max([equity, 0, liquidation_value]);
+                        
+                        % Do we liquidate the firm?
+                        if run_choice == 3 % Liquidation is the best option
+                            capital     = 0;
+                            debt        = 0;
+                            
+                            dividend    = liquidation_value;
+                            labor       = 0;
+                            output      = 0;
+                            cit         = 0;
+                            debt_coupon = 0;
+                            is_shutdown = true;
+                        elseif run_choice == 2 % Default is the best option
                             reduced_capital = kv(ik)*k_default_reduction;
                             calculate_income( 0, 0, ...
                                 reduced_capital, zv(iz), 0, ...
                                 tfp, alpha_k, alpha_n, k_adjustment_param, depreciation, ...
                                 profit_tax, investment_deduction, interest_deduction, ...
                                 PS, kv, dv, ...
-                                wage );  
+                                wage );
                             % Re-optimize with new "state"
                             k0          = reduced_capital;
                             d0          = 0;
@@ -159,19 +154,20 @@ for t = T_model:-1:1
                             capital     = x(1);
                             debt        = x(2);
                             equity      = -v;
-                        end % debt default
-                        
-                        % Is the firm (still) insolvent?
-                        % If so, shut down.
-                        if( equity < 0 )
-                            % Fire-sale on capital will happen in
-                            % distribution transition. (Also, transition to
-                            % initial shock distribution.)
-                            capital     = kv(ik);
+                        end % If operating is the best option, the policies do not need to be updated
+                    else %default is NOT an option      
+                        if liquidation_value > equity
+                            capital     = 0;
                             debt        = 0;
+                            
+                            dividend    = liquidation_value;
+                            labor       = 0;
+                            output      = 0;
+                            cit         = 0;
+                            debt_coupon = 0;
                             is_shutdown = true;
-                        end % no equity
-                    end % is_solvent
+                        end % If operating is the best option, the policies do not need to be updated
+                    end 
 
                 else
                     capital     = K_static(iz,ik,id,t);
