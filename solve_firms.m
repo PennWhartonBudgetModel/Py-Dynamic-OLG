@@ -21,13 +21,13 @@ nd_max          = 50;
 T_max           = 100;
 
 assert( isa(W0          , 'double'  ) && (size(W0           , 1) <= nz_max  ) && (size(W0           , 2) <= nk_max  ) && (size(W0         , 3) <= nd_max  ));
-assert( isa(Default0    , 'double'  ) && (size(Default0     , 1) <= nz_max  ) && (size(Default0     , 2) <= nk_max  ) && (size(Default0   , 3) <= nd_max  ));
+assert( isa(Default0    , 'logical' ) && (size(Default0     , 1) <= nz_max  ) && (size(Default0     , 2) <= nk_max  ) && (size(Default0   , 3) <= nd_max  ));
 
 assert( isa(isDYNAMIC      , 'logical' ) && (size(isDYNAMIC      , 1) == 1       ) && (size(isDYNAMIC      , 2) == 1       ) );
-assert( isa(K_static       , 'double'  ) && (size(K_static       , 1) <= nz_max  ) && (size(K_static       , 2) <= nk_max  ) && (size(K_static   , 3) <= nd_max  ) && (size(K_static   , 4) <= T_max   ) );
-assert( isa(DEBT_static    , 'double'  ) && (size(DEBT_static    , 1) <= nz_max  ) && (size(DEBT_static    , 2) <= nk_max  ) && (size(DEBT_static, 3) <= nd_max  ) && (size(DEBT_static, 4) <= T_max   ) );
-assert( isa(DEFAULT_static , 'logical' ) && (size(DEFAULT_static , 1) <= nz_max  ) && (size(DEFAULT_static , 2) <= nk_max  ) && (size(DEBT_static, 3) <= nd_max  ) && (size(DEBT_static, 4) <= T_max   ) );
-assert( isa(SHUTDOWN_static, 'logical' ) && (size(SHUTDOWN_static, 1) <= nz_max  ) && (size(SHUTDOWN_static, 2) <= nk_max  ) && (size(DEBT_static, 3) <= nd_max  ) && (size(DEBT_static, 4) <= T_max   ) );
+assert( isa(K_static       , 'double'  ) && (size(K_static       , 1) <= nz_max  ) && (size(K_static       , 2) <= nk_max  ) && (size(K_static       , 3) <= nd_max  ) && (size(K_static       , 4) <= T_max   ) );
+assert( isa(DEBT_static    , 'double'  ) && (size(DEBT_static    , 1) <= nz_max  ) && (size(DEBT_static    , 2) <= nk_max  ) && (size(DEBT_static    , 3) <= nd_max  ) && (size(DEBT_static    , 4) <= T_max   ) );
+assert( isa(DEFAULT_static , 'logical' ) && (size(DEFAULT_static , 1) <= nz_max  ) && (size(DEFAULT_static , 2) <= nk_max  ) && (size(DEFAULT_static , 3) <= nd_max  ) && (size(DEFAULT_static , 4) <= T_max   ) );
+assert( isa(SHUTDOWN_static, 'logical' ) && (size(SHUTDOWN_static, 1) <= nz_max  ) && (size(SHUTDOWN_static, 2) <= nk_max  ) && (size(SHUTDOWN_static, 3) <= nd_max  ) && (size(SHUTDOWN_static, 4) <= T_max   ) );
 
 assert( isa(nz          , 'double'  ) && (size(nz           , 1) == 1       ) && (size(nz           , 2) == 1       ) );
 assert( isa(nk          , 'double'  ) && (size(nk           , 1) == 1       ) && (size(nk           , 2) == 1       ) );
@@ -65,8 +65,8 @@ OPT.W          = zeros(nz,nk,nd,T_model);      % Corp value
 
 OPT.K          = zeros(nz,nk,nd,T_model);      % Kapital
 OPT.DEBT       = zeros(nz,nk,nd,T_model);      % Debt outstanding
-OPT.DEFAULT    = zeros(nz,nk,nd,T_model);      % Defaulted on debt?
-OPT.SHUTDOWN   = zeros(nz,nk,nd,T_model);      % Is firm operating?
+OPT.DEFAULT    = false(nz,nk,nd,T_model);      % Defaulted on debt?
+OPT.SHUTDOWN   = false(nz,nk,nd,T_model);      % Is firm operating?
 
 % Initialize derived values 
 OPT.DIVIDEND   = zeros(nz,nk,nd,T_model);      % Equity distribution
@@ -93,17 +93,17 @@ for t = T_model:-1:1
     interest_rate_gross = 1/discount_factor;
     
     % Fetch t+2 values (for bond calculations)
-    %    NOTE: Defaulted firms have zero bond debt.
+    %    NOTE: Defaulted firms have zero bond debt (assumed to be @ index=1)
     %          The "apres-default" firms are not necessarily those
     %          who actually defaulted in the previous period. They
     %          are firms which have equity value like the firms which 
     %          defaulted.
     if (t < T_model - 1)
         discount_factor_step = discount_factors(t+1);
-        W_apres_default      = OPT.W(:,:,0,t+2);
+        W_apres_default      = OPT.W(:,:,1,t+2);
     else % last two periods
         discount_factor_step = discount_factor;
-        W_apres_default      = W0(:,:,0);
+        W_apres_default      = W0(:,:,1);
     end 
 
     for iz = 1:nz
@@ -115,9 +115,9 @@ for t = T_model:-1:1
         EW         = reshape(sum(repmat(transz(iz,:)', [1, nk, nd]) .* (W_step .* Repay), 1), [nk, nd]) * discount_factor;
 
         % Calculate probability of repayment, expected value of defaulted firms
-        prob_repay = reshape(sum(repmat(transz(iz,:)', [1, nk, nd]) .* Repay      , 1), [nk, nd]);
-        EW_default = reshape(sum(repmat(transz(iz,:)', [1, nk]) .* W_apres_default, 1), [1 , nk]) ...
-                     * discount_factor * discount_factor_step;
+        prob_repay       = reshape(sum(repmat(transz(iz,:)', [1, nk, nd]) .* Repay      , 1), [nk, nd]);
+        EW_apres_default = reshape(sum(repmat(transz(iz,:)', [1, nk]) .* W_apres_default, 1), [1 , nk]) ...
+                            * discount_factor * discount_factor_step;
         
         % Initialize to set persistent parameters
         value_equity([], kv, dv, EW);
@@ -134,7 +134,7 @@ for t = T_model:-1:1
                     profit_tax, investment_deduction, interest_deduction, ...
                     equity_fixed_cost, equity_linear_cost, ...
                     operation_fixed_cost, operation_linear_cost, ...
-                    k_default_reduction, prob_repay, EW_default, kv, dv, ...
+                    k_default_reduction, prob_repay, EW_apres_default, kv, dv, ...
                     wage, interest_rate_gross );
                 
                 % Find firm's policies for capital, debt, shutdown, default
@@ -385,9 +385,7 @@ function [dividend, labor, output, cit, next_coupon, investment] = calculate_inc
     P_repay         = interp2(kv', dv', prob_repay', new_capital, new_debt, 'linear');
     default_capital = new_capital * k_default_reduction;  % rem: default debt = 0
     value_default   = interp1(kv, EW_default, default_capital, 'linear'); 
-    % TODO: Verify that this is a MEX issue, not a dimension issue
-    value_default = value_default(1);
-    % END TODO
+    value_default   = value_default(1); % This is to fix MEX issue w/ dimensionality discovery.
     debt_principal  = (new_debt*(1 - debt_deduc)*P_repay + value_default*(1-P_repay))...
                        / ...
                       (interest_rate_gross + (debt_deduc/(1-debt_deduc))*P_repay);
