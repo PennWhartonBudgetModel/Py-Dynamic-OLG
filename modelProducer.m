@@ -30,7 +30,7 @@ methods (Static)
         savelasv = {0.25, 0.50, 0.75, 1.00};
         
         % Define vectors of counterfactual parameters
-        taxplanv = {'trump', 'ryan'};
+        taxplanv = {'trumpA', 'trumpB'};
         gcutv    = {+0.10, +0.05, +0.00, -0.05};
         
         % Generate all parameter combinations
@@ -162,9 +162,8 @@ methods (Static)
         
         % Define mapping from table tax plan names to dynamic model names
         taxplanmap = struct( 'CurrentLaw'  , 'base'    , ...
-                             'Clinton'     , 'clinton' , ...
-                             'Trump'       , 'trump'   , ...
-                             'Ryan'        , 'ryan'    );
+                             'TrumpA'      , 'trumpA'  , ...
+                             'TrumpB'      , 'trumpB'  );
         
         % Construct elasticity inverter
         [~, invert] = modelCalibrator.invert();

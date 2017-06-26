@@ -134,7 +134,7 @@ methods (Static, Access = private)
         deportation = counterdef_filled.deportation;
         
         % map model inputs (or outputs) to actual years
-        first_transition_year  = 2016;
+        first_transition_year  = 2018;
         
         % Identify working directories
         param_dir = dirFinder.param();
@@ -660,7 +660,7 @@ methods (Static, Access = private)
             case 'open'
                 % Tax revenues as fraction of GDP are loaded from
                 % single-series CSV files which contain data from TPC by
-                % tax plan (base, clinton, trump, ryan)
+                % tax plan (base, trumpA, trumpB)
                 % Input: TPCRevenues_<taxplan>.csv -- TPC estimated of tax
                 %           revenues as percent GDP
                 %           Format is (Year), (PctRevenues) w/ header row.

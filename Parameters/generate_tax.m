@@ -6,7 +6,7 @@ function [] = generate_tax()
     % To have access to dirFinder
     addpath( '..' );
     
-    for taxplans = {'base', 'ryan'}, taxplan = taxplans{1};
+    for taxplans = {'base', 'trumpA', 'trumpB'}, taxplan = taxplans{1};
 
         % Get PIT tax rates.
         %  Input files TPCPIT_<taxplan>.CSV expected to have the
@@ -104,21 +104,5 @@ function [tax_vars] = read_tax_vars( filename )
 end % read_tax_vars()
 
 
-%%
-%   Utility to plot the tax liability
-function [] = show_tax_rates( pit_coefs, actual_tax, incomes )
 
-    incv = incomes;
-    gouveiastrauss  = @(pit_coefs) pit_coefs(1).* ...
-                (1 - (pit_coefs(2).*(incv.^pit_coefs(3)) + 1).^-(1./pit_coefs(3)));
-    taxes           = gouveiastrauss(pit_coefs).*incv;
-
-    y(:,1)          = taxes./incv;
-    y(:,2)          = max(actual_tax,0)./incv;
-    y(:,3)          = actual_tax;
-    
-    plot (incv(1:50), y(1:50,3));
-
-end % show_tax_rates
-
-%%
+%% END file
