@@ -141,11 +141,11 @@ methods (Static)
                    29, 'capincs'        };
         
         % Specify projection years for csv files
-        years_csv = (2015 : 2089)';
+        years_csv = (2016 : 2089)';
         nyear = length(years_csv);
         
         % Specify number of years to shift results
-        % (Currently, shifting up from 2015 to 2017)
+        % (Currently, shifting up from 2016 to 2018)
         nshift = 2;
         
                 
@@ -155,7 +155,7 @@ methods (Static)
         copyfile(tablesource, fullfile(csv_dir, tablefile))
         
         fid = fopen(tablesource);
-        idtable = textscan(fid, ['%u64 ', repmat('%*q ', 1, 7),'%q %*[^\n]'], 'Delimiter', ',', 'HeaderLines', 1);
+        idtable = textscan(fid, ['%u64 ', repmat('%*q ', 1, 7), '%q %*[^\n]'], 'Delimiter', ',', 'HeaderLines', 1);
         fclose(fid);
         
         nid = length(idtable{1});
