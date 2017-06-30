@@ -183,8 +183,8 @@ methods (Static)
             def = xml2struct(idtable{2}{i});
             def = def.Dynamics;
             
-            % Skip run if tax plan absent
-            if ~isfield(def, 'TaxPlan'), continue, end
+            % Skip run if tax plan absent or not currently modeled
+            if ~isfield(def, 'TaxPlan') || ~isfield(taxplanmap, def.TaxPlan.Text), continue, end
             
             % Get economy openness and skip run if not fully open or fully closed
             switch str2double(def.OpenEconomy.Text)
