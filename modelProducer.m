@@ -31,7 +31,7 @@ methods (Static)
         
         % Define vectors of counterfactual parameters
         taxplanv = {'trumpA', 'trumpB'};
-        gcutv    = {+0.10, +0.05, +0.00, -0.05};
+        gcutv    = {+0.20, +0.15, +0.10, +0.00};
         
         % Generate all parameter combinations
         [labelasinds, savelasinds, taxplaninds, gcutinds] = ndgrid(1:length(labelasv), 1:length(savelasv), 1:length(taxplanv), 1:length(gcutv));
