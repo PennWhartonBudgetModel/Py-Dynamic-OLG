@@ -726,6 +726,13 @@ methods (Static, Access = private)
                 
         end
         fprintf(']\n')
+        fprintf( 'Started at: %s \n', datetime );
+        for label = { {'Beta'          , beta              } , ...
+                      {'Gamma'         , gamma             } , ...
+                      {'Sigma'         , sigma             } , ...
+                      {'Model$'        , modelunit_dollars } }
+            fprintf('\t%-25s= % 7.8f\n', label{1}{:})
+        end
         
         
         while (eps > tol && iter < itermax)
@@ -964,9 +971,10 @@ methods (Static, Access = private)
                     , 'beta', 'gamma', 'sigma', 'modelunit_dollars' );
                 
                 fprintf( '\n' );
+                fprintf( 'Finished at: %s\n', datetime );
                 for label = { {'Beta'          , beta              } , ...
-                              {'Sigma'         , sigma             } , ...
                               {'Gamma'         , gamma             } , ...
+                              {'Sigma'         , sigma             } , ...
                               {'Model$'        , modelunit_dollars } }
                     fprintf('\t%-25s= % 7.8f\n', label{1}{:})
                 end
