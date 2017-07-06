@@ -272,14 +272,13 @@ inc     = (1/modelunit_dollars)*max(0, capshare*caprate*kv_ik*(1-captaxshare) + 
 
 % Calculate personal income tax
 %       Expect equal-size vectors with tax_thresholds(1)=0
-%       tax_rates apply for income between tax_threshold(i-1) and (i)
-%       tax_income are pre-calculated total tax liability at tax_threshold
-%       pit_inc is income tax in dollars
+%       tax_rates apply for income between tax_thresholds(i-1) and tax_thresholds(i)
+%       tax_burden are pre-calculated total tax liability at tax_thresholds
+%       pit_dollar is income tax in dollars
 bracket     = find(tax_thresholds <= inc, 1, 'last');
-bracket     = bracket(1);                               % codegen thinks it is vector  
-tax_rate    = tax_rates(bracket);
-pit_dollar  = tax_burden(bracket) + tax_rate*(inc - tax_thresholds(bracket));
-pit         = modelunit_dollars*pit_dollar;                      % convert into model units
+bracket     = bracket(1);   % Force to scalar for C code generation
+pit_dollar  = tax_burden(bracket) + tax_rates(bracket)*(inc - tax_thresholds(bracket));
+pit         = modelunit_dollars*pit_dollar;     % Convert to model units
 
 % Calculate Social Security tax
 sst = sstax * min(labinc, ssincmax);
