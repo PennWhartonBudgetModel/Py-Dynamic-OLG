@@ -72,14 +72,14 @@ methods (Static)
     
     
     % Check production run termination conditions
-    function [] = check_terminations(clean)
+    function [] = check_terminations()
         
         % Identify production run definition files
         run_files = dir(fullfile(modelProducer.run_dir, 'run*.mat'));
         nrun = length(run_files);
         
         % Initialize cell array of termination conditions
-        terminations = cell(0,4);
+        terminations = cell(0,5);
         
         for irun = 1:nrun
             
@@ -91,21 +91,18 @@ methods (Static)
             
             % Store termination condition, setting default values if missing
             if ~isfield(s, 'termination'), s.termination = struct('iter', Inf, 'eps', Inf); end
-            terminations = [terminations; {basedef_tag, counterdef_tag, s.termination.iter, s.termination.eps}]; %#ok<AGROW>
+            terminations = [terminations; {irun, basedef_tag, counterdef_tag, s.termination.iter, s.termination.eps}]; %#ok<AGROW>
             
         end
         
         % Sort termination conditions by increasing iterations and error terms
-        [~, sortinds] = sortrows(cell2mat(terminations(:,3:4)));
+        [~, sortinds] = sortrows(cell2mat(terminations(:,4:5)));
         
         % Save termination conditions to csv file
         fid = fopen(fullfile(dirFinder.saveroot(), 'terminations.csv'), 'w');
-        fprintf(fid, 'Baseline Definition,Counterfactual Definition,Termination Iteration,Termination Error Term\n');
-        for irun = 1:nrun, fprintf(fid, '%s,%s,%d,%0.4f\n', terminations{sortinds(irun),:}); end
+        fprintf(fid, 'Run,Baseline Definition,Counterfactual Definition,Termination Iteration,Termination Error Term\n');
+        for irun = 1:nrun, fprintf(fid, '%d,%s,%s,%d,%0.4f\n', terminations{sortinds(irun),:}); end
         fclose(fid);
-        
-        % Delete run directory
-        if (exist('clean', 'var') && clean), rmdir(modelProducer.run_dir, 's'), end
         
     end
     
