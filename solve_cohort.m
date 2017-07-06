@@ -275,7 +275,7 @@ inc     = (1/modelunit_dollars)*max(0, capshare*caprate*kv_ik*(1-captaxshare) + 
 %       tax_rates apply for income between tax_threshold(i-1) and (i)
 %       tax_income are pre-calculated total tax liability at tax_threshold
 %       pit_inc is income tax in dollars
-bracket     = find(tax_thresholds < inc, 1, 'last' );
+bracket     = find(tax_thresholds <= inc, 1, 'last');
 bracket     = bracket(1);                               % codegen thinks it is vector  
 tax_rate    = tax_rates(bracket);
 pit_dollar  = tax_burden(bracket) + tax_rate*(inc - tax_thresholds(bracket));
