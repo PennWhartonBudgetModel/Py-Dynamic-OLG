@@ -665,9 +665,8 @@ methods (Static, Access = private)
                 %           revenues as percent GDP
                 %           Format is (Year), (PctRevenues) w/ header row.
                 filename            = strcat('TPCRevenues_', taxplan, '.csv');
-                tax_revenue_by_GDP  = read_series(filename, first_transition_year - 1, dirFinder.param);
-                % input file is in percent and drop pre-transition year
-                tax_revenue_by_GDP  = (tax_revenue_by_GDP(2:end)./100)'; 
+                tax_revenue_by_GDP  = read_series(filename, first_transition_year, dirFinder.param);
+                tax_revenue_by_GDP  = tax_revenue_by_GDP'; 
                 if( T_model - length(tax_revenue_by_GDP) < 0 )
                     tax_revenue_by_GDP = tax_revenue_by_GDP(1:T_model);
                 else
