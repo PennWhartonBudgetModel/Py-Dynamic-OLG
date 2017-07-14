@@ -1,7 +1,7 @@
 %%
 % Generate tax policy parameters according to predefined plans.
 % 
-function [] = generate_tax()
+function s = generate_tax()
 
     % To have access to dirFinder
     addpath( '..' );
@@ -50,10 +50,6 @@ function [] = generate_tax()
         s.(taxplan).taucapgain  = 0           ;
     end  % for
 
-    % Save parameters
-    save(fullfile(dirFinder.param(), 'tax.mat'), '-struct', 's');
-
-    % DEBUG: show_tax_rates(s.('base').pit_coefs, s.('base').inc_tax, incv);
 
 end  % generate_tax()
 
