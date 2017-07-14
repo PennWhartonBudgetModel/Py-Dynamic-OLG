@@ -298,6 +298,7 @@ methods (Static, Access = private)
         
         sstaxcredit = 0.15;     % Benefit tax credit percentage
         
+        
         %%  CBO interest rates, expenditures, and debt
         
         % Input: CBOInterestRate.csv -- interest rate (as pct) 
@@ -346,7 +347,7 @@ methods (Static, Access = private)
                         - CBOSocialSecuritySpending./100 ...
                         - CBOMedicareSpending./100 ...
                     ;
-        GEXP_by_GDP = GEXP_by_GDP';
+        GEXP_by_GDP     = GEXP_by_GDP';
                     
         deficit_nis     = SIMRevenues - SIMExpenditures;
         debt            = zeros(size(deficit_nis));
@@ -373,6 +374,21 @@ methods (Static, Access = private)
         cborates    = CBO_rates_growth_adjusted(2:T_model + 1)';% starts from first transition path year
         cbomeanrate = nanmean(CBO_rates_growth_adjusted(2:end));% Mean growth-adjusted interest rate over modeling period
         
+        % Warn if parameters are outside expectations
+        if( (cbomeanrate < -0.03) || (cbomeanrate > 0.08) )
+            fprintf( 'WARNING! cbomeanrate=%f outside expecations.\n', cbomeanrate );
+        end
+        if( (debttoout < 0.5) || (debttoout > 1.5) )
+            fprintf( 'WARNING! debttoout=%f ouside expecations.\n', debttoout );
+        end
+        if( max(abs(cborates)) > 0.08 )
+            fprintf( 'WARNING! cborates outside expectations.\n' );
+        end
+        if( max(abs(fedgovtnis)) > 0.1 )
+            fprintf( 'WARNING! fedgovtnis outside expectations.\n' );
+        end
+
+        
         %% Tax parameters
         s = generate_tax();
         
@@ -391,6 +407,19 @@ methods (Static, Access = private)
         qtobin0 = 1 - expshare_base*taucap_base;
         qtobin  = 1 - expshare     *taucap     ;
         
+        % Warn if parameters are outside expectations
+        if( (captaxshare < 0) || (captaxshare > 1) )
+            fprintf( 'WARNING! captaxshare=%f outside expecations.\n', captaxshare );
+        end
+        if( (expshare < 0) || (expshare > 1) )
+            fprintf( 'WARNING! expshare=%f outside expecations.\n', expshare );
+        end
+        if( (taucap < 0) || (taucap > 1) )
+            fprintf( 'WARNING! taucap=%f outside expecations.\n', taucap );
+        end        
+        if( (taucapgain < 0) || (taucapgain > 1) )
+            fprintf( 'WARNING! taucapgain=%f outside expecations.\n', taucapgain );
+        end  
         
         
         %% Aggregate generation function
