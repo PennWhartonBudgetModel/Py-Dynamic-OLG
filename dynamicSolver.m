@@ -310,10 +310,11 @@ methods (Static, Access = private)
         %           Format is (Year), (Revenues) w/ header row.
         % Input: SIMExpenditures.csv -- nominal non-interest expenditures from baseline SIM
         %           Format is (Year), (Expenditures) w/ header row.
-        %   NOTE: Initial year should have Revenues - Expenditures = -Debt
-        %           So that we do not have to pass in initial debt amount.
-        %           Make Revenues=0 and Expenditures = Debt
-        %  TBD  --- FIX THE ABOVE otherwise there is dependency on year 
+        % Input: CBOPublicDebt.csv  -- dollar debt of the gvt
+        %           Format is (Year), (Debt) w/ header row.
+        %           NOTE: Only the year corresponding to first_year is
+        %           used. The other debt amounts are calculated from SIM
+        %           series.
         % Input: CBONonInterestSpending.csv -- NIS as pct GDP
         %           Format is (Year), (PctGDP) w/ header row.
         % Input: CBOSocialSecuritySpending.csv -- SS spending as pct GDP
@@ -322,15 +323,15 @@ methods (Static, Access = private)
         %           Format is (Year), (PctGDP) w/ header row.
         % Output: 
         %       debttoout, fedgovtnis, cborates, GEXP_by_GDP
-        first_year      = first_transition_year - 1;    % first year from which to read series
-        
-        CBORates                    = read_series('CBOInterestRate.csv', first_year, dirFinder.param );
-        SIMGDP                      = read_series('SIMGDP.csv', first_year, dirFinder.param );
-        SIMRevenues                 = read_series('SIMRevenues.csv', first_year, dirFinder.param );
-        SIMExpenditures             = read_series('SIMExpenditures.csv', first_year, dirFinder.param );
-        CBONonInterestSpending      = read_series('CBONonInterestSpending.csv', first_year, dirFinder.param );
-        CBOSocialSecuritySpending   = read_series('CBOSocialSecuritySpending.csv', first_year, dirFinder.param );
-        CBOMedicareSpending         = read_series('CBOMedicareSpending.csv', first_year, dirFinder.param );
+        first_year                  = first_transition_year - 1;    % first year from which to read series
+        CBODebt                     = read_series( 'CBOPublicDebt.csv', first_year, dirFinder.param );
+        CBORates                    = read_series( 'CBOInterestRate.csv', first_year, dirFinder.param );
+        SIMGDP                      = read_series( 'SIMGDP.csv', first_year, dirFinder.param );
+        SIMRevenues                 = read_series( 'SIMRevenues.csv', first_year, dirFinder.param );
+        SIMExpenditures             = read_series( 'SIMExpenditures.csv', first_year, dirFinder.param );
+        CBONonInterestSpending      = read_series( 'CBONonInterestSpending.csv', first_year, dirFinder.param );
+        CBOSocialSecuritySpending   = read_series( 'CBOSocialSecuritySpending.csv', first_year, dirFinder.param );
+        CBOMedicareSpending         = read_series( 'CBOMedicareSpending.csv', first_year, dirFinder.param );
 
         if( size(SIMGDP) ~= size(SIMRevenues) ...
             | size(SIMGDP) ~= size(SIMExpenditures) ...
@@ -351,7 +352,7 @@ methods (Static, Access = private)
                     
         deficit_nis     = SIMRevenues - SIMExpenditures;
         debt            = zeros(size(deficit_nis));
-        debt(1)         = -deficit_nis(1);
+        debt(1)         = CBODebt(1);
         for i = 2:size(deficit_nis)
             debt(i) = debt(i-1)*(1+CBORates(i)/100.0) - deficit_nis(i);
         end;
