@@ -271,17 +271,15 @@ methods (Static, Access = private)
         alpha = 0.45;   % Capital share of output
         d     = 0.085;  % Depreciation rate
         
-        % Define population growth parameters
-        birth_rate   = 0.0200;                  % Annual birth rate
-        legal_rate   = 0.0016 * legal_scale;    % Annual legal immigration rate
-        illegal_rate = 0.0024;                  % Annual illegal immigration rate
-        
+        % Load population growth parameters
         % Load age-dependent parameters
-        % (To be updated; original sources outdated)
-        surv    = read_series('XXXSurvivalProbability.csv', [], dirFinder.param);
-        imm_age = read_series('XXXImmigrantAgeDistribution.csv', [], dirFinder.param);
-        surv    = surv';
-        imm_age = imm_age';
+        % (To be updated; original sources outdated)        s       = paramGenerator.demographics();
+        s = paramGenerator.demographics();
+        birth_rate      = s.birth_rate;                  % Annual birth rate
+        legal_rate      = s.legal_rate * legal_scale;    % Annual legal immigration rate
+        illegal_rate    = s.illegal_rate;                % Annual illegal immigration rate
+        surv            = s.surv;
+        imm_age         = s.imm_age;
         
         % Define Social Security parameters
         ssthresholds = [856, 5157]*12*modelunit_dollars;  % Thresholds for earnings brackets
@@ -391,7 +389,7 @@ methods (Static, Access = private)
 
         
         %% Tax parameters
-        s_counter = paramGenerator.tax_params( taxplan );
+        s_counter = paramGenerator.tax( taxplan );
         
         tax_thresholds      = s_counter.tax_thresholds;
         tax_income          = s_counter.tax_income;
@@ -402,7 +400,7 @@ methods (Static, Access = private)
         taucap              = s_counter.taucap;
         taucapgain          = s_counter.taucapgain;
         
-        s_base = paramGenerator.tax_params( 'base' );
+        s_base = paramGenerator.tax( 'base' );
         expshare_base = s_base.expshare;
         taucap_base   = s_base.taucap;
         

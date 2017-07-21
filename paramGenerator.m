@@ -14,7 +14,7 @@ methods (Static)
     %%
     % Generate tax policy parameters according to predefined plans.
     % 
-    function s = tax_params( taxplan )
+    function s = tax( taxplan )
         % Get PIT tax rates.
         %  Input files TPCPIT_<taxplan>.CSV expected to have the
         %  following structure:
@@ -56,8 +56,29 @@ methods (Static)
         s.taucap      = tax_vars.CapitalTaxRate; 
         s.taucapgain  = 0           ;
     
-    end  % tax_params()
+    end  % tax()
 
+    
+    %% Demographic params
+    %     Includes:
+    %          survival probabilities
+    %        , immigrant age distribution
+    %        , birth rate
+    %        , legal immigration rate
+    %        , illegal immigration rate
+    function s = demographics()
+        
+        survival  = read_series('XXXSurvivalProbability.csv', [], dirFinder.param);
+        imm_age   = read_series('XXXImmigrantAgeDistribution.csv', [], dirFinder.param);
+        s.surv    = survival';
+        s.imm_age = imm_age';
+
+        s.birth_rate   = 0.0200;    % Annual birth rate
+        s.legal_rate   = 0.0016;    % Annual legal immigration rate
+        s.illegal_rate = 0.0024;    % Annual illegal immigration rate
+
+    end % demographics
+    
 end % methods
 
 end % class paramGenerator
@@ -110,6 +131,46 @@ function [tax_vars] = read_tax_vars( filename )
     tax_vars    = table2struct(T);
 
 end % read_tax_vars()
+
+
+%%
+% Read a CSV file in format (Index), (Value)
+%    For time series, (Index) is (Year), 
+%       return a vector with first element being the value at
+%       first_index (that is, first_year_transition - 1). The next value is the value at the start of
+%       the transition path.
+%   For other series (e.g. age_survival_probability, (Index) is (Age)
+%       return the series from first_index. 
+%   If first_index is empty, then return whole vector.
+function [series] = read_series(filename, first_index, param_dir )
+
+    warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
+    warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
+ 
+    % Check if file exists 
+    filepath    = fullfile(param_dir, filename);
+    if ~exist(filepath, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
+        throw(MException('read_series:FILENAME', err_msg ));
+    end;
+        
+    T           = readtable(filepath, 'Format', '%u%f');
+    indices     = table2array(T(:,1));
+    vals        = table2array(T(:,2));
+    
+    if( isempty(first_index) )
+        idx_start   = 1;
+    else
+        idx_start   = find( indices == first_index, 1);
+    end;
+
+    if( isempty(idx_start) )
+        throw(MException('read_series:FIRSTINDEX','Cannot find first index in file.'));
+    end;
+    
+    series      = vals(idx_start:end );
+
+end % read_series
 
 %%  END FILE
 
