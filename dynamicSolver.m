@@ -391,19 +391,20 @@ methods (Static, Access = private)
 
         
         %% Tax parameters
-        s = generate_tax();
+        s_counter = paramGenerator.tax_params( taxplan );
         
-        tax_thresholds      = s.(taxplan).tax_thresholds;
-        tax_income          = s.(taxplan).tax_income;
-        tax_rates           = s.(taxplan).tax_rates;
+        tax_thresholds      = s_counter.tax_thresholds;
+        tax_income          = s_counter.tax_income;
+        tax_rates           = s_counter.tax_rates;
         
-        captaxshare   = s.(taxplan).captaxshare;
-        expshare      = s.(taxplan).expshare;
-        taucap        = s.(taxplan).taucap;
-        taucapgain    = s.(taxplan).taucapgain;
+        captaxshare         = s_counter.captaxshare;
+        expshare            = s_counter.expshare;
+        taucap              = s_counter.taucap;
+        taucapgain          = s_counter.taucapgain;
         
-        expshare_base = s.('base').expshare;
-        taucap_base   = s.('base').taucap;
+        s_base = paramGenerator.tax_params( 'base' );
+        expshare_base = s_base.expshare;
+        taucap_base   = s_base.taucap;
         
         qtobin0 = 1 - expshare_base*taucap_base;
         qtobin  = 1 - expshare     *taucap     ;
@@ -413,13 +414,13 @@ methods (Static, Access = private)
             fprintf( 'WARNING! captaxshare=%f outside expecations.\n', captaxshare );
         end
         if( (expshare < 0) || (expshare > 1) )
-            fprintf( 'WARNING! expshare=%f outside expecations.\n', expshare );
+            fprintf( 'WARNING! expshare=%f outside expectations.\n', expshare );
         end
         if( (taucap < 0) || (taucap > 1) )
-            fprintf( 'WARNING! taucap=%f outside expecations.\n', taucap );
+            fprintf( 'WARNING! taucap=%f outside expectations.\n', taucap );
         end        
         if( (taucapgain < 0) || (taucapgain > 1) )
-            fprintf( 'WARNING! taucapgain=%f outside expecations.\n', taucapgain );
+            fprintf( 'WARNING! taucapgain=%f outside expectations.\n', taucapgain );
         end  
         
         
