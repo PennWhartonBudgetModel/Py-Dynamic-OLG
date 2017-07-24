@@ -11,7 +11,8 @@ end % properties
 
 methods (Static)
 
-    %%
+    %% TAXES
+    % 
     % Generate tax policy parameters according to predefined plans.
     % 
     function s = tax( taxplan )
@@ -59,7 +60,7 @@ methods (Static)
     end  % tax()
 
     
-    %% Demographic params
+    %% DEMOGRAPHICS
     %     Includes:
     %          survival probabilities
     %        , immigrant age distribution
@@ -78,6 +79,41 @@ methods (Static)
         s.illegal_rate = 0.0024;    % Annual illegal immigration rate
 
     end % demographics
+    
+    
+    %% PRODUCTION
+    %     Includes:
+    %          TFP
+    %        , depreciation
+    %        , capital share
+    function s = production()
+        
+        s.A     = 1;      % Total factor productivity
+        s.alpha = 0.45;   % Capital share of output
+        s.d     = 0.085;  % Depreciation rate
+
+    end % production
+        
+    
+    %% SOCIAL SECURITY
+    %
+    function s = social_security( modelunit_dollars, bv, T_model )
+        
+        ssthresholds = [856, 5157]*12*modelunit_dollars;    % Thresholds for earnings brackets
+        ssrates      = [0.9, 0.32, 0.15];                   % Marginal benefit rates for earnings brackets
+        ss_scale     = 1.6;                                 % Benefit scaling factor used to match total outlays as a percentage of GDP
+        
+        ssbenefit = [ max(min(bv, ssthresholds(1)) - 0              , 0) , ...
+                      max(min(bv, ssthresholds(2)) - ssthresholds(1), 0) , ...
+                      max(min(bv, Inf            ) - ssthresholds(2), 0) ] * ssrates' * ss_scale;
+        
+        s.ssbenefits  = repmat(ssbenefit                , [1,T_model]);  % Benefits
+        s.sstaxs      = repmat(0.124                    , [1,T_model]);  % Tax rates
+        s.ssincmaxs   = repmat(1.185e5*modelunit_dollars, [1,T_model]);  % Maximum taxable earnings
+        
+        s.sstaxcredit = 0.15;     % Benefit tax credit percentage
+
+    end % social_security
     
 end % methods
 

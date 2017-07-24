@@ -266,10 +266,11 @@ methods (Static, Access = private)
         phi1 = 0; phi2 = 11.6; phi3 = 1.5;
         V_beq = phi1 * (1 + kv/phi2).^(1 - phi3);
         
-        % Define output parameters
-        A     = 1;      % Total factor productivity
-        alpha = 0.45;   % Capital share of output
-        d     = 0.085;  % Depreciation rate
+        % Load output parameters
+        s = paramGenerator.production();
+        A     = s.A;        % Total factor productivity
+        alpha = s.alpha;    % Capital share of output
+        d     = s.d;        % Depreciation rate
         
         % Load population growth parameters
         % Load age-dependent parameters
@@ -281,18 +282,11 @@ methods (Static, Access = private)
         surv            = s.surv;
         imm_age         = s.imm_age;
         
-        % Define Social Security parameters
-        ssthresholds = [856, 5157]*12*modelunit_dollars;  % Thresholds for earnings brackets
-        ssrates      = [0.9, 0.32, 0.15];           % Marginal benefit rates for earnings brackets
-        ss_scale     = 1.6;                         % Benefit scaling factor used to match total outlays as a percentage of GDP
-        
-        ssbenefit = [ max(min(bv, ssthresholds(1)) - 0              , 0) , ...
-                      max(min(bv, ssthresholds(2)) - ssthresholds(1), 0) , ...
-                      max(min(bv, Inf            ) - ssthresholds(2), 0) ] * ssrates' * ss_scale;
-        
-        ssbenefits  = repmat(ssbenefit                , [1,T_model]);  % Benefits
-        sstaxs      = repmat(0.124                    , [1,T_model]);  % Tax rates
-        ssincmaxs   = repmat(1.185e5*modelunit_dollars, [1,T_model]);  % Maximum taxable earnings
+        % Load Social Security parameters
+        s = paramGenerator.social_security( modelunit_dollars, bv, T_model );
+        ssbenefits  = s.ssbenefits;     % Benefits
+        sstaxs      = s.sstaxs    ;     % Tax rates
+        ssincmaxs   = s.ssincmaxs ;     % Maximum taxable earnings
         
         sstaxcredit = 0.15;     % Benefit tax credit percentage
         
