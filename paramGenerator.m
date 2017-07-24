@@ -42,7 +42,7 @@ methods (Static)
         % Store income tax and deduction functions.
         %   REM: Transpose into row vectors
         s.tax_thresholds      = income_thresholds';
-        s.tax_income          = income_tax';
+        s.tax_burden          = income_tax';
         s.tax_rates           = tax_rates';
 
         % Get the capital tax params and store them.
@@ -56,7 +56,20 @@ methods (Static)
         s.expshare    = tax_vars.ExpensingShare; 
         s.taucap      = tax_vars.CapitalTaxRate; 
         s.taucapgain  = 0           ;
-    
+        
+        % Warn if parameters are outside expectations
+        if( (s.captaxshare < 0) || (s.captaxshare > 1) )
+            fprintf( 'WARNING! captaxshare=%f outside expecations.\n', captaxshare );
+        end
+        if( (s.expshare < 0) || (s.expshare > 1) )
+            fprintf( 'WARNING! expshare=%f outside expectations.\n', expshare );
+        end
+        if( (s.taucap < 0) || (s.taucap > 1) )
+            fprintf( 'WARNING! taucap=%f outside expectations.\n', taucap );
+        end        
+        if( (s.taucapgain < 0) || (s.taucapgain > 1) )
+            fprintf( 'WARNING! taucapgain=%f outside expectations.\n', taucapgain );
+        end  
     end  % tax()
 
     
@@ -114,6 +127,104 @@ methods (Static)
         s.sstaxcredit = 0.15;     % Benefit tax credit percentage
 
     end % social_security
+    
+    
+    %% BUDGET AND INTEREST RATES
+    %
+    function s = budget( first_transition_year, T_model )
+        %  CBO interest rates, expenditures, and debt
+        % Input: CBOInterestRate.csv -- interest rate (as pct) 
+        %           Format is (Year), (PctRate) w/ header row.
+        %           NOTE: Initial year is unused.
+        % Input: SIMGDP.csv -- nominal GDP from baseline SIM
+        %           Format is (Year), (NominalGDP) w/ header row.
+        % Input: SIMRevenues.csv -- nominal tax revenues from baseline SIM
+        %           Format is (Year), (Revenues) w/ header row.
+        % Input: SIMExpenditures.csv -- nominal non-interest expenditures from baseline SIM
+        %           Format is (Year), (Expenditures) w/ header row.
+        % Input: CBOPublicDebt.csv  -- dollar debt of the gvt
+        %           Format is (Year), (Debt) w/ header row.
+        %           NOTE: Only the year corresponding to first_year is
+        %           used. The other debt amounts are calculated from SIM
+        %           series.
+        % Input: CBONonInterestSpending.csv -- NIS as pct GDP
+        %           Format is (Year), (PctGDP) w/ header row.
+        % Input: CBOSocialSecuritySpending.csv -- SS spending as pct GDP
+        %           Format is (Year), (PctGDP) w/ header row.
+        % Input: CBOMedicareSpending.csv -- Medicare spending as pct GDP
+        %           Format is (Year), (PctGDP) w/ header row.
+        % Output: 
+        %       debttoout, fedgovtnis, cborates, GEXP_by_GDP
+        first_year                  = first_transition_year - 1;    % first year from which to read series
+        CBODebt                     = read_series( 'CBOPublicDebt.csv', first_year, dirFinder.param );
+        CBORates                    = read_series( 'CBOInterestRate.csv', first_year, dirFinder.param );
+        SIMGDP                      = read_series( 'SIMGDP.csv', first_year, dirFinder.param );
+        SIMRevenues                 = read_series( 'SIMRevenues.csv', first_year, dirFinder.param );
+        SIMExpenditures             = read_series( 'SIMExpenditures.csv', first_year, dirFinder.param );
+        CBONonInterestSpending      = read_series( 'CBONonInterestSpending.csv', first_year, dirFinder.param );
+        CBOSocialSecuritySpending   = read_series( 'CBOSocialSecuritySpending.csv', first_year, dirFinder.param );
+        CBOMedicareSpending         = read_series( 'CBOMedicareSpending.csv', first_year, dirFinder.param );
+
+        if( size(SIMGDP) ~= size(SIMRevenues) ...
+            | size(SIMGDP) ~= size(SIMExpenditures) ...
+            | size(SIMGDP) ~= size(CBORates) ) ...
+            throw(MException('read_cbo_parameters:SIZE','Inputs are different sizes.'));
+        end;
+        if( size(CBONonInterestSpending) ~= size(CBOSocialSecuritySpending) ...
+            | size(CBONonInterestSpending) ~= size(CBOMedicareSpending) ...
+           )
+            throw(MException('read_cbo_spending:SIZE','Inputs are different sizes.'));
+        end;
+        
+        GEXP_by_GDP     = CBONonInterestSpending./100 ...
+                        - CBOSocialSecuritySpending./100 ...
+                        - CBOMedicareSpending./100 ...
+                    ;
+        GEXP_by_GDP     = GEXP_by_GDP';
+                    
+        deficit_nis     = SIMRevenues - SIMExpenditures;
+        debt            = zeros(size(deficit_nis));
+        debt(1)         = CBODebt(1);
+        for i = 2:size(deficit_nis)
+            debt(i) = debt(i-1)*(1+CBORates(i)/100.0) - deficit_nis(i);
+        end;
+        
+        growth_GDP      = zeros(size(SIMGDP), 'double');
+        growth_GDP(1)   = 1.0;
+        for i = 2:size(growth_GDP)
+            growth_GDP(i) = SIMGDP(i)/SIMGDP(i-1);
+        end;
+        
+        CBO_rates_growth_adjusted   = ((100.0+CBORates)./growth_GDP)./100.0 - 1.0;    
+        deficit_nis_fraction_GDP    = deficit_nis./SIMGDP;                
+        debt_percent_GDP            = debt./SIMGDP;                       
+        
+        % Name, transpose, truncate vars to correspond to currently used variables 
+        % NOTE: The series must go out to T_model or import will break.
+        %       Breaking is good here. (Though gracefully would be better)
+        s.GEXP_by_GDP = GEXP_by_GDP;                                % Expenditures as pct gdp
+        s.debt        = debt;                                       % Debt as pct gdp
+        s.debttoout   = debt_percent_GDP(2);                        % Debt-to-output ratio of initial year
+        s.fedgovtnis  = deficit_nis_fraction_GDP(2:T_model + 1)';   % starts from first transition path year
+        s.cborates    = CBO_rates_growth_adjusted(2:T_model + 1)';  % starts from first transition path year
+        s.cbomeanrate = nanmean(CBO_rates_growth_adjusted(2:end));  % Mean growth-adjusted interest rate over modeling period
+        
+        % Warn if parameters are outside expectations
+        if( (s.cbomeanrate < -0.03) || (s.cbomeanrate > 0.08) )
+            fprintf( 'WARNING! cbomeanrate=%f outside expecations.\n', cbomeanrate );
+        end
+        if( (s.debttoout < 0.5) || (s.debttoout > 1.5) )
+            fprintf( 'WARNING! debttoout=%f ouside expecations.\n', debttoout );
+        end
+        if( max(abs(s.cborates)) > 0.08 )
+            fprintf( 'WARNING! cborates outside expectations.\n' );
+        end
+        if( max(abs(s.fedgovtnis)) > 0.1 )
+            fprintf( 'WARNING! fedgovtnis outside expectations.\n' );
+        end
+
+    
+    end % budget
     
 end % methods
 
