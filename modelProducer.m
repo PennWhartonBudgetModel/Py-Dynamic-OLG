@@ -306,11 +306,21 @@ methods (Static)
          % Invert elasticities to get baseline definition, using "default"
          basedef = invert(struct('labelas', 0.5, 'savelas', 0.5));
          
-         for immScale = {0.6, 0.5}
-            for immPremium = {1.2, 1.3}
+         % Calculate prem_legal from requested policies
+         prod_skilled   = 1.4;
+         current_legal  = 0.45;
+         prod_unskilled = 37/55;  
+         % from prod_skilled*current_legal + prod_unskilled*(1-current_legal) = prod_immigrants 
+         % rem: in baseline, prod_immigrants assumed = 1
+         
+         for immScale = [0.6, 0.5]
+            for portion_legal = [0.55, 0.75]
+                immPremium = prod_skilled*portion_legal + prod_unskilled*(1-portion_legal);
                 counterdef = struct(    'legal_scale'   , immScale    ...
                                     ,   'prem_legal'    , immPremium  ...
                                     );
+                fprintf( '--------------------------------\n' );
+                fprintf( 'RUNNING immScale=%f, portion_legal=%f \n ', immScale, portion_legal );
                 dynamicSolver.closed( basedef, counterdef, '' );               
             end
          end
