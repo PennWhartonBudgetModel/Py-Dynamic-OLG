@@ -294,11 +294,32 @@ methods (Static)
         fprintf('\nResults packaged into csv files:\n\t%s\n', csv_dir)
         if missing, warning('Some aggregates not found'), end
         
-    end
+    end % package_results
     
-end
+    
+    %% 
+    % Small run of immigration counter-factuals
+    function [] = immigration_run()
+        
+         % Construct elasticity inverter
+         [~, invert] = modelCalibrator.invert();
+         % Invert elasticities to get baseline definition, using "default"
+         basedef = invert(struct('labelas', 0.5, 'savelas', 0.5));
+         
+         for immScale = {0.6, 0.5}
+            for immPremium = {1.2, 1.3}
+                counterdef = struct(    'legal_scale'   , immScale    ...
+                                    ,   'prem_legal'    , immPremium  ...
+                                    );
+                dynamicSolver.closed( basedef, counterdef, '' );               
+            end
+         end
+         
+    end % immigration run
+    
+end % methods
 
-end
+end % modelProducer
 
 
 
