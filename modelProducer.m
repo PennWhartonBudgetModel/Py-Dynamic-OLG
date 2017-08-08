@@ -314,13 +314,13 @@ methods (Static)
          % rem: in baseline, prod_immigrants assumed = 1
          
          for immScale = [0.6, 0.5]
-            for portion_legal = [0.55, 0.75]
-                immPremium = prod_skilled*portion_legal + prod_unskilled*(1-portion_legal);
+            for portion_skilled = [0.55, 0.75]
+                immPremium = prod_skilled*portion_skilled + prod_unskilled*(1-portion_skilled);
                 counterdef = struct(    'legal_scale'   , immScale    ...
                                     ,   'prem_legal'    , immPremium  ...
                                     );
                 fprintf( '--------------------------------\n' );
-                fprintf( 'RUNNING immScale=%f, portion_legal=%f \n ', immScale, portion_legal );
+                fprintf( 'RUNNING immScale=%f, portion_skilled=%f \n ', immScale, portion_skilled );
                 dynamicSolver.closed( basedef, counterdef, '' );               
             end
          end
