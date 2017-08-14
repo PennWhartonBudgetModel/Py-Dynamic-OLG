@@ -118,7 +118,7 @@ methods (Static)
         
         ssbenefit = [ max(min(bv, ssthresholds(1)) - 0              , 0) , ...
                       max(min(bv, ssthresholds(2)) - ssthresholds(1), 0) , ...
-                      max(min(bv, Inf            ) - ssthresholds(2), 0) ] * ssrates' * ss_scale;
+                      max(min(bv, Inf            ) - ssthresholds(2), 0) ] * ssrates';
         
         s.ssbenefits  = repmat(ssbenefit                , [1,T_model]);  % Benefits
         s.sstaxs      = repmat(0.124                    , [1,T_model]);  % Tax rates
