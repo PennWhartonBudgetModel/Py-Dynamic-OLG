@@ -12,85 +12,7 @@ T_life = 80;
 ng = 3;
 nidem = 2;
 T_work = 47;
-
-%% Importing model generated data
-% The data used here come from:
-% 'M:\Repositories\danielav\Development\Testing\0.990_0.486_1.66_3.491791e-05\baseline\steady'
-
-% Importing distribution of households
-s = load('distribution.mat');
-measure = zeros(nz,nk,nb,T_life,ng,1,nidem);
-measure = s.DIST;
-
-% Importing labor policy function
-s = load('decisions.mat');
-labor = zeros(nz,nk,nb,T_life,nidem);
-labor(:,:,:,:,1) = s.LABs{1,1};
-labor(:,:,:,:,2) = s.LABs{1,2};
-consumption = s.OPTs_CON;
-
-% Importing market variables
-s = load('market.mat');
-bequests = s.beqs;
-wage = s.wages;
-
-%% Creating wealth distribution array
-
-W_measure_aux = zeros(nz*nk*nb*T_life*ng*nidem,2);
-
-counter = 0;
-
-for age=1:T_life
-    for iz=1:nz
-        for ik=1:nk
-            for ib=1:nb
-                for ig=1:ng
-                    for iperm=1:nidem
-                        counter = counter + 1;
-                        W_measure_aux(counter,1) = measure(iz,ik,ib,age,ig,1,iperm);
-                        W_measure_aux(counter,2) = kv(ik);
-                    end
-                end
-            end
-        end
-    end
-end
-
-% Sorting in ascending order wrt assets
-W_measure = sortrows(W_measure_aux,2);
-
-%% Compute wealth quintiles
-
-W_quintiles = zeros(5,3);
-counter = 0;
-
-for perc=0.2:0.2:1.0
-    counter = counter + 1;
-    W_quintiles(counter,:) = get_percentile(perc,W_measure);
-    if counter > 1
-        W_quintiles(counter,3) = W_quintiles(counter,3) - sum(W_quintiles(1:counter-1,3));
-    end
-end
-
-%% Compute wealth distribution at the top
-
-W_top = zeros(5,3);
-
-W_top(1,:) = get_percentile(0.9,W_measure);
-W_top(2,:) = get_percentile(0.95,W_measure);
-W_top(3,:) = get_percentile(0.99,W_measure);
-W_top(4,:) = get_percentile(0.999,W_measure);
-W_top(5,:) = get_percentile(0.99999,W_measure);
-
-% Figure 1
-figure
-subplot(1,2,1)
-plot([1:5],W_quintiles(:,2),[1:5],W_top(:,2))
-title('Thresholds per quintile')
-subplot(1,2,2)
-plot([1:5],W_quintiles(:,3),[1:5],W_top(:,3))
-title('Total assets per quintile')
-suptitle('Wealth distribution')
+T_model = 1;
 
 %% Detour before automatically importing shock matrix
 
@@ -134,33 +56,63 @@ suptitle('Wealth distribution')
                   + repmat(reshape(kron(ones(1,npers), ztrans) ...
                                  + kron(zpers, ones(1,ntrans)), [nz,1     ,1   ]), [1 ,T_life,ndem]));
 
-%% Creating labor earnings distribution array
 
-L_measure_aux = zeros(nz*nk*nb*T_work*ng*nidem,2);
+%% Importing model generated data
+% The data used here come from:
+% 'M:\Repositories\danielav\Development\Testing\0.990_0.486_1.66_3.491791e-05\baseline\steady'
 
+% Importing distribution of households
+s = load('distribution.mat');
+measure = s.DIST(:);
+
+% Importing market variables
+s = load('market.mat');
+bequests = s.beqs;
+wage = s.wages;
+
+% Importing labor policy function
+s = load('all_decisions.mat');
+
+f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
+
+labor_inc_  = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]), [1,nk,nb,1,ng,T_model,1]) * wage;
+ssbenefits  = f(s.BEN);
+labor_inc   = labor_inc_(:) + ssbenefits(:);
+consumption = f(s.CON); consumption = consumption(:);
+capital     = f(s.K  ); capital     = capital    (:);
+
+%% Compute wealth quintiles
+
+W_quintiles = zeros(5,3);
 counter = 0;
 
-for age=1:T_work
-    for iz=1:nz
-        for ik=1:nk
-            for ib=1:nb
-                for ig=1:ng
-                    for iperm=1:nidem
-                        counter = counter + 1;
-                        L_measure_aux(counter,1) = measure(iz,ik,ib,age,ig,1,iperm);
-                        L_measure_aux(counter,2) = wage*zs(iz,age,iperm)*labor(iz,ik,ib,age,iperm);
-                    end
-                end
-            end
-        end
+for perc=0.2:0.2:1.0
+    counter = counter + 1;
+    W_quintiles(counter,:) = get_percentile(perc,measure,capital);
+    if counter > 1
+        W_quintiles(counter,3) = W_quintiles(counter,3) - sum(W_quintiles(1:counter-1,3));
     end
 end
 
-% Sorting in ascending order wrt assets
-L_measure = sortrows(L_measure_aux,2);
+%% Compute wealth distribution at the top
 
-% Since we do not have SS income, we do not have a measure 1 population
-L_measure(:,1) = (L_measure(:,1)/sum(L_measure(:,1)));
+W_top = zeros(5,3);
+
+W_top(1,:) = get_percentile(0.9,measure,capital);
+W_top(2,:) = get_percentile(0.95,measure,capital);
+W_top(3,:) = get_percentile(0.99,measure,capital);
+W_top(4,:) = get_percentile(0.999,measure,capital);
+W_top(5,:) = get_percentile(0.99999,measure,capital);
+
+% Figure 1
+figure
+subplot(1,2,1)
+plot([1:5],W_quintiles(:,2),[1:5],W_top(:,2))
+title('Thresholds per quintile')
+subplot(1,2,2)
+plot([1:5],W_quintiles(:,3),[1:5],W_top(:,3))
+title('Total assets per quintile')
+suptitle('Wealth distribution')
 
 %% Compute wealth quintiles
 
@@ -169,7 +121,7 @@ counter = 0;
 
 for perc=0.2:0.2:1.0
     counter = counter + 1;
-    L_quintiles(counter,:) = get_percentile(perc,L_measure);
+    L_quintiles(counter,:) = get_percentile(perc,measure,labor_inc);
     if counter > 1
         L_quintiles(counter,3) = L_quintiles(counter,3) - sum(L_quintiles(1:counter-1,3));
     end
@@ -179,11 +131,11 @@ end
 
 L_top = zeros(5,3);
 
-L_top(1,:) = get_percentile(0.9,L_measure);
-L_top(2,:) = get_percentile(0.95,L_measure);
-L_top(3,:) = get_percentile(0.99,L_measure);
-L_top(4,:) = get_percentile(0.999,L_measure);
-L_top(5,:) = get_percentile(0.999999,L_measure);
+L_top(1,:) = get_percentile(0.9,measure,labor_inc);
+L_top(2,:) = get_percentile(0.95,measure,labor_inc);
+L_top(3,:) = get_percentile(0.99,measure,labor_inc);
+L_top(4,:) = get_percentile(0.999,measure,labor_inc);
+L_top(5,:) = get_percentile(0.999999,measure,labor_inc);
 
 figure
 subplot(1,2,1)
@@ -196,32 +148,14 @@ suptitle('Labor income distribution')
 
 %% Functions
 
-function [perc_summary] = get_percentile(percentile, matrix)
+function [perc_summary] = get_percentile(percentile, dist, x)
 
-temp_mass = 0;
-cnt = 0;
-check = 0;
-epsilon = 1.0e-06;
+[x, sortv] = sort(x);
+dist = dist(sortv);
 
-while cnt <= size(matrix,1)
-    cnt = cnt + 1;
-    temp_mass = temp_mass + matrix(cnt,1);
-    if temp_mass >= percentile && check == 0 && percentile ~= 1
-        check = 1;
-        perc_threshold = matrix(cnt,2);
-        perc_total     = sum(matrix(1:cnt,2));
-        break
-    end
-    if temp_mass >= (percentile - epsilon) && check == 0 && percentile == 1
-        check = 1;
-        perc_threshold = matrix(cnt,2);
-        perc_total     = sum(matrix(1:cnt,2));
-        break
-    end
-end
+i = find(cumsum(dist) >= percentile,1);
 
-percentile = temp_mass;
-perc_summary = [percentile perc_threshold perc_total];
+perc_summary = [dist(i) x(i) sum(x(1:i))];
 
 end
 
