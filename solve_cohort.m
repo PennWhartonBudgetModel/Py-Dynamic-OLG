@@ -84,6 +84,7 @@ OPT.PIT = zeros(nz,nk,nb,T_active);   % Personal income tax
 OPT.SST = zeros(nz,nk,nb,T_active);   % Social Security tax
 OPT.CIT = zeros(nz,nk,nb,T_active);   % Corporate income tax
 OPT.BEN = zeros(nz,nk,nb,T_active);   % Social Security benefits
+OPT.CON = zeros(nz,nk,nb,T_active);   % Consumption
 
 % Initialize forward-looking utility values
 V_step = V0;
@@ -141,6 +142,10 @@ for t = T_active:-1:1
                     V    (:,ik,ib,t) = -v;
                     OPT.K(:,ik,ib,t) = k ;
                     
+                else
+                    
+                    k = kv(ik);
+                    
                 end
                 
                 OPT.LAB(:,ik,ib,t) = 0     ;
@@ -151,6 +156,7 @@ for t = T_active:-1:1
                 OPT.SST(:,ik,ib,t) = 0     ;
                 OPT.CIT(:,ik,ib,t) = cit   ;
                 OPT.BEN(:,ik,ib,t) = ssinc;
+                OPT.CON(:,ik,ib,t) = resources - k;
                 
             else
                 
@@ -190,11 +196,12 @@ for t = T_active:-1:1
                         OPT.K(iz,ik,ib,t) = k ;
                         
                     else
+                        k = kv(ik);
                         lab = LAB_static(iz,ik,ib,t);
                     end
                     
                     labinc = wage_eff * lab;
-                    [~, inc, pit, sst, cit] = calculate_resources(labinc);
+                    [resources, inc, pit, sst, cit] = calculate_resources(labinc);
                     
                     OPT.LAB(iz,ik,ib,t) = lab;
                     OPT.B  (iz,ik,ib,t) = calculate_b(labinc);
@@ -204,6 +211,7 @@ for t = T_active:-1:1
                     OPT.SST(iz,ik,ib,t) = sst;
                     OPT.CIT(iz,ik,ib,t) = cit;
                     OPT.BEN(iz,ik,ib,t) = 0  ;
+                    OPT.CON(iz,ik,ib,t) = resources - k;
                     
                 end
                 

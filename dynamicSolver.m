@@ -323,7 +323,7 @@ methods (Static, Access = private)
         
         %% Aggregate generation function
         
-        function [Aggregate, LABs, DIST, pgr] = generate_aggregates(Market, DIST_steady, LABs_static, DIST_static)
+        function [Aggregate, LABs, DIST, pgr, policy_fncs] = generate_aggregates(Market, DIST_steady, LABs_static, DIST_static)
             
             % Define dynamic aggregate generation flag
             isdynamic = isempty(LABs_static) || isempty(DIST_static);
@@ -332,7 +332,7 @@ methods (Static, Access = private)
             if isdynamic, LABs_static = cell(nstartyears, ndem); end
             
             % Initialize optimal decision value arrays
-            os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN'};
+            os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN', 'CON'};
             for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model,ndem); end
             
             % Initialize array of cohort optimal labor values
@@ -495,7 +495,9 @@ methods (Static, Access = private)
             Aggregate.ssts     = f(OPTs.SST);                                                                            % Social Security tax
             Aggregate.cits     = f(OPTs.CIT);                                                                            % Capital income tax
             Aggregate.bens     = f(OPTs.BEN);                                                                            % Social Security benefits
+            Aggregate.cons     = f(OPTs.CON);                                                                            % Consumption
             
+            policy_fncs = OPTs;
             
         end
         
@@ -598,7 +600,7 @@ methods (Static, Access = private)
                 else
                     tax_revenue_by_GDP  = [tax_revenue_by_GDP, ...
                         tax_revenue_by_GDP(end)*ones(1, T_model-length(tax_revenue_by_GDP))];
-                end;
+                end
                 
                 if ~isbase
                     
@@ -712,7 +714,7 @@ methods (Static, Access = private)
             
             
             % Generate dynamic aggregates
-            [Dynamic, LABs, DIST, pgr] = generate_aggregates(Market, DIST_steady, {}, {});
+            [Dynamic, LABs, DIST, pgr, policy_fncs] = generate_aggregates(Market, DIST_steady, {}, {});
             
             
             % Calculate additional dynamic aggregates
@@ -838,6 +840,7 @@ methods (Static, Access = private)
         % Save baseline optimal labor values and population distribution
         if isbase
             save(fullfile(save_dir, 'decisions.mat'   ), 'LABs')
+            save(fullfile(save_dir, 'all_decisions.mat'   ), '-struct', 'policy_fncs')
             save(fullfile(save_dir, 'distribution.mat'), 'DIST')
         end
         
