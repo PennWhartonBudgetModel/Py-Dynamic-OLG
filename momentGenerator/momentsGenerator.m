@@ -64,11 +64,12 @@ T_model = 1;
 % Importing distribution of households
 s = load('distribution.mat');
 measure = s.DIST(:);
+mass = s.DIST;
 
 % Importing market variables
 s = load('market.mat');
 bequests = s.beqs;
-wage = s.wages;
+wage     = s.wages;
 
 % Importing labor policy function
 s = load('all_decisions.mat');
@@ -77,85 +78,89 @@ f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
 
 labor_inc_  = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]), [1,nk,nb,1,ng,T_model,1]) * wage;
 ssbenefits  = f(s.BEN);
+consumption = f(s.CON);
+
+capital     = repmat(reshape(kv, [1,nk,1,1,1,1,1]), [nz,1,nb,T_life,ng,T_model,ndem]);
+
 labor_inc   = labor_inc_(:) + ssbenefits(:);
-consumption = f(s.CON); consumption = consumption(:);
-capital     = f(s.K  ); capital     = capital    (:);
+consumption = consumption(:);
+capital     = capital    (:);
 
-%% Compute wealth quintiles
+%% Compute wealth distribution
 
-W_quintiles = zeros(5,3);
-counter = 0;
+W_quintiles = get_quintile(measure,capital);
+W_top = get_top(measure,capital);
 
-for perc=0.2:0.2:1.0
-    counter = counter + 1;
-    W_quintiles(counter,:) = get_percentile(perc,measure,capital);
-    if counter > 1
-        W_quintiles(counter,3) = W_quintiles(counter,3) - sum(W_quintiles(1:counter-1,3));
-    end
-end
+%% Compute labor income distribution
 
-%% Compute wealth distribution at the top
+L_quintiles = get_quintile(measure,labor_inc);
+L_top = get_top(measure,labor_inc);
 
-W_top = zeros(5,3);
+%% Compute consumption distribution
 
-W_top(1,:) = get_percentile(0.9,measure,capital);
-W_top(2,:) = get_percentile(0.95,measure,capital);
-W_top(3,:) = get_percentile(0.99,measure,capital);
-W_top(4,:) = get_percentile(0.999,measure,capital);
-W_top(5,:) = get_percentile(0.99999,measure,capital);
-
-% Figure 1
-figure
-subplot(1,2,1)
-plot([1:5],W_quintiles(:,2),[1:5],W_top(:,2))
-title('Thresholds per quintile')
-subplot(1,2,2)
-plot([1:5],W_quintiles(:,3),[1:5],W_top(:,3))
-title('Total assets per quintile')
-suptitle('Wealth distribution')
-
-%% Compute wealth quintiles
-
-L_quintiles = zeros(5,3);
-counter = 0;
-
-for perc=0.2:0.2:1.0
-    counter = counter + 1;
-    L_quintiles(counter,:) = get_percentile(perc,measure,labor_inc);
-    if counter > 1
-        L_quintiles(counter,3) = L_quintiles(counter,3) - sum(L_quintiles(1:counter-1,3));
-    end
-end
-
-%% Compute wealth distribution at the top
-
-L_top = zeros(5,3);
-
-L_top(1,:) = get_percentile(0.9,measure,labor_inc);
-L_top(2,:) = get_percentile(0.95,measure,labor_inc);
-L_top(3,:) = get_percentile(0.99,measure,labor_inc);
-L_top(4,:) = get_percentile(0.999,measure,labor_inc);
-L_top(5,:) = get_percentile(0.999999,measure,labor_inc);
-
-figure
-subplot(1,2,1)
-plot([1:5],L_quintiles(:,2),[1:5],L_top(:,2))
-title('Thresholds per quintile')
-subplot(1,2,2)
-plot([1:5],L_quintiles(:,3),[1:5],L_top(:,3))
-title('Total assets per quintile')
-suptitle('Labor income distribution')
+C_quintiles = get_quintile(measure,consumption);
+C_top = get_top(measure,consumption);
 
 %% Functions
 
-function [perc_summary] = get_percentile(percentile, dist, x)
+function [quint_summary] = get_quintile(dist,x)
+
+% Computes quintiles of x distributed according to dist
+% Inputs:  dist = distribution vector of x
+%          x    = vector with variable of interest
+% Outputs: quintiles (usually slightly above the actual quintiles)
+%          thresholds
+%          percentage of x with each quintile
+
+quint_summary = zeros(5,3);
+counter = 0;
+
+for perc=0.2:0.2:1.0
+    counter = counter + 1;
+    quint_summary(counter,:) = get_percentile(perc,dist,x);
+end
+for counter = size(quint_summary,1):-1:2
+	quint_summary(counter,3) = quint_summary(counter,3) - quint_summary(counter-1,3);
+end
+
+end
+
+function [top_summary] = get_top(dist,x)
+
+% Computes distribution of x  at the top
+% Inputs:  dist = distribution vector of x
+%          x    = vector with variable of interest
+% Outputs: top percentiles (usually slightly below the actual quintiles)
+%          thresholds
+%          percentage of x with each top percentile
+
+top_summary = zeros(5,3);
+counter = 0;
+for top = [0.9 0.95 0.99 0.999 .9999]
+    counter = counter + 1;
+    top_summary(counter,:) = get_percentile(top,dist,x);
+    top_summary(counter,1) = 1 - top_summary(counter,1);
+    top_summary(counter,3) = 1 - top_summary(counter,3);
+end
+
+end
+
+function [perc_summary] = get_percentile(perc, dist, x)
+
+% Computes percentile perc of x distributed according to dist
+% Inputs:  perc = percentile between 0 and 1
+%          dist = distribution vector of x
+%          x    = vector with variable of interest
+% Outputs: percentile (usually slightly above perc)
+%          threshold
+%          cummulative percentage of x below percentile perc
 
 [x, sortv] = sort(x);
 dist = dist(sortv);
 
-i = find(cumsum(dist) >= percentile,1);
+i = find(cumsum(dist) >= perc,1);
 
-perc_summary = [dist(i) x(i) sum(x(1:i))];
+perc_summary = [sum(dist(1:i)) x(i) (sum(x(1:i).*dist(1:i))/sum(x.*dist))];
 
 end
 
