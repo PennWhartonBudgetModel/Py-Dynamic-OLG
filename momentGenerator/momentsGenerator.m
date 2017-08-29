@@ -177,9 +177,9 @@ function [top_summary] = get_top(dist,x)
 %          thresholds
 %          percentage of x with each top percentile
 
-top_summary = zeros(5,3);
+top_summary = zeros(4,3);
 counter = 0;
-for top = [0.9 0.95 0.99 0.999 .9999]
+for top = [0.9 0.94 0.95 0.99]
     counter = counter + 1;
     top_summary(counter,:) = get_percentile(top,dist,x);
     top_summary(counter,1) = 1 - top_summary(counter,1);
