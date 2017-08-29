@@ -79,27 +79,70 @@ f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
 labor_inc_  = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]), [1,nk,nb,1,ng,T_model,1]) * wage;
 ssbenefits  = f(s.BEN);
 consumption = f(s.CON);
+income      = f(s.INC);
 
-capital     = repmat(reshape(kv, [1,nk,1,1,1,1,1]), [nz,1,nb,T_life,ng,T_model,ndem]);
+assets = repmat(reshape(kv, [1,nk,1,1,1,1,1]), [nz,1,nb,T_life,ng,T_model,ndem]);
+agesv  = repmat(reshape([1:T_life], [1,1,1,T_life,1,1,1]), [nz,nk,nb,1,ng,T_model,ndem]);
 
-labor_inc   = labor_inc_(:) + ssbenefits(:);
+labor_inc   = labor_inc_ (:) + ssbenefits(:);
 consumption = consumption(:);
-capital     = capital    (:);
+assets      = assets     (:);
+income      = income     (:);
+agesv       = agesv      (:);
 
-%% Compute wealth distribution
+%% Compute assets distribution
 
-W_quintiles = get_quintile(measure,capital);
-W_top = get_top(measure,capital);
+a_quintiles = get_quintile(measure,assets);
+a_top = get_top(measure,assets);
+a_zero = zero_x(measure,assets);
+
+measure1 = filter_by_age(15,25,agesv,measure);
+a_quintiles1 = get_quintile(measure1,assets);
+
+[ginicoeff lorenz] = gini(measure,assets,true);
 
 %% Compute labor income distribution
 
-L_quintiles = get_quintile(measure,labor_inc);
-L_top = get_top(measure,labor_inc);
+l_quintiles = get_quintile(measure,labor_inc);
+l_top = get_top(measure,labor_inc);
 
 %% Compute consumption distribution
 
-C_quintiles = get_quintile(measure,consumption);
-C_top = get_top(measure,consumption);
+c_quintiles = get_quintile(measure,consumption);
+c_top = get_top(measure,consumption);
+
+%% Compute total income distribution
+
+i_quintiles = get_quintile(measure,income);
+i_top = get_top(measure,income);
+
+%% Graphs
+
+% figure
+% bar([1:5],a_quintiles(:,3))
+% title('Assets distribution')
+% xlabel('quintiles')
+% ylabel('fraction of total assets')
+
+% figure
+% bar([1:5],a_top(:,3))
+% title('Assets distribution in the top')
+% Labels = {'10%', '6%', '5%', '1%', '0.1%'};
+% set(gca, 'XTick', 1:5, 'XTickLabel', Labels);
+% xlabel('top percentile')
+% ylabel('fraction of held by the top')
+
+% figure
+% bar([1:5],l_quintiles(:,3))
+% title('Labor income distribution')
+% xlabel('quintiles')
+% ylabel('fraction of total labor income')
+
+% figure
+% bar([1:5],i_quintiles(:,3))
+% title('Total income distribution')
+% xlabel('quintiles')
+% ylabel('fraction of total income')
 
 %% Functions
 
