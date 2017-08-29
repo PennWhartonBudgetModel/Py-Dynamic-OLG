@@ -11,6 +11,123 @@ end % properties
 
 methods (Static)
 
+    %% TIMING
+    % 
+    function s = timing()
+        s.T_life    = 80;
+        s.T_work    = 47;
+        s.T_model   = 25;
+    end % timing
+       
+    %% DICRETIZATION GRIDS
+    %   pass in 
+    %     T_life     : years of life 
+    %     prem_legal : productivity premium of avg. (by year) legal
+    %          immigrant. Note: This is a ratio.
+    function s = grids( T_life, prem_legal )
+        % (Shock process definitions from Storesletten, Telmer, and Yaron, 2004)
+        % (Method of discretizing shock process derived from Adda and Cooper, 2003)
+        
+        % Define function to compute cutoff points for equally weighted slices of a normal distribution
+        f = @(n, sig) n*sig*-diff(normpdf(norminv(linspace(0, 1, n+1))));
+        
+        % Determine permanent and transitory shocks
+        nperm  = 2; zperm  = f(nperm , sqrt(0.2105));
+        ntrans = 2; ztrans = f(ntrans, sqrt(0.0630)); 
+        
+        % Determine persistent shocks
+        npers = 2;
+        
+        pep = 0.973;                        % Lagged productivity coefficient
+        sigep = sqrt(0.018);                % Conditional standard deviation of productivity
+        sigpers = sigep/(sqrt(1-pep^2));
+        
+        zpers = f(npers, sigpers);
+        
+        % Construct Markov transition matrix for persistent shocks by approximating an AR(1) process
+        persv = sigpers*norminv(linspace(0, 1, npers+1));
+        transpers = zeros(npers,npers);
+        for ipers = 1:npers
+            integrand = @(x) exp(-x^2/(2*sigpers^2)) * diff(normcdf((persv(ipers:ipers+1) - pep*x)/sigep));
+            for jpers = 1:npers
+                transpers(ipers,jpers) = (npers/(sqrt(2*pi*(sigpers^2)))) * quadgk(@(v) arrayfun(integrand, v), persv(jpers), persv(jpers+1));
+            end
+        end
+        
+        % Determine initial distribution over persistent shocks
+        DISTpers = diff(normcdf(persv/sqrt(0.124)));
+        
+        % Define deterministic lifecycle productivities
+        % (Estimated coefficients from Barro and Barnes Medicaid working paper)
+        zage = polyval([-5.25e-7, 1.05e-4, -8.1467e-3, 0.2891379, -1.203521], 19+(1:T_life));
+        
+        % Calculate total productivity
+        ndem = nperm; nz = ntrans*npers;
+        
+        zs = max(0, repmat(reshape(zage                       , [1 ,T_life,1   ]), [nz,1     ,ndem]) ...
+                  + repmat(reshape(zperm                      , [1 ,1     ,ndem]), [nz,T_life,1   ]) ...
+                  + repmat(reshape(kron(ones(1,npers), ztrans) ...
+                                 + kron(zpers, ones(1,ntrans)), [nz,1     ,1   ]), [1 ,T_life,ndem]));
+        
+        % Construct Markov transition matrix for all shocks / productivities
+        transz = kron(transpers, (1/ntrans)*ones(ntrans,ntrans));
+        
+        % Determine initial distribution over all shocks / productivities
+        DISTz0 = kron(DISTpers , (1/ntrans)*ones(1     ,ntrans));
+        
+        % Determine productivity distributions for ages
+        DISTz_g      = zeros(nz,T_life);
+        DISTz_g(:,1) = reshape(DISTz0, [nz,1]);
+        
+        for age = 2:T_life
+            DISTz_g(:,age) = transz' * DISTz_g(:,age-1);
+        end
+        
+        % Define population group index mapping
+        groups = {'citizen', 'legal', 'illegal'};
+        ng = length(groups);
+        for ig = 1:ng, g.(groups{ig}) = ig; end
+        
+        % Replicate age productivity distributions for population groups
+        DISTz = repmat(DISTz_g, [1,1,ng]);
+        
+        % Shift productivity distributions for legal and illegal immigrants towards highest and lowest productivity levels respectively
+        for age = 1:T_life
+            
+            zmean = mean(zs(:,age,:), 3);
+            
+            zlegal   = sum(zmean .* DISTz(:,age,g.legal  )) * prem_legal;
+            zillegal = sum(zmean .* DISTz(:,age,g.illegal)) * 0.9       ;
+            
+            plegal   = (zmean(nz) - zlegal  ) / (zmean(nz)*(nz-1) - sum(zmean(1:nz-1)));
+            pillegal = (zmean(1)  - zillegal) / (zmean(1) *(nz-1) - sum(zmean(2:nz  )));
+            
+            DISTz(:,age,g.legal  ) = [plegal*ones(nz-1,1); 1 - plegal*(nz-1)    ];
+            DISTz(:,age,g.illegal) = [1 - pillegal*(nz-1); pillegal*ones(nz-1,1)];
+            
+        end
+        
+        % Define savings and average earnings discretization vectors
+        % (Upper bound of average earnings defined as maximum possible Social Security benefit)
+        f = @(lb, ub, n) lb + (ub-lb)*((0:n-1)/(n-1))'.^2;
+        nk = 10; kv = f(1e-3, 120           , nk);
+        nb =  5; bv = f(0   , 1.5*max(zs(:)), nb);
+        
+        s.ndem     = ndem;
+        s.g        = g;
+        s.ng       = ng;
+        s.nz       = nz;
+        s.transz   = transz;
+        s.DISTz    = DISTz;
+        s.zs       = zs;
+        s.nk       = nk;
+        s.kv       = kv;
+        s.nb       = nb;
+        s.bv       = bv;
+        
+    end % grids
+    
+    
     %% TAXES
     % 
     % Generate tax policy parameters according to predefined plans.
