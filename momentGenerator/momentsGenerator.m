@@ -99,12 +99,14 @@ a_zero = zero_x(measure,assets);
 measure1 = filter_by_age(15,25,agesv,measure);
 a_quintiles1 = get_quintile(measure1,assets);
 
-[ginicoeff lorenz] = gini(measure,assets,true);
+[a_ginicoeff a_lorenz] = gini(measure,assets,true);
 
 %% Compute labor income distribution
 
 l_quintiles = get_quintile(measure,labor_inc);
 l_top = get_top(measure,labor_inc);
+
+[l_ginicoeff l_lorenz] = gini(measure,labor_inc);
 
 %% Compute consumption distribution
 
@@ -119,13 +121,13 @@ i_top = get_top(measure,income);
 %% Graphs
 
 % figure
-% bar([1:5],a_quintiles(:,3))
+% bar([1:5],a_quintiles(:,4))
 % title('Assets distribution')
 % xlabel('quintiles')
 % ylabel('fraction of total assets')
 
 % figure
-% bar([1:5],a_top(:,3))
+% bar([1:5],a_top(:,4))
 % title('Assets distribution in the top')
 % Labels = {'10%', '6%', '5%', '1%', '0.1%'};
 % set(gca, 'XTick', 1:5, 'XTickLabel', Labels);
@@ -133,13 +135,13 @@ i_top = get_top(measure,income);
 % ylabel('fraction of held by the top')
 
 % figure
-% bar([1:5],l_quintiles(:,3))
+% bar([1:5],l_quintiles(:,4))
 % title('Labor income distribution')
 % xlabel('quintiles')
 % ylabel('fraction of total labor income')
 
 % figure
-% bar([1:5],i_quintiles(:,3))
+% bar([1:5],i_quintiles(:,4))
 % title('Total income distribution')
 % xlabel('quintiles')
 % ylabel('fraction of total income')
@@ -153,17 +155,19 @@ function [quint_summary] = get_quintile(dist,x)
 %          x    = vector with variable of interest
 % Outputs: quintiles (usually slightly above the actual quintiles)
 %          thresholds
-%          percentage of x with each quintile
+%          cumulative share of x with each quintile
+%          share of x with each quintile
 
-quint_summary = zeros(5,3);
+quint_summary = zeros(5,4);
 counter = 0;
 
 for perc=0.2:0.2:1.0
     counter = counter + 1;
-    quint_summary(counter,:) = get_percentile(perc,dist,x);
+    quint_summary(counter,1:3) = get_percentile(perc,dist,x);
 end
+quint_summary(1,4) = quint_summary(1,3);
 for counter = size(quint_summary,1):-1:2
-	quint_summary(counter,3) = quint_summary(counter,3) - quint_summary(counter-1,3);
+	quint_summary(counter,4) = quint_summary(counter,3) - quint_summary(counter-1,3);
 end
 
 end
@@ -175,7 +179,7 @@ function [top_summary] = get_top(dist,x)
 %          x    = vector with variable of interest
 % Outputs: top percentiles (usually slightly below the actual quintiles)
 %          thresholds
-%          percentage of x with each top percentile
+%          share of x with each top percentile
 
 top_summary = zeros(4,3);
 counter = 0;
@@ -196,7 +200,7 @@ function [perc_summary] = get_percentile(perc, dist, x)
 %          x    = vector with variable of interest
 % Outputs: percentile (usually slightly above perc)
 %          threshold
-%          cummulative percentage of x below percentile perc
+%          cummulative share of x below percentile perc
 
 [x, sortv] = sort(x);
 dist = dist(sortv);
