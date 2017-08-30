@@ -118,35 +118,26 @@ c_top = get_top(measure,consumption);
 i_quintiles = get_quintile(measure,income);
 i_top = get_top(measure,income);
 
-%% Graphs
-
-% figure
-% bar([1:5],a_quintiles(:,4))
-% title('Assets distribution')
-% xlabel('quintiles')
-% ylabel('fraction of total assets')
-
-% figure
-% bar([1:5],a_top(:,4))
-% title('Assets distribution in the top')
-% Labels = {'10%', '6%', '5%', '1%', '0.1%'};
-% set(gca, 'XTick', 1:5, 'XTickLabel', Labels);
-% xlabel('top percentile')
-% ylabel('fraction of held by the top')
-
-% figure
-% bar([1:5],l_quintiles(:,4))
-% title('Labor income distribution')
-% xlabel('quintiles')
-% ylabel('fraction of total labor income')
-
-% figure
-% bar([1:5],i_quintiles(:,4))
-% title('Total income distribution')
-% xlabel('quintiles')
-% ylabel('fraction of total income')
-
 %% Functions
+
+function [moments] = get_moments(dist,x)
+
+% Computes selected percentiles of x distributed according to dist
+% Inputs:  dist = distribution vector of x
+%          x    = vector with variable of interest
+% Outputs: percentiles (usually slightly above the actual quintiles)
+%          thresholds
+%          cumulative share of x with each quintile
+
+moments = zeros(8,3);
+counter = 0;
+
+for perc = [0.2 0.4 0.6 0.8 0.9 0.95 0.99 1]
+    counter = counter + 1;
+    moments(counter,1:3) = get_percentile(perc,dist,x);
+end
+
+end
 
 function [quint_summary] = get_quintile(dist,x)
 
@@ -181,15 +172,14 @@ function [top_summary] = get_top(dist,x)
 %          thresholds
 %          share of x with each top percentile
 
-top_summary = zeros(4,3);
+top_summary = zeros(3,4);
 counter = 0;
-for top = [0.9 0.94 0.95 0.99]
+for top = [0.9 0.95 0.99]
     counter = counter + 1;
-    top_summary(counter,:) = get_percentile(top,dist,x);
+    top_summary(counter,1:3) = get_percentile(top,dist,x);
     top_summary(counter,1) = 1 - top_summary(counter,1);
-    top_summary(counter,3) = 1 - top_summary(counter,3);
+    top_summary(counter,4) = 1 - top_summary(counter,3);
 end
-
 end
 
 function [perc_summary] = get_percentile(perc, dist, x)
@@ -201,6 +191,8 @@ function [perc_summary] = get_percentile(perc, dist, x)
 % Outputs: percentile (usually slightly above perc)
 %          threshold
 %          cummulative share of x below percentile perc
+
+if perc >= 1, perc_summary = [1 NaN 1]; return; end
 
 [x, sortv] = sort(x);
 dist = dist(sortv);
@@ -224,14 +216,17 @@ dist1 = dist0./sum(dist0);
 
 end
 
-function [perc_x0] = zero_x(dist,x)
+function [share_locus] = locus_mass(dist,x,grid,locus)
 
-% Inputs:  dist = distribution vector of x
-%          x    = vector with variable of interest
-% Outputs: perc_x0 = percentage of population in first point of K grid
+% Inputs:  dist  = distribution vector of x
+%          x     = vector with variable of interest
+%          grid  = variable x grid
+%          locus = index of grid
+% Outputs: perc_x0 = share of population at point locus of grid
 
-i = find(x == 0.0010,1);
-perc_x0 = sum(dist(i));
+assert(locus <= size(grid,1), 'Index exceeds grid size.')
+i = find(x == grid(locus));
+share_locus = sum(dist(i));
 
 end
 
