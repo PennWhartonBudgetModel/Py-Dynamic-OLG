@@ -90,23 +90,65 @@ assets      = assets     (:);
 income      = income     (:);
 agesv       = agesv      (:);
 
-%% Compute assets distribution
+%% Import wealth and labor earnings distribution moments 
 
-a_quintiles = get_quintile(measure,assets);
-a_top = get_top(measure,assets);
-a_zero = zero_x(measure,assets);
+s = readtable('SIM_NetPersonalWealth_distribution.csv', 'Format', '%f%f%f%f');
+s = table2struct(s);
+a_distdata = zeros(7,3);
+a_distdata(:,1) = [s.percentile];
+a_distdata(:,2) = [s.threshold_2016dollars];
+a_distdata(:,3) = [s.cumulative_share];
 
-measure1 = filter_by_age(15,25,agesv,measure);
-a_quintiles1 = get_quintile(measure1,assets);
+s = readtable('SIM_PreTaxLaborInc_distribution.csv', 'Format', '%f%f%f%f');
+s = table2struct(s);
+l_distdata = zeros(7,3);
+l_distdata(:,1) = [s.percentile];
+l_distdata(:,2) = [s.threshold_2016dollars];
+l_distdata(:,2) = l_distdata(:,2)./4.5408e-05;
+l_distdata(:,3) = [s.cumulative_share];
 
+%% ASSETS
+
+% Compute assets distribution
+a_distmodel = get_moments(measure,assets);
+
+% Share of households in the first point of capital grid
+a_zero = locus_mass(measure,assets,kv,1);
+% Share of households in the last point of capital grid
+a_nk = locus_mass(measure,assets,kv,nk);
+
+% Gini and Lorenz curve
 [a_ginicoeff a_lorenz] = gini(measure,assets,true);
 
-%% Compute labor income distribution
+% Compare model distribution with data
+a_distdata(8,:) = [100 NaN 1];
+gap = max(abs(a_distdata(:,3) - a_distmodel(:,3)));
 
-l_quintiles = get_quintile(measure,labor_inc);
-l_top = get_top(measure,labor_inc);
+figure
+plot(a_distdata(:,1),a_distmodel(:,3),a_distdata(:,1),a_distdata(:,3))
+title('Assets distribution')
+xlabel('percentiles')
+ylabel('cumulative share of total assets')
+legend('model','data','Location','northwest')
 
+%% LABOR INCOME
+
+% Compute labor income distribution
+l_distmodel = get_moments(measure,labor_inc);
+
+% Gini and Lorenz curve
 [l_ginicoeff l_lorenz] = gini(measure,labor_inc);
+
+% Compare model distribution with data
+l_distdata(8,:) = [100 NaN 1];
+gap = max(abs(l_distdata(:,3) - l_distmodel(:,3)));
+
+figure
+plot(l_distdata(:,1),l_distmodel(:,3),l_distdata(:,1),l_distdata(:,3))
+title('Labor income distribution')
+xlabel('percentiles')
+ylabel('cumulative share of total labor income')
+legend('model','data','Location','northwest')
 
 %% Compute consumption distribution
 
