@@ -109,9 +109,15 @@ methods (Static)
         
         % Define savings and average earnings discretization vectors
         % (Upper bound of average earnings defined as maximum possible Social Security benefit)
-        f = @(lb, ub, n) lb + (ub-lb)*((0:n-1)/(n-1))'.^2;
-        nk = 10; kv = f(1e-3, 120           , nk);
-        nb =  5; bv = f(0   , 1.5*max(zs(:)), nb);
+        f = @(lb, ub, n, curv) lb + (ub-lb)*((0:n-1)/(n-1))'.^curv;
+        nb =  5; bv = f(0   , 1.5*max(zs(:))    , nb  , 2);     % average earnings vector
+        nk = 15; kv = f(1e-3, 1/(500*4.5408e-05), nk-4, 4);     % savings vector --- 4.5408e-05 corresponds to the last modelunit_dollars value in steady state
+        scale = 1;                                              % scale insures we continue building the capital grid at around 3.5 million dollars
+        for ik = nk-3:nk                                        % this loop builds the top of capital grid
+            scale = 3.5*scale;
+            kv(ik) = scale*1e+6*4.5408e-05;
+        end
+
         
         s.ndem     = ndem;
         s.g        = g;

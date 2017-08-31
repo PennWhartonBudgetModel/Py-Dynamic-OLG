@@ -4,9 +4,16 @@
 %%
 
 nz = 4;
-nk = 10;
-f = @(lb, ub, n) lb + (ub-lb)*((0:n-1)/(n-1))'.^2;
-kv = f(1e-3, 120, nk);
+nk = 15;
+f = @(lb, ub, n, curv) lb + (ub-lb)*((0:n-1)/(n-1))'.^curv;
+kv = f(1e-3, 1/(500*4.5408e-05), nk-4, 4);
+scale = 1;
+for ik = nk-3:nk
+    scale = 3.5*scale;
+    kv(ik) = scale*1e+6*4.5408e-05;
+end
+
+
 nb = 5;
 T_life = 80;
 ng = 3;
