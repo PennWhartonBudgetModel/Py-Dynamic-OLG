@@ -242,12 +242,9 @@ methods (Static, Access = private)
         qtobin0 = 1 - expshare_base*taucap_base;
         qtobin  = 1 - expshare     *taucap     ;
 
-        % Define utility of bequests
-        % (Currently defined to be zero for all savings levels)
-        phi1 = 0; phi2 = 11.6; phi3 = 1.5;
-        V_beq = phi1 * (1 + kv/phi2).^(1 - phi3);
+        % Define parameters on residual value of bequest function.
+        bequest_phi_1 = 0.0; bequest_phi_2 = 11.6; bequest_phi_3 = 1.5;
 
-        
         
         %% Aggregate generation function
         
@@ -274,7 +271,8 @@ methods (Static, Access = private)
                 
                 % Package fixed dynamic optimization arguments into anonymous function
                 solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active) solve_cohort(V0, LAB_static, isdynamic, ...
-                    nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, kv, bv, beta, gamma, sigma, surv, V_beq, ...
+                    nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, kv, bv, beta, gamma, sigma, surv, ...
+                    bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                     modelunit_dollars, ...
                     sstaxcredit, ssbenefits, sstaxs, ssincmaxs, ...
                     tax_thresholds, tax_burden, tax_rates, ... 
