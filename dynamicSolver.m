@@ -487,7 +487,10 @@ methods (Static, Access = private)
             case 'steady'
                 
                 % Load initial conditions
-                Market0 = load(fullfile(param_dir, 'market0.mat'));
+                Market0 = struct('beqs',0.0927,'capshares',3/(3+debttoout),'rhos',6.2885);
+                    % Initial guesses set as follows:
+                    % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                    % beqs and rhos are guesses from previous code.
                 
                 DIST_steady = {};
                 

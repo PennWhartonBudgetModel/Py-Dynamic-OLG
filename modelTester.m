@@ -9,10 +9,10 @@ classdef modelTester
 properties (Constant)
     
     % Define baseline parameters for all tests
-    basedef    = struct('beta'              , 1.1145    , ...
-                        'gamma'             , 0.5638    , ...
-                        'sigma'             , 9.0198    , ...
-                        'modelunit_dollars' , 3.98e-05  );
+    basedef    = struct('beta'              , 0.9900    , ...
+                        'gamma'             , 0.6672    , ...
+                        'sigma'             , 2.5142    , ...
+                        'modelunit_dollars' , 4.5408e-05  );
     
     % Define counterfactual parameters for counterfactual tests
     counterdef = struct('taxplan'           , 'trumpB'  , ...
@@ -126,6 +126,11 @@ function [] = test_output(save_dir, setnames)
                 % Flag NaN value
                 flag('NaN value');
 
+            elseif any(size(outputset.(valuename)) ~= size(targetset.(valuename)))
+                
+                % Flag for size mismatch
+                flag('Size mismatch');
+                
             else
 
                 % Identify value deviation

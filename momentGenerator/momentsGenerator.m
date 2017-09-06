@@ -4,9 +4,16 @@
 %%
 
 nz = 4;
-nk = 10;
-f = @(lb, ub, n) lb + (ub-lb)*((0:n-1)/(n-1))'.^2;
-kv = f(1e-3, 120, nk);
+nk = 15;
+f = @(lb, ub, n, curv) lb + (ub-lb)*((0:n-1)/(n-1))'.^curv;
+kv = f(1e-3, 1/(500*4.5408e-05), nk-4, 4);
+scale = 1;
+for ik = nk-3:nk
+    scale = 3.5*scale;
+    kv(ik) = scale*1e+6*4.5408e-05;
+end
+
+
 nb = 5;
 T_life = 80;
 ng = 3;
@@ -79,29 +86,107 @@ f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
 labor_inc_  = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]), [1,nk,nb,1,ng,T_model,1]) * wage;
 ssbenefits  = f(s.BEN);
 consumption = f(s.CON);
+income      = f(s.INC);
 
-capital     = repmat(reshape(kv, [1,nk,1,1,1,1,1]), [nz,1,nb,T_life,ng,T_model,ndem]);
+assets = repmat(reshape(kv, [1,nk,1,1,1,1,1]), [nz,1,nb,T_life,ng,T_model,ndem]);
+agesv  = repmat(reshape([1:T_life], [1,1,1,T_life,1,1,1]), [nz,nk,nb,1,ng,T_model,ndem]);
 
-labor_inc   = labor_inc_(:) + ssbenefits(:);
+labor_inc   = labor_inc_ (:) + ssbenefits(:);
 consumption = consumption(:);
-capital     = capital    (:);
+assets      = assets     (:);
+income      = income     (:);
+agesv       = agesv      (:);
 
-%% Compute wealth distribution
+%% Import wealth and labor earnings distribution moments 
 
-W_quintiles = get_quintile(measure,capital);
-W_top = get_top(measure,capital);
+s = readtable('SIM_NetPersonalWealth_distribution.csv', 'Format', '%f%f%f%f');
+s = table2struct(s);
+a_distdata = zeros(7,3);
+a_distdata(:,1) = [s.percentile];
+a_distdata(:,2) = [s.threshold_2016dollars];
+a_distdata(:,3) = [s.cumulative_share];
 
-%% Compute labor income distribution
+s = readtable('SIM_PreTaxLaborInc_distribution.csv', 'Format', '%f%f%f%f');
+s = table2struct(s);
+l_distdata = zeros(7,3);
+l_distdata(:,1) = [s.percentile];
+l_distdata(:,2) = [s.threshold_2016dollars];
+l_distdata(:,2) = l_distdata(:,2)./4.5408e-05;
+l_distdata(:,3) = [s.cumulative_share];
 
-L_quintiles = get_quintile(measure,labor_inc);
-L_top = get_top(measure,labor_inc);
+%% ASSETS
+
+% Compute assets distribution
+a_distmodel = get_moments(measure,assets);
+
+% Share of households in the first point of capital grid
+a_zero = locus_mass(measure,assets,kv,1);
+% Share of households in the last point of capital grid
+a_nk = locus_mass(measure,assets,kv,nk);
+
+% Gini and Lorenz curve
+[a_ginicoeff a_lorenz] = gini(measure,assets,true);
+
+% Compare model distribution with data
+a_distdata(8,:) = [100 NaN 1];
+gap = max(abs(a_distdata(:,3) - a_distmodel(:,3)));
+
+figure
+plot(a_distdata(:,1),a_distmodel(:,3),a_distdata(:,1),a_distdata(:,3))
+title('Assets distribution')
+xlabel('percentiles')
+ylabel('cumulative share of total assets')
+legend('model','data','Location','northwest')
+
+%% LABOR INCOME
+
+% Compute labor income distribution
+l_distmodel = get_moments(measure,labor_inc);
+
+% Gini and Lorenz curve
+[l_ginicoeff l_lorenz] = gini(measure,labor_inc);
+
+% Compare model distribution with data
+l_distdata(8,:) = [100 NaN 1];
+gap = max(abs(l_distdata(:,3) - l_distmodel(:,3)));
+
+figure
+plot(l_distdata(:,1),l_distmodel(:,3),l_distdata(:,1),l_distdata(:,3))
+title('Labor income distribution')
+xlabel('percentiles')
+ylabel('cumulative share of total labor income')
+legend('model','data','Location','northwest')
 
 %% Compute consumption distribution
 
-C_quintiles = get_quintile(measure,consumption);
-C_top = get_top(measure,consumption);
+c_quintiles = get_quintile(measure,consumption);
+c_top = get_top(measure,consumption);
+
+%% Compute total income distribution
+
+i_quintiles = get_quintile(measure,income);
+i_top = get_top(measure,income);
 
 %% Functions
+
+function [moments] = get_moments(dist,x)
+
+% Computes selected percentiles of x distributed according to dist
+% Inputs:  dist = distribution vector of x
+%          x    = vector with variable of interest
+% Outputs: percentiles (usually slightly above the actual quintiles)
+%          thresholds
+%          cumulative share of x with each quintile
+
+moments = zeros(8,3);
+counter = 0;
+
+for perc = [0.2 0.4 0.6 0.8 0.9 0.95 0.99 1]
+    counter = counter + 1;
+    moments(counter,1:3) = get_percentile(perc,dist,x);
+end
+
+end
 
 function [quint_summary] = get_quintile(dist,x)
 
@@ -110,17 +195,19 @@ function [quint_summary] = get_quintile(dist,x)
 %          x    = vector with variable of interest
 % Outputs: quintiles (usually slightly above the actual quintiles)
 %          thresholds
-%          percentage of x with each quintile
+%          cumulative share of x with each quintile
+%          share of x with each quintile
 
-quint_summary = zeros(5,3);
+quint_summary = zeros(5,4);
 counter = 0;
 
 for perc=0.2:0.2:1.0
     counter = counter + 1;
-    quint_summary(counter,:) = get_percentile(perc,dist,x);
+    quint_summary(counter,1:3) = get_percentile(perc,dist,x);
 end
+quint_summary(1,4) = quint_summary(1,3);
 for counter = size(quint_summary,1):-1:2
-	quint_summary(counter,3) = quint_summary(counter,3) - quint_summary(counter-1,3);
+	quint_summary(counter,4) = quint_summary(counter,3) - quint_summary(counter-1,3);
 end
 
 end
@@ -132,17 +219,16 @@ function [top_summary] = get_top(dist,x)
 %          x    = vector with variable of interest
 % Outputs: top percentiles (usually slightly below the actual quintiles)
 %          thresholds
-%          percentage of x with each top percentile
+%          share of x with each top percentile
 
-top_summary = zeros(5,3);
+top_summary = zeros(3,4);
 counter = 0;
-for top = [0.9 0.95 0.99 0.999 .9999]
+for top = [0.9 0.95 0.99]
     counter = counter + 1;
-    top_summary(counter,:) = get_percentile(top,dist,x);
+    top_summary(counter,1:3) = get_percentile(top,dist,x);
     top_summary(counter,1) = 1 - top_summary(counter,1);
-    top_summary(counter,3) = 1 - top_summary(counter,3);
+    top_summary(counter,4) = 1 - top_summary(counter,3);
 end
-
 end
 
 function [perc_summary] = get_percentile(perc, dist, x)
@@ -153,7 +239,9 @@ function [perc_summary] = get_percentile(perc, dist, x)
 %          x    = vector with variable of interest
 % Outputs: percentile (usually slightly above perc)
 %          threshold
-%          cummulative percentage of x below percentile perc
+%          cummulative share of x below percentile perc
+
+if perc >= 1, perc_summary = [1 NaN 1]; return; end
 
 [x, sortv] = sort(x);
 dist = dist(sortv);
@@ -164,7 +252,95 @@ perc_summary = [sum(dist(1:i)) x(i) (sum(x(1:i).*dist(1:i))/sum(x.*dist))];
 
 end
 
+function [dist1] = filter_by_age(agemin,agemax,agesv,dist0)
 
+% Inputs:  [agemin,agemax] = age interval of interest
+%          agesv = vector of ages with the same dimension of dist0
+%          dist0 = distribution vector of population at each type
+% Outputs: dist1 = new distribution within age interval
 
+assert(agemin <= agemax, 'Wrong age interval: agemin > agemax.')
+dist0(agesv < agemin | agesv > agemax) = 0;
+dist1 = dist0./sum(dist0);
 
+end
 
+function [share_locus] = locus_mass(dist,x,grid,locus)
+
+% Inputs:  dist  = distribution vector of x
+%          x     = vector with variable of interest
+%          grid  = variable x grid
+%          locus = index of grid
+% Outputs: perc_x0 = share of population at point locus of grid
+
+assert(locus <= size(grid,1), 'Index exceeds grid size.')
+i = find(x == grid(locus));
+share_locus = sum(dist(i));
+
+end
+
+function [ginicoeff lorenz] = gini(dist,x,makeplot)
+
+% Inputs:  dist     = vector of population sizes of the different types
+%                     (note it doesn't need to be distribution vector of x)
+%          x        = vector with variable of interest
+%          makeplot = boolean indicating whether a figure of the Lorentz
+%                     curve should be produced or not. Default is false.
+% Outputs: ginicoeff = Gini coefficients
+%          lorenz    = Lorentz curve: This is a two-column array, with the 
+%                      left column representing cumulative population 
+%                      shares of the different classes, sorted according to
+%                      val, and the right column representing the 
+%                      cumulative value share that belongs to the 
+%                      population up to the given class. The Lorentz curve 
+%                      is a scatter plot of the left vs the right column.
+
+if nargin < 3
+	makeplot = false;
+end
+
+% Pre-append a zero because the Lorenz curve contains (0,0) by definition
+dist = [0;dist(:)]; x = [0;x(:)];
+
+% Check for negative values - this is important if there's borrowing
+assert(all(dist>=0) && all(x>=0), ...
+	'gini expects nonnegative vectors (neg elements in pop = %d, in val = %d).', ...
+	sum(dist<0),sum(x<0))
+    
+% Sort in ascending order wrt x and weight vectors
+z = x .* dist;
+[~,ord] = sort(x);
+dist    = dist(ord);      z    = z(ord);
+dist    = cumsum(dist);   z    = cumsum(z);
+relpop  = dist/dist(end); relz = z/z(end);
+
+% We compute the area below the Lorentz curve. We do this by computing the 
+% average of the left and right Riemann-like sums. (Riemann-'like' because 
+% we evaluate not on a uniform grid, but on the points given by the pop data).
+% These are the two Rieman-like sums:
+    %    leftsum  = sum(relz(1:end-1) .* diff(relpop));
+    %    rightsum = sum(relz(2:end)   .* diff(relpop));
+% The Gini coefficient is one minus twice the average of leftsum and
+% rightsum. We can put all of this into one line.
+
+ginicoeff = 1 - sum((relz(1:end-1)+relz(2:end)) .* diff(relpop));
+
+% Lorentz curve
+lorenz = [relpop,relz];
+
+% Plot
+if makeplot
+	area(relpop,relz,'FaceColor',[0.5,0.5,1.0]); % the Lorentz curve
+	hold on
+	plot([0,1],[0,1],'--k');                     % 45 degree line
+	axis tight                                   % ranges of abscissa and ordinate are by definition exactly [0,1]
+	axis square                                  % both axes should be equally long
+	set(gca,'XTick',get(gca,'YTick'))            % ensure equal ticking
+	set(gca,'Layer','top');                      % grid above the shaded area
+	grid on;
+	title(['\bfGini coefficient = ',num2str(ginicoeff)]);
+	xlabel('share of population');
+	ylabel('share of value');
+end
+
+end
