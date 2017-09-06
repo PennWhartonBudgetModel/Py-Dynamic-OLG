@@ -26,12 +26,12 @@ methods (Static)
         [~, invert] = modelCalibrator.invert();
         
         % Define vectors of elasticities, to be inverted into baseline parameters
-        labelasv = {0.25, 0.50, 0.75, 1.00};
-        savelasv = {0.25, 0.50, 0.75, 1.00};
+        labelasv = num2cell(0.00 : 0.20 : 1.00);
+        savelasv = num2cell(0.00 : 0.20 : 1.00);
         
         % Define vectors of counterfactual parameters
         taxplanv = {'trumpA', 'trumpB'};
-        gcutv    = {+0.20, +0.15, +0.10, +0.00};
+        gcutv    = num2cell(+0.20 : -0.01 : 0.00);
         
         % Generate all parameter combinations
         [labelasinds, savelasinds, taxplaninds, gcutinds] = ndgrid(1:length(labelasv), 1:length(savelasv), 1:length(taxplanv), 1:length(gcutv));
