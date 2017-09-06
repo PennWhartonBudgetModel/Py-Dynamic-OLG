@@ -40,7 +40,6 @@ methods (Static)
         first_transition_year  = 2018;
         
         % Identify working directories
-        param_dir = dirFinder.param();
         [save_dir, ~, counterdef_tag] = dirFinder.save(scenario);
         
         % Append caller tag to save directory name and generate calling tag
@@ -338,10 +337,10 @@ methods (Static)
             % Scenario must have baselineScenario set -- it is the
             % baseline to use.
             % NOTE: Force consistency with economy
-            basedef = scenario.baselineScenario.Clone();
-            basedef.economy = economy;
-            base_generator = @() dynamicSolver.solve(basedef, callingtag);
-            base_dir = dirFinder.save(basedef);
+            baselineScenario = scenario.baselineScenario.Clone();
+            baselineScenario.economy = economy;
+            base_generator = @() dynamicSolver.solve(baselineScenario, callingtag);
+            base_dir = dirFinder.save(baselineScenario);
 %             
             % Load baseline market conditions, optimal labor values, and population distribution
             Market = hardyload('market.mat'      , base_generator, base_dir);

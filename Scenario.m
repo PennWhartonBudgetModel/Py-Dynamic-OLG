@@ -80,24 +80,24 @@ classdef Scenario
         %     the Scenario.ID
         function [basedef_tag, counterdef_tag] = generate_tags(this)
 
-            s = [];
-            s = [s, sprintf('%.3f' , this.beta)            ];
-            s = [s, sprintf('_%.3f', this.gamma)           ];
-            s = [s, sprintf('_%.2f', this.sigma)           ];
-            s = [s, sprintf('_%e'  , this.modelunit_dollar)];
-            basedef_tag = s;
+            str = [];
+            str = [str, sprintf('%.3f' , this.beta)            ];
+            str = [str, sprintf('_%.3f', this.gamma)           ];
+            str = [str, sprintf('_%.2f', this.sigma)           ];
+            str = [str, sprintf('_%e'  , this.modelunit_dollar)];
+            basedef_tag = str;
             
             if( isempty(this.baselineScenario) )
                 counterdef_tag = 'baseline';
             else
-                s = [];
-                s = [s, sprintf('%s'    , this.taxplan)        ];
-                s = [s, sprintf('_%+.2f', this.gcut)           ];
-                s = [s, sprintf('_%.1f' , this.legal_scale)    ];
-                s = [s, sprintf('_%.3f' , this.prem_legal)     ];
-                s = [s, sprintf('_%.2f' , this.amnesty)        ];
-                s = [s, sprintf('_%.2f' , this.deportation)    ];
-                counterdef_tag = s;
+                str = [];
+                str = [str, sprintf('%s'    , this.taxplan)        ];
+                str = [str, sprintf('_%+.2f', this.gcut)           ];
+                str = [str, sprintf('_%.1f' , this.legal_scale)    ];
+                str = [str, sprintf('_%.3f' , this.prem_legal)     ];
+                str = [str, sprintf('_%.2f' , this.amnesty)        ];
+                str = [str, sprintf('_%.2f' , this.deportation)    ];
+                counterdef_tag = str;
             end
         end % generate_tags
 
