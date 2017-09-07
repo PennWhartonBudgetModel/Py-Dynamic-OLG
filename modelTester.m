@@ -31,6 +31,7 @@ methods (Static)
         save_dir = dynamicSolver.steady(modelTester.basedef);
         setnames = {'market', 'dynamics', 'elasticities'};
         test_output(save_dir, setnames);
+        GiniTable = momentsGenerator('steady',save_dir)
     end
     
     
