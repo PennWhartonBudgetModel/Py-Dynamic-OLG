@@ -347,6 +347,18 @@ methods (Static)
 
     
     end % budget
+    %% BEQUEST MOTIVE
+    %
+    function s = bequest_motive(sigma, gamma)
+        
+        s.phi1 = 0;                        % phi1 reflects parent's concern about leaving bequests to her children (-9.5 in De Nardi's calibration)
+        s.phi2 = 11.6;                     % phi2 measures the extent to which bequests are a luxury good
+        s.phi3 = 1 - (1 - sigma)*gamma;    % phi3 is the relative risk aversion coefficient
+
+    end % production
+        
+    
+
     
 end % methods
 
