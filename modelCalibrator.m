@@ -196,7 +196,7 @@ methods (Static)
 
     %%
     %   Single loop to calibrate on modelunit_dollar targets
-    function [ targets, modelunit_dollars, is_solved ] = calibrate_dollar( gridpoint )
+    function [ targets, modelunit_dollar, is_solved ] = calibrate_dollar( gridpoint )
 
         % Set target = $gdp/adult
         %     from Alex $79.8k for 2016
@@ -205,15 +205,9 @@ methods (Static)
         target_index        = find( strcmp( modelCalibrator.moment_targets(:, 1), 'outperHH' ), 1 );
         target              = cell2mat( modelCalibrator.moment_targets( target_index, 2 ) );
         
-        % Make param struct to run for steady state
-        params   = struct( 'beta',              gridpoint.beta ...
-                         , 'sigma',             gridpoint.sigma ...
-                         , 'gamma',             gridpoint.gamma ...
-                         , 'modelunit_dollars', target );
-                     
         % Set initial modelunit_dollars.
         % In the future, we could apply a heuristic better initial guess.
-        modelunit_dollars   = 4.0e-05;  
+        modelunit_dollar    = 4.0e-05;  
 
         tolerance           = 0.01;    % as ratio 
         err_size            = 1;
@@ -222,8 +216,14 @@ methods (Static)
 
         while (( err_size > tolerance ) && (iter_num <= iter_max) )
 
-            params.modelunit_dollars    = modelunit_dollars;
-            save_dir                    = dynamicSolver.steady( params );
+            % Create Scenario to run
+            scenario    = Scenario( struct( 'economy'           , 'steady'          ...
+                                         ,  'beta'              , gridpoint.beta    ...
+                                         ,  'gamma'             , gridpoint.gamma   ...
+                                         ,  'sigma'             , gridpoint.sigma   ...
+                                         ,  'modelunit_dollar'  , modelunit_dollar  ...
+                                   ));
+            save_dir    = dynamicSolver.solve( scenario );
 
             % find target -- $gdp/pop
             s_elas          = load( fullfile(save_dir, 'elasticities.mat' ) );
@@ -242,7 +242,7 @@ methods (Static)
             % iterations increases. This approach slows the update rate
             % in case of slow convergence -- we're usually bouncing around then.
             exp_reduce        = max( 0.5, 1.0 - iter_num *0.07 );
-            modelunit_dollars = modelunit_dollars*((actual_value/target)^exp_reduce);
+            modelunit_dollar = modelunit_dollar*((actual_value/target)^exp_reduce);
 
             % Find if converged
             %    This only needs to be done after the loop, but
@@ -257,8 +257,8 @@ methods (Static)
             iter_num = iter_num + 1;
         end % while
    
-        % Keep last used run of modelunit_dollars
-        modelunit_dollars   = params.modelunit_dollars;
+        % Keep last successful run with modelunit_dollar
+        modelunit_dollar   = scenario.modelunit_dollar;
         
         % Check solution condition.
         % Stable solution identified as:

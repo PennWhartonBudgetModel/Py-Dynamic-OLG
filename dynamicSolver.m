@@ -26,7 +26,7 @@ methods (Static)
         modelunit_dollar    = scenario.modelunit_dollar;
         
         % Identify baseline run 
-        isbase = scenario.isBase();
+        isbase = scenario.isCurrentPolicy;
         
         % Unpack parameters from filled counterfactual definition
         taxplan     = scenario.taxplan    ;
@@ -337,11 +337,8 @@ methods (Static)
         %% Static aggregate generation
         
         if ~isbase
-            % Scenario must have baselineScenario set -- it is the
-            % baseline to use.
-            % NOTE: Force consistency with economy
-            baselineScenario = scenario.baselineScenario.Clone();
-            baselineScenario.economy = economy;
+            
+            baselineScenario = scenario.currentPolicy;
             base_generator = @() dynamicSolver.solve(baselineScenario, callingtag);
             base_dir = dirFinder.save(baselineScenario);
 %             
@@ -403,16 +400,10 @@ methods (Static)
                 DIST_steady = {};
                 
             case {'open', 'closed'}
-                % Make Scenario for the steady state. 
-                if( isbase )
-                    steadydef           = scenario.Clone();
-                    steadydef.economy   = 'steady';
-                else
-                    steadydef           = scenario.baselineScenario.Clone();
-                    steadydef.economy   = 'steady';
-                end
-                steady_generator = @() dynamicSolver.solve(steadydef, callingtag);
-                steady_dir = dirFinder.save(steadydef);
+                % Make Scenario for current policy, steady state. 
+                steadyBaseScenario = scenario.currentPolicy.steady;
+                steady_generator = @() dynamicSolver.solve(steadyBaseScenario, callingtag);
+                steady_dir = dirFinder.save(steadyBaseScenario);
                 
                 % Load steady state market conditions and dynamic aggregates
                 Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
@@ -457,10 +448,9 @@ methods (Static)
                 
             case 'closed'
                 % Make Scenario for the open economy. 
-                opendef             = scenario.Clone();
-                opendef.economy     = 'open';
-                open_generator = @() dynamicSolver.solve(opendef, callingtag);
-                open_dir = dirFinder.save(opendef);
+                openScenario = scenario.open;
+                open_generator = @() dynamicSolver.solve(openScenario, callingtag);
+                open_dir = dirFinder.save(openScenario);
                 
                 % Load government expenditure adjustments
                 Dynamic_open = hardyload('dynamics.mat', open_generator, open_dir);
