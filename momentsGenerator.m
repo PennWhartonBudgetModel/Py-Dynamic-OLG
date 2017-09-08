@@ -3,16 +3,25 @@
 % 
 %%
 
-function [gini_summary] = momentsGenerator(economy,save_dir)
+function [gini_summary] = momentsGenerator(scenario,do_plot1,do_plot2)
+
+    if (nargin == 1)
+        do_plot1 = false;
+        do_plot2 = false;
+    elseif (nargin == 2)
+        do_plot2 = false;
+    end
+
 
 	%% PARAMETERS
-        
+    
+    save_dir = dirFinder.save(scenario);
+
 	% Define time constants
 	s       = paramGenerator.timing();
 	T_life  = s.T_life;    % Total life years
-	T_work  = s.T_work;    % Total working years
 	T_model = s.T_model;   % Transition path model years
-	switch economy
+	switch scenario.economy
         case 'steady'
             T_model = 1;   % Steady state total modeling years
         case {'open', 'closed'}
@@ -75,13 +84,15 @@ function [gini_summary] = momentsGenerator(economy,save_dir)
     % Compare model distribution with data
     a_ginigap = 100*(a_ginidata / a_ginimodel - 1);
     
-    figure
-    plot(a_distdata.percentile,a_distmodel.cumulativeShare, ...
-         a_distdata.percentile,a_distdata.cumulativeShare)
-    title('Assets distribution')
-    xlabel('percentiles')
-    ylabel('cumulative share of total assets')
-    legend('model','data','Location','northwest')
+    if do_plot1
+        figure
+        plot(a_distdata.percentile,a_distmodel.cumulativeShare, ...
+            a_distdata.percentile,a_distdata.cumulativeShare)
+        title('Assets distribution')
+        xlabel('percentiles')
+        ylabel('cumulative share of total assets')
+        legend('model','data','Location','northwest')
+    end
 
     % Compute labor income distribution
     l_distmodel = get_moments(dist,labinc);
@@ -92,13 +103,15 @@ function [gini_summary] = momentsGenerator(economy,save_dir)
     % Compare model distribution with data
     l_ginigap = 100*(l_ginidata / l_ginimodel - 1);
     
-    figure
-    plot(l_distdata.percentile,l_distmodel.cumulativeShare,...
-         l_distdata.percentile,l_distdata.cumulativeShare)
-    title('Labor income distribution')
-    xlabel('percentiles')
-    ylabel('cumulative share of total labor income')
-    legend('model','data','Location','northwest')
+    if do_plot2
+        figure
+        plot(l_distdata.percentile,l_distmodel.cumulativeShare,...
+            l_distdata.percentile,l_distdata.cumulativeShare)
+        title('Labor income distribution')
+        xlabel('percentiles')
+        ylabel('cumulative share of total labor income')
+        legend('model','data','Location','northwest')
+    end
     
     % momentsGenerator output
     gini_summary = table(categorical({'wealth';'lab_income'}),...
