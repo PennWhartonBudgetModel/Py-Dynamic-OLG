@@ -44,10 +44,12 @@ methods (Static)
     
     
     % Find save directory
-    function [save_dir, basedef_tag, counterdef_tag] = save(economy, basedef, counterdef)
-        if ~exist('counterdef', 'var'), counterdef = []; end
-        [basedef_tag, counterdef_tag] = dynamicSolver.generate_tags(basedef, counterdef);
-        save_dir = fullfile(dirFinder.saveroot, basedef_tag, counterdef_tag, economy);
+    function [save_dir, basedef_tag, counterdef_tag] = save(scenario)
+        if isproductionready
+            % TODO: Use Scenario.IDs
+        end
+        [basedef_tag, counterdef_tag] = scenario.generate_tags();
+        save_dir = fullfile(dirFinder.saveroot, basedef_tag, counterdef_tag, scenario.economy);
     end
     
     

@@ -20,6 +20,7 @@ classdef Scenario
         amnesty;
         deportation;
     end
+
     
     methods
         
