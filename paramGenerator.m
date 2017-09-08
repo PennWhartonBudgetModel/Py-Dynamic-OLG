@@ -118,7 +118,6 @@ methods (Static)
             kv(ik) = scale*1e+6*4.5408e-05;
         end
 
-        
         s.ndem     = ndem;
         s.g        = g;
         s.ng       = ng;

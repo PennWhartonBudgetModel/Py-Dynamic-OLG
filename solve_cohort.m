@@ -5,7 +5,9 @@
 
 
 function [V, OPT] = solve_cohort(V0, LAB_static, isdynamic, ...
-                        nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs_idem, transz, kv, bv, beta, gamma, sigma, surv, V_beq, ...
+                        nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, ... 
+                        zs_idem, transz, kv, bv, beta, gamma, sigma, surv, ...
+                        bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                         modelunit_dollars, ...
                         sstaxcredit, ssbenefits, sstaxs, ssincmaxs, ...
                         tax_thresholds, tax_burden, tax_rates, ... 
@@ -41,9 +43,12 @@ assert( isa(beta        , 'double'  ) && (size(beta         , 1) == 1       ) &&
 assert( isa(gamma       , 'double'  ) && (size(gamma        , 1) == 1       ) && (size(gamma        , 2) == 1       ) );
 assert( isa(sigma       , 'double'  ) && (size(sigma        , 1) == 1       ) && (size(sigma        , 2) == 1       ) );
 assert( isa(surv        , 'double'  ) && (size(surv         , 1) == 1       ) && (size(surv         , 2) <= T_max   ) );
-assert( isa(V_beq       , 'double'  ) && (size(V_beq        , 1) <= nk_max  ) && (size(V_beq        , 2) == 1       ) );
 
-assert( isa(modelunit_dollars, 'double'  ) && (size(modelunit_dollars, 1) == 1       ) && (size(modelunit_dollars, 2) == 1       ) );
+assert( isa(bequest_phi_1, 'double' ) && (size(bequest_phi_1, 1) == 1 ) && (size(bequest_phi_1, 2) == 1 ) );
+assert( isa(bequest_phi_2, 'double' ) && (size(bequest_phi_2, 1) == 1 ) && (size(bequest_phi_2, 2) == 1 ) );
+assert( isa(bequest_phi_3, 'double' ) && (size(bequest_phi_3, 1) == 1 ) && (size(bequest_phi_3, 2) == 1 ) );
+
+assert( isa(modelunit_dollars, 'double' ) && (size(modelunit_dollars, 1) == 1 ) && (size(modelunit_dollars, 2) == 1 ) );
 
 assert( isa(sstaxcredit , 'double'  ) && (size(sstaxcredit  , 1) == 1       ) && (size(sstaxcredit  , 2) == 1       ) );
 assert( isa(ssbenefits  , 'double'  ) && (size(ssbenefits   , 1) <= nb_max  ) && (size(ssbenefits   , 2) <= T_max   ) );
@@ -112,6 +117,8 @@ for t = T_active:-1:1
     totrate    = totrates     (year);
     expsub     = expsubs      (year);
     
+    % Pre-calculate for speed and conciseness
+    bequest_p_1   = beta * (1-surv(age))* bequest_phi_1;
     
     for ib = 1:nb
         for ik = 1:nk
@@ -129,11 +136,15 @@ for t = T_active:-1:1
                 
                 if isdynamic
                     
-                    % Calculate expected value curve using forward-looking utility values
-                    EV = (1-surv(age))*repmat(V_beq, [1,nb]) + surv(age)*beta*reshape(V_step(1,:,:), [nk,nb]);
+                    % Calculate expected value conditional on living using forward-looking 
+                    %   utility values. Pre-multiply by prob. survival and
+                    %   beta to save on computation.
+                    EV = surv(age)*beta*reshape(V_step(1,:,:), [nk,nb]);
                     
                     % Call retirement age value function to set parameters
-                    value_retirement([], kv, resources, EV(:,ib), sigma, gamma);
+                    value_retirement([], kv, resources, EV(:,ib), ... 
+                                bequest_p_1, bequest_phi_2, bequest_phi_3, ...
+                                sigma, gamma);
                     
                     % Solve dynamic optimization subproblem
                     [k, v] = fminsearch(@value_retirement, kv(ik), optim_options);
@@ -175,12 +186,16 @@ for t = T_active:-1:1
                     
                     if isdynamic
                         
-                        % Calculate expected value curve using forward-looking utility values
-                        EV = (1-surv(age))*repmat(V_beq, [1,nb]) + surv(age)*beta*reshape(sum(repmat(transz(iz,:)', [1,nk,nb]) .* V_step, 1), [nk,nb]);
+                        % Calculate expected value conditional on living using forward-looking 
+                        %   utility values. Pre-multiply by prob. survival and
+                        %   beta to save on computation.
+                        EV = surv(age)*beta*reshape(sum(repmat(transz(iz,:)', [1,nk,nb]) .* V_step, 1), [nk,nb]);
                         
                         % Call working age value function and average earnings calculation function to set parameters
-                        value_working([], kv, bv, wage_eff, EV, sigma, gamma)
-                        calculate_b  ([], age, bv(ib), ssincmax)
+                        value_working([], kv, bv, wage_eff, EV, ...
+                                bequest_p_1, bequest_phi_2, bequest_phi_3, ...
+                                sigma, gamma);
+                        calculate_b  ([], age, bv(ib), ssincmax);
                         
                         % Solve dynamic optimization subproblem
                         lab0 = 0.5;
@@ -313,24 +328,32 @@ end
 
 
 % Retirement age value function
-function v = value_retirement(k, kv_, resources_, EV_ib_, sigma_, gamma_)
+function v = value_retirement(k, kv_, resources_, EV_ib_,... 
+                    bequest_p_1_, bequest_phi_2_, bequest_phi_3_, ...
+                    sigma_, gamma_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
 
 % Define parameters as persistent variables
-persistent kv resources EV_ib sigma gamma ...
-           initialized
+persistent kv resources EV_ib ...
+            bequest_p_1 bequest_phi_2 bequest_phi_3 ...
+            sigma gamma ...
+            initialized
 
 % Initialize parameters for C code generation
 if isempty(initialized)
-    kv = 0; resources = 0; EV_ib = 0; sigma = 0; gamma = 0;
+    kv = 0; resources = 0; EV_ib = 0; 
+    bequest_p_1 = 0; bequest_phi_2 = 0; bequest_phi_3 = 0;
+    sigma = 0; gamma = 0;
     initialized = true;
 end
 
 % Set parameters if provided
 if (nargin > 1)
-    kv = kv_; resources = resources_; EV_ib = EV_ib_; sigma = sigma_; gamma = gamma_;
+    kv = kv_; resources = resources_; EV_ib = EV_ib_; 
+    bequest_p_1 = bequest_p_1_; bequest_phi_2 = bequest_phi_2_; bequest_phi_3 = bequest_phi_3_; 
+    sigma = sigma_; gamma = gamma_;
     if isempty(k), return, end
 end
 
@@ -341,8 +364,15 @@ consumption = resources - k;
 % Perform bound checks
 if (kv(1) <= k) && (k <= kv(end)) && (0 <= consumption)
     
+    % Residual value of bequest.
+    % NOTE: (1) bequest is assets chosen for next period,
+    %       (2) bequest_p_1 is beta*prob_death*bequest_phi_1
+    value_bequest = bequest_p_1 * (1 + k/bequest_phi_2)^(1-bequest_phi_3);
+    
     % Calculate utility
-    v = interp1(kv, EV_ib, k, 'linear') + (consumption^(gamma*(1-sigma)))/(1-sigma);
+    v = (consumption^(gamma*(1-sigma)))/(1-sigma) ... % flow utility
+        + interp1(kv, EV_ib, k, 'linear')         ... % continuation value of life
+        + value_bequest                           ;   % value of bequest
     
     % Negate utility for minimization and force to scalar for C code generation
     v = -v(1);
@@ -357,24 +387,32 @@ end
 
 
 % Working age value function
-function v = value_working(x, kv_, bv_, wage_eff_, EV_, sigma_, gamma_)
+function v = value_working(x, kv_, bv_, wage_eff_, EV_, ...
+                    bequest_p_1_, bequest_phi_2_, bequest_phi_3_, ...
+                    sigma_, gamma_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
 
 % Define parameters as persistent variables
-persistent kv bv wage_eff EV sigma gamma ...
-           initialized
+persistent kv bv wage_eff EV ...
+            bequest_p_1 bequest_phi_2 bequest_phi_3 ...
+            sigma gamma ...
+            initialized
 
 % Initialize parameters for C code generation
 if isempty(initialized)
-    kv = 0; bv = 0; wage_eff = 0; EV = 0; sigma = 0; gamma = 0;
+    kv = 0; bv = 0; wage_eff = 0; EV = 0; 
+    bequest_p_1 = 0; bequest_phi_2 = 0; bequest_phi_3 = 0;
+    sigma = 0; gamma = 0;
     initialized = true;
 end
 
 % Set parameters if provided
 if (nargin > 1)
-    kv = kv_; bv = bv_; wage_eff = wage_eff_; EV = EV_; sigma = sigma_; gamma = gamma_;
+    kv = kv_; bv = bv_; wage_eff = wage_eff_; EV = EV_; 
+    bequest_p_1 = bequest_p_1_; bequest_phi_2 = bequest_phi_2_; bequest_phi_3 = bequest_phi_3_; 
+    sigma = sigma_; gamma = gamma_;
     if isempty(x), return, end
 end
 
@@ -406,9 +444,16 @@ if ~(0 <= consumption)
     return
 end
 
+% Residual value of bequest.
+% NOTE: (1) bequest is assets chosen for next period,
+%       (2) bequest_p_1 is beta*prob_death*bequest_phi_1
+value_bequest = bequest_p_1 * (1 + k/bequest_phi_2)^(1-bequest_phi_3);
+    
 % Calculate utility
-v = interp2(kv', bv, EV', k, b, 'linear') + (1/(1-sigma))*((consumption^gamma)*((1-lab)^(1-gamma)))^(1-sigma);
-
+v = (((consumption^gamma)*((1-lab)^(1-gamma)))^(1-sigma))/(1-sigma) ... % flow utility
+    + interp2(kv', bv, EV', k, b, 'linear')                         ... % continuation value of life
+    + value_bequest                                                 ;   % value of bequest
+ 
 % Negate utility for minimization and force to scalar for C code generation
 v = -v(1);
 

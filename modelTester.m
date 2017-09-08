@@ -6,29 +6,29 @@
 
 classdef modelTester
 
-properties (Constant)
-    
-    % Define baseline parameters for all tests
-    basedef    = struct('beta'              , 0.9900    , ...
-                        'gamma'             , 0.6672    , ...
-                        'sigma'             , 2.5142    , ...
-                        'modelunit_dollars' , 4.5408e-05  );
-    
-    % Define counterfactual parameters for counterfactual tests
-    counterdef = struct('taxplan'           , 'trumpB'  , ...
-                        'gcut'              , +0.00     , ...
-                        'legal_scale'       , 1.0       , ...
-                        'prem_legal'        , 1.00      , ...
-                        'amnesty'           , 0.00      , ...
-                        'deportation'       , 0.00      );
-    
-end
-
 methods (Static)
+    %%
+    %  Definitions of Scenarios
+    function scenario = getBaselineDef()
+        scenario = Scenario();
+        scenario.beta               = 0.9900 ;
+        scenario.gamma              = 0.6672;
+        scenario.sigma              = 2.5142;
+        scenario.modelunit_dollar   = 4.5408e-05;
+    end % getBaseDef
     
+    function scenario = getCounterDef()
+        basedef = modelTester.getBaselineDef();
+        scenario = basedef.Clone();
+        scenario.baselineScenario = basedef;
+        scenario.taxplan = 'trumpB';
+    end % getBaseDef
+
     % Test steady state solution and elasticities
     function [] = steady()
-        save_dir = dynamicSolver.steady(modelTester.basedef);
+        scenario = modelTester.getBaselineDef();
+        scenario.economy = 'steady';
+        save_dir = dynamicSolver.solve(scenario);
         setnames = {'market', 'dynamics', 'elasticities'};
         test_output(save_dir, setnames);
         GiniTable = momentsGenerator('steady',save_dir)
@@ -37,7 +37,9 @@ methods (Static)
     
     % Test open economy baseline solution, dynamic aggregates, and static aggregates
     function [] = open_base()
-        save_dir = dynamicSolver.open(modelTester.basedef);
+        scenario = modelTester.getBaselineDef();
+        scenario.economy = 'open';
+        save_dir = dynamicSolver.solve(scenario);
         setnames = {'market', 'dynamics'};
         test_output(save_dir, setnames);
     end
@@ -45,7 +47,9 @@ methods (Static)
     
     % Test open economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = open_counter()
-        save_dir = dynamicSolver.open(modelTester.basedef, modelTester.counterdef);
+        scenario = modelTester.getCounterDef();
+        scenario.economy = 'open';
+        save_dir = dynamicSolver.solve(scenario);
         setnames = {'market', 'dynamics', 'statics'};
         test_output(save_dir, setnames);
     end
@@ -53,16 +57,18 @@ methods (Static)
     
     % Test closed economy baseline solution, dynamic aggregates, and static aggregates
     function [] = closed_base()
-        save_dir = dynamicSolver.closed(modelTester.basedef);
-        setnames = {'market', 'dynamics'};
+        scenario = modelTester.getBaselineDef();
+        scenario.economy = 'closed';
+        save_dir = dynamicSolver.solve(scenario);setnames = {'market', 'dynamics'};
         test_output(save_dir, setnames);
     end
     
     
     % Test closed economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = closed_counter()
-        save_dir = dynamicSolver.closed(modelTester.basedef, modelTester.counterdef);
-        setnames = {'market', 'dynamics', 'statics'};
+        scenario = modelTester.getCounterDef();
+        scenario.economy = 'closed';
+        save_dir = dynamicSolver.solve(scenario);setnames = {'market', 'dynamics', 'statics'};
         test_output(save_dir, setnames);
     end
     
@@ -73,9 +79,8 @@ methods (Static)
         modelCalibrator.calibrate_dollar( params )
     end % calibrate_dollar
 
-end % methods
-
-
+    
+end % methods 
 
 end % class modelTester
 

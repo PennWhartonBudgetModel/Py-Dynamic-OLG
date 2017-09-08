@@ -7,105 +7,12 @@
 classdef dynamicSolver
 
 methods (Static)
-    
-    
-    % Solve steady state
-    function [save_dir] = steady(basedef, callertag)
-        
-        if ~exist('callertag' , 'var'), callertag  = ''; end
-        
-        save_dir = dynamicSolver.solve('steady', basedef, [], callertag);
-        
-    end
-    
-    
-    % Solve open economy transition path
-    function [save_dir] = open(basedef, counterdef, callertag)
-        
-        if ~exist('counterdef', 'var'), counterdef = []; end
-        if ~exist('callertag' , 'var'), callertag  = ''; end
-        
-        save_dir = dynamicSolver.solve('open', basedef, counterdef, callertag);
-        
-    end
-    
-    
-    % Solve closed economy transition path
-    function [save_dir] = closed(basedef, counterdef, callertag)
-        
-        if ~exist('counterdef', 'var'), counterdef = []; end
-        if ~exist('callertag' , 'var'), callertag  = ''; end
-        
-        save_dir = dynamicSolver.solve('closed', basedef, counterdef, callertag);
-        
-    end
-    
-    
-    % Generate tags for baseline and counterfactual definitions
-    function [basedef_tag, counterdef_tag] = generate_tags(basedef, counterdef)
-        
-        % Define baseline and counterfactual parameter formats
-        basedef_format    = struct( 'beta'              , '%.3f'    , ...
-                                    'gamma'             , '%.3f'    , ...
-                                    'sigma'             , '%.2f'    , ...
-                                    'modelunit_dollars' , '%e'       );
-        
-        counterdef_format = struct( 'taxplan'       , '%s'      , ...
-                                    'gcut'          , '%+.2f'   , ...
-                                    'legal_scale'   , '%.1f'    , ...
-                                    'prem_legal'    , '%.3f'    , ...
-                                    'amnesty'       , '%.2f'    , ...
-                                    'deportation'   , '%.2f'    );
-        
-        % Define function to construct tag from definition and format specifications
-        function tag = construct_tag(def, format)
-            strs = {};
-            for field = fields(def)'
-                strs = [strs, {sprintf(format.(field{1}), def.(field{1}))}]; %#ok<AGROW>
-            end
-            tag = strjoin(strs, '_');
-        end
-        
-        % Generate baseline tag
-        basedef_tag = construct_tag(basedef, basedef_format);
-        
-        % Generate counterfactual tag
-        if (isempty(counterdef) || isempty(fields(counterdef)))
-            counterdef_tag = 'baseline';
-        else
-            counterdef_tag = construct_tag(dynamicSolver.fill_default(counterdef), counterdef_format);
-        end
-        
-    end
-    
-end
 
-
-methods (Static, Access = private)
-    
-    % Generate counterfactual definition filled with default parameter values where necessary
-    function [counterdef_filled] = fill_default(counterdef)
-        
-        % Define default counterfactual parameter values
-        % (These are the values used for a baseline run)
-        counterdef_filled = struct( 'taxplan'       , 'base', ...
-                                    'gcut'          , +0.00 , ...
-                                    'legal_scale'   , 1.0   , ...
-                                    'prem_legal'    , 1.000 , ...
-                                    'amnesty'       , 0.00  , ...
-                                    'deportation'   , 0.00  );
-        
-        % Override default parameter values with values from counterfactual definition
-        for field = fields(counterdef)'
-            counterdef_filled.(field{1}) = counterdef.(field{1});
-        end
-        
-    end
-    
-    
     % Solve dynamic model
-    function [save_dir] = solve(economy, basedef, counterdef, callertag) %#ok<*FXUP>
+    function [save_dir] = solve(scenario, callertag) %#ok<*FXUP>
         
+        if ~exist('callertag' , 'var'), callertag  = ''; end
+        economy = scenario.economy;
         
         %% Initialization
         
@@ -113,32 +20,27 @@ methods (Static, Access = private)
         if usejava('jvm'), gcp; end
         
         % Unpack parameters from baseline definition
-        beta                = basedef.beta ;
-        gamma               = basedef.gamma;
-        sigma               = basedef.sigma;
-        modelunit_dollars   = basedef.modelunit_dollars;
+        beta                = scenario.beta ;
+        gamma               = scenario.gamma;
+        sigma               = scenario.sigma;
+        modelunit_dollar    = scenario.modelunit_dollar;
         
-        % Identify baseline run by empty counterfactual definition
-        if isempty(counterdef), counterdef = struct(); end
-        isbase = isempty(fields(counterdef));
-        
-        % Generate counterfactual definition filled with default parameter values where necessary
-        counterdef_filled = dynamicSolver.fill_default(counterdef);
+        % Identify baseline run 
+        isbase = scenario.isBase();
         
         % Unpack parameters from filled counterfactual definition
-        taxplan     = counterdef_filled.taxplan    ;
-        gcut        = counterdef_filled.gcut       ;
-        legal_scale = counterdef_filled.legal_scale;
-        prem_legal  = counterdef_filled.prem_legal ;
-        amnesty     = counterdef_filled.amnesty    ;
-        deportation = counterdef_filled.deportation;
+        taxplan     = scenario.taxplan    ;
+        gcut        = scenario.gcut       ;
+        legal_scale = scenario.legal_scale;
+        prem_legal  = scenario.prem_legal ;
+        amnesty     = scenario.amnesty    ;
+        deportation = scenario.deportation;
         
         % map model inputs (or outputs) to actual years
         first_transition_year  = 2018;
         
         % Identify working directories
-        param_dir = dirFinder.param();
-        [save_dir, ~, counterdef_tag] = dirFinder.save(economy, basedef, counterdef);
+        [save_dir, ~, counterdef_tag] = dirFinder.save(scenario);
         
         % Append caller tag to save directory name and generate calling tag
         % (Obviates conflicts between parallel runs)
@@ -208,7 +110,7 @@ methods (Static, Access = private)
         imm_age         = s.imm_age;                    % Immigrants' age distribution
         
         % Load Social Security parameters
-        s           = paramGenerator.social_security( modelunit_dollars, bv, T_model );
+        s           = paramGenerator.social_security( modelunit_dollar, bv, T_model );
         ssbenefits  = s.ssbenefits ;    % Benefits
         sstaxs      = s.sstaxs     ;    % Tax rates
         ssincmaxs   = s.ssincmaxs  ;    % Maximum taxable earnings
@@ -242,12 +144,9 @@ methods (Static, Access = private)
         qtobin0 = 1 - expshare_base*taucap_base;
         qtobin  = 1 - expshare     *taucap     ;
 
-        % Define utility of bequests
-        % (Currently defined to be zero for all savings levels)
-        phi1 = 0; phi2 = 11.6; phi3 = 1.5;
-        V_beq = phi1 * (1 + kv/phi2).^(1 - phi3);
+        % Define parameters on residual value of bequest function.
+        bequest_phi_1 = 0.0; bequest_phi_2 = 11.6; bequest_phi_3 = 1.5;
 
-        
         
         %% Aggregate generation function
         
@@ -274,8 +173,9 @@ methods (Static, Access = private)
                 
                 % Package fixed dynamic optimization arguments into anonymous function
                 solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active) solve_cohort(V0, LAB_static, isdynamic, ...
-                    nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, kv, bv, beta, gamma, sigma, surv, V_beq, ...
-                    modelunit_dollars, ...
+                    nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, kv, bv, beta, gamma, sigma, surv, ...
+                    bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
+                    modelunit_dollar, ...
                     sstaxcredit, ssbenefits, sstaxs, ssincmaxs, ...
                     tax_thresholds, tax_burden, tax_rates, ... 
                     captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
@@ -434,11 +334,14 @@ methods (Static, Access = private)
         %% Static aggregate generation
         
         if ~isbase
-            
-            % Identify baseline generator and save directory
-            base_generator = @() dynamicSolver.solve(economy, basedef, [], callingtag);
-            base_dir = dirFinder.save(economy, basedef);
-            
+            % Scenario must have baselineScenario set -- it is the
+            % baseline to use.
+            % NOTE: Force consistency with economy
+            baselineScenario = scenario.baselineScenario.Clone();
+            baselineScenario.economy = economy;
+            base_generator = @() dynamicSolver.solve(baselineScenario, callingtag);
+            base_dir = dirFinder.save(baselineScenario);
+%             
             % Load baseline market conditions, optimal labor values, and population distribution
             Market = hardyload('market.mat'      , base_generator, base_dir);
             
@@ -497,10 +400,16 @@ methods (Static, Access = private)
                 DIST_steady = {};
                 
             case {'open', 'closed'}
-                
-                % Identify steady state generator and save directory
-                steady_generator = @() dynamicSolver.steady(basedef, callingtag);
-                steady_dir = dirFinder.save('steady', basedef);
+                % Make Scenario for the steady state. 
+                if( isbase )
+                    steadydef           = scenario.Clone();
+                    steadydef.economy   = 'steady';
+                else
+                    steadydef           = scenario.baselineScenario.Clone();
+                    steadydef.economy   = 'steady';
+                end
+                steady_generator = @() dynamicSolver.solve(steadydef, callingtag);
+                steady_dir = dirFinder.save(steadydef);
                 
                 % Load steady state market conditions and dynamic aggregates
                 Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
@@ -544,10 +453,11 @@ methods (Static, Access = private)
                 end
                 
             case 'closed'
-                
-                % Identify open economy generator and save directory
-                open_generator = @() dynamicSolver.open(basedef, counterdef, callingtag);
-                open_dir = dirFinder.save('open', basedef, counterdef);
+                % Make Scenario for the open economy. 
+                opendef             = scenario.Clone();
+                opendef.economy     = 'open';
+                open_generator = @() dynamicSolver.solve(opendef, callingtag);
+                open_dir = dirFinder.save(opendef);
                 
                 % Load government expenditure adjustments
                 Dynamic_open = hardyload('dynamics.mat', open_generator, open_dir);
@@ -588,7 +498,7 @@ methods (Static, Access = private)
         for label = { {'Beta'          , beta              } , ...
                       {'Gamma'         , gamma             } , ...
                       {'Sigma'         , sigma             } , ...
-                      {'Model$'        , modelunit_dollars } }
+                      {'Model$'        , modelunit_dollar } }
             fprintf('\t%-25s= % 7.8f\n', label{1}{:})
         end
         
@@ -822,19 +732,19 @@ methods (Static, Access = private)
                 savelas = (Dynamic_dev.assets - Dynamic.assets) / (Dynamic.assets * ratedev);
                 
                 % Calculate $GDP/HH
-                outperHH = (Dynamic.outs./Dynamic.pops)./modelunit_dollars;
+                outperHH = (Dynamic.outs./Dynamic.pops)./modelunit_dollar;
                 
                 % Save and display elasticities
                 save(fullfile(save_dir, 'elasticities.mat') ...
                     , 'captoout', 'labelas', 'savelas', 'outperHH' ...
-                    , 'beta', 'gamma', 'sigma', 'modelunit_dollars' );
+                    , 'beta', 'gamma', 'sigma', 'modelunit_dollar' );
                 
                 fprintf( '\n' );
                 fprintf( 'Finished at: %s\n', datetime );
                 for label = { {'Beta'          , beta              } , ...
                               {'Gamma'         , gamma             } , ...
                               {'Sigma'         , sigma             } , ...
-                              {'Model$'        , modelunit_dollars } }
+                              {'Model$'        , modelunit_dollar  } }
                     fprintf('\t%-25s= % 7.8f\n', label{1}{:})
                 end
                 fprintf( '--------------\n' );
