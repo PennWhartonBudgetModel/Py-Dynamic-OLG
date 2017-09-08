@@ -12,11 +12,18 @@ end % properties
 methods (Static)
 
     %% TIMING
-    % 
-    function s = timing()
+    %    
+    function s = timing(scenario)
         s.T_life    = 80;
         s.T_work    = 47;
-        s.T_model   = 25;
+        switch scenario.economy
+            case 'steady'
+                s.T_model    = 1;                           % Steady state total modeling years
+                s.startyears = 0;                           % Steady state cohort start year
+            case {'open', 'closed'}
+                s.T_model    = 25;                          % Transition path total modeling years
+                s.startyears = (-s.T_life+1):(s.T_model-1); % Transition path cohort start years
+        end
     end % timing
        
     %% DICRETIZATION GRIDS

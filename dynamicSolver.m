@@ -55,18 +55,11 @@ methods (Static)
         %% PARAMETERS
         
         % Define time constants
-        s       = paramGenerator.timing();
-        T_life  = s.T_life;    % Total life years
-        T_work  = s.T_work;    % Total working years
-        T_model = s.T_model;   % Transition path model years
-        switch economy
-            case 'steady'
-                T_model    = 1;                         % Steady state total modeling years
-                startyears = 0;                         % Steady state cohort start year
-            case {'open', 'closed'}
-                T_model    = T_model;                   % Transition path total modeling years
-                startyears = (-T_life+1):(T_model-1);   % Transition path cohort start years
-        end
+        s           = paramGenerator.timing(scenario);
+        T_life      = s.T_life;     % Total life years
+        T_work      = s.T_work;     % Total working years
+        T_model     = s.T_model;    % Transition path model years
+        startyears  = s.startyears; % Cohort start years as offsets to year 1
         nstartyears = length(startyears);
         
         T_pasts   = max(-startyears, 0);                            % Life years before first model year

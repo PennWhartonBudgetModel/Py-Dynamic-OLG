@@ -12,21 +12,18 @@ function [gini_summary] = momentsGenerator(scenario,do_plot1,do_plot2)
         do_plot2 = false;
     end
 
-
+    if( ~strcmp(scenario.economy, 'steady' ) )
+        error('Unable to generate income distribution moments for transition paths.')
+    end
+    
 	%% PARAMETERS
     
     save_dir = dirFinder.save(scenario);
 
 	% Define time constants
-	s       = paramGenerator.timing();
+	s       = paramGenerator.timing(scenario);
 	T_life  = s.T_life;    % Total life years
 	T_model = s.T_model;   % Transition path model years
-	switch scenario.economy
-        case 'steady'
-            T_model = 1;   % Steady state total modeling years
-        case {'open', 'closed'}
-            error('Unable to generate income distribution moments for transition paths.')
-    end
 
 	% Discretized grids, including shock process
 	s    = paramGenerator.grids( T_life, 1 );
