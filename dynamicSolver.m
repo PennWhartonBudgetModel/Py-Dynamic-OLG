@@ -751,10 +751,11 @@ methods (Static)
                 
         end
         
-        
-    end
+        % Release MEX file to avoid locks.
+        clear mex;
+    end % solve
     
-end
+end % methods
 
 end
 
