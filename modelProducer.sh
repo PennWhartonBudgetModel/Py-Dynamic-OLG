@@ -11,9 +11,14 @@ LOGDIR='./Logs'
 rm -rf ${LOGDIR}
 mkdir -p ${LOGDIR}
 
+# Specify production run job execution queue, checking for presence of --aws flag
+QUEUE=$([ $# -gt 0 ] && [ $1 = "--aws" ]               \
+        && echo 'aws-ppi.q -l aws_ppi -P bepp_ppi_aws' \
+        || echo 'short.q'                              )
+
 # Submit production run task array job
 qsub -N run -t 1-$(ls -1 ./Runs | wc -l) \
-     -q aws-ppi.q -l aws_ppi -P bepp_ppi_aws \
+     -q ${QUEUE} \
      -j y -o ${LOGDIR}'/run$TASK_ID.log' \
      -b y 'matlab -nojvm -nosplash -r "modelProducer.run(${SGE_TASK_ID})"'
 
