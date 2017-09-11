@@ -41,6 +41,7 @@ classdef Scenario
                             );
     end % properties
     
+    
     methods
         
         % Constructor
@@ -82,12 +83,17 @@ classdef Scenario
              % isCurrentPolicy if no deviation from def_fields  
             for f = fieldnames(Scenario.def_fields)'
                 this_one = (this.(f{1})); def_one = (Scenario.def_fields.(f{1}));
-                if( length(this_one) ~= length(def_one) ) % Needed since Matlab2016 does not overload == for strings
-                    flag = false;
-                    return;
-                elseif (this_one ~= def_one )
-                    flag = false;
-                    return;
+                switch (class(this_one))
+                    case 'double'
+                        if (this_one ~= def_one )
+                            flag = false;
+                            return;
+                        end
+                    case 'char'
+                        if( ~strcmp(this_one, def_one) )
+                            flag = false;
+                            return;
+                        end
                 end
             end
             flag = true;
@@ -130,48 +136,41 @@ classdef Scenario
         %     the Scenario.ID
         function [basedef_tag, counterdef_tag] = generate_tags(this)
 
-            str = [];
-            str = [str, sprintf('%.3f' , this.beta)            ];
-            str = [str, sprintf('_%.3f', this.gamma)           ];
-            str = [str, sprintf('_%.2f', this.sigma)           ];
-            str = [str, sprintf('_%e'  , this.modelunit_dollar)];
-            basedef_tag = str;
+            basedef_tag = [     sprintf('%.3f' , this.beta)             ...
+                            ,   sprintf('_%.3f', this.gamma)            ...     
+                            ,   sprintf('_%.2f', this.sigma)            ...
+                            ,   sprintf('_%e'  , this.modelunit_dollar) ...
+                            ,   sprintf('_%.3f', this.bequest_phi_1)    ...
+                          ];
             
             if( this.isCurrentPolicy )
                 counterdef_tag = 'baseline';
             else
-                str = [];
-                str = [str, sprintf('%s'    , this.taxplan)        ];
-                str = [str, sprintf('_%+.2f', this.gcut)           ];
-                str = [str, sprintf('_%.1f' , this.legal_scale)    ];
-                str = [str, sprintf('_%.3f' , this.prem_legal)     ];
-                str = [str, sprintf('_%.2f' , this.amnesty)        ];
-                str = [str, sprintf('_%.2f' , this.deportation)    ];
-                counterdef_tag = str;
+                counterdef_tag  = [     sprintf('%s'    , this.taxplan)        ...
+                                    ,   sprintf('_%+.2f', this.gcut)           ...
+                                    ,   sprintf('_%.1f' , this.legal_scale)    ...
+                                    ,   sprintf('_%.3f' , this.prem_legal)     ...
+                                    ,   sprintf('_%.2f' , this.amnesty)        ...
+                                    ,   sprintf('_%.2f' , this.deportation)    ...
+                                  ];
             end
         end % generate_tags
 
-        
-    end % methods
-    
-    methods (Access = private )
-        
-        function obj = Clone(this)
-            % Make "empty" object to fill in
+
+        function params = getParams(this)
             params = struct();
+            % Create and copy all fields
             for f = Scenario.req_fields
-                params.(f{1}) = 'open';  % trick to skip checks in constructor
-            end
-            obj = Scenario(params);
-            
-            % Copy all other fields
-            for f = Scenario.req_fields
-                obj.(f{1}) = this.(f{1});
+                params.(f{1}) = this.(f{1});
             end
             for f = fieldnames(Scenario.def_fields)'
-                obj.(f{1}) = this.(f{1});
+                params.(f{1}) = this.(f{1});
             end
-            
+        end % getParams
+        
+        
+        function obj = Clone(this)
+            obj = Scenario( this.getParams() );
         end % Clone
         
     end % methods

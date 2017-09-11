@@ -1,4 +1,4 @@
-%%
+% %%
 % Dynamic model solver.
 % 
 %%
@@ -26,7 +26,7 @@ methods (Static)
         modelunit_dollar    = scenario.modelunit_dollar;
         
         % Identify baseline run 
-        isbase = scenario.isCurrentPolicy;
+        isbase = scenario.isCurrentPolicy();
         
         % Unpack parameters from filled counterfactual definition
         taxplan     = scenario.taxplan    ;
@@ -331,7 +331,7 @@ methods (Static)
         
         if ~isbase
             
-            baselineScenario = scenario.currentPolicy;
+            baselineScenario = scenario.currentPolicy();
             base_generator = @() dynamicSolver.solve(baselineScenario, callingtag);
             base_dir = dirFinder.save(baselineScenario);
 %             
@@ -394,7 +394,7 @@ methods (Static)
                 
             case {'open', 'closed'}
                 % Make Scenario for current policy, steady state. 
-                steadyBaseScenario = scenario.currentPolicy.steady;
+                steadyBaseScenario = scenario.currentPolicy().steady();
                 steady_generator = @() dynamicSolver.solve(steadyBaseScenario, callingtag);
                 steady_dir = dirFinder.save(steadyBaseScenario);
                 
@@ -441,7 +441,7 @@ methods (Static)
                 
             case 'closed'
                 % Make Scenario for the open economy. 
-                openScenario = scenario.open;
+                openScenario = scenario.open();
                 open_generator = @() dynamicSolver.solve(openScenario, callingtag);
                 open_dir = dirFinder.save(openScenario);
                 
