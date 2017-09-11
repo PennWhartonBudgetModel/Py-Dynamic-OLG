@@ -26,6 +26,7 @@ methods (Static)
         end
     end % timing
        
+    
     %% DICRETIZATION GRIDS
     %   prem_legal : productivity premium of avg. (by year) legal
     %          immigrant. Note: This is a ratio.
@@ -363,15 +364,20 @@ methods (Static)
 
     
     end % budget
+    
+    
     %% BEQUEST MOTIVE
     %
-    function s = bequest_motive(sigma, gamma)
+    function s = bequest_motive(scenario)
+        % phi1 reflects parent's concern about leaving bequests to her children (-9.5 in De Nardi's calibration)
+        % phi2 measures the extent to which bequests are a luxury good
+        % phi3 is the relative risk aversion coefficient
         
-        s.phi1 = 0;                        % phi1 reflects parent's concern about leaving bequests to her children (-9.5 in De Nardi's calibration)
-        s.phi2 = 11.6;                     % phi2 measures the extent to which bequests are a luxury good
-        s.phi3 = 1 - (1 - sigma)*gamma;    % phi3 is the relative risk aversion coefficient
+        s.phi1 = scenario.bequest_phi_1;   
+        s.phi2 = 11.6;                     
+        s.phi3 = 1 - (1 - scenario.sigma)*scenario.gamma;    
 
-    end % production
+    end % bequest_motive
         
     
 

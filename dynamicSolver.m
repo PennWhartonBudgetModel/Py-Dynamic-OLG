@@ -138,7 +138,7 @@ methods (Static)
         qtobin  = 1 - expshare     *taucap     ;
 
         % Define parameters on residual value of bequest function.
-        s = paramGenerator.bequest_motive(sigma, gamma);
+        s = paramGenerator.bequest_motive(scenario);
         bequest_phi_1 = s.phi1;                 % phi1 reflects parent's concern about leaving bequests to her children (THIS IS THE ONE WE WANT TO CALIBRATE FOR LATER!)
         bequest_phi_2 = s.phi2;                 % phi2 measures the extent to which bequests are a luxury good
         bequest_phi_3 = s.phi3;                 % phi3 is the relative risk aversion coefficient

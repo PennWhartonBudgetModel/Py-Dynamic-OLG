@@ -14,6 +14,7 @@ classdef Scenario
         gamma;
         sigma;
         modelunit_dollar;
+        bequest_phi_1;
         
         taxplan;
         gcut;
@@ -27,7 +28,7 @@ classdef Scenario
     properties (Constant, Access = private )
     
         % These are _currently_ required fields
-        req_fields = { 'beta', 'sigma', 'gamma', 'modelunit_dollar', 'economy' };
+        req_fields = { 'beta', 'sigma', 'gamma', 'modelunit_dollar', 'bequest_phi_1', 'economy' };
         
         % These are _current_ defaults for other fields
         def_fields = struct(    'ID'            , []        ...
@@ -68,11 +69,11 @@ classdef Scenario
             end
             
             % Set fields as passed 
+            %   Rem: This will fail if non-matching (extra) field
             for f = fieldnames(props)'
                 this.(f{1}) = props.(f{1});
             end
-        
-            % TODO: Warn if some fields from props not used
+             
         end % Scenario()
         
         
@@ -162,20 +163,15 @@ classdef Scenario
                 params.(f{1}) = 'open';  % trick to skip checks in constructor
             end
             obj = Scenario(params);
-            obj.ID                  = this.ID;
-            obj.economy             = this.economy;
             
-            obj.beta                = this.beta;
-            obj.sigma               = this.sigma;
-            obj.gamma               = this.gamma;
-            obj.modelunit_dollar    = this.modelunit_dollar;
-                 
-            obj.taxplan             = this.taxplan;
-            obj.gcut                = this.gcut;
-            obj.legal_scale         = this.legal_scale;
-            obj.prem_legal          = this.prem_legal;
-            obj.amnesty             = this.amnesty;
-            obj.deportation         = this.deportation;
+            % Copy all other fields
+            for f = Scenario.req_fields
+                obj.(f{1}) = this.(f{1});
+            end
+            for f = fieldnames(Scenario.def_fields)'
+                obj.(f{1}) = this.(f{1});
+            end
+            
         end % Clone
         
     end % methods
