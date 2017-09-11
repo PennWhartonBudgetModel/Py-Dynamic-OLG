@@ -111,7 +111,7 @@ methods (Static)
         % (Upper bound of average earnings defined as maximum possible Social Security benefit)
         f = @(lb, ub, n, curv) lb + (ub-lb)*((0:n-1)/(n-1))'.^curv;
         nb =  5; bv = f(0   , 1.5*max(zs(:))    , nb  , 2);     % average earnings vector
-        nk = 15; kv = f(1e-3, 1/(500*4.5408e-05), nk-4, 4);     % savings vector --- 4.5408e-05 corresponds to the last modelunit_dollars value in steady state
+        nk = 15; kv = f(1e-3, 1/(500*4.5408e-05), nk-4, 4);     % savings vector --- 4.5408e-05 corresponds to the last modelunit_dollar value in steady state
         scale = 1;                                              % scale insures we continue building the capital grid at around 3.5 million dollars
         for ik = nk-3:nk                                        % this loop builds the top of capital grid
             scale = 3.5*scale;
@@ -232,9 +232,9 @@ methods (Static)
     
     %% SOCIAL SECURITY
     %
-    function s = social_security( modelunit_dollars, bv, T_model )
+    function s = social_security( modelunit_dollar, bv, T_model )
         
-        ssthresholds = [856, 5157]*12*modelunit_dollars;    % Thresholds for earnings brackets
+        ssthresholds = [856, 5157]*12*modelunit_dollar;     % Thresholds for earnings brackets
         ssrates      = [0.9, 0.32, 0.15];                   % Marginal benefit rates for earnings brackets
         ss_scale     = 1.6;                                 % Benefit scaling factor used to match total outlays as a percentage of GDP
         
@@ -244,7 +244,7 @@ methods (Static)
         
         s.ssbenefits  = repmat(ssbenefit                , [1,T_model]);  % Benefits
         s.sstaxs      = repmat(0.124                    , [1,T_model]);  % Tax rates
-        s.ssincmaxs   = repmat(1.185e5*modelunit_dollars, [1,T_model]);  % Maximum taxable earnings
+        s.ssincmaxs   = repmat(1.185e5*modelunit_dollar, [1,T_model]);   % Maximum taxable earnings
         
         s.sstaxcredit = 0.15;     % Benefit tax credit percentage
 
