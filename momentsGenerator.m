@@ -26,7 +26,7 @@ function [gini_summary] = momentsGenerator(scenario,do_plot1,do_plot2)
 	T_model = s.T_model;   % Transition path model years
 
 	% Discretized grids, including shock process
-	s    = paramGenerator.grids( T_life, 1 );
+	s    = paramGenerator.grids(scenario);
 	ndem = s.ndem;       % demographic types
 	ng   = s.ng;         % num groups
 	nz   = s.nz;         % num labor productivity shocks

@@ -73,7 +73,7 @@ methods (Static)
         %   g    is population subgroup set: 'citizen',
         %           'legal', 'illegal'
         %   NOTE: DISTz and zs are indexed by g
-        s      = paramGenerator.grids( T_life, prem_legal );
+        s      = paramGenerator.grids( scenario );
         ndem   = s.ndem;      % demographic types
         g      = s.g;         % groups: citizen, legal, illegal 
         ng     = s.ng;        % num groups
