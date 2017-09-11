@@ -12,19 +12,26 @@ end % properties
 methods (Static)
 
     %% TIMING
-    % 
-    function s = timing()
+    %    
+    function s = timing(scenario)
         s.T_life    = 80;
         s.T_work    = 47;
-        s.T_model   = 25;
+        switch scenario.economy
+            case 'steady'
+                s.T_model    = 1;                           % Steady state total modeling years
+                s.startyears = 0;                           % Steady state cohort start year
+            case {'open', 'closed'}
+                s.T_model    = 25;                          % Transition path total modeling years
+                s.startyears = (-s.T_life+1):(s.T_model-1); % Transition path cohort start years
+        end
     end % timing
        
+    
     %% DICRETIZATION GRIDS
-    %   pass in 
-    %     T_life     : years of life 
-    %     prem_legal : productivity premium of avg. (by year) legal
+    %   prem_legal : productivity premium of avg. (by year) legal
     %          immigrant. Note: This is a ratio.
-    function s = grids( T_life, prem_legal )
+    function s = grids(scenario)
+        
         % (Shock process definitions from Storesletten, Telmer, and Yaron, 2004)
         % (Method of discretizing shock process derived from Adda and Cooper, 2003)
         
@@ -59,7 +66,8 @@ methods (Static)
         
         % Define deterministic lifecycle productivities
         % (Estimated coefficients from Barro and Barnes Medicaid working paper)
-        zage = polyval([-5.25e-7, 1.05e-4, -8.1467e-3, 0.2891379, -1.203521], 19+(1:T_life));
+        T_life = paramGenerator.timing(scenario).T_life;
+        zage   = polyval([-5.25e-7, 1.05e-4, -8.1467e-3, 0.2891379, -1.203521], 19+(1:T_life));
         
         % Calculate total productivity
         ndem = nperm; nz = ntrans*npers;
@@ -92,12 +100,21 @@ methods (Static)
         DISTz = repmat(DISTz_g, [1,1,ng]);
         
         % Shift productivity distributions for legal and illegal immigrants towards highest and lowest productivity levels respectively
+        %   prem_legal   : productivity premium of avg. (by year) legal
+        %          immigrant. Note: This is a ratio.
+        %          This value is a policy param on the Scenario.
+        %   prem_illegal : productivity premium of avg. (by year) illegal
+        %          immigrant. Note: This is a ratio.
+        %          This value is calculated by PWBM
+        %          at \\SHARED_DRIVE\PWBM_MicroSIM\Outputs\StructuralModelInputs
+        prem_legal   = scenario.prem_legal;
+        prem_illegal = 0.9; %  TODO: The real value is 0.62043 -- lowest shock is above this;
         for age = 1:T_life
             
             zmean = mean(zs(:,age,:), 3);
             
-            zlegal   = sum(zmean .* DISTz(:,age,g.legal  )) * prem_legal;
-            zillegal = sum(zmean .* DISTz(:,age,g.illegal)) * 0.9       ;
+            zlegal   = sum(zmean .* DISTz(:,age,g.legal  )) * prem_legal  ;
+            zillegal = sum(zmean .* DISTz(:,age,g.illegal)) * prem_illegal;
             
             plegal   = (zmean(nz) - zlegal  ) / (zmean(nz)*(nz-1) - sum(zmean(1:nz-1)));
             pillegal = (zmean(1)  - zillegal) / (zmean(1) *(nz-1) - sum(zmean(2:nz  )));
@@ -347,15 +364,20 @@ methods (Static)
 
     
     end % budget
+    
+    
     %% BEQUEST MOTIVE
     %
-    function s = bequest_motive(sigma, gamma)
+    function s = bequest_motive(scenario)
+        % phi1 reflects parent's concern about leaving bequests to her children (-9.5 in De Nardi's calibration)
+        % phi2 measures the extent to which bequests are a luxury good
+        % phi3 is the relative risk aversion coefficient
         
-        s.phi1 = 0;                        % phi1 reflects parent's concern about leaving bequests to her children (-9.5 in De Nardi's calibration)
-        s.phi2 = 11.6;                     % phi2 measures the extent to which bequests are a luxury good
-        s.phi3 = 1 - (1 - sigma)*gamma;    % phi3 is the relative risk aversion coefficient
+        s.phi1 = scenario.bequest_phi_1;   
+        s.phi2 = 11.6;                     
+        s.phi3 = 1 - (1 - scenario.sigma)*scenario.gamma;    
 
-    end % production
+    end % bequest_motive
         
     
 

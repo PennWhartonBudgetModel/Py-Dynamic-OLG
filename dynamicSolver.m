@@ -55,18 +55,11 @@ methods (Static)
         %% PARAMETERS
         
         % Define time constants
-        s       = paramGenerator.timing();
-        T_life  = s.T_life;    % Total life years
-        T_work  = s.T_work;    % Total working years
-        T_model = s.T_model;   % Transition path model years
-        switch economy
-            case 'steady'
-                T_model    = 1;                         % Steady state total modeling years
-                startyears = 0;                         % Steady state cohort start year
-            case {'open', 'closed'}
-                T_model    = T_model;                   % Transition path total modeling years
-                startyears = (-T_life+1):(T_model-1);   % Transition path cohort start years
-        end
+        s           = paramGenerator.timing(scenario);
+        T_life      = s.T_life;     % Total life years
+        T_work      = s.T_work;     % Total working years
+        T_model     = s.T_model;    % Transition path model years
+        startyears  = s.startyears; % Cohort start years as offsets to year 1
         nstartyears = length(startyears);
         
         T_pasts   = max(-startyears, 0);                            % Life years before first model year
@@ -80,7 +73,7 @@ methods (Static)
         %   g    is population subgroup set: 'citizen',
         %           'legal', 'illegal'
         %   NOTE: DISTz and zs are indexed by g
-        s      = paramGenerator.grids( T_life, prem_legal );
+        s      = paramGenerator.grids( scenario );
         ndem   = s.ndem;      % demographic types
         g      = s.g;         % groups: citizen, legal, illegal 
         ng     = s.ng;        % num groups
@@ -145,7 +138,7 @@ methods (Static)
         qtobin  = 1 - expshare     *taucap     ;
 
         % Define parameters on residual value of bequest function.
-        s = paramGenerator.bequest_motive(sigma, gamma);
+        s = paramGenerator.bequest_motive(scenario);
         bequest_phi_1 = s.phi1;                 % phi1 reflects parent's concern about leaving bequests to her children (THIS IS THE ONE WE WANT TO CALIBRATE FOR LATER!)
         bequest_phi_2 = s.phi2;                 % phi2 measures the extent to which bequests are a luxury good
         bequest_phi_3 = s.phi3;                 % phi3 is the relative risk aversion coefficient
@@ -758,10 +751,11 @@ methods (Static)
                 
         end
         
-        
-    end
+        % Release MEX file to avoid locks.
+        clear mex;
+    end % solve
     
-end
+end % methods
 
 end
 
