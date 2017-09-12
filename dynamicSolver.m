@@ -110,14 +110,16 @@ methods (Static)
         sstaxcredit = s.sstaxcredit;    % Benefit tax credit percentage
         
         
-        %%  CBO interest rates, expenditures, and debt
-        s               = paramGenerator.budget( first_transition_year, T_model );
+        %%  Budget: CBO interest rates, expenditures, and debt
+        s               = paramGenerator.budget( first_transition_year, scenario );
         GEXP_by_GDP     = s.GEXP_by_GDP;    % Gvt expenditures as pct GDP
         debt            = s.debt;           % Gvt debt as pct gdp
         debttoout       = s.debttoout;      % Initial debt/gdp (for steady state)
         fedgovtnis      = s.fedgovtnis;     % Gvt net interest surplus (deficit)
         cborates        = s.cborates;       % Interest rates on gvt debt (from CBO)
         cbomeanrate     = s.cbomeanrate;    % Avg of cborates (for steady state)
+        % Tax revenue targets (for Ttilde), depend on taxplan
+        tax_revenue_by_GDP = s.tax_revenue_by_GDP;
         
         %% Tax parameters
         s                   = paramGenerator.tax( taxplan );
@@ -413,22 +415,6 @@ methods (Static)
         switch economy
             
             case 'open'
-                % Tax revenues as fraction of GDP are loaded from
-                % single-series CSV files which contain data from TPC by
-                % tax plan (base, trumpA, trumpB)
-                % Input: TPCRevenues_<taxplan>.csv -- TPC estimated of tax
-                %           revenues as percent GDP
-                %           Format is (Year), (PctRevenues) w/ header row.
-                filename            = strcat('TPCRevenues_', taxplan, '.csv');
-                tax_revenue_by_GDP  = read_series(filename, first_transition_year, dirFinder.param);
-                tax_revenue_by_GDP  = tax_revenue_by_GDP'; 
-                if( T_model - length(tax_revenue_by_GDP) < 0 )
-                    tax_revenue_by_GDP = tax_revenue_by_GDP(1:T_model);
-                else
-                    tax_revenue_by_GDP  = [tax_revenue_by_GDP, ...
-                        tax_revenue_by_GDP(end)*ones(1, T_model-length(tax_revenue_by_GDP))];
-                end
-                
                 if ~isbase
                     
                     % Calculate government expenditure adjustments
@@ -436,7 +422,6 @@ methods (Static)
                     
                     Gtilde = Dynamic_base.Gtilde - gcut*GEXP_by_GDP(1:T_model).*Dynamic_base.outs;
                     Ttilde = tax_revenue_by_GDP.*Dynamic_base.outs - Static.pits - Static.ssts - Static.cits;
-                    
                 end
                 
             case 'closed'

@@ -270,7 +270,11 @@ methods (Static)
     
     %% BUDGET AND INTEREST RATES
     %
-    function s = budget( first_transition_year, T_model )
+    function s = budget( first_transition_year, scenario )
+        
+        T_model = paramGenerator.timing(scenario).T_model;
+        taxplan = scenario.taxplan;
+        
         %  CBO interest rates, expenditures, and debt
         % Input: CBOInterestRate.csv -- interest rate (as pct) 
         %           Format is (Year), (PctRate) w/ header row.
@@ -362,7 +366,30 @@ methods (Static)
             fprintf( 'WARNING! fedgovtnis outside expectations.\n' );
         end
 
-    
+        % TAX REVENUE TARGETS (if given)                 
+        % Tax revenues as fraction of GDP are loaded from
+        % single-series CSV files which contain data from TPC by
+        % tax plan (base, trumpA, trumpB)
+        % Input: TPCRevenues_<taxplan>.csv -- TPC estimated of tax
+        %           revenues as percent GDP
+        %           Format is (Year), (PctRevenues) w/ header row.
+        filename = strcat('TPCRevenues_', taxplan, '.csv');
+        try
+            tax_revenue_by_GDP = read_series(filename, first_transition_year, dirFinder.param);
+        catch ex 
+            warning('Cannot read file %s for Tax Revenue targets. Using baseline instead.', filename );
+            filename = strcat('TPCRevenues_', scenario.currentPolicy().taxplan, '.csv');
+            tax_revenue_by_GDP = read_series(filename, first_transition_year, dirFinder.param);
+        end
+        tax_revenue_by_GDP = tax_revenue_by_GDP'; 
+        if( T_model - length(tax_revenue_by_GDP) < 0 )
+            tax_revenue_by_GDP = tax_revenue_by_GDP(1:T_model);
+        else
+            tax_revenue_by_GDP  = [tax_revenue_by_GDP, ...
+                tax_revenue_by_GDP(end)*ones(1, T_model-length(tax_revenue_by_GDP))];
+        end
+        s.tax_revenue_by_GDP = tax_revenue_by_GDP; 
+        
     end % budget
     
     

@@ -102,7 +102,7 @@ classdef Scenario
         
         % Return cloned Scenario with override to current policy
         function obj = currentPolicy(this)
-            obj = this.Clone();
+            obj = Scenario(this.getParams);
             for f = fieldnames(Scenario.def_fields)'
                 obj.(f{1}) = Scenario.def_fields.(f{1});
             end
