@@ -111,22 +111,25 @@ classdef Scenario
         
         % Return cloned Scenario with 'steady' economy
         function obj = steady(this)
-            obj = this.Clone();
-            obj.economy = 'steady';
+            params          = this.getParams();
+            params.economy  = 'steady';
+            obj             = Scenario(params);
         end % steady
         
         
         % Return cloned Scenario with 'open' economy
         function obj = open(this)
-            obj = this.Clone();
-            obj.economy = 'open';
+            params          = this.getParams();
+            params.economy  = 'open';
+            obj             = Scenario(params);
         end % open
         
         
         % Return cloned Scenario with 'closed' economy
         function obj = closed(this)
-            obj = this.Clone();
-            obj.economy = 'closed';
+            params          = this.getParams();
+            params.economy  = 'closed';
+            obj             = Scenario(params);
         end % open
         
         
@@ -167,11 +170,6 @@ classdef Scenario
                 params.(f{1}) = this.(f{1});
             end
         end % getParams
-        
-        
-        function obj = Clone(this)
-            obj = Scenario( this.getParams() );
-        end % Clone
         
     end % methods
 end % Scenario
