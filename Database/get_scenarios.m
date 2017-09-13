@@ -9,11 +9,11 @@ connection = database('second_chart', 'pwbm', 'HbXk86rabjehD2AN', ...
                       'Server', 'ppi-slcsql.wharton.upenn.edu', 'PortNumber', 49170);
 
 % Get scenarios from Scenario table
-o = exec(connection, 'SELECT * FROM Scenario');
+o = connection.exec('SELECT * FROM Scenario');
 scenarios = o.fetch().Data;
-close(o);
+o.close();
 
 % Close database connection
-close(connection);
+connection.close();
 
 end
