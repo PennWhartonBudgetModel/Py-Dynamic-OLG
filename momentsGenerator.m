@@ -32,7 +32,6 @@ function [gini_summary] = momentsGenerator(scenario,do_plot1,do_plot2)
 	nz   = s.nz;         % num labor productivity shocks
 	zs   = s.zs;         % shocks grid (by demographic type and age)
 	nk   = s.nk;         % num asset points
- 	kv   = s.kv;         % assets grid
 	nb   = s.nb;         % num avg. earnings points
 
     %% DISTRIBUTION AND POLICY FUNCTIONS
@@ -43,31 +42,25 @@ function [gini_summary] = momentsGenerator(scenario,do_plot1,do_plot2)
     
     % Importing market variables
     s    = load( fullfile(save_dir, 'market.mat' ) );
-    beq  = s.beqs;
     wage = s.wages;
     
     % Importing policy functions
     f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
     s = load( fullfile(save_dir, 'all_decisions.mat' ) );
     labinc = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wage;
-    cons   = f(s.CON);
     k      = f(s.K);
     labinc = labinc(:);  % Labor income
-    cons   = cons  (:);  % Consumption
     k      = k     (:);  % Asset holdings for tomorrow (k')
     
     %% Import wealth and labor earnings distribution moments
     
-    a_distdata = readtable(fullfile(dirFinder.param(), ...
-                 'SIM_NetPersonalWealth_distribution.csv'));
+    a_distdata = readtable(fullfile(dirFinder.param(), 'SIM_NetPersonalWealth_distribution.csv'));
     a_distdata = [a_distdata; {100 NaN 1}];     % Append last point for graph
     
-    a_ginidata = 0.857;                         % Number from SIM
-
-    l_distdata = readtable(fullfile(dirFinder.param(), ...
-                 'SIM_PreTaxLaborInc_distribution.csv'));
+    l_distdata = readtable(fullfile(dirFinder.param(), 'SIM_PreTaxLaborInc_distribution.csv'));
     l_distdata = [l_distdata; {100 NaN 1}];     % Append last point for graph
     
+    a_ginidata = 0.857;                         % Number from SIM
     l_ginidata = 0.547;                         % Number from SIM
 
     %% WEALTH AND INCOME DISTRIBUTIONS
@@ -170,7 +163,8 @@ end
 function [ginicoeff lorenz] = gini(dist,x,makeplot)
 
 % Inputs:  dist     = vector of population sizes of the different types
-%                     (note it doesn't need to be distribution vector of x)
+%                     (note it doesn't need to be distribution vector of x, but
+%                      it cannot be a cumulative distribution)
 %          x        = vector with variable of interest
 %          makeplot = boolean indicating whether a figure of the Lorentz
 %                     curve should be produced or not. Default is false.
