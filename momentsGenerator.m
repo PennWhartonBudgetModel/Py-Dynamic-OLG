@@ -187,14 +187,20 @@ function [ginicoeff lorenz] = gini(dist,x,makeplot)
         makeplot = false;
     end
 
-    % Pre-append a zero because the Lorenz curve contains (0,0) by definition
-    dist = [0;dist(:)]; x = [0;x(:)];
-
-    % Check for negative values - this is important if there's borrowing
-    assert(all(dist>=0) && all(x>=0), ...
-           'gini expects nonnegative vectors (neg elements in pop = %d, in val = %d).', ...
-            sum(dist<0),sum(x<0))
+    % Check for negative population/measure
+    assert(all(dist>=0), ...
+           'gini expects nonnegative population vector (%d negative elements).', ...
+           sum(dist<0))
     
+    % Take care of first point of the Lorenz curve
+    if all(x>0)
+        % Pre-append a zero because the Lorenz curve contains (0,0) by definition
+        dist = [0;dist(:)]; x = [0;x(:)];
+    else
+        % Use the lowest x holdings to set the first point
+        dist = [0;dist(:)]; x = [min(x)-1e-8;x(:)];
+    end
+
     % Sort in ascending order wrt x and weight vectors
     z = x .* dist;
     [~,ord] = sort(x);
