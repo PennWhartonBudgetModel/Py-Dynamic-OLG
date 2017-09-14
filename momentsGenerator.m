@@ -18,7 +18,7 @@ function [gini_summary] = momentsGenerator(scenario,do_plot1,do_plot2)
     
 	%% PARAMETERS
     
-    save_dir = dirFinder.save(scenario);
+    save_dir = Environment.getCurrent().save(scenario);
 
 	% Define time constants
 	s       = paramGenerator.timing(scenario);
@@ -57,14 +57,14 @@ function [gini_summary] = momentsGenerator(scenario,do_plot1,do_plot2)
     k      = k     (:);  % Asset holdings for tomorrow (k')
     
     %% Import wealth and labor earnings distribution moments
-    
-    a_distdata = readtable(fullfile(dirFinder.param(), ...
+    param_dir  = Environment.getCurrent().sim_param();
+    a_distdata = readtable(fullfile(param_dir, ...
                  'SIM_NetPersonalWealth_distribution.csv'));
     a_distdata = [a_distdata; {100 NaN 1}];     % Append last point for graph
     
     a_ginidata = 0.857;                         % Number from SIM
 
-    l_distdata = readtable(fullfile(dirFinder.param(), ...
+    l_distdata = readtable(fullfile(param_dir, ...
                  'SIM_PreTaxLaborInc_distribution.csv'));
     l_distdata = [l_distdata; {100 NaN 1}];     % Append last point for graph
     

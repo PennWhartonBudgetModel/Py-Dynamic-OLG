@@ -220,9 +220,9 @@ methods (Static)
     %        , legal immigration rate
     %        , illegal immigration rate
     function s = demographics()
-        
-        survival  = read_series('XXXSurvivalProbability.csv', [], dirFinder.param);
-        imm_age   = read_series('XXXImmigrantAgeDistribution.csv', [], dirFinder.param);
+        param_dir = Environment.getCurrent().sim_param();
+        survival  = read_series('XXXSurvivalProbability.csv', [], param_dir);
+        imm_age   = read_series('XXXImmigrantAgeDistribution.csv', [], param_dir);
         s.surv    = survival';
         s.imm_age = imm_age';
 
@@ -274,7 +274,7 @@ methods (Static)
         
         T_model = paramGenerator.timing(scenario).T_model;
         taxplan = scenario.taxplan;
-        
+
         %  CBO interest rates, expenditures, and debt
         % Input: CBOInterestRate.csv -- interest rate (as pct) 
         %           Format is (Year), (PctRate) w/ header row.
@@ -298,15 +298,18 @@ methods (Static)
         %           Format is (Year), (PctGDP) w/ header row.
         % Output: 
         %       debttoout, fedgovtnis, cborates, GEXP_by_GDP
+        cbo_param   = Environment.getCurrent().cbo_param();
+        sim_param   = Environment.getCurrent().sim_param();
+        
         first_year                  = first_transition_year - 1;    % first year from which to read series
-        CBODebt                     = read_series( 'CBOPublicDebt.csv', first_year, dirFinder.param );
-        CBORates                    = read_series( 'CBOInterestRate.csv', first_year, dirFinder.param );
-        SIMGDP                      = read_series( 'SIMGDP.csv', first_year, dirFinder.param );
-        SIMRevenues                 = read_series( 'SIMRevenues.csv', first_year, dirFinder.param );
-        SIMExpenditures             = read_series( 'SIMExpenditures.csv', first_year, dirFinder.param );
-        CBONonInterestSpending      = read_series( 'CBONonInterestSpending.csv', first_year, dirFinder.param );
-        CBOSocialSecuritySpending   = read_series( 'CBOSocialSecuritySpending.csv', first_year, dirFinder.param );
-        CBOMedicareSpending         = read_series( 'CBOMedicareSpending.csv', first_year, dirFinder.param );
+        CBODebt                     = read_series( 'CBOPublicDebt.csv', first_year, cbo_param );
+        CBORates                    = read_series( 'CBOInterestRate.csv', first_year, cbo_param );
+        SIMGDP                      = read_series( 'SIMGDP.csv', first_year, sim_param );
+        SIMRevenues                 = read_series( 'SIMRevenues.csv', first_year, sim_param );
+        SIMExpenditures             = read_series( 'SIMExpenditures.csv', first_year, sim_param );
+        CBONonInterestSpending      = read_series( 'CBONonInterestSpending.csv', first_year, cbo_param );
+        CBOSocialSecuritySpending   = read_series( 'CBOSocialSecuritySpending.csv', first_year, cbo_param );
+        CBOMedicareSpending         = read_series( 'CBOMedicareSpending.csv', first_year, cbo_param );
 
         if( size(SIMGDP) ~= size(SIMRevenues) ...
             | size(SIMGDP) ~= size(SIMExpenditures) ...
@@ -373,13 +376,14 @@ methods (Static)
         % Input: TPCRevenues_<taxplan>.csv -- TPC estimated of tax
         %           revenues as percent GDP
         %           Format is (Year), (PctRevenues) w/ header row.
-        filename = strcat('TPCRevenues_', taxplan, '.csv');
+        filename    = strcat('TPCRevenues_', taxplan, '.csv');
+        taxplan_dir = Environment.getCurrent().taxplan_param();
         try
-            tax_revenue_by_GDP = read_series(filename, first_transition_year, dirFinder.param);
+            tax_revenue_by_GDP = read_series(filename, first_transition_year, taxplan_dir );
         catch ex 
             warning('Cannot read file %s for Tax Revenue targets. Using baseline instead.', filename );
             filename = strcat('TPCRevenues_', scenario.currentPolicy().taxplan, '.csv');
-            tax_revenue_by_GDP = read_series(filename, first_transition_year, dirFinder.param);
+            tax_revenue_by_GDP = read_series(filename, first_transition_year, taxplan_dir );
         end
         tax_revenue_by_GDP = tax_revenue_by_GDP'; 
         if( T_model - length(tax_revenue_by_GDP) < 0 )
@@ -422,7 +426,7 @@ function [incomes, taxrates] = read_tax_rates( filename )
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
 
     % Check if file exists and generate if necessary
-    filepath    = fullfile(dirFinder.param(), filename);
+    filepath    = fullfile(Environment.getCurrent().taxplan_param, filename);
     if ~exist(filepath, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
         throw(MException('read_tax_table:FILENAME', err_msg ));
@@ -451,7 +455,7 @@ function [tax_vars] = read_tax_vars( filename )
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
     
     % Check if file exists and generate if necessary
-    filepath    = fullfile(dirFinder.param(), filename);
+    filepath    = fullfile(Environment.getCurrent().taxplan_param(), filename);
     if ~exist(filepath, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
         throw(MException('read_tax_vars:FILENAME', err_msg ));

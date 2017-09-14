@@ -7,6 +7,29 @@
 
 classdef Environment
 
+    properties ( Constant, Access = private )
+        param_dirs = ... 
+            struct( 'Development', ...
+                    struct(     'cbo'           , '2017-09-14'      ...
+                            ,   'sim'           , '2017-09-14'      ...
+                            ,   'taxplan'       , '2017-09-14'      ...
+                            ,   'calibration'   , '2017-08-15-12-16-danielav-193b73c' ...
+                            ), ...
+                    'Testing', ...
+                    struct(     'cbo'           , '2017-09-14'      ...
+                            ,   'sim'           , '2017-09-14'      ...
+                            ,   'taxplan'       , '2017-09-14'      ...
+                            ,   'calibration'   , '2017-08-15-12-16-danielav-193b73c' ...
+                            ), ...
+                    'Production', ...
+                    struct(     'cbo'           , '2017-09-14'      ...
+                            ,   'sim'           , '2017-09-14'      ...
+                            ,   'taxplan'       , '2017-09-14'      ...
+                            ,   'calibration'   , '2017-08-15-12-16-danielav-193b73c' ...
+                            ) ...
+                    );
+    end % private static properties
+    
     properties ( SetAccess = private )
         name;       % Testing, Development, Production
         batchID;    % BatchID only for Production
@@ -100,6 +123,12 @@ classdef Environment
         function [testout_dir] = testout(this)
             testout_dir = fullfile(this.source, 'Testing');
         end
+        
+        % Make input dir name from static pointers struct
+        function [inputdir] = fetch_dir(this, topic)
+            p_dir       = Environment.param_dirs.(this.name).(topic);
+            inputdir    = fullfile(this.input(), topic, p_dir );
+        end
     end % private instance methods
     
     
@@ -124,12 +153,26 @@ classdef Environment
         end
 
 
-        % Parameters directory -- TODO: Remove
-        function [param_dir] = param(this)
-            param_dir = fullfile(this.source, 'Parameters');
+        % CBO parameters directory
+        function [param_dir] = cbo_param(this)
+            param_dir = this.fetch_dir('cbo');
+        end
+        
+        % SIM parameters directory
+        function [param_dir] = sim_param(this)
+            param_dir = this.fetch_dir('sim');
+        end
+        
+        % Taxplan parameters directory
+        function [param_dir] = taxplan_param(this)
+            param_dir = this.fetch_dir('taxplan');
         end
 
-
+        % Calibration grid directory
+        function [param_dir] = calibration(this)
+            param_dir = this.fetch_dir('calibration');
+        end
+        
         % Save root directory
         function [saveroot_dir] = saveroot(this)
             if( strcmp(this.name, 'Production' ) )
@@ -166,7 +209,7 @@ classdef Environment
 
         % Get the location of the microSIM input files, e.g. taxplans
         function [input_dir] = input(this)
-            input_dir = '\\hpcc.wharton.upenn.edu\ppi\DynamicModel\Input';
+            input_dir = '\\hpcc.wharton.upenn.edu\ppi\Input';
         end % input
 
         % Get identifier for active Git commit
