@@ -26,7 +26,7 @@ methods (Static)
         save_dir = dynamicSolver.solve(scenario);
         setnames = {'market', 'dynamics', 'paramsTargets'};
         test_output(save_dir, setnames);
-        GiniTable = momentsGenerator(scenario);
+        GiniTable = momentsGenerator(scenario).giniTable;
     end
     
     
