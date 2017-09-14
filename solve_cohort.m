@@ -4,7 +4,7 @@
 %%
 
 
-function [V, OPT] = solve_cohort(V0, LAB_static, isdynamic, ...
+function [OPT] = solve_cohort(V0, LAB_static, isdynamic, ...
                         nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, ... 
                         zs_idem, transz, kv, bv, beta, gamma, sigma, surv, ...
                         bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
@@ -78,7 +78,7 @@ assert( isa(expsubs     , 'double'  ) && (size(expsubs      , 1) == 1       ) &&
 %% Dynamic optimization
 
 % Initialize utility and optimal decision value arrays
-V       = zeros(nz,nk,nb,T_active);   % Utility
+OPT.V   = zeros(nz,nk,nb,T_active);   % Utility
 
 OPT.K   = zeros(nz,nk,nb,T_active);   % Savings
 OPT.LAB = zeros(nz,nk,nb,T_active);   % Labor level
@@ -150,7 +150,7 @@ for t = T_active:-1:1
                     [k, v] = fminsearch(@value_retirement, kv(ik), optim_options);
                     
                     % Record utility and optimal decision values
-                    V    (:,ik,ib,t) = -v;
+                    OPT.V(:,ik,ib,t) = -v;
                     OPT.K(:,ik,ib,t) = k ;
                     
                 else
@@ -207,7 +207,7 @@ for t = T_active:-1:1
                         lab = x(2);
                         
                         % Record utility and optimal decision values
-                        V    (iz,ik,ib,t) = -v;
+                        OPT.V(iz,ik,ib,t) = -v;
                         OPT.K(iz,ik,ib,t) = k ;
                         
                     else
@@ -236,7 +236,7 @@ for t = T_active:-1:1
     end
     
     % Update forward-looking utility values
-    V_step = V(:,:,:,t);
+    V_step = OPT.V(:,:,:,t);
     
 end
 

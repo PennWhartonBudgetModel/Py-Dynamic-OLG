@@ -155,7 +155,7 @@ methods (Static)
             if isdynamic, LABs_static = cell(nstartyears, ndem); end
             
             % Initialize optimal decision value arrays
-            os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN', 'CON'};
+            os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN', 'CON', 'V'};
             for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model,ndem); end
             
             % Initialize array of cohort optimal labor values
@@ -186,10 +186,10 @@ methods (Static)
                     
                     % Solve dynamic optimization
                     % (Note that active time is set to full lifetime)
-                    [V, OPT] = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life);
+                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life);
                     
                     % Define series of terminal utility values
-                    V0s(:,:,:,1:T_life-1) = V(:,:,:,2:T_life);
+                    V0s(:,:,:,1:T_life-1) = OPT.V(:,:,:,2:T_life);
                     
                 end
                 
@@ -213,7 +213,7 @@ methods (Static)
                             V0 = V0s(:,:,:,T_ends(i)); %#ok<PFBNS>
                             
                             % Solve dynamic optimization
-                            [~, OPTs_cohort{i}] = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i));
+                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i));
                             
                             LABs{i,idem} = OPTs_cohort{i}.LAB;
                             
