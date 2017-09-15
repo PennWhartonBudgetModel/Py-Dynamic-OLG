@@ -30,6 +30,7 @@ classdef momentsGenerator
             % Define time constants
             s       = paramGenerator.timing(scenario);
             T_life  = s.T_life;    % Total life years
+            T_work  = s.T_work;    % Retirement age
             T_model = s.T_model;   % Transition path model years
 
             % Define grids
@@ -46,6 +47,9 @@ classdef momentsGenerator
             % Import households distribution
             s    = load( fullfile(save_dir, 'distribution.mat' ) );
             dist = s.DIST(:);
+            dist_l(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem) = s.DIST(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem); % Working age population
+            dist_l(1:nz,1:nk,1:nb,T_work:T_life,1:ng,1:T_model,1:ndem) = 0; % Retired population
+            dist_l = dist_l(:)/sum(dist_l(:));
 
             % Import market variables
             s    = load( fullfile(save_dir, 'market.mat' ) );
@@ -75,9 +79,9 @@ classdef momentsGenerator
             [this.a_ginimodel this.a_lorenz] = gini(dist,k);
 
             % Compute labor income distribution
-            this.l_distmodel = get_moments(dist,labinc);
+            this.l_distmodel = get_moments(dist_l,labinc);
             % Gini and Lorenz curve
-            [this.l_ginimodel this.l_lorenz] = gini(dist,labinc);
+            [this.l_ginimodel this.l_lorenz] = gini(dist_l,labinc);
 
 
         end
@@ -128,7 +132,8 @@ classdef momentsGenerator
             title('Assets distribution','FontSize',16)
             xlabel('percentiles','FontSize',13)
             ylabel('cumulative share of total assets','FontSize',13)
-            legend({'model','data'},'Location','northwest','FontSize',13)
+            legend({sprintf('model (gini = %0.3f)', this.a_ginimodel),
+                    'data    (gini = 0.857)' },'Location','northwest','FontSize',13)
             
         end
 
@@ -146,7 +151,8 @@ classdef momentsGenerator
             title('Labor income distribution','FontSize',16)
             xlabel('percentiles','FontSize',13)
             ylabel('cumulative share of total labor income','FontSize',13)
-            legend({'model','data'},'Location','northwest','FontSize',13)
+            legend({sprintf('model (gini = %0.3f)', this.l_ginimodel),
+                    'data    (gini = 0.547)' },'Location','northwest','FontSize',13)
             
         end
         
@@ -159,7 +165,8 @@ classdef momentsGenerator
             title('Threshold by wealth percentile','FontSize',16)
             xlabel('percentiles','FontSize',13)
             ylabel('thousands of 2016 dollars','FontSize',13)
-            legend({'model','data'},'Location','northwest','FontSize',13)
+            legend({sprintf('model (gini = %0.3f)', this.a_ginimodel),
+                    'data    (gini = 0.857)' },'Location','northwest','FontSize',13)
                         
         end
         
@@ -172,7 +179,8 @@ classdef momentsGenerator
             title('Threshold by labor income percentile','FontSize',16)
             xlabel('percentiles','FontSize',13)
             ylabel('thousands of 2016 dollars','FontSize',13)
-            legend({'model','data'},'Location','northwest','FontSize',13)
+            legend({sprintf('model (gini = %0.3f)', this.l_ginimodel),
+                    'data    (gini = 0.547)' },'Location','northwest','FontSize',13)
                         
         end
 
