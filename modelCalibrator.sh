@@ -4,7 +4,7 @@
 #$ -o /dev/null
 
 # Build mex functions and define batches
-matlab -nojvm -nosplash -r "mexBuilder.all(), modelCalibrator.define_batches()"
+matlab -nodesktop -nosplash -r "mexBuilder.all(), modelCalibrator.define_batches()"
 
 # Clear or create log directory
 LOGDIR='./Logs'
@@ -17,6 +17,7 @@ QUEUE=$([ $# -gt 0 ] && [ $1 = "--aws" ]               \
         || echo 'short.q'                              )
 
 # Submit batch solution task array job
+# (Note use of -nojvm to deactivate Java and hence deactivate Matlab parfor)
 qsub -N solve_batch -t 1-$(ls -1 ./Batches | wc -l) \
      -q ${QUEUE} \
      -j y -o ${LOGDIR}'/batch$TASK_ID.log'  \
@@ -26,4 +27,4 @@ qsub -N solve_batch -t 1-$(ls -1 ./Batches | wc -l) \
 qsub -N consolidate_batches -hold_jid solve_batch \
      -q short.q \
      -j y -o /dev/null \
-     -b y 'matlab -nojvm -nosplash -r "modelCalibrator.consolidate_batches(false)"'
+     -b y 'matlab -nodesktop -nosplash -r "modelCalibrator.consolidate_batches(false)"'
