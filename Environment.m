@@ -55,6 +55,8 @@ classdef Environment
         end
         
         
+        % Production environment produces output only
+        %   for Scenario Batches and Calibration
         function [] = setProduction( batchID )
             if( nargin < 1 )
                 error( '<batchID> is required for Production.' );
@@ -125,7 +127,7 @@ classdef Environment
         end
         
         % Make input dir name from static pointers struct
-        function [inputdir] = fetch_dir(this, topic)
+        function [inputdir] = input_dir(this, topic)
             p_dir       = Environment.param_dirs.(this.name).(topic);
             inputdir    = fullfile(this.input(), topic, p_dir );
         end
@@ -155,27 +157,31 @@ classdef Environment
 
         % CBO parameters directory
         function [param_dir] = cbo_param(this)
-            param_dir = this.fetch_dir('cbo');
+            param_dir = this.input_dir('cbo');
         end
         
         % SIM parameters directory
         function [param_dir] = sim_param(this)
-            param_dir = this.fetch_dir('sim');
+            param_dir = this.input_dir('sim');
         end
         
         % Taxplan parameters directory
         function [param_dir] = taxplan_param(this)
-            param_dir = this.fetch_dir('taxplan');
+            param_dir = this.input_dir('taxplan');
         end
 
         % Calibration grid directory
         function [param_dir] = calibration(this)
-            param_dir = this.fetch_dir('calibration');
+            param_dir = this.input_dir('calibration');
         end
         
         % Save root directory
         function [saveroot_dir] = saveroot(this)
             if( strcmp(this.name, 'Production' ) )
+                % NOTE: currently saving all batches, including
+                % 'calibration' batch to the Output dir.
+                % We can write the calibration batch to the calibration
+                % dir.
                 saveroot_dir = fullfile(    this.modelroot      ...
                                         ,   'Output'            ...
                                         ,   this.batchID        ...
