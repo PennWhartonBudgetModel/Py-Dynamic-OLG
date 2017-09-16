@@ -32,7 +32,6 @@ classdef Environment
     
     properties ( SetAccess = private )
         name;       % Testing, Development, Production
-        batchID;    % BatchID only for Production
     end % instance properties
     
     
@@ -55,12 +54,8 @@ classdef Environment
         end
         
         
-        % Production environment produces output only
-        %   for Scenario Batches and Calibration
-        function [] = setProduction( batchID )
-            if( nargin < 1 )
-                error( '<batchID> is required for Production.' );
-            end
+        % Production environment 
+        function [] = setProduction()
             if( Environment.isproductionready() )
                 e = Environment('Production', batchID );
                 Environment.theEnvironment(e);
@@ -88,23 +83,15 @@ classdef Environment
             
         end % singleton wrapper
         
-        % Identify production run by Production stage and absence of uncommitted changes
+        % Identify production run by absence of uncommitted changes
         function [flag] = isproductionready()
 
-            % Get source code stage
-            [~, stage] = fileparts(mfilename('fullpath'));
+            % Check for uncommitted changes
+            % (Safeguards against any unintentional changes made in Production directory after checkout)
+            [~, uncommitted] = system('git status -s');
 
-            if ~strcmp(stage, 'Production')
-                flag = false;
-            else
+            flag = isempty(uncommitted);
 
-                % Check for uncommitted changes
-                % (Safeguards against any unintentional changes made in Production directory after checkout)
-                [~, uncommitted] = system('git status -s');
-
-                flag = isempty(uncommitted);
-
-            end
         end %isproductionready
         
     end % private static methods
@@ -113,23 +100,15 @@ classdef Environment
     methods (Access = private )
         
         % Constructor
-        function this = Environment(name, batchID )
+        function this = Environment(name )
             this.name = name;
-            if( nargin == 2 && ~isempty(batchID) )
-                this.batchID = batchID;
-            end;
         end % constructor
         
-        
-        % Testing/Development output directory
-        function [testout_dir] = testout(this)
-            testout_dir = fullfile(this.source, 'Testing');
-        end
         
         % Make input dir name from static pointers struct
         function [inputdir] = input_dir(this, topic)
             p_dir       = Environment.param_dirs.(this.name).(topic);
-            inputdir    = fullfile(this.input(), topic, p_dir );
+            inputdir    = fullfile(this.input_root(), topic, p_dir );
         end
     end % private instance methods
     
@@ -175,47 +154,52 @@ classdef Environment
             param_dir = this.input_dir('calibration');
         end
         
-        % Save root directory
-        function [saveroot_dir] = saveroot(this)
-            if( strcmp(this.name, 'Production' ) )
-                % NOTE: currently saving all batches, including
-                % 'calibration' batch to the Output dir.
-                % We can write the calibration batch to the calibration
-                % dir.
-                saveroot_dir = fullfile(    this.modelroot      ...
-                                        ,   'Output'            ...
-                                        ,   this.batchID        ...
-                                        ,   this.get_commit_id  ...
-                                        );
-                %  has subfolders MAT and CSV
-            else
-                saveroot_dir = this.testout;
-            end
-        end
-
 
         % Save directory for Scenario run
         %   Use Scenario IDs for Production runs
         function [save_dir, basedef_tag, counterdef_tag] = save(this, scenario)
-            save_dir = fullfile(this.saveroot, 'MAT' );
             if( strcmp(this.name, 'Production') ) 
-                save_dir = fullfile(save_dir, scenario.ID, scenario.economy);
+                % NOTE: currently saving all batches, including
+                % 'calibration' batch to the Output dir.
+                % We can write the calibration batch to the calibration
+                % Input dir.
+                save_dir = fullfile(    this.model_root     ...   
+                                    ,   'Output'            ...
+                                    ,   scenario.batchID    ...
+                                    ,   this.get_commit_id  ...
+                                    ,   scenario.ID         ...
+                                    ,   scenario.economy    ...
+                                    );
             else
                 [basedef_tag, counterdef_tag] = scenario.generate_tags();
-                save_dir = fullfile(save_dir, basedef_tag, counterdef_tag, scenario.economy);
+                save_dir = fullfile(    this.source         ...
+                                    ,   'Testing'           ...
+                                    ,   basedef_tag         ...
+                                    ,   counterdef_tag      ...
+                                    ,   scenario.economy    ...
+                                    );
             end
         end
 
 
         % CSV save directory
-        function [csv_dir] = csv(this)
-            save_dir = fullfile(this.saveroot, 'CSV' );
+        function [csv_dir] = csv(this, scenario)
+            if( strcmp(this.name, 'Production') ) 
+                 csv_dir = fullfile(    this.model_root     ...   
+                                    ,   'Output'            ...
+                                    ,   scenario.batchID    ...
+                                    ,   this.get_commit_id  ...
+                                    ,   'CSV'               ...
+                                    );               
+            else
+                csv_dir = this.save(scenario);
+            end
         end
 
 
-        % Get the location of the microSIM input files, e.g. taxplans
-        function [input_dir] = input(this)
-            input_dir = '\\hpcc.wharton.upenn.edu\ppi\Input';
+        % Get the location of the input files, e.g. taxplans
+        function [input_root] = input_root(this)
+            input_root = '\\hpcc.wharton.upenn.edu\ppi\Input';
         end % input
 
         % Get identifier for active Git commit
