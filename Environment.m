@@ -3,10 +3,10 @@
 %    file locations, production readiness, etc.
 % 
 %%
-
-
 classdef Environment
 
+    
+    
     properties ( Constant, Access = private )
         param_dirs = ... 
             struct( 'Development', ...
@@ -30,13 +30,17 @@ classdef Environment
                     );
     end % private static properties
     
+    
+    
     properties ( SetAccess = private )
         name;       % Testing, Development, Production
     end % instance properties
     
     
+        
     methods (Static)
 
+        
         % Get singleton 
         function environment = getCurrent()
             % if not set, set to default -- Development
@@ -67,6 +71,7 @@ classdef Environment
     end % public static methods
     
     
+    
     methods ( Static, Access = private )
         
         % Wrapper on singleton variable
@@ -83,6 +88,7 @@ classdef Environment
             
         end % singleton wrapper
         
+        
         % Identify production run by absence of uncommitted changes
         function [flag] = isproductionready()
 
@@ -94,28 +100,64 @@ classdef Environment
 
         end %isproductionready
         
+        
+        % Get identifier for active Git commit
+        function [commit_id] = get_git_commit_id()
+
+            try
+                % Get commit date (%cd), author email address (%ae), and abbreviated hash (%h)
+                [~, commit_log] = system('git --no-pager log -1 --format=%cd,%ae,,%h --date=iso');
+
+                % Extract commit date and reformat
+                commit_date   = regexp(commit_log, '.*? .*?(?= )', 'match', 'once');
+                commit_date   = datestr(commit_date, 'yyyy-mm-dd-HH-MM');
+
+                % Extract author username from email address
+                commit_author = regexp(commit_log, '(?<=,).*?(?=@)', 'match', 'once');
+
+                % Extract abbreviated hash
+                commit_hash   = regexp(commit_log, '(?<=,,).*?(?=\n)', 'match', 'once');
+
+                % Construct commit identifier
+                commit_id = sprintf('%s-%s-%s', commit_date, commit_author, commit_hash);
+            catch ex
+                commit_id = '<no-git>';
+            end
+            
+        end % get_git_commit_id
+
+        
     end % private static methods
     
     
-    methods (Access = private )
+    
+    methods (Access = private ) % Instance
         
         % Constructor
-        function this = Environment(name )
+        function this = Environment( name )
             this.name = name;
         end % constructor
         
         
+        % Fetch from Environment properties
+        function [val] = prop_val(this, topic)
+            val = Environment.param_dirs.(this.name).(topic);
+        end % prop_val
+        
+        
         % Make input dir name from static pointers struct
         function [inputdir] = input_dir(this, topic)
-            p_dir       = Environment.param_dirs.(this.name).(topic);
-            inputdir    = fullfile(this.input_root(), topic, p_dir );
-        end
+            inputdir    = fullfile(this.input_root(), topic, this.prop_val(topic) );
+        end % input_dir
+        
+        
     end % private instance methods
     
     
-    methods 
+    
+    methods  % Instance 
         
-        %% FILE LOCATIONS
+        
         % Source code directory
         function [source_dir] = source(this)
             source_dir = fileparts(mfilename('fullpath'));
@@ -124,7 +166,7 @@ classdef Environment
 
         % Model root directory
         function [modelroot_dir] = modelroot(this)
-            modelroot_dir = fileparts(fileparts(fileparts(Environment.source)));
+            modelroot_dir = fileparts(fileparts(fileparts(this.source)));
         end
 
 
@@ -139,16 +181,19 @@ classdef Environment
             param_dir = this.input_dir('cbo');
         end
         
+        
         % SIM parameters directory
         function [param_dir] = sim_param(this)
             param_dir = this.input_dir('sim');
         end
+        
         
         % Taxplan parameters directory
         function [param_dir] = taxplan_param(this)
             param_dir = this.input_dir('taxplan');
         end
 
+        
         % Calibration grid directory
         function [param_dir] = calibration(this)
             param_dir = this.input_dir('calibration');
@@ -163,32 +208,33 @@ classdef Environment
                 % 'calibration' batch to the Output dir.
                 % We can write the calibration batch to the calibration
                 % Input dir.
-                save_dir = fullfile(    this.model_root     ...   
+                save_dir = fullfile(    this.modelroot      ...   
                                     ,   'Output'            ...
                                     ,   scenario.batchID    ...
-                                    ,   this.get_commit_id  ...
-                                    ,   scenario.ID         ...
-                                    ,   scenario.economy    ...
+                                    ,   this.get_commit_tag ...
                                     );
             else
-                [basedef_tag, counterdef_tag] = scenario.generate_tags();
                 save_dir = fullfile(    this.source         ...
                                     ,   'Testing'           ...
-                                    ,   basedef_tag         ...
-                                    ,   counterdef_tag      ...
-                                    ,   scenario.economy    ...
                                     );
             end
+            
+            [basedef_tag, counterdef_tag] = scenario.generate_tags();
+            save_dir = fullfile(    save_dir            ...
+                                ,   basedef_tag         ...
+                                ,   counterdef_tag      ...
+                                ,   scenario.economy    ...
+                                );
         end
 
 
         % CSV save directory
         function [csv_dir] = csv(this, scenario)
             if( strcmp(this.name, 'Production') ) 
-                 csv_dir = fullfile(    this.model_root     ...   
+                csv_dir = fullfile(     this.modelroot      ...   
                                     ,   'Output'            ...
                                     ,   scenario.batchID    ...
-                                    ,   this.get_commit_id  ...
+                                    ,   this.get_commit_tag ...
                                     ,   'CSV'               ...
                                     );               
             else
@@ -202,26 +248,17 @@ classdef Environment
             input_root = '\\hpcc.wharton.upenn.edu\ppi\Input';
         end % input
 
-        % Get identifier for active Git commit
-        function [commit_id] = get_commit_id()
-
-            % Get commit date (%cd), author email address (%ae), and abbreviated hash (%h)
-            [~, commit_log] = system('git --no-pager log -1 --format=%cd,%ae,,%h --date=iso');
-
-            % Extract commit date and reformat
-            commit_date   = regexp(commit_log, '.*? .*?(?= )', 'match', 'once');
-            commit_date   = datestr(commit_date, 'yyyy-mm-dd-HH-MM');
-
-            % Extract author username from email address
-            commit_author = regexp(commit_log, '(?<=,).*?(?=@)', 'match', 'once');
-
-            % Extract abbreviated hash
-            commit_hash   = regexp(commit_log, '(?<=,,).*?(?=\n)', 'match', 'once');
-
-            % Construct commit identifier
-            commit_id = sprintf('%s-%s-%s', commit_date, commit_author, commit_hash);
-
-        end
+        
+        % Full tag of commit (code + input params)
+        function [commit_tag] = get_commit_tag(this)
+            commit_tag = [      Environment.get_git_commit_id() ...
+                            ,   this.prop_val('cbo')            ...
+                            ,   this.prop_val('sim')            ...
+                            ,   this.prop_val('taxplan')        ...
+                            ,   this.prop_val('calibration')    ...
+                         ];
+        end % get_commit_tag
+        
 
     end % methods
     
