@@ -8,6 +8,7 @@ classdef Scenario
     
     properties (SetAccess = protected )
         ID;
+        batchID;
         economy;
         
         beta;
@@ -32,6 +33,7 @@ classdef Scenario
         
         % These are _current_ defaults for other fields
         def_fields = struct(    'ID'            , []        ...
+                            ,   'batchID'       , []        ...
                             ,   'taxplan'       , 'base'    ...
                             ,   'gcut'          , 0.0       ...
                             ,   'legal_scale'   , 1.0       ...
@@ -171,6 +173,89 @@ classdef Scenario
             end
         end % getParams
         
-    end % methods
+    end % instance methods
+    
+    methods (Static)
+        
+        %% 
+        %  Read a batch of Scenarios from the DB
+        %  
+        function [scenarios] = fetch_batch( batchID )
+            if( (nargin < 1) || (isempty(batchID)) )
+                error( '<batchID> is required.' );
+            end
+            
+            % Add JDBC driver to Matlab Java path
+            javaaddpath('Database\sqljdbc41.jar');
+
+            % Establish connection with development database
+            %   TODO: Put these params into Environment
+            connection = database('second_chart', 'pwbm', 'HbXk86rabjehD2AN', ...
+                                  'Vendor', 'Microsoft SQL Server', 'AuthType', 'Server', ...
+                                  'Server', 'ppi-slcsql.wharton.upenn.edu', 'PortNumber', 49170);
+
+            % Get batch scenarios from Scenario table
+            sql         = sprintf( 'EXEC p_ScenarioBatch %u', batchID );
+            o           = connection.exec(sql);
+            dataset     = o.fetch().Data;  
+            colnames    = string(columnnames(o, true));
+            o.close();
+            connection.close();
+            
+            % Find Col IDs for each field, rem find returns 'vector'
+            id_col          = find( strcmp(string(colnames),'ID' ) )                    ; id_col = id_col(1);
+            openecon_col    = find( strcmp(string(colnames),'OpenEconomy' ) );          ; openecon_col = openecon_col(1);
+            savelas_col     = find( strcmp(string(colnames),'SavingsElasticity' ) );    ; savelas_col = savelas_col(1);
+            labelas_col     = find( strcmp(string(colnames),'LaborElasticity' ) );      ; labelas_col = labelas_col(1);
+            gcut_col        = find( strcmp(string(colnames),'ExpenditureShift' ) );     ; gcut_col = gcut_col(1);
+            taxplan_col     = find( strcmp(string(colnames),'ExpenditureShift' ) );     ; taxplan_col = taxplan_col(1);
+            
+            % Preload calibration matrix for inversion
+            [~, f_invert] = modelCalibrator.invert();
+            
+            n = 1;
+            for i = 1:size(dataset)
+                
+                % Invert from elasticities to beta,gamma,sigma, etc.
+                savelas = dataset(i, savelas_col);
+                labelas = dataset(i, labelas_col);
+                params  = f_invert( struct( 'savelas', savelas, 'labelas', labelas ) );
+                
+                % TODO: IMPORTANT!
+                % currently modelCalibrator returns 'modelunit_dollars'
+                %   SHOULD BE 'modelunit_dollar'
+                % Also, bequest_phi_1 is missing.
+                
+                id       = cell2mat(dataset(i, id_col));
+                openecon = cell2mat(dataset(i, openecon_col));
+                if( openecon == 1 )
+                    economy = 'open';
+                elseif( openecon == 0 ) 
+                    economy = 'closed';
+                else  % Cannot do anything with the convex combo Scenarios
+                    fprintf( 'Skipping ScenarioID=%u, OpenEconomy=%f \n', id, openecon );
+                    economy = [];
+                end
+                            
+                if( ~isempty(economy) )
+                    t = struct( 'ID'                , id                        ...
+                            ,   'batchID'           , batchID                   ...
+                            ,   'economy'           , economy                   ...
+                            ,   'beta'              , params.beta               ...
+                            ,   'gamma'             , params.gamma              ...
+                            ,   'sigma'             , params.sigma              ...
+                            ,   'modelunit_dollar'  , params.modelunit_dollars  ... % RENAME
+                            ,   'bequest_phi_1'     , 0                         ... % TEMPORARY
+                            ,   'gcut'              , dataset(i,gcut_col)       ...
+                            ,   'taxplan'           , dataset(i,taxplan_col)    ...
+                            );
+                    scenarios(n) = Scenario(t);
+                    n = n+1;
+                end
+            end
+        end % fetch_batch
+        
+    end % static methods
+    
 end % Scenario
 
