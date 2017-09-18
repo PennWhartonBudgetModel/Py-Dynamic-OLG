@@ -28,7 +28,7 @@ properties (Constant)
     nbatch = ceil(modelCalibrator.nset / modelCalibrator.batchsize);
     
     % Define batch directory and batch file path
-    batch_dir  = fullfile(dirFinder.source(), 'Batches');
+    batch_dir  = fullfile(Environment.getCurrent().source(), 'Batches');
     batch_file = @(ibatch) fullfile(modelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch));
     
     % Define the moment targets for the reports on how we did
@@ -126,9 +126,11 @@ methods (Static)
         end
         solved = boolean(solved); %#ok<NASGU>
         
-        % Save solutions into calibration file
-        % (Note that this file should be copied to the Parameter directory and committed anew following a completed calibration)
-        save(fullfile(dirFinder.saveroot(), 'calibration.mat'), 'paramv', 'targetv', 'solved');
+        % Save solutions into new calibration file in new input dir
+        env     = Environment.getCurrent();
+        outdir  = fullfile( env.input_root(), 'calibration', env.get_commit_tag());
+        if exist(outdir, 'dir'), rmdir(outdir, 's'), end, mkdir(outdir)
+        save(fullfile(fullfile(outdir, 'calibration.mat'), 'paramv', 'targetv', 'solved');
         
         % Delete batch directory
         if (exist('clean', 'var') && clean), rmdir(modelCalibrator.batch_dir, 's'), end
@@ -140,7 +142,8 @@ methods (Static)
     function [] = plot_conditions()
         
         % Load calibration solutions
-        s = load(fullfile(dirFinder.param(), 'calibration.mat'));
+        cal_dir = Environment.getCurrent().calibration();
+        s       = load(fullfile(cal_dir, 'calibration.mat'));
         paramv  = s.paramv;
         targetv = s.targetv ;
         solved  = s.solved;
@@ -171,7 +174,8 @@ methods (Static)
     function [inverse, f] = invert(target)
         
         % Load calibration solutions
-        s = load(fullfile(dirFinder.param(), 'calibration.mat'));
+        cal_dir = Environment.getCurrent().calibration();
+        s       = load(fullfile(cal_dir, 'calibration.mat'));
         paramv  = s.paramv;
         targetv = s.targetv ;
         solved  = s.solved;
@@ -357,7 +361,7 @@ methods (Static)
     %   Make a report of various moments for the 16 baselines
     function [] = report_baseline_moments()
 
-        outputfilename      = fullfile(dirFinder.saveroot(), 'BaselineMoments.txt');
+        outputfilename      = fullfile(Environment.getCurrent().modelroot(), 'BaselineMoments.txt');
         fileID              = fopen(outputfilename,'w');
 
         fprintf( fileID, '-------------BASELINE MOMENTS-------------' );
