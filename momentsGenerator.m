@@ -90,7 +90,7 @@ classdef momentsGenerator
         function [gini_table] = giniTable(this)
             
             a_ginidata = 0.857;                         % Number from SIM
-            l_ginidata = 0.547;                         % Number from SIM
+            l_ginidata = 0.4858;                        % Number from SIM
 
             % Compare model distribution with data
             a_ginigap = 100*(a_ginidata / this.a_ginimodel - 1);
@@ -151,8 +151,8 @@ classdef momentsGenerator
             title('Labor income distribution','FontSize',16)
             xlabel('percentiles','FontSize',13)
             ylabel('cumulative share of total labor income','FontSize',13)
-            legend({sprintf('model (gini = %0.3f)', this.l_ginimodel),
-                    'data    (gini = 0.547)' },'Location','northwest','FontSize',13)
+            legend({sprintf('model (gini = %0.4f)', this.l_ginimodel),
+                    'data    (gini = 0.4858)' },'Location','northwest','FontSize',13)
             
         end
         
@@ -179,8 +179,8 @@ classdef momentsGenerator
             title('Threshold by labor income percentile','FontSize',16)
             xlabel('percentiles','FontSize',13)
             ylabel('thousands of 2016 dollars','FontSize',13)
-            legend({sprintf('model (gini = %0.3f)', this.l_ginimodel),
-                    'data    (gini = 0.547)' },'Location','northwest','FontSize',13)
+            legend({sprintf('model (gini = %0.4f)', this.l_ginimodel),
+                    'data    (gini = 0.4858)' },'Location','northwest','FontSize',13)
                         
         end
 
