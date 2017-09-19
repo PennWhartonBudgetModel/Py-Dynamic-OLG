@@ -8,26 +8,15 @@ classdef Environment
     
     
     properties ( Constant, Access = private )
+        %  NOTE: We think of a 'commit' moving from Dev->Test->Prod
+        %  So, there appears to be a need for only one set of environment
+        %  param dirs as it is linked to a 'commit'.
         param_dirs = ... 
-            struct( 'Development', ...
-                    struct(     'cbo'           , '2017-09-14'      ...
-                            ,   'sim'           , '2017-09-14'      ...
-                            ,   'taxplan'       , '2017-09-14'      ...
-                            ,   'calibration'   , '2017-08-15-12-16-danielav-193b73c' ...
-                            ), ...
-                    'Testing', ...
-                    struct(     'cbo'           , '2017-09-14'      ...
-                            ,   'sim'           , '2017-09-14'      ...
-                            ,   'taxplan'       , '2017-09-14'      ...
-                            ,   'calibration'   , '2017-08-15-12-16-danielav-193b73c' ...
-                            ), ...
-                    'Production', ...
-                    struct(     'cbo'           , '2017-09-14'      ...
-                            ,   'sim'           , '2017-09-14'      ...
-                            ,   'taxplan'       , '2017-09-14'      ...
-                            ,   'calibration'   , '2017-08-15-12-16-danielav-193b73c' ...
-                            ) ...
-                    );
+            struct(     'cbo'           , '2017-09-14'      ...
+                    ,   'sim'           , '2017-09-14'      ...
+                    ,   'taxplan'       , '2017-09-14'      ...
+                    ,   'calibration'   , '2017-08-15-12-16-danielav-193b73c' ...
+                  );
     end % private static properties
     
     
@@ -61,10 +50,10 @@ classdef Environment
         % Production environment 
         function [] = setProduction()
             if( Environment.isproductionready() )
-                e = Environment('Production', batchID );
+                e = Environment('Production');
                 Environment.theEnvironment(e);
             else
-                error( 'Cannot set to Production.' );
+                error( 'Uncommitted changes found. Cannot set to Production.' );
             end
         end 
         
@@ -102,31 +91,34 @@ classdef Environment
         
         
         % Get identifier for active Git commit
-        function [commit_id] = get_git_commit_id()
+        function [commit_tag] = get_commit_tag()
 
-            try
-                % Get commit date (%cd), author email address (%ae), and abbreviated hash (%h)
-                [~, commit_log] = system('git --no-pager log -1 --format=%cd,%ae,,%h --date=iso');
+            % Get commit date (%cd), author email address (%ae), and abbreviated hash (%h)
+            [~, commit_log] = system('git --no-pager log -1 --format=%cd,%ae,,%h --date=iso');
 
-                % Extract commit date and reformat
-                commit_date   = regexp(commit_log, '.*? .*?(?= )', 'match', 'once');
-                commit_date   = datestr(commit_date, 'yyyy-mm-dd-HH-MM');
+            % Extract commit date and reformat
+            commit_date   = regexp(commit_log, '.*? .*?(?= )', 'match', 'once');
+            commit_date   = datestr(commit_date, 'yyyy-mm-dd-HH-MM');
 
-                % Extract author username from email address
-                commit_author = regexp(commit_log, '(?<=,).*?(?=@)', 'match', 'once');
+            % Extract author username from email address
+            commit_author = regexp(commit_log, '(?<=,).*?(?=@)', 'match', 'once');
 
-                % Extract abbreviated hash
-                commit_hash   = regexp(commit_log, '(?<=,,).*?(?=\n)', 'match', 'once');
+            % Extract abbreviated hash
+            commit_hash   = regexp(commit_log, '(?<=,,).*?(?=\n)', 'match', 'once');
 
-                % Construct commit identifier
-                commit_id = sprintf('%s-%s-%s', commit_date, commit_author, commit_hash);
-            catch ex
-                commit_id = '<no-git>';
-            end
+            % Construct commit identifier
+            commit_tag = sprintf('%s-%s-%s', commit_date, commit_author, commit_hash);
             
         end % get_git_commit_id
 
         
+        % Fetch from Environment properties
+        function [val] = prop_val(topic)
+            val = Environment.param_dirs.(topic);
+        end % prop_val
+        
+        
+
     end % private static methods
     
     
@@ -137,12 +129,6 @@ classdef Environment
         function this = Environment( name )
             this.name = name;
         end % constructor
-        
-        
-        % Fetch from Environment properties
-        function [val] = prop_val(this, topic)
-            val = Environment.param_dirs.(this.name).(topic);
-        end % prop_val
         
         
         % Make input dir name from static pointers struct
@@ -203,20 +189,21 @@ classdef Environment
         % Save directory for Scenario run
         %   Use Scenario IDs for Production runs
         function [save_dir, basedef_tag, counterdef_tag] = save(this, scenario)
-            if( strcmp(this.name, 'Production') ) 
-                % NOTE: currently saving all batches, including
-                % 'calibration' batch to the Output dir.
-                % We can write the calibration batch to the calibration
-                % Input dir.
-                save_dir = fullfile(    this.modelroot      ...   
-                                    ,   'Output'            ...
-                                    ,   scenario.batchID    ...
-                                    ,   this.get_commit_tag ...
-                                    );
-            else
-                save_dir = fullfile(    this.source         ...
-                                    ,   'Testing'           ...
-                                    );
+            if( nargin < 2 )
+                error( '<scenario> required.');
+            end
+            switch( this.name )
+                case 'Production'
+                    save_dir = fullfile(    this.modelroot      ...   
+                                        ,   'Output'            ...
+                                        ,   scenario.batchID    ...
+                                        ,   this.get_commit_tag ...
+                                        ,   'MAT'               ...
+                                        );
+                case {'Testing', 'Development'}
+                    save_dir = fullfile(    this.source         ...
+                                        ,   'Testing'           ...
+                                        );
             end
             
             [basedef_tag, counterdef_tag] = scenario.generate_tags();
@@ -230,36 +217,36 @@ classdef Environment
 
         % CSV save directory
         function [csv_dir] = csv(this, scenario)
-            if( strcmp(this.name, 'Production') ) 
-                csv_dir = fullfile(     this.modelroot      ...   
-                                    ,   'Output'            ...
-                                    ,   scenario.batchID    ...
-                                    ,   this.get_commit_tag ...
-                                    ,   'CSV'               ...
+            if( nargin < 2 )
+                error( '<scenario> required.');
+            end
+            switch( this.name )
+                case 'Production'
+                    csv_dir = fullfile(     this.modelroot      ...   
+                                        ,   'Output'            ...
+                                        ,   scenario.batchID    ...
+                                        ,   this.get_commit_tag ...
+                                        ,   'CSV'               ...
                                     );               
-            else
-                csv_dir = this.save(scenario);
+                case {'Testing', 'Development'}
+                    csv_dir = this.save(scenario);
+                otherwise
+                    csv_dir = [];
             end
         end
 
 
         % Get the location of the input files, e.g. taxplans
+        %  REM: Unix system has no UNC pathing
         function [input_root] = input_root(this)
-            input_root = '\\hpcc.wharton.upenn.edu\ppi\Input';
+            if( ispc )
+                input_root = fullfile('\\hpcc.wharton.upenn.edu', 'ppi', 'Input');
+            else
+                input_root = fullfile( this.root(), 'Input' );
+            end
         end % input
 
         
-        % Full tag of commit (code + input params)
-        function [commit_tag] = get_commit_tag(this)
-            commit_tag = [      Environment.get_git_commit_id() ...
-                            ,   this.prop_val('cbo')            ...
-                            ,   this.prop_val('sim')            ...
-                            ,   this.prop_val('taxplan')        ...
-                            ,   this.prop_val('calibration')    ...
-                         ];
-        end % get_commit_tag
-        
-
     end % methods
     
 
