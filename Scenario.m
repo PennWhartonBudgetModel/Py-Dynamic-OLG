@@ -186,7 +186,9 @@ classdef Scenario
             end
             
             % Add JDBC driver to Matlab Java path
-            javaaddpath('Database\sqljdbc41.jar');
+            javaaddpath(fullfile(   Environment.getCurrent().source()   ...
+                                ,   'Database'                          ...
+                                ,   'sqljdbc41.jar'));
 
             % Establish connection with development database
             %   TODO: Put these params into Environment
@@ -197,28 +199,19 @@ classdef Scenario
             % Get batch scenarios from Scenario table
             sql         = sprintf( 'EXEC p_ScenarioBatch %u', batchID );
             o           = connection.exec(sql);
-            dataset     = o.fetch().Data;  
-            colnames    = string(columnnames(o, true));
+            dataset     = cell2struct( o.fetch().Data, o.columnnames(true), 2);
             o.close();
             connection.close();
-            
-            % Find Col IDs for each field, rem find returns 'vector'
-            id_col          = find( strcmp(string(colnames),'ID' ) )                    ; id_col = id_col(1);
-            openecon_col    = find( strcmp(string(colnames),'OpenEconomy' ) );          ; openecon_col = openecon_col(1);
-            savelas_col     = find( strcmp(string(colnames),'SavingsElasticity' ) );    ; savelas_col = savelas_col(1);
-            labelas_col     = find( strcmp(string(colnames),'LaborElasticity' ) );      ; labelas_col = labelas_col(1);
-            gcut_col        = find( strcmp(string(colnames),'ExpenditureShift' ) );     ; gcut_col = gcut_col(1);
-            taxplan_col     = find( strcmp(string(colnames),'ExpenditureShift' ) );     ; taxplan_col = taxplan_col(1);
             
             % Preload calibration matrix for inversion
             [~, f_invert] = modelCalibrator.invert();
             
-            n = 1;
+            scenarios = [];
             for i = 1:size(dataset)
                 
                 % Invert from elasticities to beta,gamma,sigma, etc.
-                savelas = dataset(i, savelas_col);
-                labelas = dataset(i, labelas_col);
+                savelas = dataset(i).SavingsElasticity;
+                labelas = dataset(i).LaborElasticity;
                 params  = f_invert( struct( 'savelas', savelas, 'labelas', labelas ) );
                 
                 % TODO: IMPORTANT!
@@ -226,31 +219,35 @@ classdef Scenario
                 %   SHOULD BE 'modelunit_dollar'
                 % Also, bequest_phi_1 is missing.
                 
-                id       = cell2mat(dataset(i, id_col));
-                openecon = cell2mat(dataset(i, openecon_col));
+                canAdd   = true;
+                id       = dataset(i).ID;
+                openecon = dataset(i).OpenEconomy;
                 if( openecon == 1 )
                     economy = 'open';
                 elseif( openecon == 0 ) 
                     economy = 'closed';
                 else  % Cannot do anything with the convex combo Scenarios
-                    fprintf( 'Skipping ScenarioID=%u, OpenEconomy=%f \n', id, openecon );
-                    economy = [];
+                    canAdd = false;
                 end
+                if( dataset(i).UseDynamicBaseline == 1 ) % Do not duplicate, this is for post-processing
+                    canAdd = false;
+                end    
                             
-                if( ~isempty(economy) )
-                    t = struct( 'ID'                , id                        ...
-                            ,   'batchID'           , batchID                   ...
-                            ,   'economy'           , economy                   ...
-                            ,   'beta'              , params.beta               ...
-                            ,   'gamma'             , params.gamma              ...
-                            ,   'sigma'             , params.sigma              ...
-                            ,   'modelunit_dollar'  , params.modelunit_dollars  ... % RENAME
-                            ,   'bequest_phi_1'     , 0                         ... % TEMPORARY
-                            ,   'gcut'              , dataset(i,gcut_col)       ...
-                            ,   'taxplan'           , dataset(i,taxplan_col)    ...
+                if( canAdd )
+                    t = struct( 'ID'                , id                            ...
+                            ,   'batchID'           , batchID                       ...
+                            ,   'economy'           , economy                       ...
+                            ,   'beta'              , params.beta                   ...
+                            ,   'gamma'             , params.gamma                  ...
+                            ,   'sigma'             , params.sigma                  ...
+                            ,   'modelunit_dollar'  , params.modelunit_dollars      ... % RENAME
+                            ,   'bequest_phi_1'     , 0                             ... % TEMPORARY
+                            ,   'gcut'              , -dataset(i).ExpenditureShift  ... % REM: Inconsistent definition
+                            ,   'taxplan'           , dataset(i).TaxPlan            ...
                             );
-                    scenarios(n) = Scenario(t);
-                    n = n+1;
+                    scenarios = [scenarios, Scenario(t)];
+                else
+                    fprintf( 'Skipping ScenarioID=%u\n', id );
                 end
             end
         end % fetch_batch

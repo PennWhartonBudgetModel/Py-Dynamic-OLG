@@ -130,7 +130,7 @@ methods (Static)
         env     = Environment.getCurrent();
         outdir  = fullfile( env.input_root(), 'calibration', env.get_commit_tag());
         if exist(outdir, 'dir'), rmdir(outdir, 's'), end, mkdir(outdir)
-        save(fullfile(fullfile(outdir, 'calibration.mat'), 'paramv', 'targetv', 'solved');
+        save(fullfile(outdir, 'calibration.mat'), 'paramv', 'targetv', 'solved');
         
         % Delete batch directory
         if (exist('clean', 'var') && clean), rmdir(modelCalibrator.batch_dir, 's'), end
