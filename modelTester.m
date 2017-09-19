@@ -24,9 +24,9 @@ methods (Static)
     function [] = steady()
         scenario = Scenario(modelTester.test_params).currentPolicy.steady;
         save_dir = dynamicSolver.solve(scenario);
-        setnames = {'market', 'dynamics', 'elasticities'};
+        setnames = {'market', 'dynamics', 'paramsTargets'};
         test_output(save_dir, setnames);
-        GiniTable = momentsGenerator(scenario);
+        GiniTable = momentsGenerator(scenario).giniTable;
     end
     
     

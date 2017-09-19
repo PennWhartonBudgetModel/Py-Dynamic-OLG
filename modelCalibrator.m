@@ -9,7 +9,7 @@ classdef modelCalibrator
 properties (Constant)
     
     % Define list of parameters which define the steady state
-    paramlist = {'beta', 'gamma', 'sigma', 'modelunit_dollars'};
+    paramlist = {'beta', 'gamma', 'sigma', 'modelunit_dollar'};
     
     % Define list of targets
     targetlist  = {'captoout', 'labelas', 'savelas', 'outperHH'};
@@ -87,13 +87,13 @@ methods (Static)
         nparamsets = length(params);
         
         parfor i = 1:nparamsets  
-            % Calibrate steady state on modelunit_dollars
-            [ targets(i), modelunit_dollars(i), solved(i) ] = modelCalibrator.calibrate_dollar( params(i) ); %#ok<NASGU,PFOUS,ASGLU>
+            % Calibrate steady state on modelunit_dollar
+            [ targets(i), modelunit_dollar(i), solved(i) ] = modelCalibrator.calibrate_dollar( params(i) ); %#ok<NASGU,PFOUS,ASGLU>
         end
         
-        % Add modelunit_dollars to the params
+        % Add modelunit_dollar to the params
         for i = 1:nparamsets
-            params(i).modelunit_dollars = modelunit_dollars(i);
+            params(i).modelunit_dollar = modelunit_dollar(i);
         end
         
         % Save elasticity sets and solution conditions to batch file
@@ -205,17 +205,17 @@ methods (Static)
         %     from Alex $79.8k for 2016
         %     REM: In moment_targets, 
         %        col 1 = varname, col 2 = value, col 3 = description 
-        target_index        = find( strcmp( modelCalibrator.moment_targets(:, 1), 'outperHH' ), 1 );
-        target              = cell2mat( modelCalibrator.moment_targets( target_index, 2 ) );
+        target_outperHH_index = find( strcmp( modelCalibrator.moment_targets(:, 1), 'outperHH' ), 1 );
+        target_outperHH       = cell2mat( modelCalibrator.moment_targets( target_outperHH_index, 2 ) );
         
-        % Set initial modelunit_dollars.
+        % Set initial modelunit_dollar.
         % In the future, we could apply a heuristic better initial guess.
         modelunit_dollar    = 4.0e-05;  
 
         tolerance           = 0.01;    % as ratio 
         err_size            = 1;
         iter_num            = 1;
-        iter_max            = 8;   % iterations for modelunit_dollars
+        iter_max            = 8;       % iterations for modelunit_dollar
 
         while (( err_size > tolerance ) && (iter_num <= iter_max) )
 
@@ -230,33 +230,33 @@ methods (Static)
             save_dir    = dynamicSolver.solve( scenario );
 
             % find target -- $gdp/pop
-            s_elas          = load( fullfile(save_dir, 'elasticities.mat' ) );
-            actual_value    = s_elas.outperHH;
+            s_paramsTargets = load( fullfile(save_dir, 'paramsTargets.mat' ) );
+            run_outperHH    = s_paramsTargets.outperHH;
             
-            err_size        = abs( actual_value/target - 1 );
+            err_size        = abs( run_outperHH/target_outperHH - 1 );
             fprintf( '...MODELUNIT_DOLLAR iteration %u   error=%f\n ', iter_num, err_size );
 
             % package up answer
-            targets         = struct(   'savelas',      s_elas.savelas ...
-                                     ,  'labelas',      s_elas.labelas ...
-                                     ,  'outperHH',     actual_value ...                       
-                                     ,  'captoout',     s_elas.captoout );
+            targets         = struct(   'savelas',      s_paramsTargets.savelas  ...
+                                     ,  'labelas',      s_paramsTargets.labelas  ...
+                                     ,  'captoout',     s_paramsTargets.captoout ... 
+                                     ,  'outperHH',     run_outperHH             );                       
 
             % Update by percent shift, reduced a bit as number of 
             % iterations increases. This approach slows the update rate
             % in case of slow convergence -- we're usually bouncing around then.
             exp_reduce        = max( 0.5, 1.0 - iter_num *0.07 );
-            modelunit_dollar = modelunit_dollar*((actual_value/target)^exp_reduce);
+            modelunit_dollar = modelunit_dollar*((run_outperHH/target_outperHH)^exp_reduce);
 
             % Find if converged
             %    This only needs to be done after the loop, but
             %    we're about to wipe out the run's files.
-            s_dyn          = load( fullfile(save_dir, 'dynamics.mat' ) );
-            is_converged   = s_dyn.is_converged;
+            s_dynamics     = load( fullfile(save_dir, 'dynamics.mat' ) );
+            is_converged   = s_dynamics.is_converged;
 
             % Delete save directory along with parent directories
             rmdir(fullfile(save_dir, '..', '..'), 's')
-            clear( 's_elas' ); clear( 's_dyn' );
+            clear( 's_ParamsTargets' ); clear( 's_dynamics' );
             
             iter_num = iter_num + 1;
         end % while
@@ -267,7 +267,7 @@ methods (Static)
         % Check solution condition.
         % Stable solution identified as:
         %  1. Robust solver convergence rate
-        %  2. modelunit_dollars convergence
+        %  2. modelunit_dollar convergence
         is_solved = is_converged && ( err_size <= tolerance );
         if( iter_num > iter_max )
            fprintf( '...MODELUNIT_DOLLAR -- max iterations (%u) reached.\n', iter_max );
@@ -286,14 +286,14 @@ methods (Static)
         iters       = table2array(T(:,1));  
         iterations  = iters(end);
 
-        s_dynamics = load( fullfile(save_dir, 'dynamics.mat' ) );
-        s_elas     = load( fullfile(save_dir, 'elasticities.mat' ) );
-        s_markets  = load( fullfile(save_dir, 'market.mat' ) );
+        s_dynamics      = load( fullfile(save_dir, 'dynamics.mat' ) );
+        s_paramsTargets = load( fullfile(save_dir, 'paramsTargets.mat' ) );
+        s_markets       = load( fullfile(save_dir, 'market.mat' ) );
         
         % Define some helper vars for clarity
         pop             = s_dynamics.pops;    
         gdp             = s_dynamics.outs;    
-        dollar          = 1/s_elas.modelunit_dollars; 
+        dollar          = 1/s_paramsTargets.modelunit_dollar; 
 
         if( ~exist('targets', 'var') || isempty(targets) )
             targets = modelCalibrator.moment_targets;
@@ -308,10 +308,10 @@ methods (Static)
                     sprintf( '   %20s = %f', lbl, modelInput );
         
         % Make PARAMS section
-        params  = {'beta'   , s_elas.beta;
-                   'sigma'  , s_elas.sigma;
-                   'gamma'  , s_elas.gamma;
-                   'model$' , s_elas.modelunit_dollars; };
+        params  = {'beta'   , s_paramsTargets.beta;
+                   'sigma'  , s_paramsTargets.sigma;
+                   'gamma'  , s_paramsTargets.gamma;
+                   'model$' , s_paramsTargets.modelunit_dollar; };
         
         param_part = sprintf('%s   PARAMS%s', delimiter, delimiter );
         for i = 1:length(params)             
@@ -327,10 +327,10 @@ methods (Static)
         model_results = {'r'          , s_markets.caprates;
                          'PIT'        , s_dynamics.pits/gdp;
                          'SSTax'      , s_dynamics.ssts/gdp;
-                         'KbyY'       , s_elas.captoout;
+                         'KbyY'       , s_paramsTargets.captoout;
                          'outperHH'   , gdp*dollar/pop;
-                         'labelas'    , s_elas.labelas;
-                         'savelas'    , s_elas.savelas;};
+                         'labelas'    , s_paramsTargets.labelas;
+                         'savelas'    , s_paramsTargets.savelas;};
         
         % Make TARGETS section
         target_part = sprintf('%s   TARGETS%s', delimiter, delimiter );

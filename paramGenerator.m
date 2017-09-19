@@ -41,7 +41,7 @@ methods (Static)
         
         % Determine permanent and transitory shocks
         nperm  = 2; zperm  = f(nperm , sqrt(0.2105));
-        ntrans = 2; ztrans = f(ntrans, sqrt(0.0630)); 
+        ntrans = 2; ztrans = f(ntrans, sqrt(0.0630));
         
         % Determine persistent shocks
         npers = 2;
@@ -66,9 +66,9 @@ methods (Static)
         DISTpers = diff(normcdf(persv/sqrt(0.124)));
         
         % Define deterministic lifecycle productivities
-        % (Estimated coefficients from Barro and Barnes Medicaid working paper)
         T_life = paramGenerator.timing(scenario).T_life;
-        zage   = polyval([-5.25e-7, 1.05e-4, -8.1467e-3, 0.2891379, -1.203521], 19+(1:T_life));
+        % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
+        zage   = read_series('ConesaEtAl_WageAgeProfile.csv', [], Environment.getCurrent().sim_param());
         
         % Calculate total productivity
         ndem = nperm; nz = ntrans*npers;
@@ -83,6 +83,16 @@ methods (Static)
         
         % Determine initial distribution over all shocks / productivities
         DISTz0 = kron(DISTpers , (1/ntrans)*ones(1     ,ntrans));
+
+        % Include a fifth super large and rare shock
+        nz = 5;
+        zs(5,:,:) = zs(4,:,:) * 10;
+        transz = [transz(1,1) transz(1,2) transz(1,3) transz(1,4) 0.00;
+                  transz(2,1) transz(2,2) 0.037       0.037       (1-2*transz(2,1)-2*0.037);
+                  transz(3,1) transz(3,2) 0.46        0.46        (1-2*transz(3,2)-2*0.46) ;
+                  0.03        0.03        0.47        0.46         0.01                    ;
+                  0.15        0.05        0.05        0.25         0.50];
+        DISTz0 = [DISTz0 0];
         
         % Determine productivity distributions for ages
         DISTz_g      = zeros(nz,T_life);
@@ -123,13 +133,13 @@ methods (Static)
             DISTz(:,age,g.legal  ) = [plegal*ones(nz-1,1); 1 - plegal*(nz-1)    ];
             DISTz(:,age,g.illegal) = [1 - pillegal*(nz-1); pillegal*ones(nz-1,1)];
             
-        end
+        end            
         
         % Define savings and average earnings discretization vectors
         % (Upper bound of average earnings defined as maximum possible Social Security benefit)
         f = @(lb, ub, n, curv) lb + (ub-lb)*((0:n-1)/(n-1))'.^curv;
         nb =  5; bv = f(0   , 1.5*max(zs(:))    , nb  , 2);     % average earnings vector
-        nk = 15; kv = f(1e-3, 1/(500*4.5408e-05), nk-4, 4);     % savings vector --- 4.5408e-05 corresponds to the last modelunit_dollars value in steady state
+        nk = 15; kv = f(1e-3, 1/(500*4.5408e-05), nk-4, 4);     % savings vector --- 4.5408e-05 corresponds to the last modelunit_dollar value in steady state
         scale = 1;                                              % scale insures we continue building the capital grid at around 3.5 million dollars
         for ik = nk-3:nk                                        % this loop builds the top of capital grid
             scale = 3.5*scale;

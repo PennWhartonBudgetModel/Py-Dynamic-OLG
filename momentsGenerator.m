@@ -3,122 +3,192 @@
 % 
 %%
 
-function [gini_summary] = momentsGenerator(scenario,do_plot1,do_plot2)
+classdef momentsGenerator
+    
+    properties (Access = private)
+        
+        modelunit_dollar;
+        a_distdata; a_distmodel; a_ginimodel; a_lorenz;
+        l_distdata; l_distmodel; l_ginimodel; l_lorenz;
 
-    if (nargin == 1)
-        do_plot1 = false;
-        do_plot2 = false;
-    elseif (nargin == 2)
-        do_plot2 = false;
-    end
-
-    if( ~strcmp(scenario.economy, 'steady' ) )
-        error('Unable to generate income distribution moments for transition paths.')
     end
     
-	%% PARAMETERS
-    
-    save_dir = Environment.getCurrent().save(scenario);
 
-	% Define time constants
-	s       = paramGenerator.timing(scenario);
-	T_life  = s.T_life;    % Total life years
-	T_model = s.T_model;   % Transition path model years
+    methods
+       
+        % Constructor
+        function this = momentsGenerator(scenario)
+            
+            if( ~strcmp(scenario.economy, 'steady' ) )
+                error('Unable to generate income distribution moments for transition paths.')
+            end
 
-	% Discretized grids, including shock process
-	s    = paramGenerator.grids(scenario);
-	ndem = s.ndem;       % demographic types
-	ng   = s.ng;         % num groups
-	nz   = s.nz;         % num labor productivity shocks
-	zs   = s.zs;         % shocks grid (by demographic type and age)
-	nk   = s.nk;         % num asset points
- 	kv   = s.kv;         % assets grid
-	nb   = s.nb;         % num avg. earnings points
+            %% PARAMETERS
+    
+            this.modelunit_dollar = scenario.modelunit_dollar;
+            save_dir = Environment.getCurrent().save(scenario);
+            param_dir  = Environment.getCurrent().sim_param();
 
-    %% DISTRIBUTION AND POLICY FUNCTIONS
+            % Define time constants
+            s       = paramGenerator.timing(scenario);
+            T_life  = s.T_life;    % Total life years
+            T_work  = s.T_work;    % Retirement age
+            T_model = s.T_model;   % Transition path model years
 
-    % Importing distribution of households
-    s    = load( fullfile(save_dir, 'distribution.mat' ) );
-    dist = s.DIST(:);
-    
-    % Importing market variables
-    s    = load( fullfile(save_dir, 'market.mat' ) );
-    beq  = s.beqs;
-    wage = s.wages;
-    
-    % Importing policy functions
-    f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
-    s = load( fullfile(save_dir, 'all_decisions.mat' ) );
-    labinc = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wage;
-    cons   = f(s.CON);
-    k      = f(s.K);
-    labinc = labinc(:);  % Labor income
-    cons   = cons  (:);  % Consumption
-    k      = k     (:);  % Asset holdings for tomorrow (k')
-    
-    %% Import wealth and labor earnings distribution moments
-    param_dir  = Environment.getCurrent().sim_param();
-    a_distdata = readtable(fullfile(param_dir, ...
-                 'SIM_NetPersonalWealth_distribution.csv'));
-    a_distdata = [a_distdata; {100 NaN 1}];     % Append last point for graph
-    
-    a_ginidata = 0.857;                         % Number from SIM
+            % Define grids
+            s    = paramGenerator.grids(scenario);
+            ndem = s.ndem;       % demographic types
+            ng   = s.ng;         % num groups
+            nz   = s.nz;         % num labor productivity shocks
+            zs   = s.zs;         % shocks grid (by demographic type and age)
+            nk   = s.nk;         % num asset points
+            nb   = s.nb;         % num avg. earnings points
 
-    l_distdata = readtable(fullfile(param_dir, ...
-                 'SIM_PreTaxLaborInc_distribution.csv'));
-    l_distdata = [l_distdata; {100 NaN 1}];     % Append last point for graph
-    
-    l_ginidata = 0.547;                         % Number from SIM
+            %% DISTRIBUTION AND POLICY FUNCTIONS
 
-    %% WEALTH AND INCOME DISTRIBUTIONS
+            % Import households distribution
+            s    = load( fullfile(save_dir, 'distribution.mat' ) );
+            dist = s.DIST(:);
+            dist_l(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem) = s.DIST(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem); % Working age population
+            dist_l(1:nz,1:nk,1:nb,T_work:T_life,1:ng,1:T_model,1:ndem) = 0; % Retired population
+            dist_l = dist_l(:)/sum(dist_l(:));
 
-    % Compute wealth distribution
-    a_distmodel = get_moments(dist,k);
+            % Import market variables
+            s    = load( fullfile(save_dir, 'market.mat' ) );
+            wage = s.wages;
     
-    % Gini and Lorenz curve
-    [a_ginimodel a_lorenz] = gini(dist,k,false); % set 3rd argument to true to graph the Lorenz curve
+            % Import policy functions
+            f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
+            s = load( fullfile(save_dir, 'all_decisions.mat' ) );
+            labinc = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wage;
+            k      = f(s.K);
+            labinc = labinc(:);  % Labor income
+            k      = k     (:);  % Asset holdings for tomorrow (k')
     
-    % Compare model distribution with data
-    a_ginigap = 100*(a_ginidata / a_ginimodel - 1);
-    
-    if do_plot1
-        figure
-        plot(a_distdata.percentile,a_distmodel.cumulativeShare, ...
-            a_distdata.percentile,a_distdata.cumulativeShare)
-        title('Assets distribution')
-        xlabel('percentiles')
-        ylabel('cumulative share of total assets')
-        legend('model','data','Location','northwest')
-    end
+            %% DATA WEALTH AND INCOME DISTRIBUTIONS
 
-    % Compute labor income distribution
-    l_distmodel = get_moments(dist,labinc);
-    
-    % Gini and Lorenz curve
-    [l_ginimodel l_lorenz] = gini(dist,labinc);
+            this.a_distdata = readtable(fullfile(param_dir, 'SIM_NetPersonalWealth_distribution.csv'));
+            this.a_distdata = [this.a_distdata; {100 NaN 1}];       % Append last point for graph
 
-    % Compare model distribution with data
-    l_ginigap = 100*(l_ginidata / l_ginimodel - 1);
-    
-    if do_plot2
-        figure
-        plot(l_distdata.percentile,l_distmodel.cumulativeShare,...
-            l_distdata.percentile,l_distdata.cumulativeShare)
-        title('Labor income distribution')
-        xlabel('percentiles')
-        ylabel('cumulative share of total labor income')
-        legend('model','data','Location','northwest')
-    end
-    
-    % momentsGenerator output
-    gini_summary = table(categorical({'wealth';'lab_income'}),...
-                         [a_ginidata; l_ginidata],...
-                         [a_ginimodel; l_ginimodel],...
-                         [a_ginigap; l_ginigap],...
-                         'VariableNames',{'Gini' 'data' 'model' 'percent_gap'});
+            this.l_distdata = readtable(fullfile(param_dir, 'SIM_PreTaxLaborInc_distribution.csv'));
+            this.l_distdata = [this.l_distdata; {100 NaN 1}];       % Append last point for graph
+
+            %% MODEL WEALTH AND INCOME DISTRIBUTIONS
+
+            % Compute wealth distribution
+            this.a_distmodel = get_moments(dist,k);
+            % Gini and Lorenz curve
+            [this.a_ginimodel this.a_lorenz] = gini(dist,k);
+
+            % Compute labor income distribution
+            this.l_distmodel = get_moments(dist_l,labinc);
+            % Gini and Lorenz curve
+            [this.l_ginimodel this.l_lorenz] = gini(dist_l,labinc);
+
+
+        end
+        
+        % Table - data and model Gini and the gap between them
+        function [gini_table] = giniTable(this)
+            
+            a_ginidata = 0.857;                         % Number from SIM
+            l_ginidata = 0.4858;                        % Number from SIM
+
+            % Compare model distribution with data
+            a_ginigap = 100*(a_ginidata / this.a_ginimodel - 1);
+
+            % Compare model distribution with data
+            l_ginigap = 100*(l_ginidata / this.l_ginimodel - 1);
+
+            % momentsGenerator output
+            gini_table = table(categorical({'wealth';'lab_income'}),...
+                                 [a_ginidata; l_ginidata],...
+                                 [this.a_ginimodel; this.l_ginimodel],...
+                                 [a_ginigap; l_ginigap],...
+                                 'VariableNames',{'Gini' 'data' 'model' 'percent_gap'});
                      
+        end
+        
+        % Table - assets and labor income cumulative shares for selected percentiles
+        function [cumShare_table] = cumShareTable(this)
+            
+            cumShare_table = table(this.a_distdata.percentile,...
+                              this.a_distdata.cumulativeShare, this.a_distmodel.cumulativeShare,...
+                              this.l_distdata.cumulativeShare, this.l_distmodel.cumulativeShare,...
+                              'VariableNames',{'Percentile' 'a_data' 'a_model' ...
+                                                            'l_data' 'l_model'});
                      
-end
+        end
+        
+        % Graph - Assets distribution: model vs. data
+        function [] = plot_a_lorenz(this)
+            
+            datapercentile = [0; this.a_distdata.percentile];
+            datacumShare   = [min(this.a_distdata.cumulativeShare)-1e-8; this.a_distdata.cumulativeShare];
+                         
+            figure
+            plot(this.a_lorenz(:,1).*100, this.a_lorenz(:,2), ...
+                 datapercentile         , datacumShare, 'LineWidth',2)
+            hold on
+            plot([0,100],[0,1],'--k','LineWidth',1.5);     	% 45 degree line
+            title('Assets distribution','FontSize',16)
+            xlabel('percentiles','FontSize',13)
+            ylabel('cumulative share of total assets','FontSize',13)
+            legend({sprintf('model (gini = %0.3f)', this.a_ginimodel),
+                    'data    (gini = 0.857)' },'Location','northwest','FontSize',13)
+            
+        end
+
+        % Graph - Labor income distribution: model vs. data
+        function [] = plot_l_lorenz(this)
+                         
+            datapercentile = [0; this.l_distdata.percentile];
+            datacumShare   = [0; this.l_distdata.cumulativeShare];
+
+            figure
+            plot(this.l_lorenz(:,1).*100, this.l_lorenz(:,2), ...
+                 datapercentile         , datacumShare, 'LineWidth',2)
+            hold on
+            plot([0,100],[0,1],'--k','LineWidth',1.5);     	% 45 degree line
+            title('Labor income distribution','FontSize',16)
+            xlabel('percentiles','FontSize',13)
+            ylabel('cumulative share of total labor income','FontSize',13)
+            legend({sprintf('model (gini = %0.4f)', this.l_ginimodel),
+                    'data    (gini = 0.4858)' },'Location','northwest','FontSize',13)
+            
+        end
+        
+            % Graph - Assets threshold in dollars: model vs. data
+            function [] = plot_a_threshold(this)
+                         
+            figure
+            plot(this.a_distdata.percentile,(this.a_distmodel.threshold/this.modelunit_dollar)/1000,...
+                 this.a_distdata.percentile,this.a_distdata.threshold2016dollars/1000, 'LineWidth',2)
+            title('Threshold by wealth percentile','FontSize',16)
+            xlabel('percentiles','FontSize',13)
+            ylabel('thousands of 2016 dollars','FontSize',13)
+            legend({sprintf('model (gini = %0.3f)', this.a_ginimodel),
+                    'data    (gini = 0.857)' },'Location','northwest','FontSize',13)
+                        
+        end
+        
+            % Graph - Labor income threshold in dollars: model vs. data
+            function [] = plot_l_threshold(this)
+                         
+            figure
+            plot(this.l_distdata.percentile,(this.l_distmodel.threshold/this.modelunit_dollar)/1000,...
+                 this.l_distdata.percentile,this.l_distdata.threshold2016dollars/1000, 'LineWidth',2)
+            title('Threshold by labor income percentile','FontSize',16)
+            xlabel('percentiles','FontSize',13)
+            ylabel('thousands of 2016 dollars','FontSize',13)
+            legend({sprintf('model (gini = %0.4f)', this.l_ginimodel),
+                    'data    (gini = 0.4858)' },'Location','northwest','FontSize',13)
+                        
+        end
+
+    end % methods
+    
+end % momentsGenerator
 
 %%
 
@@ -170,7 +240,8 @@ end
 function [ginicoeff lorenz] = gini(dist,x,makeplot)
 
 % Inputs:  dist     = vector of population sizes of the different types
-%                     (note it doesn't need to be distribution vector of x)
+%                     (note it doesn't need to be distribution vector of x, but
+%                      it cannot be a cumulative distribution)
 %          x        = vector with variable of interest
 %          makeplot = boolean indicating whether a figure of the Lorentz
 %                     curve should be produced or not. Default is false.
@@ -187,14 +258,20 @@ function [ginicoeff lorenz] = gini(dist,x,makeplot)
         makeplot = false;
     end
 
-    % Pre-append a zero because the Lorenz curve contains (0,0) by definition
-    dist = [0;dist(:)]; x = [0;x(:)];
-
-    % Check for negative values - this is important if there's borrowing
-    assert(all(dist>=0) && all(x>=0), ...
-           'gini expects nonnegative vectors (neg elements in pop = %d, in val = %d).', ...
-            sum(dist<0),sum(x<0))
+    % Check for negative population/measure
+    assert(all(dist>=0), ...
+           'gini expects nonnegative population vector (%d negative elements).', ...
+           sum(dist<0))
     
+    % Take care of first point of the Lorenz curve
+    if all(x>0)
+        % Pre-append a zero because the Lorenz curve contains (0,0) by definition
+        dist = [0;dist(:)]; x = [0;x(:)];
+    else
+        % Use the lowest x holdings to set the first point
+        dist = [0;dist(:)]; x = [min(x)-1e-8;x(:)];
+    end
+
     % Sort in ascending order wrt x and weight vectors
     z = x .* dist;
     [~,ord] = sort(x);

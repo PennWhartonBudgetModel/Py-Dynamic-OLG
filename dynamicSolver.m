@@ -158,7 +158,7 @@ methods (Static)
             if isdynamic, LABs_static = cell(nstartyears, ndem); end
             
             % Initialize optimal decision value arrays
-            os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN', 'CON'};
+            os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN', 'CON', 'V'};
             for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model,ndem); end
             
             % Initialize array of cohort optimal labor values
@@ -189,10 +189,10 @@ methods (Static)
                     
                     % Solve dynamic optimization
                     % (Note that active time is set to full lifetime)
-                    [V, OPT] = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life);
+                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life);
                     
                     % Define series of terminal utility values
-                    V0s(:,:,:,1:T_life-1) = V(:,:,:,2:T_life);
+                    V0s(:,:,:,1:T_life-1) = OPT.V(:,:,:,2:T_life);
                     
                 end
                 
@@ -216,7 +216,7 @@ methods (Static)
                             V0 = V0s(:,:,:,T_ends(i)); %#ok<PFBNS>
                             
                             % Solve dynamic optimization
-                            [~, OPTs_cohort{i}] = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i));
+                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i));
                             
                             LABs{i,idem} = OPTs_cohort{i}.LAB;
                             
@@ -470,7 +470,8 @@ methods (Static)
         for label = { {'Beta'          , beta              } , ...
                       {'Gamma'         , gamma             } , ...
                       {'Sigma'         , sigma             } , ...
-                      {'Model$'        , modelunit_dollar } }
+                      {'Model$'        , modelunit_dollar  } , ...
+                      {'phi_1'         , bequest_phi_1     } }
             fprintf('\t%-25s= % 7.8f\n', label{1}{:})
         end
         
@@ -706,24 +707,30 @@ methods (Static)
                 % Calculate $GDP/HH
                 outperHH = (Dynamic.outs./Dynamic.pops)./modelunit_dollar;
                 
+                % Calculate gini
+                GiniTable = momentsGenerator(scenario).giniTable;
+                gini      = GiniTable.model(GiniTable.Gini=='wealth');
+
                 % Save and display elasticities
-                save(fullfile(save_dir, 'elasticities.mat') ...
-                    , 'captoout', 'labelas', 'savelas', 'outperHH' ...
-                    , 'beta', 'gamma', 'sigma', 'modelunit_dollar' );
+                save(fullfile(save_dir, 'paramsTargets.mat') ...
+                    , 'captoout', 'labelas', 'savelas', 'outperHH', 'gini' ...
+                    , 'beta', 'gamma', 'sigma', 'modelunit_dollar', 'bequest_phi_1' );
                 
                 fprintf( '\n' );
                 fprintf( 'Finished at: %s\n', datetime );
                 for label = { {'Beta'          , beta              } , ...
                               {'Gamma'         , gamma             } , ...
                               {'Sigma'         , sigma             } , ...
-                              {'Model$'        , modelunit_dollar  } }
+                              {'Model$'        , modelunit_dollar  } , ...
+                              {'phi_1'         , bequest_phi_1     } }
                     fprintf('\t%-25s= % 7.8f\n', label{1}{:})
                 end
                 fprintf( '--------------\n' );
-                for label = { {'Capital/Output'          , captoout } , ...
-                              {'Labor elasticity'        , labelas  } , ...
-                              {'Savings elasticity'      , savelas  } , ...
-                              {'Output/HH'               , outperHH } }
+                for label = { {'Capital/Output'        , captoout   } , ...
+                              {'Labor elasticity'      , labelas    } , ...
+                              {'Savings elasticity'    , savelas    } , ...
+                              {'Output/HH'             , outperHH   } , ...
+                              {'Wealth Gini'           , gini       } }
                     fprintf('\t%-25s= % 7.4f\n', label{1}{:})
                 end
                 fprintf('\n');
