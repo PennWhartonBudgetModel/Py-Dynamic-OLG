@@ -36,9 +36,6 @@ methods (Static)
         amnesty     = scenario.amnesty    ;
         deportation = scenario.deportation;
         
-        % map model inputs (or outputs) to actual years
-        first_transition_year  = 2018;
-        
         % Identify working directories
         environment = Environment.getCurrent();
         [save_dir, ~, counterdef_tag] = environment.save(scenario);
@@ -57,11 +54,12 @@ methods (Static)
         
         % Define time constants
         s           = paramGenerator.timing(scenario);
-        T_life      = s.T_life;     % Total life years
-        T_work      = s.T_work;     % Total working years
-        T_model     = s.T_model;    % Transition path model years
-        startyears  = s.startyears; % Cohort start years as offsets to year 1
-        nstartyears = length(startyears);
+        first_transition_year   = s.first_transition_year;  % map model inputs (or outputs) to actual years
+        T_life                  = s.T_life;                 % Total life years
+        T_work                  = s.T_work;                 % Total working years
+        T_model                 = s.T_model;                % Transition path model years
+        startyears              = s.startyears;             % Cohort start years as offsets to year 1
+        nstartyears             = length(startyears);
         
         T_pasts   = max(-startyears, 0);                            % Life years before first model year
         T_shifts  = max(+startyears, 0);                            % Model years before first life year
@@ -104,7 +102,7 @@ methods (Static)
         imm_age         = s.imm_age;                    % Immigrants' age distribution
         
         % Load Social Security parameters
-        s           = paramGenerator.social_security( modelunit_dollar, bv, T_model );
+        s           = paramGenerator.social_security( scenario );
         ssbenefits  = s.ssbenefits ;    % Benefits
         sstaxs      = s.sstaxs     ;    % Tax rates
         ssincmaxs   = s.ssincmaxs  ;    % Maximum taxable earnings
@@ -112,7 +110,7 @@ methods (Static)
         
         
         %%  Budget: CBO interest rates, expenditures, and debt
-        s               = paramGenerator.budget( first_transition_year, scenario );
+        s               = paramGenerator.budget( scenario );
         GEXP_by_GDP     = s.GEXP_by_GDP;    % Gvt expenditures as pct GDP
         debt            = s.debt;           % Gvt debt as pct gdp
         debttoout       = s.debttoout;      % Initial debt/gdp (for steady state)

@@ -14,8 +14,9 @@ methods (Static)
     %% TIMING
     %    
     function s = timing(scenario)
-        s.T_life    = 80;
-        s.T_work    = 47;
+        s.first_transition_year = 2018;                 % This will come from Scenario
+        s.T_life                = 80;
+        s.T_work                = 47;
         switch scenario.economy
             case 'steady'
                 s.T_model    = 1;                           % Steady state total modeling years
@@ -249,9 +250,13 @@ methods (Static)
     
     %% SOCIAL SECURITY
     %
-    function s = social_security( modelunit_dollars, bv, T_model )
+    function s = social_security( scenario )
         
-        ssthresholds = [856, 5157]*12*modelunit_dollars;    % Thresholds for earnings brackets
+        bv               = paramGenerator.grids(scenario).bv;
+        T_model          = paramGenerator.timing(scenario).T_model;
+        modelunit_dollar = scenario.modelunit_dollar;
+        
+        ssthresholds = [856, 5157]*12*modelunit_dollar;    % Thresholds for earnings brackets
         ssrates      = [0.9, 0.32, 0.15];                   % Marginal benefit rates for earnings brackets
         ss_scale     = 1.6;                                 % Benefit scaling factor used to match total outlays as a percentage of GDP
         
@@ -261,7 +266,7 @@ methods (Static)
         
         s.ssbenefits  = repmat(ssbenefit                , [1,T_model]);  % Benefits
         s.sstaxs      = repmat(0.124                    , [1,T_model]);  % Tax rates
-        s.ssincmaxs   = repmat(1.185e5*modelunit_dollars, [1,T_model]);  % Maximum taxable earnings
+        s.ssincmaxs   = repmat(1.185e5*modelunit_dollar, [1,T_model]);  % Maximum taxable earnings
         
         s.sstaxcredit = 0.15;     % Benefit tax credit percentage
 
@@ -270,10 +275,12 @@ methods (Static)
     
     %% BUDGET AND INTEREST RATES
     %
-    function s = budget( first_transition_year, scenario )
+    function s = budget( scenario )
         
-        T_model = paramGenerator.timing(scenario).T_model;
-        taxplan = scenario.taxplan;
+        s                       = paramGenerator.timing(scenario);
+        first_transition_year   = s.first_transition_year;
+        T_model                 = s.T_model;
+        taxplan                 = scenario.taxplan;
 
         %  CBO interest rates, expenditures, and debt
         % Input: CBOInterestRate.csv -- interest rate (as pct) 
