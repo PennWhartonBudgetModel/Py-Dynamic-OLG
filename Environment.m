@@ -92,7 +92,6 @@ classdef Environment
         
         % Get identifier for active Git commit
         function [commit_tag] = get_commit_tag()
-
             % Get commit date (%cd), author email address (%ae), and abbreviated hash (%h)
             [~, commit_log] = system('git --no-pager log -1 --format=%cd,%ae,,%h --date=iso');
 
@@ -185,6 +184,9 @@ classdef Environment
             param_dir = this.input_dir('calibration');
         end
         
+        function [newdir] = new_calibration_dir(this)
+            newdir  = fullfile( this.input_root(), 'calibration', this.get_commit_tag());
+        end % new calibration dir
 
         % Save directory for Scenario run
         %   Use Scenario IDs for Production runs

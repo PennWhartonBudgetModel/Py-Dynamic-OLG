@@ -127,8 +127,7 @@ methods (Static)
         solved = boolean(solved); %#ok<NASGU>
         
         % Save solutions into new calibration file in new input dir
-        env     = Environment.getCurrent();
-        outdir  = fullfile( env.input_root(), 'calibration', env.get_commit_tag());
+        outdir  = Environment.getCurrent().new_calibration_dir();
         if exist(outdir, 'dir'), rmdir(outdir, 's'), end, mkdir(outdir)
         save(fullfile(outdir, 'calibration.mat'), 'paramv', 'targetv', 'solved');
         
