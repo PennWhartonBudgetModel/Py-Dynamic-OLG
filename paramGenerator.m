@@ -67,6 +67,7 @@ methods (Static)
         
         % Define deterministic lifecycle productivities
         T_life = paramGenerator.timing(scenario).T_life;
+        T_work = paramGenerator.timing(scenario).T_work;
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
         zage   = read_series('ConesaEtAl_WageAgeProfile.csv', [], Environment.getCurrent().sim_param());
         
@@ -77,6 +78,9 @@ methods (Static)
                   + repmat(reshape(zperm                      , [1 ,1     ,ndem]), [nz,T_life,1   ]) ...
                   + repmat(reshape(kron(ones(1,npers), ztrans) ...
                                  + kron(zpers, ones(1,ntrans)), [nz,1     ,1   ]), [1 ,T_life,ndem]));
+
+        zs_check = zs(:,1:T_work,:);
+        assert(all(zs_check(:) > 0), 'WARNING! Productivity shock grid contains zero.')
         
         % Construct Markov transition matrix for all shocks / productivities
         transz = kron(transpers, (1/ntrans)*ones(ntrans,ntrans));
@@ -133,14 +137,18 @@ methods (Static)
             DISTz(:,age,g.legal  ) = [plegal*ones(nz-1,1); 1 - plegal*(nz-1)    ];
             DISTz(:,age,g.illegal) = [1 - pillegal*(nz-1); pillegal*ones(nz-1,1)];
             
-        end            
+        end
+        
+        % Checks
+        assert(all(transz(:) >= 0), 'WARNING! Negative transition probabilities.')
+        assert(all(DISTz (:) >= 0), 'WARNING! Negative initial distribution of people DISTz.')
         
         % Define savings and average earnings discretization vectors
         % (Upper bound of average earnings defined as maximum possible Social Security benefit)
         f = @(lb, ub, n, curv) lb + (ub-lb)*((0:n-1)/(n-1))'.^curv;
         nb =  5; bv = f(0   , 1.5*max(zs(:))    , nb  , 2);     % average earnings vector
         nk = 15; kv = f(1e-3, 1/(500*4.5408e-05), nk-4, 4);     % savings vector --- 4.5408e-05 corresponds to the last modelunit_dollar value in steady state
-        scale = 1;                                              % scale insures we continue building the capital grid at around 3.5 million dollars
+        scale = 1;                                              % scale ensures we continue building the capital grid at around 3.5 million dollars
         for ik = nk-3:nk                                        % this loop builds the top of capital grid
             scale = 3.5*scale;
             kv(ik) = scale*1e+6*4.5408e-05;
