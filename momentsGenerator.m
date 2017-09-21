@@ -10,6 +10,7 @@ classdef momentsGenerator
         modelunit_dollar;
         a_distdata; a_distmodel; a_ginimodel; a_lorenz;
         l_distdata; l_distmodel; l_ginimodel; l_lorenz;
+        DIST;
 
     end
     
@@ -52,6 +53,7 @@ classdef momentsGenerator
             dist_l(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem) = s.DIST(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem); % Working age population
             dist_l(1:nz,1:nk,1:nb,T_work:T_life,1:ng,1:T_model,1:ndem) = 0; % Retired population
             dist_l = dist_l(:)/sum(dist_l(:));
+            this.DIST = s.DIST;
 
             % Import market variables
             s    = load( fullfile(save_dir, 'market.mat' ) );
@@ -158,8 +160,8 @@ classdef momentsGenerator
             
         end
         
-            % Graph - Assets threshold in dollars: model vs. data
-            function [] = plot_a_threshold(this)
+        % Graph - Assets threshold in dollars: model vs. data
+        function [] = plot_a_threshold(this)
                          
             figure
             plot(this.a_distdata.percentile,(this.a_distmodel.threshold/this.modelunit_dollar)/1000,...
@@ -172,8 +174,8 @@ classdef momentsGenerator
                         
         end
         
-            % Graph - Labor income threshold in dollars: model vs. data
-            function [] = plot_l_threshold(this)
+        % Graph - Labor income threshold in dollars: model vs. data
+        function [] = plot_l_threshold(this)
                          
             figure
             plot(this.l_distdata.percentile,(this.l_distmodel.threshold/this.modelunit_dollar)/1000,...
@@ -185,7 +187,33 @@ classdef momentsGenerator
                     'data    (gini = 0.4858)' },'Location','northwest','FontSize',13)
                         
         end
+        
+        % Graph - Age distribution at the bottom of the capital grid
+        function [topBottom_table] = topBottomTable(this)
+            
+            bot_g1 = this.DIST(:,1,:, 1:19,:,:,:);
+            bot_g2 = this.DIST(:,1,:,20:39,:,:,:);
+            bot_g3 = this.DIST(:,1,:,40:59,:,:,:);
+            bot_g4 = this.DIST(:,1,:,60:80,:,:,:);
+            bottom = this.DIST(:,1,:,:,:,:,:);
+            bottom = sum(bottom(:));
+            bot_share = [sum(bot_g1(:)) sum(bot_g2(:)) sum(bot_g3(:)) sum(bot_g4(:))];
+            
+            top_g1 = this.DIST(:,15,:, 1:19,:,:,:);
+            top_g2 = this.DIST(:,15,:,20:39,:,:,:);
+            top_g3 = this.DIST(:,15,:,40:59,:,:,:);
+            top_g4 = this.DIST(:,15,:,60:80,:,:,:);
+            top    = this.DIST(:,15,:,:,:,:,:);            
+            top    = sum(top(:));
+            top_share = [sum(top_g1(:)) sum(top_g2(:)) sum(top_g3(:)) sum(top_g4(:))];
+                                                
+            topBottom_table = table(categorical({'bottom'; 'top'}),[bottom; top],...
+                              [bot_share(1); top_share(1)],[bot_share(2); top_share(2)],...
+                              [bot_share(3); top_share(3)],[bot_share(4); top_share(4)],...
+                              'VariableNames',{'grid' 'total' 'age21to40' 'age41to60' 'age61to80' 'age81to101'});
 
+        end
+                
     end % methods
     
 end % momentsGenerator
