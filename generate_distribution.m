@@ -63,10 +63,13 @@ for age = 2:T_life
     wb_lt = (bv(jb_gt) - b_t) ./ (bv(jb_gt) - bv(jb_lt));
     wb_gt = 1 - wb_lt;
     
+    assert( (wk_lt>=0) && (wk_gt>=0) && (wb_lt>=0) && (wb_gt>=0), 'Negative weights to compute households distribution.')       
+    
     for jz = 1:nz
         
         % Apply survival and productivity transformations to population distribution for current year
         DIST_transz = DIST_year(:,:,:,age-1,:) * surv(age-1) .* repmat(reshape(transz(:,jz), [nz,1,1,1,1]), [1,nk,nb,1,ng]);
+        assert(all(DIST_transz(:)>=0), 'Negative mass of people at DIST_transz.')
         
         % Redistribute population distribution from current year to next year according to target indices and weights
         for ib = 1:nb, for ik = 1:nk, for iz = 1:nz %#ok<ALIGN>
@@ -75,7 +78,9 @@ for age = 2:T_life
             DIST_next(jz, jk_lt(iz,ik,ib), jb_gt(iz,ik,ib), age, :) = DIST_next(jz, jk_lt(iz,ik,ib), jb_gt(iz,ik,ib), age, :) + wk_lt(iz,ik,ib)*wb_gt(iz,ik,ib)*DIST_transz(iz,ik,ib,1,:);
             DIST_next(jz, jk_gt(iz,ik,ib), jb_gt(iz,ik,ib), age, :) = DIST_next(jz, jk_gt(iz,ik,ib), jb_gt(iz,ik,ib), age, :) + wk_gt(iz,ik,ib)*wb_gt(iz,ik,ib)*DIST_transz(iz,ik,ib,1,:);
         end, end, end
-        
+
+        assert(all(DIST_next(:)>=0), 'Negative mass of people at DIST_next.')
+
     end
     
 end

@@ -308,6 +308,7 @@ methods (Static)
             
             
             % Generate aggregates
+            assert(all(DIST(:)>=0),'WARNING! Negative mass of people at DIST.')
             DIST_gs = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model,ndem]);
             f = @(F) sum(sum(reshape(DIST_gs .* F, [], T_model, ndem), 1), 3);
             
