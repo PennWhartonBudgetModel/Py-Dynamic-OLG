@@ -128,13 +128,14 @@ methods (Static)
             
             zmean = mean(zs(:,age,:), 3);
             
-            zlegal   = sum(zmean .* DISTz(:,age,g.legal  )) * prem_legal  ;
+            if ( zmean .* DISTz(:,age,g.citizen) ~= zmean .* DISTz(:,age,g.legal) * prem_legal )
+                zlegal   = sum(zmean .* DISTz(:,age,g.legal  )) * prem_legal  ; 
+                plegal   = (zmean(nz) - zlegal  ) / (zmean(nz)*(nz-1) - sum(zmean(1:nz-1)));
+                DISTz(:,age,g.legal  ) = [plegal*ones(nz-1,1); 1 - plegal*(nz-1)    ];
+            end
+
             zillegal = sum(zmean .* DISTz(:,age,g.illegal)) * prem_illegal;
-            
-            plegal   = (zmean(nz) - zlegal  ) / (zmean(nz)*(nz-1) - sum(zmean(1:nz-1)));
             pillegal = (zmean(1)  - zillegal) / (zmean(1) *(nz-1) - sum(zmean(2:nz  )));
-            
-            DISTz(:,age,g.legal  ) = [plegal*ones(nz-1,1); 1 - plegal*(nz-1)    ];
             DISTz(:,age,g.illegal) = [1 - pillegal*(nz-1); pillegal*ones(nz-1,1)];
             
         end
@@ -142,6 +143,11 @@ methods (Static)
         % Checks
         assert(all(transz(:) >= 0), 'WARNING! Negative transition probabilities.')
         assert(all(DISTz (:) >= 0), 'WARNING! Negative initial distribution of people DISTz.')
+        if scenario.prem_legal==1
+            citizen_legal = abs(DISTz(:,:,g.citizen)-DISTz(:,:,g.legal));
+            assert(all(citizen_legal(:) < 1e-14), ...
+                   'WARNING! Legal immigrants distribution does not match natives distribution although prem_legal = %f.\n', scenario.prem_legal )
+        end
         
         % Define savings and average earnings discretization vectors
         % (Upper bound of average earnings defined as maximum possible Social Security benefit)
