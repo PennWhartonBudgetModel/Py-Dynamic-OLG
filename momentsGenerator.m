@@ -225,9 +225,8 @@ classdef momentsGenerator
             kdist = this.DIST .* this.kv;
             for age = 1:this.T_life
                 pop_age_temp   = this.DIST(:,:,:,age,:,:,:);
-                pop_age_temp   = pop_age_temp(:);
                 kdist_age_temp = kdist(:,:,:,age,:,:,:);
-                kdist_age(age) = (mean(kdist_age_temp(:))/sum(pop_age_temp))/this.modelunit_dollar;
+                kdist_age(age) = (mean(kdist_age_temp(:))/sum(pop_age_temp(:)))/this.modelunit_dollar;
             end
             
             figure
@@ -238,6 +237,23 @@ classdef momentsGenerator
             
         end
 
+        % Graph - Distribution of individuals by asset holdings grid points
+        function [] = plot_a_dist(this)
+            
+            nk     = size(this.DIST,2);
+            kdist  = zeros(1,nk);
+            for ik = 1:nk
+                kdist_temp = this.DIST(:,ik,:,:,:,:,:);
+                kdist(ik)  = sum(kdist_temp(:));
+            end
+            
+            figure
+            plot(1:nk,kdist, 'LineWidth',2)
+            title('Distribution of individuals by asset holdings grid points','FontSize',16)
+            xlabel('grid point number','FontSize',13)
+            ylabel('share of population','FontSize',13)
+            
+        end
                 
     end % methods
     
