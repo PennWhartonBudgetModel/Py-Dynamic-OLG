@@ -46,7 +46,7 @@ methods (Static)
         % Determine persistent shocks
         npers = 2;
         
-        pep = 0.973;                        % Lagged productivity coefficient
+        pep = 0.990;                        % Lagged productivity coefficient
         sigep = sqrt(0.018);                % Conditional standard deviation of productivity
         sigpers = sigep/(sqrt(1-pep^2));
         
@@ -90,10 +90,10 @@ methods (Static)
 
         % Include a fifth super large and rare shock
         nz = 5;
-        zs(5,:,:) = zs(4,:,:) * 10;
+        zs(5,:,:) = zs(4,:,:) * 15;
         transz = [transz(1,1) transz(1,2) transz(1,3) transz(1,4) 0.00;
-                  transz(2,1) transz(2,2) 0.037       0.037       (1-2*transz(2,1)-2*0.037);
-                  transz(3,1) transz(3,2) 0.46        0.46        (1-2*transz(3,2)-2*0.46) ;
+                  transz(2,1) transz(2,2) 0.02        0.02        (1-2*transz(2,1)-2*0.02);
+                  transz(3,1) transz(3,2) 0.47        0.47        (1-2*transz(3,2)-2*0.465) ;
                   0.03        0.03        0.47        0.46         0.01                    ;
                   0.15        0.05        0.05        0.25         0.50];
         DISTz0 = [DISTz0 0];
