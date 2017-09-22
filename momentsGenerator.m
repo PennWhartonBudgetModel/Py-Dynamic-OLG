@@ -10,7 +10,7 @@ classdef momentsGenerator
         modelunit_dollar;
         a_distdata; a_distmodel; a_ginimodel; a_lorenz;
         l_distdata; l_distmodel; l_ginimodel; l_lorenz;
-        DIST;
+        DIST; T_life; kv;
 
     end
     
@@ -44,6 +44,9 @@ classdef momentsGenerator
             zs   = s.zs;         % shocks grid (by demographic type and age)
             nk   = s.nk;         % num asset points
             nb   = s.nb;         % num avg. earnings points
+            % Useful later for a couple of functions
+            this.kv     = repmat(reshape(s.kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,T_model,ndem])  ;
+            this.T_life = T_life;
 
             %% DISTRIBUTION AND POLICY FUNCTIONS
 
@@ -53,7 +56,8 @@ classdef momentsGenerator
             dist_l(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem) = s.DIST(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem); % Working age population
             dist_l(1:nz,1:nk,1:nb,T_work:T_life,1:ng,1:T_model,1:ndem) = 0; % Retired population
             dist_l = dist_l(:)/sum(dist_l(:));
-            this.DIST = s.DIST;
+            % Useful later for a couple of functions
+            this.DIST   = s.DIST;
 
             % Import market variables
             s    = load( fullfile(save_dir, 'market.mat' ) );
@@ -188,7 +192,7 @@ classdef momentsGenerator
                         
         end
         
-        % Graph - Age distribution at the bottom of the capital grid
+        % Table - Age distribution at the bottom of the capital grid
         function [topBottom_table] = topBottomTable(this)
             
             bot_g1 = this.DIST(:,1,:, 1:19,:,:,:);
@@ -213,6 +217,27 @@ classdef momentsGenerator
                               'VariableNames',{'grid' 'total' 'age21to40' 'age41to60' 'age61to80' 'age81to101'});
 
         end
+        
+        % Graph - Asset holdings by age
+        function [] = plot_a_age(this)
+            
+            kdist_age = zeros(1,this.T_life);
+            kdist = this.DIST .* this.kv;
+            for age = 1:this.T_life
+                pop_age_temp   = this.DIST(:,:,:,age,:,:,:);
+                pop_age_temp   = pop_age_temp(:);
+                kdist_age_temp = kdist(:,:,:,age,:,:,:);
+                kdist_age(age) = (mean(kdist_age_temp(:))/sum(pop_age_temp))/this.modelunit_dollar;
+            end
+            
+            figure
+            plot([21:100],kdist_age, 'LineWidth',2)
+            title('Average asset holdings by age','FontSize',16)
+            xlabel('age','FontSize',13)
+            ylabel('2016 dollars','FontSize',13)
+            
+        end
+
                 
     end % methods
     
