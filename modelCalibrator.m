@@ -9,7 +9,7 @@ classdef modelCalibrator
 properties (Constant)
     
     % Define list of parameters which define the steady state
-    paramlist = {'beta', 'gamma', 'sigma', 'modelunit_dollars'};
+    paramlist = {'beta', 'gamma', 'sigma', 'modelunit_dollar'};
     
     % Define list of targets
     targetlist  = {'captoout', 'labelas', 'savelas', 'outperHH'};
