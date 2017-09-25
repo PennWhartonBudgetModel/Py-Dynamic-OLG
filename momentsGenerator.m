@@ -238,11 +238,11 @@ classdef momentsGenerator
             for age = 1:this.T_life
                 pop_age_temp   = this.DIST(:,:,:,age,:,:,:);
                 kdist_age_temp = kdist(:,:,:,age,:,:,:);
-                kdist_age(age) = (mean(kdist_age_temp(:))/sum(pop_age_temp(:)))/this.modelunit_dollar;
+                kdist_age(age) = (sum(kdist_age_temp(:))/sum(pop_age_temp(:)))/this.modelunit_dollar;
             end
             
             figure
-            plot([21:100],kdist_age, 'LineWidth',2)
+            plot(21:100,kdist_age, 'LineWidth',2)
             title('Average asset holdings by age','FontSize',16)
             xlabel('age','FontSize',13)
             ylabel('2016 dollars','FontSize',13)
