@@ -147,7 +147,7 @@ methods (Static)
         
         %% Aggregate generation function
         
-        function [Aggregate, LABs, DIST, pgr, policy_fncs] = generate_aggregates(Market, DIST_steady, LABs_static, DIST_static)
+        function [Aggregate, LABs, DIST, pgr, OPTs] = generate_aggregates(Market, DIST_steady, LABs_static, DIST_static)
             
             environment = Environment.getCurrent();
             
@@ -308,6 +308,7 @@ methods (Static)
             
             
             % Generate aggregates
+            assert(all(DIST(:)>=0),'WARNING! Negative mass of people at DIST.')
             DIST_gs = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model,ndem]);
             f = @(F) sum(sum(reshape(DIST_gs .* F, [], T_model, ndem), 1), 3);
             
@@ -323,8 +324,6 @@ methods (Static)
             Aggregate.cits     = f(OPTs.CIT);                                                                            % Capital income tax
             Aggregate.bens     = f(OPTs.BEN);                                                                            % Social Security benefits
             Aggregate.cons     = f(OPTs.CON);                                                                            % Consumption
-            
-            policy_fncs = OPTs;
             
         end
         
@@ -528,7 +527,7 @@ methods (Static)
             
             
             % Generate dynamic aggregates
-            [Dynamic, LABs, DIST, pgr, policy_fncs] = generate_aggregates(Market, DIST_steady, {}, {});
+            [Dynamic, LABs, DIST, pgr, OPTs] = generate_aggregates(Market, DIST_steady, {}, {});
             
             
             % Calculate additional dynamic aggregates
@@ -654,7 +653,7 @@ methods (Static)
         % Save baseline optimal labor values and population distribution
         if isbase
             save(fullfile(save_dir, 'decisions.mat'   ), 'LABs')
-            save(fullfile(save_dir, 'all_decisions.mat'   ), '-struct', 'policy_fncs')
+            save(fullfile(save_dir, 'all_decisions.mat'   ), '-struct', 'OPTs')
             save(fullfile(save_dir, 'distribution.mat'), 'DIST')
         end
         
@@ -708,7 +707,7 @@ methods (Static)
                 outperHH = (Dynamic.outs./Dynamic.pops)./modelunit_dollar;
                 
                 % Calculate gini
-                GiniTable = momentsGenerator(scenario).giniTable;
+                GiniTable = momentsGenerator(scenario,DIST,Market,OPTs).giniTable;
                 gini      = GiniTable.model(GiniTable.Gini=='wealth');
 
                 % Save and display elasticities

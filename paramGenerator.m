@@ -46,7 +46,7 @@ methods (Static)
         % Determine persistent shocks
         npers = 2;
         
-        pep = 0.973;                        % Lagged productivity coefficient
+        pep = 0.990;                        % Lagged productivity coefficient
         sigep = sqrt(0.018);                % Conditional standard deviation of productivity
         sigpers = sigep/(sqrt(1-pep^2));
         
@@ -67,6 +67,7 @@ methods (Static)
         
         % Define deterministic lifecycle productivities
         T_life = paramGenerator.timing(scenario).T_life;
+        T_work = paramGenerator.timing(scenario).T_work;
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
         zage   = read_series('ConesaEtAl_WageAgeProfile.csv', [], Environment.getCurrent().sim_param());
         
@@ -77,6 +78,9 @@ methods (Static)
                   + repmat(reshape(zperm                      , [1 ,1     ,ndem]), [nz,T_life,1   ]) ...
                   + repmat(reshape(kron(ones(1,npers), ztrans) ...
                                  + kron(zpers, ones(1,ntrans)), [nz,1     ,1   ]), [1 ,T_life,ndem]));
+
+        zs_check = zs(:,1:T_work,:);
+        assert(all(zs_check(:) > 0), 'WARNING! Productivity shock grid contains zero.')
         
         % Construct Markov transition matrix for all shocks / productivities
         transz = kron(transpers, (1/ntrans)*ones(ntrans,ntrans));
@@ -86,10 +90,10 @@ methods (Static)
 
         % Include a fifth super large and rare shock
         nz = 5;
-        zs(5,:,:) = zs(4,:,:) * 10;
+        zs(5,:,:) = zs(4,:,:) * 15;
         transz = [transz(1,1) transz(1,2) transz(1,3) transz(1,4) 0.00;
-                  transz(2,1) transz(2,2) 0.037       0.037       (1-2*transz(2,1)-2*0.037);
-                  transz(3,1) transz(3,2) 0.46        0.46        (1-2*transz(3,2)-2*0.46) ;
+                  transz(2,1) transz(2,2) 0.02        0.02        (1-2*transz(2,1)-2*0.02);
+                  transz(3,1) transz(3,2) 0.47        0.47        (1-2*transz(3,2)-2*0.465) ;
                   0.03        0.03        0.47        0.46         0.01                    ;
                   0.15        0.05        0.05        0.25         0.50];
         DISTz0 = [DISTz0 0];
@@ -124,23 +128,33 @@ methods (Static)
             
             zmean = mean(zs(:,age,:), 3);
             
-            zlegal   = sum(zmean .* DISTz(:,age,g.legal  )) * prem_legal  ;
+            if ( zmean .* DISTz(:,age,g.citizen) ~= zmean .* DISTz(:,age,g.legal) * prem_legal )
+                zlegal   = sum(zmean .* DISTz(:,age,g.legal  )) * prem_legal  ; 
+                plegal   = (zmean(nz) - zlegal  ) / (zmean(nz)*(nz-1) - sum(zmean(1:nz-1)));
+                DISTz(:,age,g.legal  ) = [plegal*ones(nz-1,1); 1 - plegal*(nz-1)    ];
+            end
+
             zillegal = sum(zmean .* DISTz(:,age,g.illegal)) * prem_illegal;
-            
-            plegal   = (zmean(nz) - zlegal  ) / (zmean(nz)*(nz-1) - sum(zmean(1:nz-1)));
             pillegal = (zmean(1)  - zillegal) / (zmean(1) *(nz-1) - sum(zmean(2:nz  )));
-            
-            DISTz(:,age,g.legal  ) = [plegal*ones(nz-1,1); 1 - plegal*(nz-1)    ];
             DISTz(:,age,g.illegal) = [1 - pillegal*(nz-1); pillegal*ones(nz-1,1)];
             
-        end            
+        end
+        
+        % Checks
+        assert(all(transz(:) >= 0), 'WARNING! Negative transition probabilities.')
+        assert(all(DISTz (:) >= 0), 'WARNING! Negative initial distribution of people DISTz.')
+        if scenario.prem_legal==1
+            citizen_legal = abs(DISTz(:,:,g.citizen)-DISTz(:,:,g.legal));
+            assert(all(citizen_legal(:) < 1e-14), ...
+                   'WARNING! Legal immigrants distribution does not match natives distribution although prem_legal = %f.\n', scenario.prem_legal )
+        end
         
         % Define savings and average earnings discretization vectors
         % (Upper bound of average earnings defined as maximum possible Social Security benefit)
         f = @(lb, ub, n, curv) lb + (ub-lb)*((0:n-1)/(n-1))'.^curv;
         nb =  5; bv = f(0   , 1.5*max(zs(:))    , nb  , 2);     % average earnings vector
         nk = 15; kv = f(1e-3, 1/(500*4.5408e-05), nk-4, 4);     % savings vector --- 4.5408e-05 corresponds to the last modelunit_dollar value in steady state
-        scale = 1;                                              % scale insures we continue building the capital grid at around 3.5 million dollars
+        scale = 1;                                              % scale ensures we continue building the capital grid at around 3.5 million dollars
         for ik = nk-3:nk                                        % this loop builds the top of capital grid
             scale = 3.5*scale;
             kv(ik) = scale*1e+6*4.5408e-05;

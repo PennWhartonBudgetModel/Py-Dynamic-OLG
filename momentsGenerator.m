@@ -10,6 +10,7 @@ classdef momentsGenerator
         modelunit_dollar;
         a_distdata; a_distmodel; a_ginimodel; a_lorenz;
         l_distdata; l_distmodel; l_ginimodel; l_lorenz;
+        DIST; T_life; kv;
 
     end
     
@@ -17,7 +18,7 @@ classdef momentsGenerator
     methods
        
         % Constructor
-        function this = momentsGenerator(scenario)
+        function this = momentsGenerator(scenario,DIST,Market,OPTs)
             
             if( ~strcmp(scenario.economy, 'steady' ) )
                 error('Unable to generate income distribution moments for transition paths.')
@@ -43,25 +44,42 @@ classdef momentsGenerator
             zs   = s.zs;         % shocks grid (by demographic type and age)
             nk   = s.nk;         % num asset points
             nb   = s.nb;         % num avg. earnings points
+            % Useful later for a couple of functions
+            this.kv     = repmat(reshape(s.kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,T_model,ndem])  ;
+            this.T_life = T_life;
 
             %% DISTRIBUTION AND POLICY FUNCTIONS
 
             % Import households distribution
-            s    = load( fullfile(save_dir, 'distribution.mat' ) );
-            dist = s.DIST(:);
-            dist_l(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem) = s.DIST(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem); % Working age population
+            if ~exist('DIST','var') || isempty(DIST)
+                s    = load( fullfile(save_dir, 'distribution.mat' ) );
+                DIST = s.DIST;
+            end
+            dist = DIST(:);
+            dist_l(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem) = DIST(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem); % Working age population
             dist_l(1:nz,1:nk,1:nb,T_work:T_life,1:ng,1:T_model,1:ndem) = 0; % Retired population
             dist_l = dist_l(:)/sum(dist_l(:));
+            % Useful later for a couple of functions
+            this.DIST   = DIST;
 
             % Import market variables
-            s    = load( fullfile(save_dir, 'market.mat' ) );
-            wage = s.wages;
-    
+            if ~exist('Market','var') || isempty(Market)
+                s     = load( fullfile(save_dir, 'market.mat' ) );
+                wages = s.wages;
+            else
+                wages = Market.wages;
+            end
+            
             % Import policy functions
             f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
-            s = load( fullfile(save_dir, 'all_decisions.mat' ) );
-            labinc = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wage;
-            k      = f(s.K);
+            if ~exist('OPTs','var') || isempty(OPTs)
+                s      = load( fullfile(save_dir, 'all_decisions.mat' ) );
+                labinc = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wages;
+                k      = f(s.K);
+            else
+                labinc = f(OPTs.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wages;
+                k      = f(OPTs.K);
+            end
             labinc = labinc(:);  % Labor income
             k      = k     (:);  % Asset holdings for tomorrow (k')
     
@@ -158,8 +176,8 @@ classdef momentsGenerator
             
         end
         
-            % Graph - Assets threshold in dollars: model vs. data
-            function [] = plot_a_threshold(this)
+        % Graph - Assets threshold in dollars: model vs. data
+        function [] = plot_a_threshold(this)
                          
             figure
             plot(this.a_distdata.percentile,(this.a_distmodel.threshold/this.modelunit_dollar)/1000,...
@@ -172,8 +190,8 @@ classdef momentsGenerator
                         
         end
         
-            % Graph - Labor income threshold in dollars: model vs. data
-            function [] = plot_l_threshold(this)
+        % Graph - Labor income threshold in dollars: model vs. data
+        function [] = plot_l_threshold(this)
                          
             figure
             plot(this.l_distdata.percentile,(this.l_distmodel.threshold/this.modelunit_dollar)/1000,...
@@ -185,7 +203,70 @@ classdef momentsGenerator
                     'data    (gini = 0.4858)' },'Location','northwest','FontSize',13)
                         
         end
+        
+        % Table - Age distribution at the bottom of the capital grid
+        function [topBottom_table] = topBottomTable(this)
+            
+            bot_g1 = this.DIST(:,1,:, 1:19,:,:,:);
+            bot_g2 = this.DIST(:,1,:,20:39,:,:,:);
+            bot_g3 = this.DIST(:,1,:,40:59,:,:,:);
+            bot_g4 = this.DIST(:,1,:,60:80,:,:,:);
+            bottom = this.DIST(:,1,:,:,:,:,:);
+            bottom = sum(bottom(:));
+            bot_share = [sum(bot_g1(:)) sum(bot_g2(:)) sum(bot_g3(:)) sum(bot_g4(:))];
+            
+            top_g1 = this.DIST(:,15,:, 1:19,:,:,:);
+            top_g2 = this.DIST(:,15,:,20:39,:,:,:);
+            top_g3 = this.DIST(:,15,:,40:59,:,:,:);
+            top_g4 = this.DIST(:,15,:,60:80,:,:,:);
+            top    = this.DIST(:,15,:,:,:,:,:);            
+            top    = sum(top(:));
+            top_share = [sum(top_g1(:)) sum(top_g2(:)) sum(top_g3(:)) sum(top_g4(:))];
+                                                
+            topBottom_table = table(categorical({'bottom'; 'top'}),[bottom; top],...
+                              [bot_share(1); top_share(1)],[bot_share(2); top_share(2)],...
+                              [bot_share(3); top_share(3)],[bot_share(4); top_share(4)],...
+                              'VariableNames',{'grid' 'total' 'age21to40' 'age41to60' 'age61to80' 'age81to101'});
 
+        end
+        
+        % Graph - Asset holdings by age
+        function [] = plot_a_age(this)
+            
+            kdist_age = zeros(1,this.T_life);
+            kdist = this.DIST .* this.kv;
+            for age = 1:this.T_life
+                pop_age_temp   = this.DIST(:,:,:,age,:,:,:);
+                kdist_age_temp = kdist(:,:,:,age,:,:,:);
+                kdist_age(age) = (mean(kdist_age_temp(:))/sum(pop_age_temp(:)))/this.modelunit_dollar;
+            end
+            
+            figure
+            plot([21:100],kdist_age, 'LineWidth',2)
+            title('Average asset holdings by age','FontSize',16)
+            xlabel('age','FontSize',13)
+            ylabel('2016 dollars','FontSize',13)
+            
+        end
+
+        % Graph - Distribution of individuals by asset holdings grid points
+        function [] = plot_a_dist(this)
+            
+            nk     = size(this.DIST,2);
+            kdist  = zeros(1,nk);
+            for ik = 1:nk
+                kdist_temp = this.DIST(:,ik,:,:,:,:,:);
+                kdist(ik)  = sum(kdist_temp(:));
+            end
+            
+            figure
+            plot(1:nk,kdist, 'LineWidth',2)
+            title('Distribution of individuals by asset holdings grid points','FontSize',16)
+            xlabel('grid point number','FontSize',13)
+            ylabel('share of population','FontSize',13)
+            
+        end
+                
     end % methods
     
 end % momentsGenerator
