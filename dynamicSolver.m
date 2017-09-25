@@ -709,7 +709,7 @@ methods (Static)
                 outperHH = (Dynamic.outs./Dynamic.pops)./modelunit_dollar;
                 
                 % Calculate gini
-                GiniTable = momentsGenerator(scenario).giniTable;
+                GiniTable = momentsGenerator(scenario,DIST,Market,policy_fncs).giniTable;
                 gini      = GiniTable.model(GiniTable.Gini=='wealth');
 
                 % Save and display elasticities

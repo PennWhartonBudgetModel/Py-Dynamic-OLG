@@ -18,7 +18,7 @@ classdef momentsGenerator
     methods
        
         % Constructor
-        function this = momentsGenerator(scenario)
+        function this = momentsGenerator(scenario,DIST,Market,OPTs)
             
             if( ~strcmp(scenario.economy, 'steady' ) )
                 error('Unable to generate income distribution moments for transition paths.')
@@ -51,23 +51,35 @@ classdef momentsGenerator
             %% DISTRIBUTION AND POLICY FUNCTIONS
 
             % Import households distribution
-            s    = load( fullfile(save_dir, 'distribution.mat' ) );
-            dist = s.DIST(:);
-            dist_l(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem) = s.DIST(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem); % Working age population
+            if ~exist('DIST','var') || isempty(DIST)
+                s    = load( fullfile(save_dir, 'distribution.mat' ) );
+                DIST = s.DIST;
+            end
+            dist = DIST(:);
+            dist_l(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem) = DIST(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem); % Working age population
             dist_l(1:nz,1:nk,1:nb,T_work:T_life,1:ng,1:T_model,1:ndem) = 0; % Retired population
             dist_l = dist_l(:)/sum(dist_l(:));
             % Useful later for a couple of functions
-            this.DIST   = s.DIST;
+            this.DIST   = DIST;
 
             % Import market variables
-            s    = load( fullfile(save_dir, 'market.mat' ) );
-            wage = s.wages;
-    
+            if ~exist('Market','var') || isempty(Market)
+                s     = load( fullfile(save_dir, 'market.mat' ) );
+                wages = s.wages;
+            else
+                wages = Market.wages;
+            end
+            
             % Import policy functions
             f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
-            s = load( fullfile(save_dir, 'all_decisions.mat' ) );
-            labinc = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wage;
-            k      = f(s.K);
+            if ~exist('OPTs','var') || isempty(OPTs)
+                s      = load( fullfile(save_dir, 'all_decisions.mat' ) );
+                labinc = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wages;
+                k      = f(s.K);
+            else
+                labinc = f(OPTs.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wages;
+                k      = f(OPTs.K);
+            end
             labinc = labinc(:);  % Labor income
             k      = k     (:);  % Asset holdings for tomorrow (k')
     
