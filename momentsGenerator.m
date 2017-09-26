@@ -10,7 +10,7 @@ classdef momentsGenerator
         modelunit_dollar;
         a_distdata; a_distmodel; a_ginimodel; a_lorenz;
         l_distdata; l_distmodel; l_ginimodel; l_lorenz;
-        DIST; T_life; kv;
+        DIST; T_life; karray;
 
     end
     
@@ -45,7 +45,7 @@ classdef momentsGenerator
             nk   = s.nk;         % num asset points
             nb   = s.nb;         % num avg. earnings points
             % Useful later for a couple of functions
-            this.kv     = repmat(reshape(s.kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,T_model,ndem])  ;
+            this.karray = repmat(reshape(s.kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,T_model,ndem])  ;
             this.T_life = T_life;
 
             %% DISTRIBUTION AND POLICY FUNCTIONS
@@ -234,15 +234,15 @@ classdef momentsGenerator
         function [] = plot_a_age(this)
             
             kdist_age = zeros(1,this.T_life);
-            kdist = this.DIST .* this.kv;
+            kdist = this.DIST .* this.karray;
             for age = 1:this.T_life
                 pop_age_temp   = this.DIST(:,:,:,age,:,:,:);
                 kdist_age_temp = kdist(:,:,:,age,:,:,:);
-                kdist_age(age) = (mean(kdist_age_temp(:))/sum(pop_age_temp(:)))/this.modelunit_dollar;
+                kdist_age(age) = (sum(kdist_age_temp(:))/sum(pop_age_temp(:)))/this.modelunit_dollar;
             end
             
             figure
-            plot([21:100],kdist_age, 'LineWidth',2)
+            plot(21:100,kdist_age, 'LineWidth',2)
             title('Average asset holdings by age','FontSize',16)
             xlabel('age','FontSize',13)
             ylabel('2016 dollars','FontSize',13)
