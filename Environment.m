@@ -163,7 +163,7 @@ classdef Environment
             if( ispc )
                 rootdir = fullfile(Environment.HPCC_share);
             else
-                rootdir = getenv('HOME'); % on UNIX
+                rootdir = fullfile(getenv('HOME'), 'ppi'); % on UNIX
             end
         end % root
         
