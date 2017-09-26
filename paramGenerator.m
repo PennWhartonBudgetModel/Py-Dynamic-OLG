@@ -69,7 +69,7 @@ methods (Static)
         T_life = paramGenerator.timing(scenario).T_life;
         T_work = paramGenerator.timing(scenario).T_work;
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
-        zage   = read_series('ConesaEtAl_WageAgeProfile.csv', [], Environment.getCurrent().sim_param());
+        zage   = read_series('ConesaEtAl_WageAgeProfile.csv', [], Environment.sim_param());
         
         % Calculate total productivity
         ndem = nperm; nz = ntrans*npers;
@@ -245,7 +245,7 @@ methods (Static)
     %        , legal immigration rate
     %        , illegal immigration rate
     function s = demographics()
-        param_dir = Environment.getCurrent().sim_param();
+        param_dir = Environment.sim_param();
         survival  = read_series('XXXSurvivalProbability.csv', [], param_dir);
         imm_age   = read_series('XXXImmigrantAgeDistribution.csv', [], param_dir);
         s.surv    = survival';
@@ -329,8 +329,8 @@ methods (Static)
         %           Format is (Year), (PctGDP) w/ header row.
         % Output: 
         %       debttoout, fedgovtnis, cborates, GEXP_by_GDP
-        cbo_param   = Environment.getCurrent().cbo_param();
-        sim_param   = Environment.getCurrent().sim_param();
+        cbo_param   = Environment.cbo_param();
+        sim_param   = Environment.sim_param();
         
         first_year                  = first_transition_year - 1;    % first year from which to read series
         CBODebt                     = read_series( 'CBOPublicDebt.csv', first_year, cbo_param );
@@ -408,7 +408,7 @@ methods (Static)
         %           revenues as percent GDP
         %           Format is (Year), (PctRevenues) w/ header row.
         filename    = strcat('Revenues_', taxplan, '.csv');
-        taxplan_dir = Environment.getCurrent().taxplan_param();
+        taxplan_dir = Environment.taxplan_param();
         try
             tax_revenue_by_GDP = read_series(filename, first_transition_year, taxplan_dir );
         catch ex 
@@ -457,7 +457,7 @@ function [incomes, taxrates] = read_tax_rates( filename )
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
 
     % Check if file exists and generate if necessary
-    filepath    = fullfile(Environment.getCurrent().taxplan_param, filename);
+    filepath    = fullfile(Environment.taxplan_param(), filename);
     if ~exist(filepath, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
         throw(MException('read_tax_table:FILENAME', err_msg ));
@@ -486,7 +486,7 @@ function [tax_vars] = read_tax_vars( filename )
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
     
     % Check if file exists and generate if necessary
-    filepath    = fullfile(Environment.getCurrent().taxplan_param(), filename);
+    filepath    = fullfile(Environment.taxplan_param(), filename);
     if ~exist(filepath, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
         throw(MException('read_tax_vars:FILENAME', err_msg ));

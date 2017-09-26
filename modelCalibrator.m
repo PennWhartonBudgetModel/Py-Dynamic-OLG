@@ -28,7 +28,7 @@ properties (Constant)
     nbatch = ceil(modelCalibrator.nset / modelCalibrator.batchsize);
     
     % Define batch directory and batch file path
-    batch_dir  = fullfile(Environment.getCurrent().source(), 'Batches');
+    batch_dir  = fullfile(Environment.source(), 'Batches');
     batch_file = @(ibatch) fullfile(modelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch));
     
     % Define the moment targets for the reports on how we did
@@ -141,7 +141,7 @@ methods (Static)
     function [] = plot_conditions()
         
         % Load calibration solutions
-        cal_dir = Environment.getCurrent().calibration();
+        cal_dir = Environment.calibration();
         s       = load(fullfile(cal_dir, 'calibration.mat'));
         paramv  = s.paramv;
         targetv = s.targetv ;
@@ -173,7 +173,7 @@ methods (Static)
     function [inverse, f] = invert(target)
         
         % Load calibration solutions
-        cal_dir = Environment.getCurrent().calibration();
+        cal_dir = Environment.calibration();
         s       = load(fullfile(cal_dir, 'calibration.mat'));
         paramv  = s.paramv;
         targetv = s.targetv ;
@@ -359,13 +359,13 @@ methods (Static)
     %%
     %   Make a report of various moments for the 16 baselines
     function [] = report_baseline_moments()
-
-        outputfilename      = fullfile(Environment.getCurrent().modelroot(), 'BaselineMoments.txt');
+        
+        outputfilename      = fullfile(Environment.source(), 'BaselineMoments.txt');
         fileID              = fopen(outputfilename,'w');
-
+        
         fprintf( fileID, '-------------BASELINE MOMENTS-------------' );
         fprintf( fileID, '%s \r\n', datestr(now));
-
+        
         % load the matrix and get inverter function
         [~, f_invert] = modelCalibrator.invert();               
         

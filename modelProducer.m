@@ -9,7 +9,7 @@ classdef modelProducer
 properties (Constant)
     
     % Define run directory and run file path
-    run_dir  = fullfile(Environment.getCurrent().source(), 'Runs');
+    run_dir  = fullfile(Environment.source(), 'Runs');
     run_file = @(irun) fullfile(modelProducer.run_dir, sprintf('run%04d.mat', irun));
     
 end

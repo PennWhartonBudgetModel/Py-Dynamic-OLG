@@ -28,7 +28,7 @@ classdef momentsGenerator
     
             this.modelunit_dollar = scenario.modelunit_dollar;
             save_dir = Environment.getCurrent().save(scenario);
-            param_dir  = Environment.getCurrent().sim_param();
+            param_dir  = Environment.sim_param();
 
             % Define time constants
             s       = paramGenerator.timing(scenario);
