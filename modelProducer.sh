@@ -4,7 +4,7 @@
 #$ -o /dev/null
 
 # Build mex functions and define production runs
-matlab -nodesktop -nosplash -r "Environment.setToProduction(), mexBuilder.all(), modelProducer.define_runs()"
+matlab -nodesktop -nosplash -r "Environment.setToProduction(), mexBuilder.all(), modelProducer.define_runs($1)"
 
 # Clear or create log directory
 LOGDIR='./Logs'
@@ -12,7 +12,7 @@ rm -rf ${LOGDIR}
 mkdir -p ${LOGDIR}
 
 # Specify production run job execution queue, checking for presence of --aws flag
-QUEUE=$([ $# -gt 0 ] && [ $1 = "--aws" ]               \
+QUEUE=$([ $# -gt 1 ] && [ $2 = "--aws" ]               \
         && echo 'aws-ppi.q -l aws_ppi -P bepp_ppi_aws' \
         || echo 'short.q'                              )
 
