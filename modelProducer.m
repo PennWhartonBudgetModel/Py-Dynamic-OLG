@@ -20,9 +20,16 @@ methods (Static)
     
     % Define full set of production runs
     function [] = define_runs(batchID)
+        if( nargin < 1 )
+            error( '<batchID> is required');
+        end
         
         % Get worklist of Scenarios from batchID
-        scenarios = Scenario.fetch_batch(batchID);
+        % Sort them to have closed econ go first -- this is 
+        % to take advantage of redundancy in solving.
+        scenarios_in_batch = Scenario.fetch_batch(batchID);
+        [~, ind] = sort({scenarios_in_batch.economy});
+        scenarios = scenarios_in_batch(ind);
         
         % Clear or create run directory
         if exist(modelProducer.run_dir, 'dir'), rmdir(modelProducer.run_dir, 's'), end, mkdir(modelProducer.run_dir)
@@ -182,7 +189,7 @@ methods (Static)
         nyear      = length(years_csv);
         
         % Specify number of years to shift results
-        nshift = scenario.first_transition_year - first_year;
+        nshift = paramGenerator.timing(scenario).first_transition_year - first_year;
         
         % Get dynamic baseline flag
         % (Applicable to closed economy runs only)

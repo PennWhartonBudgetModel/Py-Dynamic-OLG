@@ -181,7 +181,7 @@ methods (Static)
     % 
     function s = tax( taxplan )
         % Get PIT tax rates.
-        %  Input files TPCPIT_<taxplan>.CSV expected to have the
+        %  Input files PIT_<taxplan>.CSV expected to have the
         %  following structure:
         %      <Income $>, <Marginal Tax Rate>
         %  The marginal tax rate represents the rate charged 
@@ -189,7 +189,7 @@ methods (Static)
         %  until the next income threshold, if extant).
         %  First threshold must be zero to make explicit the
         %  fact that tax is charged on income from zero to some $ amount.
-        filename    = strcat('TPCPIT_', taxplan, '.csv');
+        filename    = strcat('PIT_', taxplan, '.csv');
         [income_thresholds, tax_rates] = read_tax_rates( filename );
 
         % Calculate tax liability at each threshold.
@@ -210,11 +210,11 @@ methods (Static)
         s.tax_rates           = tax_rates';
 
         % Get the capital tax params and store them.
-        %  Input files TPCCIT_<taxplan>.CSV expected to have the
+        %  Input files CIT_<taxplan>.CSV expected to have the
         %  following structure:
         %      <Tax variable> as header, <Value> under that header
         %  The tax variable names are defined below.
-        filename                = strcat('TPCCIT_', taxplan, '.csv');
+        filename                = strcat('CIT_', taxplan, '.csv');
         tax_vars                = read_tax_vars( filename );
         s.captaxshare = tax_vars.CapitalTaxShare; 
         s.expshare    = tax_vars.ExpensingShare; 
@@ -402,18 +402,18 @@ methods (Static)
 
         % TAX REVENUE TARGETS (if given)                 
         % Tax revenues as fraction of GDP are loaded from
-        % single-series CSV files which contain data from TPC by
-        % tax plan (base, trumpA, trumpB)
-        % Input: TPCRevenues_<taxplan>.csv -- TPC estimated of tax
+        % single-series CSV files which contain data by
+        % tax plan.
+        % Input: Revenues_<taxplan>.csv -- Estimate of tax
         %           revenues as percent GDP
         %           Format is (Year), (PctRevenues) w/ header row.
-        filename    = strcat('TPCRevenues_', taxplan, '.csv');
+        filename    = strcat('Revenues_', taxplan, '.csv');
         taxplan_dir = Environment.getCurrent().taxplan_param();
         try
             tax_revenue_by_GDP = read_series(filename, first_transition_year, taxplan_dir );
         catch ex 
             warning('Cannot read file %s for Tax Revenue targets. Using baseline instead.', filename );
-            filename = strcat('TPCRevenues_', scenario.currentPolicy().taxplan, '.csv');
+            filename = strcat('Revenues_', scenario.currentPolicy().taxplan, '.csv');
             tax_revenue_by_GDP = read_series(filename, first_transition_year, taxplan_dir );
         end
         tax_revenue_by_GDP = tax_revenue_by_GDP'; 

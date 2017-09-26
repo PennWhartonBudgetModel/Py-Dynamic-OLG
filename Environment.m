@@ -8,21 +8,25 @@ classdef Environment
     
     
     properties ( Constant, Access = private )
+        % HPCC share in UNC format -- note not used for UNIX
+        HPCC_share = fullfile('\\hpcc.wharton.upenn.edu', 'ppi');
+        
         %  NOTE: We think of a 'commit' moving from Dev->Test->Prod
         %  So, there appears to be a need for only one set of environment
         %  param dirs as it is linked to a 'commit'.
         param_dirs = ... 
             struct(     'cbo'           , '2017-09-14'      ...
                     ,   'sim'           , '2017-09-14'      ...
-                    ,   'taxplan'       , '2017-09-14'      ...
+                    ,   'taxplan'       , '2017-09-20'      ...
                     ,   'calibration'   , '2017-09-20-11-12-efraim-98d1b77' ...
                   );
+              
     end % private static properties
     
     
     
     properties ( SetAccess = private )
-        name;       % Testing, Development, Production
+        name;       % Development, Production
     end % instance properties
     
     
@@ -41,8 +45,8 @@ classdef Environment
         end % getCurrent
         
         
-        function [] = setTesting()
-            e = Environment('Testing');
+        function [] = setDevelopment()
+            e = Environment('Development');
             Environment.theEnvironment(e);
         end
         
@@ -132,9 +136,14 @@ classdef Environment
         
         % Make input dir name from static pointers struct
         function [inputdir] = input_dir(this, topic)
-            inputdir    = fullfile(this.input_root(), topic, this.prop_val(topic) );
+            inputdir    = fullfile(this.inputroot(), topic, this.prop_val(topic) );
         end % input_dir
         
+        
+        % Input root on HPCC
+        function [inputdir] = inputroot(this)
+            inputdir    = fullfile(this.root(), 'Input');
+        end % inputroot
         
     end % private instance methods
     
@@ -148,16 +157,25 @@ classdef Environment
             source_dir = fileparts(mfilename('fullpath'));
         end
 
-
+        
+        % Root dir is the HPCC Share
+        function rootdir = root(this)
+            if( ispc )
+                rootdir = fullfile(Environment.HPCC_share);
+            else
+                rootdir = fullfile(getenv('HOME'), 'ppi'); % on UNIX
+            end
+        end % root
+        
+        
         % Model root directory
         function [modelroot_dir] = modelroot(this)
-            modelroot_dir = fileparts(fileparts(fileparts(this.source)));
-        end
-
-
-        % Absolute root directory
-        function [root_dir] = root(this)
-            root_dir = fileparts(this.modelroot);
+            switch this.name
+                case 'Production'
+                    modelroot_dir = this.root();
+                case 'Development'
+                    modelroot_dir = this.source();
+            end
         end
 
 
@@ -184,10 +202,12 @@ classdef Environment
             param_dir = this.input_dir('calibration');
         end
         
+        
         function [newdir] = new_calibration_dir(this)
-            newdir  = fullfile( this.input_root(), 'calibration', this.get_commit_tag());
+            newdir  = fullfile( this.inputroot(), 'calibration', this.get_commit_tag());
         end % new calibration dir
 
+        
         % Save directory for Scenario run
         %   Use Scenario IDs for Production runs
         function [save_dir, basedef_tag, counterdef_tag] = save(this, scenario)
@@ -196,14 +216,14 @@ classdef Environment
             end
             switch( this.name )
                 case 'Production'
-                    save_dir = fullfile(    this.modelroot      ...   
+                    save_dir = fullfile(    this.modelroot()    ...   
                                         ,   'Output'            ...
                                         ,   scenario.batchID    ...
                                         ,   this.get_commit_tag ...
                                         ,   'MAT'               ...
                                         );
-                case {'Testing', 'Development'}
-                    save_dir = fullfile(    this.source         ...
+                case 'Development'
+                    save_dir = fullfile(    this.modelroot()         ...
                                         ,   'Testing'           ...
                                         );
             end
@@ -230,7 +250,7 @@ classdef Environment
                                         ,   this.get_commit_tag ...
                                         ,   'CSV'               ...
                                     );               
-                case {'Testing', 'Development'}
+                case 'Development'
                     csv_dir = this.save(scenario);
                 otherwise
                     csv_dir = [];
@@ -238,15 +258,6 @@ classdef Environment
         end
 
 
-        % Get the location of the input files, e.g. taxplans
-        %  REM: Unix system has no UNC pathing
-        function [input_root] = input_root(this)
-            if( ispc )
-                input_root = fullfile('\\hpcc.wharton.upenn.edu', 'ppi', 'Input');
-            else
-                input_root = fullfile( this.root(), 'Input' );
-            end
-        end % input
 
         
     end % methods

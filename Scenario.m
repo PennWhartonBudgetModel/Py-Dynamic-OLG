@@ -218,9 +218,7 @@ classdef Scenario
                 params  = f_invert( struct( 'savelas', savelas, 'labelas', labelas ) );
                 
                 % TODO: IMPORTANT!
-                % currently modelCalibrator returns 'modelunit_dollars'
-                %   SHOULD BE 'modelunit_dollar'
-                % Also, bequest_phi_1 is missing.
+                % bequest_phi_1 is missing.
                 
                 canAdd   = true;
                 id       = dataset(i).ID;
