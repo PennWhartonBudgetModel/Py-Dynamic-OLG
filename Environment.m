@@ -181,7 +181,8 @@ classdef Environment
                 case 'Development'
                     saverootdir = fullfile(Environment.source(), 'Output');
                 case 'Production'
-                    saverootdir = fullfile(Environment.hpccroot(), 'DynamicModel', 'Output', Environment.committag(), scenario.batchID);
+                    saverootdir = fullfile(Environment.hpccroot(), 'DynamicModel', 'Output', ...
+                        Environment.committag(), scenario.batchID);
             end
             [basedeftag, counterdeftag] = scenario.generate_tags();
             savedir = fullfile(saverootdir, basedeftag, counterdeftag, scenario.economy);
@@ -194,7 +195,8 @@ classdef Environment
                     exportdir = this.save(scenario);
                 case 'Production'
                     assert(~isempty(scenario.batchID), 'No batch ID defined for current scenario.');
-                    exportdir = fullfile(Environment.hpccroot(), 'Output', scenario.batchID, 'DynamicModel', Environment.committag());
+                    exportdir = fullfile(Environment.hpccroot(), 'Output', ...
+                        scenario.batchID, scenario.ID, 'DynamicModel', Environment.committag());
             end
         end
         
