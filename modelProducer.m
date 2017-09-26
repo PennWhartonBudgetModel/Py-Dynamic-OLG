@@ -189,7 +189,7 @@ methods (Static)
         nyear      = length(years_csv);
         
         % Specify number of years to shift results
-        nshift = scenario.first_transition_year - first_year;
+        nshift = paramGenerator.timing(scenario).first_transition_year - first_year;
         
         % Get dynamic baseline flag
         % (Applicable to closed economy runs only)
