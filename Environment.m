@@ -43,11 +43,6 @@ classdef Environment
         
         
         
-        % Get source code directory
-        function [sourcedir] = source()
-            sourcedir = fileparts(mfilename('fullpath'));
-        end
-        
         % Get HPCC root directory
         %   Assumes that the HPCC is the only non-Windows execution location
         function [hpccrootdir] = hpccroot()
@@ -119,6 +114,13 @@ classdef Environment
                 error( 'Uncommitted changes found. Cannot set to Production.' );
             end
             
+        end
+        
+        
+        
+        % Get source code directory
+        function [sourcedir] = source()
+            sourcedir = fileparts(mfilename('fullpath'));
         end
         
         
