@@ -193,6 +193,7 @@ classdef Environment
                 case 'Development'
                     exportdir = this.save(scenario);
                 case 'Production'
+                    assert(~isempty(scenario.batchID), 'No batch ID defined for current scenario.');
                     exportdir = fullfile(Environment.hpccroot(), 'Output', scenario.batchID, 'DynamicModel', Environment.committag());
             end
         end
