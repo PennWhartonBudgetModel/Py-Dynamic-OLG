@@ -188,16 +188,14 @@ classdef Scenario
             end
             
             % Add JDBC driver to Matlab Java path
-            javaaddpath(fullfile(   Environment.source()   ...
-                                ,   'Database'                          ...
-                                ,   'sqljdbc41.jar'));
+            javaaddpath(fullfile(Environment.source(), 'jar', 'sqljdbc41.jar'));
             
             % Establish connection with development database
             %   TODO: Put these params into Environment
             connection = database('second_chart', 'pwbm', 'HbXk86rabjehD2AN', ...
                                   'Vendor', 'Microsoft SQL Server', 'AuthType', 'Server', ...
                                   'Server', 'ppi-slcsql.wharton.upenn.edu', 'PortNumber', 49170);
-
+            
             % Get batch scenarios from Scenario table
             sql         = sprintf( 'EXEC p_ScenarioBatch %u, ''D'' ', batchID );
             o           = connection.exec(sql);
