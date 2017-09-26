@@ -4,7 +4,7 @@
 #$ -o /dev/null
 
 # Build mex functions and define batches
-matlab -nodesktop -nosplash -r "Environment.setProduction(), mexBuilder.all(), modelCalibrator.define_batches()"
+matlab -nodesktop -nosplash -r "Environment.setToProduction(), mexBuilder.all(), modelCalibrator.define_batches()"
 
 # Clear or create log directory
 LOGDIR='./Logs'
@@ -21,10 +21,10 @@ QUEUE=$([ $# -gt 0 ] && [ $1 = "--aws" ]               \
 qsub -N solve_batch -t 1-$(ls -1 ./Batches | wc -l) \
      -q ${QUEUE} \
      -j y -o ${LOGDIR}'/batch$TASK_ID.log'  \
-     -b y 'matlab -nojvm -nosplash -r "Environment.setProduction(), modelCalibrator.solve_batch(${SGE_TASK_ID})"'
+     -b y 'matlab -nojvm -nosplash -r "Environment.setToProduction(), modelCalibrator.solve_batch(${SGE_TASK_ID})"'
 
 # Submit batch consolidation job, holding for batch solution task array job
 qsub -N consolidate_batches -hold_jid solve_batch \
      -q short.q \
      -j y -o /dev/null \
-     -b y 'matlab -nodesktop -nosplash -r "Environment.setProduction(), modelCalibrator.consolidate_batches(false)"'
+     -b y 'matlab -nodesktop -nosplash -r "Environment.setToProduction(), modelCalibrator.consolidate_batches(false)"'

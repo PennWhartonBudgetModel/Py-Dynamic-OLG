@@ -4,7 +4,7 @@
 #$ -o /dev/null
 
 # Build mex functions and define production runs
-matlab -nodesktop -nosplash -r "mexBuilder.all(), modelProducer.define_runs()"
+matlab -nodesktop -nosplash -r "Environment.setToProduction(), mexBuilder.all(), modelProducer.define_runs()"
 
 # Clear or create log directory
 LOGDIR='./Logs'
@@ -21,10 +21,10 @@ QUEUE=$([ $# -gt 0 ] && [ $1 = "--aws" ]               \
 qsub -N run -t 1-$(ls -1 ./Runs | wc -l) \
      -q ${QUEUE} \
      -j y -o ${LOGDIR}'/run$TASK_ID.log' \
-     -b y 'matlab -nojvm -nosplash -r "modelProducer.run(${SGE_TASK_ID})"'
+     -b y 'matlab -nojvm -nosplash -r "Environment.setToProduction(), modelProducer.run(${SGE_TASK_ID})"'
 
 # Submit results packaging job, holding for production run task array job
 qsub -N package_results -hold_jid run \
      -q short.q \
      -j y -o ${LOGDIR}'/package_results.log' \
-     -b y 'matlab -nodesktop -nosplash -r "modelProducer.check_terminations(), modelProducer.package_results()"'
+     -b y 'matlab -nodesktop -nosplash -r "Environment.setToProduction(), modelProducer.check_terminations(), modelProducer.package_results()"'
