@@ -1,9 +1,7 @@
 %%
-%   Scenarios are runs of the model
-%       We currently define "current policy" by defaults
-%       in the constructor. In the future, we could pass in the "current
-%       policy".
+% Scenario definition for dynamic model execution.
 %
+%%
 classdef Scenario
     
     properties (SetAccess = protected )

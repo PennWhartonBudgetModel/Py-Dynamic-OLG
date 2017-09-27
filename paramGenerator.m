@@ -1,10 +1,9 @@
 %%
 % Reader and generator of parameters for dynamic model
-% 
+%
 %%
-
-
 classdef paramGenerator
+
 
 properties (Constant)
 end % properties

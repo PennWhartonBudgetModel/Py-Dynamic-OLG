@@ -4,8 +4,7 @@
 %%
 classdef modelProducer
 
-    
-    
+
 properties (Constant)
     
     % Define run directory and run file path

@@ -1,6 +1,7 @@
 %%
-%   Dynamic model solver.
-% 
+% Dynamic model solver.
+%
+%%
 classdef dynamicSolver
 
 methods (Static)

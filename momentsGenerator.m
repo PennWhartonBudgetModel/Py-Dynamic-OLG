@@ -1,8 +1,7 @@
 %%
 % Distribution moments generator tool.
-% 
+%
 %%
-
 classdef momentsGenerator
     
     properties (Access = private)

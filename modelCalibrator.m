@@ -2,8 +2,6 @@
 % Dynamic model baseline parameter calibrator.
 % 
 %%
-
-
 classdef modelCalibrator
 
 properties (Constant)

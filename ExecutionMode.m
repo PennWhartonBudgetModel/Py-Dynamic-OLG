@@ -1,5 +1,5 @@
 %%
-% ExecutionMode encapsulates global model execution settings, most importantly file paths for reading and writing data.
+% Global model execution settings, most importantly file paths for reading and writing data.
 % 
 %%
 classdef ExecutionMode
