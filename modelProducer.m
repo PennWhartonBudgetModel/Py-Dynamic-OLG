@@ -9,7 +9,7 @@ classdef modelProducer
 properties (Constant)
     
     % Define run directory and run file path
-    run_dir  = fullfile(Environment.source(), 'Runs');
+    run_dir  = fullfile(ExecutionMode.source(), 'Runs');
     run_file = @(irun) fullfile(modelProducer.run_dir, sprintf('run%04d.mat', irun));
     
 end
@@ -147,8 +147,8 @@ methods (Static)
         scenario    = Scenario(s.run_def);
         
         % Identify export directory
-        environment = Environment.getCurrent();
-        exportdir   = environment.export(scenario);
+        mode = ExecutionMode.getCurrent();
+        exportdir = mode.export(scenario);
         
         % Clear or create export directory
         if exist(exportdir, 'dir'), rmdir(exportdir, 's'), end, mkdir(exportdir)
@@ -186,7 +186,7 @@ methods (Static)
         usedynamicbaseline = scenario.useDynamicBaseline && strcmp( scenario.economy, 'closed' );
             
         % Identify working directories
-        save_dir = environment.save(scenario);
+        save_dir = mode.save(scenario);
             
         % Load aggregates
         Dynamic = load(fullfile(save_dir, 'dynamics.mat'));
@@ -197,8 +197,8 @@ methods (Static)
             
         if usedynamicbaseline
             base_scenario       = scenario.currentPolicy();
-            Dynamic_open_base   = load(fullfile(environment.save(base_scenario.open())  , 'dynamics.mat'));
-            Dynamic_closed_base = load(fullfile(environment.save(base_scenario.closed()), 'dynamics.mat'));
+            Dynamic_open_base   = load(fullfile(mode.save(base_scenario.open())  , 'dynamics.mat'));
+            Dynamic_closed_base = load(fullfile(mode.save(base_scenario.closed()), 'dynamics.mat'));
         end
             
         % Find number of entries to be trimmed or padded
@@ -273,9 +273,6 @@ methods (Static)
          
     end % immigration run
     
-end % methods
+end
 
-end % modelProducer
-
-
-
+end

@@ -1,8 +1,8 @@
 %%
-% Environment encapsulates global execution properties, such as file locations.
+% ExecutionMode encapsulates global model execution settings, most importantly file paths for reading and writing data.
 % 
 %%
-classdef Environment
+classdef ExecutionMode
     
     
     properties (Constant, Access = private)
@@ -20,24 +20,24 @@ classdef Environment
     
     methods (Static, Access = private)
         
-        % Singleton environment wrapper
+        % Singleton execution mode wrapper
         %   Serves as both getter and setter
         %   Required to work around lack of non-constant static variables in Matlab
-        function environment = theEnvironment(newenvironment)
+        function mode = theExecutionMode(newmode)
             
-            persistent environment_;
+            persistent mode_;
             
-            % Set to new environment if provided
-            if (exist('newenvironment', 'var') && isa(newenvironment, 'Environment'))
-                environment_ = newenvironment;
+            % Set to new execution mode if provided
+            if (exist('newmode', 'var') && isa(newmode, 'ExecutionMode'))
+                mode_ = newmode;
             else
-                % Initialize to development environment if uninitialized
-                if (isempty(environment_))
-                    environment_ = Environment('Development');
+                % Initialize to development mode if uninitialized
+                if (isempty(mode_))
+                    mode_ = ExecutionMode('Development');
                 end
             end
             
-            environment = environment_;
+            mode = mode_;
             
         end
         
@@ -52,12 +52,12 @@ classdef Environment
         
         % Get input root directory on HPCC
         function [inputrootdir] = inputroot()
-            inputrootdir = fullfile(Environment.hpccroot(), 'Input');
+            inputrootdir = fullfile(ExecutionMode.hpccroot(), 'Input');
         end
         
         % Get directory for a specific input set
         function [inputdir] = input(inputset)
-            inputdir = fullfile(Environment.inputroot(), inputset, Environment.inputversions.(inputset) );
+            inputdir = fullfile(ExecutionMode.inputroot(), inputset, ExecutionMode.inputversions.(inputset) );
         end
         
         
@@ -90,26 +90,26 @@ classdef Environment
     methods (Static, Access = public)
         
         
-        % Get current environment
-        function environment = getCurrent()
-            environment = Environment.theEnvironment();
+        % Get current execution mode
+        function mode = getCurrent()
+            mode = ExecutionMode.theExecutionMode();
         end
         
-        % Set current environment to development
+        % Set current execution mode to development
         function [] = setToDevelopment()
-            e = Environment('Development');
-            Environment.theEnvironment(e);
+            e = ExecutionMode('Development');
+            ExecutionMode.theExecutionMode(e);
         end
         
-        % Set current environment to production
+        % Set current execution mode to production
         function [] = setToProduction()
             
             % Check for uncommitted changes
             [~, uncommitted] = system('git status -s');
             
             if (isempty(uncommitted))
-                e = Environment('Production');
-                Environment.theEnvironment(e);
+                e = ExecutionMode('Production');
+                ExecutionMode.theExecutionMode(e);
             else
                 error( 'Uncommitted changes found. Cannot set to Production.' );
             end
@@ -127,29 +127,29 @@ classdef Environment
         
         % Get CBO parameters directory
         function [inputdir] = cbo_param()
-            inputdir = Environment.input('cbo');
+            inputdir = ExecutionMode.input('cbo');
         end
         
         % Get microsim parameters directory
         function [inputdir] = sim_param()
-            inputdir = Environment.input('sim');
+            inputdir = ExecutionMode.input('sim');
         end
         
         % Get tax plan parameters directory
         function [inputdir] = taxplan_param()
-            inputdir = Environment.input('taxplan');
+            inputdir = ExecutionMode.input('taxplan');
         end
         
         % Get calibration grid directory
         function [inputdir] = calibration()
-            inputdir = Environment.input('calibration');
+            inputdir = ExecutionMode.input('calibration');
         end
         
         
         
         % Get directory for newly generated calibration grid
         function [newcalibrationdir] = newcalibration()
-            newcalibrationdir = fullfile(Environment.inputroot(), 'calibration', Environment.committag());
+            newcalibrationdir = fullfile(ExecutionMode.inputroot(), 'calibration', ExecutionMode.committag());
         end
         
         
@@ -168,7 +168,7 @@ classdef Environment
     methods (Access = private)
         
         % Constructor
-        function this = Environment(name)
+        function this = ExecutionMode(name)
             this.name = name;
         end
         
@@ -181,10 +181,10 @@ classdef Environment
         function [savedir, basedeftag, counterdeftag] = save(this, scenario)
             switch (this.name)
                 case 'Development'
-                    saverootdir = fullfile(Environment.source(), 'Output');
+                    saverootdir = fullfile(ExecutionMode.source(), 'Output');
                 case 'Production'
-                    saverootdir = fullfile(Environment.hpccroot(), 'DynamicModel', 'Output', ...
-                        Environment.committag(), scenario.batchID);
+                    saverootdir = fullfile(ExecutionMode.hpccroot(), 'DynamicModel', 'Output', ...
+                        ExecutionMode.committag(), scenario.batchID);
             end
             [basedeftag, counterdeftag] = scenario.generate_tags();
             savedir = fullfile(saverootdir, basedeftag, counterdeftag, scenario.economy);
@@ -197,8 +197,8 @@ classdef Environment
                     exportdir = this.save(scenario);
                 case 'Production'
                     assert(~isempty(scenario.batchID), 'No batch ID defined for current scenario.');
-                    exportdir = fullfile(Environment.hpccroot(), 'Output', ...
-                        scenario.batchID, scenario.ID, 'DynamicModel', Environment.committag());
+                    exportdir = fullfile(ExecutionMode.hpccroot(), 'Output', ...
+                        scenario.batchID, scenario.ID, 'DynamicModel', ExecutionMode.committag());
             end
         end
         

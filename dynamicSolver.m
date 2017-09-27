@@ -1,9 +1,6 @@
-% %%
-% Dynamic model solver.
-% 
 %%
-
-
+%   Dynamic model solver.
+% 
 classdef dynamicSolver
 
 methods (Static)
@@ -36,9 +33,9 @@ methods (Static)
         amnesty     = scenario.amnesty    ;
         deportation = scenario.deportation;
         
-        % Identify working directories
-        environment = Environment.getCurrent();
-        [save_dir, ~, counterdef_tag] = environment.save(scenario);
+        % Identify working directories based on execution mode
+        mode = ExecutionMode.getCurrent();
+        [save_dir, ~, counterdef_tag] = mode.save(scenario);
         
         % Append caller tag to save directory name and generate calling tag
         % (Obviates conflicts between parallel runs)
@@ -148,8 +145,6 @@ methods (Static)
         %% Aggregate generation function
         
         function [Aggregate, LABs, DIST, pgr, OPTs] = generate_aggregates(Market, DIST_steady, LABs_static, DIST_static)
-            
-            environment = Environment.getCurrent();
             
             % Define dynamic aggregate generation flag
             isdynamic = isempty(LABs_static) || isempty(DIST_static);
@@ -335,8 +330,8 @@ methods (Static)
             
             baselineScenario = scenario.currentPolicy();
             base_generator = @() dynamicSolver.solve(baselineScenario, callingtag);
-            base_dir = environment.save(baselineScenario);
-%             
+            base_dir = mode.save(baselineScenario);
+            
             % Load baseline market conditions, optimal labor values, and population distribution
             Market = hardyload('market.mat'      , base_generator, base_dir);
             
@@ -398,7 +393,7 @@ methods (Static)
                 % Make Scenario for current policy, steady state. 
                 steadyBaseScenario = scenario.currentPolicy().steady();
                 steady_generator = @() dynamicSolver.solve(steadyBaseScenario, callingtag);
-                steady_dir = environment.save(steadyBaseScenario);
+                steady_dir = mode.save(steadyBaseScenario);
                 
                 % Load steady state market conditions and dynamic aggregates
                 Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
@@ -428,7 +423,7 @@ methods (Static)
                 % Make Scenario for the open economy. 
                 openScenario = scenario.open();
                 open_generator = @() dynamicSolver.solve(openScenario, callingtag);
-                open_dir = environment.save(openScenario);
+                open_dir = mode.save(openScenario);
                 
                 % Load government expenditure adjustments
                 Dynamic_open = hardyload('dynamics.mat', open_generator, open_dir);
