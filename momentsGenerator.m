@@ -215,11 +215,11 @@ classdef momentsGenerator
             bottom = sum(bottom(:));
             bot_share = [sum(bot_g1(:)) sum(bot_g2(:)) sum(bot_g3(:)) sum(bot_g4(:))];
             
-            top_g1 = this.DIST(:,15,:, 1:19,:,:,:);
-            top_g2 = this.DIST(:,15,:,20:39,:,:,:);
-            top_g3 = this.DIST(:,15,:,40:59,:,:,:);
-            top_g4 = this.DIST(:,15,:,60:80,:,:,:);
-            top    = this.DIST(:,15,:,:,:,:,:);            
+            top_g1 = this.DIST(:,end,:, 1:19,:,:,:);
+            top_g2 = this.DIST(:,end,:,20:39,:,:,:);
+            top_g3 = this.DIST(:,end,:,40:59,:,:,:);
+            top_g4 = this.DIST(:,end,:,60:80,:,:,:);
+            top    = this.DIST(:,end,:,:,:,:,:);            
             top    = sum(top(:));
             top_share = [sum(top_g1(:)) sum(top_g2(:)) sum(top_g3(:)) sum(top_g4(:))];
                                                 
