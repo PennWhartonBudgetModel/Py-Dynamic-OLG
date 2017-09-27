@@ -63,7 +63,7 @@ for age = 2:T_life
     wb_lt = (bv(jb_gt) - b_t) ./ (bv(jb_gt) - bv(jb_lt));
     wb_gt = 1 - wb_lt;
     
-    assert( (wk_lt>=0) && (wk_gt>=0) && (wb_lt>=0) && (wb_gt>=0), 'Negative weights to compute households distribution.')       
+    assert( all(wk_lt(:)>=0) && all(wk_gt(:)>=0) && all(wb_lt(:)>=0) && all(wb_gt(:)>=0), 'Negative weights to compute households distribution.')       
     
     for jz = 1:nz
         
