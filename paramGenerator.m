@@ -179,7 +179,10 @@ methods (Static)
     % 
     % Generate tax policy parameters according to predefined plans.
     % 
-    function s = tax( taxplan )
+    function s = tax( scenario )
+
+        taxplan = scenario.taxplan;
+        
         % Get PIT tax rates.
         %  Input files PIT_<taxplan>.CSV expected to have the
         %  following structure:
