@@ -4,7 +4,7 @@
 #$ -o /dev/null
 
 # Build mex functions and define batches
-matlab -nodesktop -nosplash -r "ExecutionMode.setToProduction(), mexBuilder.all(), modelCalibrator.define_batches()"
+matlab -nodesktop -nosplash -r "ExecutionMode.setToProduction(), MexBuilder.all(), modelCalibrator.define_batches()"
 
 # Clear or create log directory
 LOGDIR='./Logs'

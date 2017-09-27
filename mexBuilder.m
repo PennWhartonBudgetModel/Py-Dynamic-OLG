@@ -2,26 +2,24 @@
 % mex function builder.
 % 
 %%
-
-
-classdef mexBuilder
+classdef MexBuilder
 
 methods (Static)
     
     % Build all mex functions
     function [] = all()
-        mexBuilder.solve_cohort();
-        mexBuilder.generate_distribution();
+        MexBuilder.solve_cohort();
+        MexBuilder.generate_distribution();
     end
     
     % Build solve_cohort
     function [] = solve_cohort()
-        mexBuilder.build('solve_cohort');
+        MexBuilder.build('solve_cohort');
     end
     
     % Build generate_distribution
     function [] = generate_distribution()
-        mexBuilder.build('generate_distribution');
+        MexBuilder.build('generate_distribution');
     end
 
 end

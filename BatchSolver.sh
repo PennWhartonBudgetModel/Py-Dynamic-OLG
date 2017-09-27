@@ -4,7 +4,7 @@
 #$ -o /dev/null
 
 # Build mex functions and define production runs
-matlab -nodesktop -nosplash -r "ExecutionMode.setToProduction(), mexBuilder.all(), BatchSolver.define_runs($1)"
+matlab -nodesktop -nosplash -r "ExecutionMode.setToProduction(), MexBuilder.all(), BatchSolver.define_runs($1)"
 
 # Clear or create log directory
 LOGDIR='./Logs'
