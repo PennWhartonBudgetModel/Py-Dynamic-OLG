@@ -1,15 +1,15 @@
 %%
-% Dynamic model production run manager.
+% Dynamic model batch scenario solver and results exporter.
 % 
 %%
-classdef modelProducer
+classdef BatchSolver
 
 
 properties (Constant)
     
     % Define run directory and run file path
     run_dir  = fullfile(ExecutionMode.source(), 'Runs');
-    run_file = @(irun) fullfile(modelProducer.run_dir, sprintf('run%04d.mat', irun));
+    run_file = @(irun) fullfile(BatchSolver.run_dir, sprintf('run%04d.mat', irun));
     
 end
 
@@ -31,7 +31,7 @@ methods (Static)
         scenarios = scenarios_in_batch(ind);
         
         % Clear or create run directory
-        if exist(modelProducer.run_dir, 'dir'), rmdir(modelProducer.run_dir, 's'), end, mkdir(modelProducer.run_dir)
+        if exist(BatchSolver.run_dir, 'dir'), rmdir(BatchSolver.run_dir, 's'), end, mkdir(BatchSolver.run_dir)
         
         % Save individual scenarios to run
         %   NOTE: We skip UseDynamicBaseline = 1, since this is only for
@@ -41,7 +41,7 @@ methods (Static)
             if( ~scenarios(i).useDynamicBaseline )
                 irun = irun + 1;
                 run_def = scenarios(i).getParams();
-                save(modelProducer.run_file(irun), 'run_def');
+                save(BatchSolver.run_file(irun), 'run_def');
             end
         end
         
@@ -52,7 +52,7 @@ methods (Static)
     function [] = run(irun)
         
         % Fetch Scenario to run
-        s           = load(modelProducer.run_file(irun));
+        s           = load(BatchSolver.run_file(irun));
         scenario    = Scenario(s.run_def);
         
         % Execute dynamic model solver
@@ -65,7 +65,7 @@ methods (Static)
         termination.eps  = iterations(end, 2);
         
         termination = termination; %#ok<ASGSL,NASGU>
-        save(modelProducer.run_file(irun), '-append', 'termination');
+        save(BatchSolver.run_file(irun), '-append', 'termination');
         
     end
     
@@ -74,7 +74,7 @@ methods (Static)
     function [] = check_terminations()
         
         % Identify production run definition files
-        run_files = dir(fullfile(modelProducer.run_dir, 'run*.mat'));
+        run_files = dir(fullfile(BatchSolver.run_dir, 'run*.mat'));
         nrun = length(run_files);
         
         % Initialize cell array of termination conditions
@@ -83,7 +83,7 @@ methods (Static)
         for irun = 1:nrun
             
             % Load run definition and termination condition
-            s = load(modelProducer.run_file(irun));
+            s = load(BatchSolver.run_file(irun));
             
             % Generate baseline and counterfactual definition tags
             [basedef_tag, counterdef_tag] = dynamicSolver.generate_tags(s.basedef, s.counterdef);
@@ -114,7 +114,7 @@ methods (Static)
         scenarios = Scenario.fetch_batch(batchID);
         
         % Identify production run definition files
-        run_files = dir(fullfile(modelProducer.run_dir, 'run*.mat'));
+        run_files = dir(fullfile(BatchSolver.run_dir, 'run*.mat'));
         nrun = length(run_files);
         
         % Initialize missing aggregates flag
@@ -123,7 +123,7 @@ methods (Static)
         for irun = 1:nrun
             fprintf('Processing run ID %6d of %6d\n', irun, nrun)
             try
-                modelProducer.export_run(irun);
+                BatchSolver.export_run(irun);
             catch
                 missing = true;
                 continue
@@ -142,7 +142,7 @@ methods (Static)
     function [] = export_results(irun)
         
         % Fetch scenario to export
-        s           = load(modelProducer.run_file(irun));
+        s           = load(BatchSolver.run_file(irun));
         scenario    = Scenario(s.run_def);
         
         % Identify export directory
