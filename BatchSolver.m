@@ -1,6 +1,6 @@
 %%
 % Dynamic model batch scenario solver and results exporter.
-% 
+%
 %%
 classdef BatchSolver
 
@@ -8,7 +8,7 @@ classdef BatchSolver
 properties (Constant)
     
     % Define run directory and run file path
-    run_dir  = fullfile(ExecutionMode.source(), 'Runs');
+    run_dir  = fullfile(PathFinder.getSourceDir(), 'Runs');
     run_file = @(irun) fullfile(BatchSolver.run_dir, sprintf('run%04d.mat', irun));
     
 end
@@ -146,8 +146,7 @@ methods (Static)
         scenario    = Scenario(s.run_def);
         
         % Identify export directory
-        mode = ExecutionMode.getCurrent();
-        exportdir = mode.export(scenario);
+        exportdir = PathFinder.getExportDir(scenario);
         
         % Clear or create export directory
         if exist(exportdir, 'dir'), rmdir(exportdir, 's'), end, mkdir(exportdir)
@@ -185,19 +184,19 @@ methods (Static)
         usedynamicbaseline = scenario.useDynamicBaseline && strcmp( scenario.economy, 'closed' );
             
         % Identify working directories
-        save_dir = mode.save(scenario);
+        savedir = PathFinder.getSaveDir(scenario);
             
         % Load aggregates
-        Dynamic = load(fullfile(save_dir, 'dynamics.mat'));
+        Dynamic = load(fullfile(savedir, 'dynamics.mat'));
         isbase  = scenario.isCurrentPolicy();
         if ~isbase
-            Static = load(fullfile(save_dir, 'statics.mat'));
+            Static = load(fullfile(savedir, 'statics.mat'));
         end
             
         if usedynamicbaseline
             base_scenario       = scenario.currentPolicy();
-            Dynamic_open_base   = load(fullfile(mode.save(base_scenario.open())  , 'dynamics.mat'));
-            Dynamic_closed_base = load(fullfile(mode.save(base_scenario.closed()), 'dynamics.mat'));
+            Dynamic_open_base   = load(fullfile(PathFinder.getSaveDir(base_scenario.open())  , 'dynamics.mat'));
+            Dynamic_closed_base = load(fullfile(PathFinder.getSaveDir(base_scenario.closed()), 'dynamics.mat'));
         end
             
         % Find number of entries to be trimmed or padded

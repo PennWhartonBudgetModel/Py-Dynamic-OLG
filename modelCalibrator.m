@@ -26,7 +26,7 @@ properties (Constant)
     nbatch = ceil(modelCalibrator.nset / modelCalibrator.batchsize);
     
     % Define batch directory and batch file path
-    batch_dir  = fullfile(ExecutionMode.source(), 'Batches');
+    batch_dir  = fullfile(PathFinder.getSourceDir(), 'Batches');
     batch_file = @(ibatch) fullfile(modelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch));
     
     % Define the moment targets for the reports on how we did
@@ -125,7 +125,7 @@ methods (Static)
         solved = boolean(solved); %#ok<NASGU>
         
         % Save solutions to new calibration file in new input version directory
-        outdir = ExecutionMode.newcalibration();
+        outdir = PathFinder.getNewCalibrationDir();
         if exist(outdir, 'dir'), rmdir(outdir, 's'), end, mkdir(outdir)
         save(fullfile(outdir, 'calibration.mat'), 'paramv', 'targetv', 'solved');
         
@@ -139,7 +139,7 @@ methods (Static)
     function [] = plot_conditions()
         
         % Load calibration solutions
-        cal_dir = ExecutionMode.calibration();
+        cal_dir = PathFinder.getCalibrationDir();
         s       = load(fullfile(cal_dir, 'calibration.mat'));
         paramv  = s.paramv;
         targetv = s.targetv ;
@@ -171,7 +171,7 @@ methods (Static)
     function [inverse, f] = invert(target)
         
         % Load calibration solutions
-        cal_dir = ExecutionMode.calibration();
+        cal_dir = PathFinder.getCalibrationDir();
         s       = load(fullfile(cal_dir, 'calibration.mat'));
         paramv  = s.paramv;
         targetv = s.targetv ;
@@ -358,7 +358,7 @@ methods (Static)
     %   Make a report of various moments for the 16 baselines
     function [] = report_baseline_moments()
         
-        outputfilename      = fullfile(ExecutionMode.source(), 'BaselineMoments.txt');
+        outputfilename      = fullfile(PathFinder.getSourceDir(), 'BaselineMoments.txt');
         fileID              = fopen(outputfilename,'w');
         
         fprintf( fileID, '-------------BASELINE MOMENTS-------------' );

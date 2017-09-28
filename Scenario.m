@@ -186,7 +186,7 @@ classdef Scenario
             end
             
             % Add JDBC driver to Matlab Java path
-            javaaddpath(fullfile(ExecutionMode.source(), 'jar', 'sqljdbc41.jar'));
+            javaaddpath(fullfile(PathFinder.getSourceDir(), 'jar', 'sqljdbc41.jar'));
             
             % Establish connection with development database
             connection = database('second_chart', 'pwbm', 'HbXk86rabjehD2AN', ...

@@ -4,7 +4,7 @@
 #$ -o /dev/null
 
 # Build mex functions and define production runs
-matlab -nodesktop -nosplash -r "ExecutionMode.setToProduction(), MexBuilder.all(), BatchSolver.define_runs($1)"
+matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), MexBuilder.all(), BatchSolver.define_runs($1)"
 
 # Clear or create log directory
 LOGDIR='./Logs'
@@ -21,10 +21,10 @@ QUEUE=$([ $# -gt 1 ] && [ $2 = "--aws" ]               \
 qsub -N run -t 1-$(ls -1 ./Runs | wc -l) \
      -q ${QUEUE} \
      -j y -o ${LOGDIR}'/run$TASK_ID.log' \
-     -b y 'matlab -nojvm -nosplash -r "ExecutionMode.setToProduction(), BatchSolver.run(${SGE_TASK_ID})"'
+     -b y 'matlab -nojvm -nosplash -r "PathFinder.setToProductionMode(), BatchSolver.run(${SGE_TASK_ID})"'
 
 # Submit results packaging job, holding for production run task array job
 qsub -N package_results -hold_jid run \
      -q short.q \
      -j y -o ${LOGDIR}'/package_results.log' \
-     -b y 'matlab -nodesktop -nosplash -r "ExecutionMode.setToProduction(), BatchSolver.check_terminations(), BatchSolver.package_results()"'
+     -b y 'matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), BatchSolver.check_terminations(), BatchSolver.package_results()"'
