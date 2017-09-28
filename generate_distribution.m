@@ -63,6 +63,7 @@ for age = 2:T_life
     wb_lt = (bv(jb_gt) - b_t) ./ (bv(jb_gt) - bv(jb_lt));
     wb_gt = 1 - wb_lt;
     
+    % Checks -> only work in the absence of mex file!
     assert( all(wk_lt(:)>=0) && all(wk_gt(:)>=0) && all(wb_lt(:)>=0) && all(wb_gt(:)>=0), 'Negative weights to compute households distribution.')       
     
     for jz = 1:nz
@@ -79,7 +80,6 @@ for age = 2:T_life
             DIST_next(jz, jk_gt(iz,ik,ib), jb_gt(iz,ik,ib), age, :) = DIST_next(jz, jk_gt(iz,ik,ib), jb_gt(iz,ik,ib), age, :) + wk_gt(iz,ik,ib)*wb_gt(iz,ik,ib)*DIST_transz(iz,ik,ib,1,:);
         end, end, end
 
-        assert(all(DIST_next(:)>=0), 'Negative mass of people at DIST_next.')
 
     end
     
