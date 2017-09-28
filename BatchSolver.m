@@ -240,79 +240,66 @@ methods (Static)
     end
     
     
-end
-
     
-methods (Static, Access = private)
-    
-    % Read a batch of Scenarios from the DB
-    function [scenarios] = fetch_batch(batch)
-        if( (nargin < 1) || (isempty(batch)) )
-            error( '<batchID> is required.' );
-        end
+    % Get batch of scenarios from database
+    function [scenarios] = getBatch(batch)
         
         % Add JDBC driver to Matlab Java path
         javaaddpath(fullfile(PathFinder.getSourceDir(), 'jar', 'sqljdbc41.jar'));
         
-        % Establish connection with development database
+        % Establish database connection
         connection = database('second_chart', 'pwbm', 'HbXk86rabjehD2AN', ...
                               'Vendor', 'Microsoft SQL Server', 'AuthType', 'Server', ...
                               'Server', 'ppi-slcsql.wharton.upenn.edu', 'PortNumber', 49170);
         
-        % Get batch scenarios from Scenario table
-        sql         = sprintf( 'EXEC p_ScenarioBatch %u, ''D'' ', batch );
-        o           = connection.exec(sql);
-        r           = o.fetch();
-        dataset     = cell2struct( r.Data, o.columnnames(true), 2);
+        % Get scenario rows from database using stored procedure
+        o = connection.exec( sprintf( 'EXEC p_ScenarioBatch %u', batch ) );
+        rows = cell2struct( o.fetch().Data, o.columnnames(true), 2 );
         o.close();
+        
+        % Close database connection
         connection.close();
         
-        % Preload calibration matrix for inversion
+        % Preload calibration grid for parameter inversion
         [~, f_invert] = modelCalibrator.invert();
         
-        scenarios = [];
-        for i = 1:size(dataset)
+        % Initialize cell array of scenarios
+        c = cell(size(rows));
+        
+        for i = 1:length(rows)
             
-            % Invert from elasticities to beta,gamma,sigma, etc.
-            savelas = dataset(i).SavingsElasticity;
-            labelas = dataset(i).LaborElasticity;
-            params  = f_invert( struct( 'savelas', savelas, 'labelas', labelas ) );
-            
-            % TODO: IMPORTANT!
-            % bequest_phi_1 is missing.
-            
-            canAdd   = true;
-            id       = dataset(i).ID;
-            openecon = dataset(i).OpenEconomy;
-            if( openecon == 1 )
-                economy = 'open';
-            elseif( openecon == 0 ) 
-                economy = 'closed';
-            else  % Cannot do anything with the convex combo Scenarios
-                canAdd = false;
+            % Identify economy openness, skipping scenarios that are neither fully open nor fully closed
+            switch (rows(i).OpenEconomy)
+                case 1, economy = 'open'  ;
+                case 0, economy = 'closed';
+                otherwise, continue
             end
             
-            if( canAdd )
-                t = struct( 'id'                , id                            ...
-                        ,   'batch'             , batch                         ...
-                        ,   'useDynamicBaseline', dataset(i).UseDynamicBaseline ...
-                        ,   'economy'           , economy                       ...
-                        ,   'beta'              , params.beta                   ...
-                        ,   'gamma'             , params.gamma                  ...
-                        ,   'sigma'             , params.sigma                  ...
-                        ,   'modelunit_dollar'  , params.modelunit_dollar       ... 
-                        ,   'bequest_phi_1'     , 0                             ... % TEMPORARY
-                        ,   'gcut'              , -dataset(i).ExpenditureShift  ... % REM: Inconsistent definition
-                        ,   'taxplan'           , dataset(i).TaxPlan            ...
-                        );
-                scenarios = [scenarios, Scenario(t)];
-            else
-                fprintf( 'Skipping ScenarioID=%u\n', id );
-            end
+            % Invert elasticities with calibration grid
+            params = f_invert(struct(...
+                'savelas', rows(i).SavingsElasticity,   ...
+                'labelas', rows(i).LaborElasticity      ));
+            
+            c{i} = Scenario(struct(...
+                'id'                , rows(i).ID                    , ...
+                'batch'             , batch                         , ...
+                'useDynamicBaseline', rows(i).UseDynamicBaseline    , ...
+                'economy'           , economy                       , ...
+                'beta'              , params.beta                   , ...
+                'gamma'             , params.gamma                  , ...
+                'sigma'             , params.sigma                  , ...
+                'modelunit_dollar'  , params.modelunit_dollar       , ... 
+                'bequest_phi_1'     , 0                             , ... % To be populated from parameter inversion
+                'gcut'              , -rows(i).ExpenditureShift     ));
+            
         end
-    end % fetch_batch
+        
+        % Construct array of relevant scenarios from nonempty values of cell array of scenarios
+        scenarios = [c{~cellfun(@isempty, c)}]';
+        
+    end
 
-end % static methods
+end
 
 
 end
