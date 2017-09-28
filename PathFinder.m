@@ -151,7 +151,7 @@ methods (Static, Access = public)
     
     % Get directory for newly generated calibration grid
     function [newcalibrationdir] = getNewCalibrationDir()
-        newcalibrationdir = fullfile(PathFinder.inputroot(), 'calibration', PathFinder.committag());
+        newcalibrationdir = fullfile(PathFinder.getInputRoot(), 'calibration', PathFinder.getCommitTag());
     end
     
     
