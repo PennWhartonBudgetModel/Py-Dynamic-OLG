@@ -5,17 +5,18 @@
 classdef Scenario
     
     properties (SetAccess = protected )
-        ID;
-        batchID;
-        useDynamicBaseline;
-        economy;
+        
+        id;
+        batch;
         
         beta;
         gamma;
         sigma;
         modelunit_dollar;
         bequest_phi_1;
+        economy;
         
+        useDynamicBaseline;
         taxplan;
         gcut;
         legal_scale;
@@ -23,16 +24,17 @@ classdef Scenario
         amnesty;
         deportation;
         
-    end % properties
-
+    end
+    
+    
     properties (Constant, Access = private )
     
-        % These are _currently_ required fields
+        % Define list of required fields
         req_fields = { 'beta', 'sigma', 'gamma', 'modelunit_dollar', 'bequest_phi_1', 'economy' };
         
-        % These are _current_ defaults for other fields
-        def_fields = struct(    'ID'                , []        ...
-                            ,   'batchID'           , []        ...
+        % Specify default values for optional fields
+        def_fields = struct(    'id'                , []        ...
+                            ,   'batch'             , ''        ...
                             ,   'useDynamicBaseline', []        ...
                             ,   'taxplan'           , 'base'    ...
                             ,   'gcut'              , 0.0       ...
@@ -41,7 +43,7 @@ classdef Scenario
                             ,   'amnesty'           , 0.0       ...
                             ,   'deportation'       , 0.0       ...
                             );
-    end % properties
+    end
     
     
     methods
@@ -50,7 +52,7 @@ classdef Scenario
         function this = Scenario(props)
             
             if( ~isa( props, 'struct' ) )
-                error( 'Scenario constructor expects struct of init variables.')
+                error( 'Scenario constructor expects structure of initial variables.' );
             end 
             
             % Check for required fields
@@ -62,8 +64,8 @@ classdef Scenario
                     error( 'Field <%s> cannot be empty.', string(f) );
                 end
             end
-            if( isempty(strmatch(props.economy, {'steady', 'open', 'closed'} )))
-                    error( '<economy> field must be either "steady", "open", or "closed"' );
+            if(  ~any(strcmp(props.economy, {'open', 'steady', 'closed'})) )
+                error( '<economy> field must be either ''steady'', ''open'', or ''closed''' );
             end
             
             % Set defaults and then possibly overwrite  
@@ -77,7 +79,7 @@ classdef Scenario
                 this.(f{1}) = props.(f{1});
             end
              
-        end % Scenario()
+        end
         
         
         % Derived property: Get if isCurrentPolicy
@@ -99,7 +101,7 @@ classdef Scenario
                 end
             end
             flag = true;
-        end % isCurrentPolicy
+        end
         
         
         % Return cloned Scenario with override to current policy
@@ -175,78 +177,6 @@ classdef Scenario
         
     end % instance methods
     
-    methods (Static)
-        
-        %% 
-        %  Read a batch of Scenarios from the DB
-        %  
-        function [scenarios] = fetch_batch( batchID )
-            if( (nargin < 1) || (isempty(batchID)) )
-                error( '<batchID> is required.' );
-            end
-            
-            % Add JDBC driver to Matlab Java path
-            javaaddpath(fullfile(PathFinder.getSourceDir(), 'jar', 'sqljdbc41.jar'));
-            
-            % Establish connection with development database
-            connection = database('second_chart', 'pwbm', 'HbXk86rabjehD2AN', ...
-                                  'Vendor', 'Microsoft SQL Server', 'AuthType', 'Server', ...
-                                  'Server', 'ppi-slcsql.wharton.upenn.edu', 'PortNumber', 49170);
-            
-            % Get batch scenarios from Scenario table
-            sql         = sprintf( 'EXEC p_ScenarioBatch %u, ''D'' ', batchID );
-            o           = connection.exec(sql);
-            r           = o.fetch();
-            dataset     = cell2struct( r.Data, o.columnnames(true), 2);
-            o.close();
-            connection.close();
-            
-            % Preload calibration matrix for inversion
-            [~, f_invert] = modelCalibrator.invert();
-            
-            scenarios = [];
-            for i = 1:size(dataset)
-                
-                % Invert from elasticities to beta,gamma,sigma, etc.
-                savelas = dataset(i).SavingsElasticity;
-                labelas = dataset(i).LaborElasticity;
-                params  = f_invert( struct( 'savelas', savelas, 'labelas', labelas ) );
-                
-                % TODO: IMPORTANT!
-                % bequest_phi_1 is missing.
-                
-                canAdd   = true;
-                id       = dataset(i).ID;
-                openecon = dataset(i).OpenEconomy;
-                if( openecon == 1 )
-                    economy = 'open';
-                elseif( openecon == 0 ) 
-                    economy = 'closed';
-                else  % Cannot do anything with the convex combo Scenarios
-                    canAdd = false;
-                end
-                            
-                if( canAdd )
-                    t = struct( 'ID'                , id                            ...
-                            ,   'batchID'           , batchID                       ...
-                            ,   'useDynamicBaseline', dataset(i).UseDynamicBaseline ...
-                            ,   'economy'           , economy                       ...
-                            ,   'beta'              , params.beta                   ...
-                            ,   'gamma'             , params.gamma                  ...
-                            ,   'sigma'             , params.sigma                  ...
-                            ,   'modelunit_dollar'  , params.modelunit_dollar       ... 
-                            ,   'bequest_phi_1'     , 0                             ... % TEMPORARY
-                            ,   'gcut'              , -dataset(i).ExpenditureShift  ... % REM: Inconsistent definition
-                            ,   'taxplan'           , dataset(i).TaxPlan            ...
-                            );
-                    scenarios = [scenarios, Scenario(t)];
-                else
-                    fprintf( 'Skipping ScenarioID=%u\n', id );
-                end
-            end
-        end % fetch_batch
-        
-    end % static methods
     
 end % Scenario
 

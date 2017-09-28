@@ -175,7 +175,7 @@ methods (Static, Access = public)
                 exportdir = PathFinder.getSaveDir(scenario);
             case 'Production'
                 exportdir = fullfile(PathFinder.getHpccRootDir(), 'Output', ...
-                    scenario.batchID, scenario.ID, 'DynamicModel', PathFinder.committag());
+                    scenario.batch, scenario.id, 'DynamicModel', PathFinder.getCommitTag());
         end
     end
     

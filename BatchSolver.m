@@ -242,5 +242,77 @@ methods (Static)
     
 end
 
+    
+methods (Static, Access = private)
+    
+    % Read a batch of Scenarios from the DB
+    function [scenarios] = fetch_batch(batch)
+        if( (nargin < 1) || (isempty(batch)) )
+            error( '<batchID> is required.' );
+        end
+        
+        % Add JDBC driver to Matlab Java path
+        javaaddpath(fullfile(PathFinder.getSourceDir(), 'jar', 'sqljdbc41.jar'));
+        
+        % Establish connection with development database
+        connection = database('second_chart', 'pwbm', 'HbXk86rabjehD2AN', ...
+                              'Vendor', 'Microsoft SQL Server', 'AuthType', 'Server', ...
+                              'Server', 'ppi-slcsql.wharton.upenn.edu', 'PortNumber', 49170);
+        
+        % Get batch scenarios from Scenario table
+        sql         = sprintf( 'EXEC p_ScenarioBatch %u, ''D'' ', batch );
+        o           = connection.exec(sql);
+        r           = o.fetch();
+        dataset     = cell2struct( r.Data, o.columnnames(true), 2);
+        o.close();
+        connection.close();
+        
+        % Preload calibration matrix for inversion
+        [~, f_invert] = modelCalibrator.invert();
+        
+        scenarios = [];
+        for i = 1:size(dataset)
+            
+            % Invert from elasticities to beta,gamma,sigma, etc.
+            savelas = dataset(i).SavingsElasticity;
+            labelas = dataset(i).LaborElasticity;
+            params  = f_invert( struct( 'savelas', savelas, 'labelas', labelas ) );
+            
+            % TODO: IMPORTANT!
+            % bequest_phi_1 is missing.
+            
+            canAdd   = true;
+            id       = dataset(i).ID;
+            openecon = dataset(i).OpenEconomy;
+            if( openecon == 1 )
+                economy = 'open';
+            elseif( openecon == 0 ) 
+                economy = 'closed';
+            else  % Cannot do anything with the convex combo Scenarios
+                canAdd = false;
+            end
+            
+            if( canAdd )
+                t = struct( 'id'                , id                            ...
+                        ,   'batch'             , batch                         ...
+                        ,   'useDynamicBaseline', dataset(i).UseDynamicBaseline ...
+                        ,   'economy'           , economy                       ...
+                        ,   'beta'              , params.beta                   ...
+                        ,   'gamma'             , params.gamma                  ...
+                        ,   'sigma'             , params.sigma                  ...
+                        ,   'modelunit_dollar'  , params.modelunit_dollar       ... 
+                        ,   'bequest_phi_1'     , 0                             ... % TEMPORARY
+                        ,   'gcut'              , -dataset(i).ExpenditureShift  ... % REM: Inconsistent definition
+                        ,   'taxplan'           , dataset(i).TaxPlan            ...
+                        );
+                scenarios = [scenarios, Scenario(t)];
+            else
+                fprintf( 'Skipping ScenarioID=%u\n', id );
+            end
+        end
+    end % fetch_batch
+
+end % static methods
+
 
 end
