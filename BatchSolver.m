@@ -195,7 +195,7 @@ methods (Static)
             
         if usedynamicbaseline
             base_scenario       = scenario.currentPolicy();
-            Dynamic_open_base   = load(fullfile(PathFinder.getSaveDir(base_scenario.open())  , 'dynamics.mat'));
+            Dynamic_open_base   = load(fullfile(PathFinder.getSaveDir(base_scenario.open()  ), 'dynamics.mat'));
             Dynamic_closed_base = load(fullfile(PathFinder.getSaveDir(base_scenario.closed()), 'dynamics.mat'));
         end
             
@@ -237,40 +237,10 @@ methods (Static)
 
         end % make a series
 
-    end % export_results
+    end
     
-    
-    
-    %% 
-    % Small run of immigration counter-factuals
-    function [] = immigration_run()
-        
-         % Construct elasticity inverter
-         [~, invert] = modelCalibrator.invert();
-         % Invert elasticities to get baseline definition, using "default"
-         basedef = invert(struct('labelas', 0.5, 'savelas', 0.5));
-         
-         % Calculate prem_legal from requested policies
-         prod_skilled   = 1.4;
-         current_legal  = 0.45;
-         prod_unskilled = 37/55;  
-         % from prod_skilled*current_legal + prod_unskilled*(1-current_legal) = prod_immigrants 
-         % rem: in baseline, prod_immigrants assumed = 1
-         
-         for immScale = [0.6, 0.5]
-            for portion_skilled = [0.55, 0.75]
-                immPremium = prod_skilled*portion_skilled + prod_unskilled*(1-portion_skilled);
-                counterdef = struct(    'legal_scale'   , immScale    ...
-                                    ,   'prem_legal'    , immPremium  ...
-                                    );
-                fprintf( '--------------------------------\n' );
-                fprintf( 'RUNNING immScale=%f, portion_skilled=%f \n ', immScale, portion_skilled );
-                dynamicSolver.closed( basedef, counterdef, '' );               
-            end
-         end
-         
-    end % immigration run
     
 end
+
 
 end
