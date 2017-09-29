@@ -150,13 +150,13 @@ methods (Static)
         
         % Define savings and average earnings discretization vectors
         % (Upper bound of average earnings defined as maximum possible Social Security benefit)
-        f = @(lb, ub, n, curv) lb + (ub-lb)*((0:n-1)/(n-1))'.^curv;
-        nb =  5; bv = f(0   , 1.5*max(zs(:))    , nb  , 2);     % average earnings vector
-        nk = 15; kv = f(1e-3, 1/(500*4.5408e-05), nk-4, 4);     % savings vector --- 4.5408e-05 corresponds to the last modelunit_dollar value in steady state
-        scale = 1;                                              % scale ensures we continue building the capital grid at around 3.5 million dollars
-        for ik = nk-3:nk                                        % this loop builds the top of capital grid
-            scale = 3.5*scale;
-            kv(ik) = scale*1e+6*4.5408e-05;
+        f  = @(lb, ub, n, curv) lb + (ub-lb)*((0:n-1)/(n-1))'.^curv;
+        nb =  5; bv = f(0   , 1.185e5*8.7230e-05  , nb  , 2);   % average earnings vector --- built to range from 0 to around 120 thousand dollars (118,500 is the maximum annual labor income for Social Security tax purposes)
+        nk = 12; kv = f(1e-3, 1/(100*8.7230e-05), nk-4, 4);     % savings vector --- the grid is built to range from approx 10 to 1.5 million dollars --- 8.7230e-05 corresponds to the last modelunit_dollar value in steady state
+        scale = 1;                                              % scaling parameter to continue building the capital grid 
+        for ik = nk-3:nk                                        % this loop builds the top of capital grid such that:
+            scale = 3.5*scale;                                  % i.  it re-starts at around 3.5 million dollars
+            kv(ik) = scale*1e+6*8.7230e-05;                     % ii. and its last point is around 150 million dollars 
         end
 
         s.ndem     = ndem;
@@ -279,7 +279,7 @@ methods (Static)
         T_model          = paramGenerator.timing(scenario).T_model;
         modelunit_dollar = scenario.modelunit_dollar;
         
-        ssthresholds = [856, 5157]*12*modelunit_dollar;    % Thresholds for earnings brackets
+        ssthresholds = [856, 5157]*12*modelunit_dollar;     % Thresholds for earnings brackets
         ssrates      = [0.9, 0.32, 0.15];                   % Marginal benefit rates for earnings brackets
         ss_scale     = 1.6;                                 % Benefit scaling factor used to match total outlays as a percentage of GDP
         
@@ -289,7 +289,7 @@ methods (Static)
         
         s.ssbenefits  = repmat(ssbenefit                , [1,T_model]);  % Benefits
         s.sstaxs      = repmat(0.124                    , [1,T_model]);  % Tax rates
-        s.ssincmaxs   = repmat(1.185e5*modelunit_dollar, [1,T_model]);  % Maximum taxable earnings
+        s.ssincmaxs   = repmat(1.185e5*modelunit_dollar, [1,T_model]);   % Maximum taxable earnings
         
         s.sstaxcredit = 0.15;     % Benefit tax credit percentage
 
