@@ -1,5 +1,5 @@
 %%
-% Dynamic model tester.
+% Dynamic model internal output tester.
 %
 %%
 classdef ModelTester

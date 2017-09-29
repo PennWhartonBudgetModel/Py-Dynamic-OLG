@@ -1,5 +1,5 @@
 %%
-% Global model execution settings, most importantly file paths for reading and writing data.
+% Path finder for dynamic model source code, inputs, and outputs.
 %
 %%
 classdef PathFinder
