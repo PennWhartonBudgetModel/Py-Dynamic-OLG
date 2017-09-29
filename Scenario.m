@@ -6,17 +6,14 @@ classdef Scenario
     
     properties (SetAccess = protected )
         
-        id;
-        batch;
+        economy;
         
         beta;
         gamma;
         sigma;
         modelunit_dollar;
         bequest_phi_1;
-        economy;
         
-        useDynamicBaseline;
         taxplan;
         gcut;
         legal_scale;
@@ -30,13 +27,10 @@ classdef Scenario
     properties (Constant, Access = private )
     
         % Define list of required fields
-        req_fields = { 'beta', 'sigma', 'gamma', 'modelunit_dollar', 'bequest_phi_1', 'economy' };
+        req_fields = { 'economy', 'beta', 'sigma', 'gamma', 'modelunit_dollar', 'bequest_phi_1' };
         
         % Specify default values for optional fields
-        def_fields = struct(    'id'                , []        ...
-                            ,   'batch'             , ''        ...
-                            ,   'useDynamicBaseline', []        ...
-                            ,   'taxplan'           , 'base'    ...
+        def_fields = struct(    'taxplan'           , 'base'    ...
                             ,   'gcut'              , 0.0       ...
                             ,   'legal_scale'       , 1.0       ...
                             ,   'prem_legal'        , 1.0       ...
