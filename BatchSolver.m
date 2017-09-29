@@ -56,7 +56,7 @@ methods (Static)
         scenario    = Scenario(s.run_def);
         
         % Execute dynamic model solver
-        save_dir = DynamicSolver.solve(scenario);
+        save_dir = ModelSolver.solve(scenario);
         
         % Extract and save solver termination condition
         iterations = csvread(fullfile(save_dir, 'iterations.csv'));
@@ -86,7 +86,7 @@ methods (Static)
             s = load(BatchSolver.run_file(irun));
             
             % Generate baseline and counterfactual definition tags
-            [basedef_tag, counterdef_tag] = DynamicSolver.generate_tags(s.basedef, s.counterdef);
+            [basedef_tag, counterdef_tag] = ModelSolver.generate_tags(s.basedef, s.counterdef);
             
             % Store termination condition, setting default values if missing
             if ~isfield(s, 'termination'), s.termination = struct('iter', Inf, 'eps', Inf); end

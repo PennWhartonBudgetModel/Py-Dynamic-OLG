@@ -2,7 +2,7 @@
 % Dynamic model solver.
 %
 %%
-classdef DynamicSolver
+classdef ModelSolver
 
 methods (Static)
 
@@ -328,7 +328,7 @@ methods (Static)
         if ~isbase
             
             baselineScenario = scenario.currentPolicy();
-            base_generator = @() DynamicSolver.solve(baselineScenario, callingtag);
+            base_generator = @() ModelSolver.solve(baselineScenario, callingtag);
             base_dir = PathFinder.getWorkingDir(baselineScenario);
             
             % Load baseline market conditions, optimal labor values, and population distribution
@@ -389,9 +389,10 @@ methods (Static)
                 DIST_steady = {};
                 
             case {'open', 'closed'}
+                
                 % Make Scenario for current policy, steady state. 
                 steadyBaseScenario = scenario.currentPolicy().steady();
-                steady_generator = @() DynamicSolver.solve(steadyBaseScenario, callingtag);
+                steady_generator = @() ModelSolver.solve(steadyBaseScenario, callingtag);
                 steady_dir = PathFinder.getWorkingDir(steadyBaseScenario);
                 
                 % Load steady state market conditions and dynamic aggregates
@@ -409,6 +410,7 @@ methods (Static)
         switch economy
             
             case 'open'
+                
                 if ~isbase
                     
                     % Calculate government expenditure adjustments
@@ -416,12 +418,14 @@ methods (Static)
                     
                     Gtilde = Dynamic_base.Gtilde - gcut*GEXP_by_GDP(1:T_model).*Dynamic_base.outs;
                     Ttilde = tax_revenue_by_GDP.*Dynamic_base.outs - Static.pits - Static.ssts - Static.cits;
+                    
                 end
                 
             case 'closed'
+                
                 % Make Scenario for the open economy. 
                 openScenario = scenario.open();
-                open_generator = @() DynamicSolver.solve(openScenario, callingtag);
+                open_generator = @() ModelSolver.solve(openScenario, callingtag);
                 open_dir = PathFinder.getWorkingDir(openScenario);
                 
                 % Load government expenditure adjustments

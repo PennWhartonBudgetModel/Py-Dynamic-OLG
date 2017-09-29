@@ -225,7 +225,7 @@ methods (Static)
                                          ,  'modelunit_dollar'  , modelunit_dollar  ...
                                          ,  'bequest_phi_1'     , 0                 ...
                                    ));
-            save_dir    = DynamicSolver.solve( scenario );
+            save_dir    = ModelSolver.solve( scenario );
 
             % find target -- $gdp/pop
             s_paramsTargets = load( fullfile(save_dir, 'paramsTargets.mat' ) );
@@ -373,7 +373,7 @@ methods (Static)
                 fprintf( fileID, '\r\nBASELINE labor elas = %0.2f  savings elas = %0.2f \r\n', labelas, savelas ); 
                 inverse = f_invert(target);
 
-                save_dir = DynamicSolver.steady(inverse);
+                save_dir = ModelSolver.steady(inverse);
 
                 targets  = ModelCalibrator.moment_targets;
                 targets(end+1,:) = {'labelas', labelas, 'Labor elasticity'};
