@@ -5,8 +5,8 @@
 *.o*
 *.e*
 
-# Ignore testing directories and log directories
-Output/
+# Ignore working directories and log directories
+Working/
 Logs/
 
 # Ignore batch and run directories

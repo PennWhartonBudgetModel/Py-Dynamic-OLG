@@ -146,7 +146,7 @@ methods (Static)
         scenario    = Scenario(s.run_def);
         
         % Identify export directory
-        exportdir = PathFinder.getExportDir(scenario);
+        exportdir = PathFinder.getDataSeriesOutputDir();
         
         % Clear or create export directory
         if exist(exportdir, 'dir'), rmdir(exportdir, 's'), end, mkdir(exportdir)
@@ -184,7 +184,7 @@ methods (Static)
         usedynamicbaseline = scenario.useDynamicBaseline && strcmp( scenario.economy, 'closed' );
             
         % Identify working directories
-        savedir = PathFinder.getSaveDir(scenario);
+        savedir = PathFinder.getWorkingDir(scenario);
             
         % Load aggregates
         Dynamic = load(fullfile(savedir, 'dynamics.mat'));
@@ -195,8 +195,8 @@ methods (Static)
             
         if usedynamicbaseline
             base_scenario       = scenario.currentPolicy();
-            Dynamic_open_base   = load(fullfile(PathFinder.getSaveDir(base_scenario.open()  ), 'dynamics.mat'));
-            Dynamic_closed_base = load(fullfile(PathFinder.getSaveDir(base_scenario.closed()), 'dynamics.mat'));
+            Dynamic_open_base   = load(fullfile(PathFinder.getWorkingDir(base_scenario.open()  ), 'dynamics.mat'));
+            Dynamic_closed_base = load(fullfile(PathFinder.getWorkingDir(base_scenario.closed()), 'dynamics.mat'));
         end
             
         % Find number of entries to be trimmed or padded

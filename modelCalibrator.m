@@ -125,7 +125,7 @@ methods (Static)
         solved = boolean(solved); %#ok<NASGU>
         
         % Save solutions to new calibration file in new input version directory
-        outdir = PathFinder.getNewCalibrationDir();
+        outdir = PathFinder.getCalibrationOutputDir();
         if exist(outdir, 'dir'), rmdir(outdir, 's'), end, mkdir(outdir)
         save(fullfile(outdir, 'calibration.mat'), 'paramv', 'targetv', 'solved');
         
@@ -139,7 +139,7 @@ methods (Static)
     function [] = plot_conditions()
         
         % Load calibration solutions
-        cal_dir = PathFinder.getCalibrationDir();
+        cal_dir = PathFinder.getCalibrationInputDir();
         s       = load(fullfile(cal_dir, 'calibration.mat'));
         paramv  = s.paramv;
         targetv = s.targetv ;
@@ -171,7 +171,7 @@ methods (Static)
     function [inverse, f] = invert(target)
         
         % Load calibration solutions
-        cal_dir = PathFinder.getCalibrationDir();
+        cal_dir = PathFinder.getCalibrationInputDir();
         s       = load(fullfile(cal_dir, 'calibration.mat'));
         paramv  = s.paramv;
         targetv = s.targetv ;

@@ -26,8 +26,8 @@ classdef momentsGenerator
             %% PARAMETERS
     
             this.modelunit_dollar = scenario.modelunit_dollar;
-            save_dir  = PathFinder.getSaveDir(scenario);
-            param_dir = PathFinder.getSimParamDir();
+            save_dir  = PathFinder.getWorkingDir(scenario);
+            param_dir = PathFinder.getMicrosimInputDir();
 
             % Define time constants
             s       = paramGenerator.timing(scenario);

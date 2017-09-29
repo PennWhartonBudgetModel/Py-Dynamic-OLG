@@ -7,13 +7,12 @@ classdef PathFinder
 
 properties (Constant, Access = private)
     
-    % Specify target versions for input sets
+    % Specify input interface versions, organized by component
     inputversions = struct( ...
-        'cbo'           , '2017-09-14', ...
-        'sim'           , '2017-09-14', ...
-        'taxplan'       , '2017-09-20', ...
-        'calibration'   , '2017-09-20-11-12-efraim-98d1b77' ...
-    );
+        'CBO'           , struct('cbo'          , '2017-09-14'                      ), ...
+        'Microsim'      , struct('microsim'     , '2017-09-14'                      ), ...
+        'TaxCalculator' , struct('taxplan'      , '2017-09-20'                      ), ...
+        'DynamicModel'  , struct('calibration'  , '2017-09-20-11-12-efraim-98d1b77' ));
     
 end
 
@@ -47,6 +46,7 @@ methods (Static, Access = private)
     
     
     
+    
     % Get HPCC root directory
     %   Assumes that the HPCC is the only non-Windows execution location
     function [hpccrootdir] = getHpccRootDir()
@@ -54,36 +54,62 @@ methods (Static, Access = private)
         hpccrootdir = fullfile(d, 'ppi');
     end
     
-    % Get input root directory on HPCC
-    function [inputrootdir] = getInputRootDir()
-        inputrootdir = fullfile(PathFinder.getHpccRootDir(), 'Input');
+    % Get component root directory
+    %   Defaults to dynamic model if no component specified
+    function [componentrootdir] = getComponentRootDir(component)
+        if (~exist('component', 'var') || isempty(component)), component = 'DynamicModel'; end
+        componentrootdir = fullfile(PathFinder.getHpccRootDir(), component);
     end
     
-    % Get directory for a specific input set
-    function [inputdir] = getInputDir(inputset)
-        inputdir = fullfile(PathFinder.getInputRootDir(), inputset, PathFinder.inputversions.(inputset) );
+    
+    
+    
+    % Get working root directory
+    function [workingrootdir] = getWorkingRootDir()
+        switch (PathFinder.ExecutionMode())
+            case 'Development', workingrootdir = fullfile(PathFinder.getSourceDir(), 'Working');
+            case 'Production' , workingrootdir = fullfile(PathFinder.getComponentRootDir(), 'Internal', PathFinder.getCommitTag());
+        end
     end
+    
+    
+    
+    
+    % Get input directory
+    function [inputdir] = getInputDir(component, interface)
+        inputdir = fullfile(PathFinder.getComponentRootDir(component), 'Interfaces', PathFinder.inputversions.(component).(interface), interface);
+    end
+    
+    % Get output directory
+    function [outputdir] = getOutputDir(interface)
+        switch (PathFinder.ExecutionMode())
+            case 'Development', outputrootdir = PathFinder.getWorkingRootDir();
+            case 'Production' , outputrootdir = fullfile(PathFinder.getComponentRootDir(), 'Interfaces', PathFinder.getCommitTag());
+        end
+        outputdir = fullfile(outputrootdir, interface);
+    end
+    
     
     
     
     % Get unique identifying tag for active Git commit
-    function [commit_tag] = getCommitTag()
+    function [committag] = getCommitTag()
         
         % Get commit date (%cd), author email address (%ae), and abbreviated hash (%h)
-        [~, commit_log] = system('git --no-pager log -1 --format=%cd,%ae,,%h --date=iso');
+        [~, commitlog] = system('git --no-pager log -1 --format=%cd,%ae,,%h --date=iso');
         
         % Extract commit date and reformat
-        commit_date = regexp(commit_log, '.*? .*?(?= )', 'match', 'once');
-        commit_date = datestr(commit_date, 'yyyy-mm-dd-HH-MM');
+        commitdate = regexp(commitlog, '.*? .*?(?= )', 'match', 'once');
+        commitdate = datestr(commitdate, 'yyyy-mm-dd-HH-MM');
         
         % Extract author username from email address
-        commit_author = regexp(commit_log, '(?<=,).*?(?=@)', 'match', 'once');
+        commitauthor = regexp(commitlog, '(?<=,).*?(?=@)', 'match', 'once');
         
         % Extract abbreviated hash
-        commit_hash = regexp(commit_log, '(?<=,,).*?(?=\n)', 'match', 'once');
+        commithash = regexp(commitlog, '(?<=,,).*?(?=\n)', 'match', 'once');
         
         % Construct commit identifier
-        commit_tag = sprintf('%s-%s-%s', commit_date, commit_author, commit_hash);
+        committag = sprintf('%s-%s-%s', commitdate, commitauthor, commithash);
         
     end
     
@@ -120,6 +146,7 @@ methods (Static, Access = public)
     
     
     
+    
     % Get source code directory
     function [sourcedir] = getSourceDir()
         sourcedir = fileparts(mfilename('fullpath'));
@@ -127,57 +154,49 @@ methods (Static, Access = public)
     
     
     
-    % Get CBO parameters directory
-    function [cboparamdir] = getCboParamDir()
-        cboparamdir = PathFinder.getInputDir('cbo');
-    end
     
-    % Get microsim parameters directory
-    function [simparamdir] = getSimParamDir()
-        simparamdir = PathFinder.getInputDir('sim');
-    end
-    
-    % Get tax plan parameters directory
-    function [taxplanparamdir] = getTaxPlanParamDir()
-        taxplanparamdir = PathFinder.getInputDir('taxplan');
-    end
-    
-    % Get calibration grid directory
-    function [calibrationdir] = getCalibrationDir()
-        calibrationdir = PathFinder.getInputDir('calibration');
-    end
-    
-    
-    
-    % Get directory for newly generated calibration grid
-    function [newcalibrationdir] = getNewCalibrationDir()
-        newcalibrationdir = fullfile(PathFinder.getInputRoot(), 'calibration', PathFinder.getCommitTag());
-    end
-    
-    
-    
-    % Get raw output directory for a specific scenario
-    function [savedir, basedeftag, counterdeftag] = getSaveDir(scenario)
-        switch (PathFinder.ExecutionMode())
-            case 'Development'
-                saverootdir = fullfile(PathFinder.getSourceDir(), 'Output');
-            case 'Production'
-                saverootdir = fullfile(PathFinder.getHpccRootDir(), 'DynamicModel', 'Output', PathFinder.getCommitTag());
-        end
+    % Get working directory for a scenario
+    function [workingdir, basedeftag, counterdeftag] = getWorkingDir(scenario)
         [basedeftag, counterdeftag] = scenario.generate_tags();
-        savedir = fullfile(saverootdir, basedeftag, counterdeftag, scenario.economy);
+        workingdir = fullfile(PathFinder.getWorkingRootDir(), basedeftag, counterdeftag, scenario.economy);
     end
     
-    % Get processed output directory for a specific scenario
-    function [exportdir] = getExportDir(scenario)
-        switch (PathFinder.ExecutionMode())
-            case 'Development'
-                exportdir = PathFinder.getSaveDir(scenario);
-            case 'Production'
-                exportdir = fullfile(PathFinder.getHpccRootDir(), 'Output', ...
-                    scenario.batch, scenario.id, 'DynamicModel', PathFinder.getCommitTag());
-        end
+    
+    
+    
+    % Get CBO input directory
+    function [cboinputdir] = getCboInputDir()
+        cboinputdir = PathFinder.getInputDir('CBO', 'cbo');
     end
+    
+    % Get microsim input directory
+    function [microsiminputdir] = getMicrosimInputDir()
+        microsiminputdir = PathFinder.getInputDir('Microsim', 'microsim');
+    end
+    
+    % Get tax plan input directory
+    function [taxplaninputdir] = getTaxPlanInputDir()
+        taxplaninputdir = PathFinder.getInputDir('TaxCalculator', 'taxplan');
+    end
+    
+    % Get calibration input directory
+    function [calibrationinputdir] = getCalibrationInputDir()
+        calibrationinputdir = PathFinder.getInputDir('DynamicModel', 'calibration');
+    end
+    
+    
+    
+    
+    % Get calibration output directory
+    function [calibrationoutputdir] = getCalibrationOutputDir()
+        calibrationoutputdir = PathFinder.getOutputDir('calibration');
+    end
+    
+    % Get data series output directory
+    function [dataseriesoutputdir] = getDataSeriesOutputDir()
+        dataseriesoutputdir = PathFinder.getOutputDir('dataseries');
+    end
+    
     
 end
 
