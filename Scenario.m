@@ -107,10 +107,11 @@ classdef Scenario
         
         % Generate analogous current policy scenario
         function [scenario] = currentPolicy(this)
-            scenario = Scenario(this.getParams());
+            params          = this.getParams();
             for f = fieldnames(Scenario.def_fields)'
-                scenario.(f{1}) = Scenario.def_fields.(f{1});
+                params.(f{1}) = Scenario.def_fields.(f{1});
             end
+            scenario        = Scenario(params);
         end
         
         
