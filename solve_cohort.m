@@ -195,16 +195,20 @@ for t = T_active:-1:1
                         value_working([], kv, bv, wage_eff, EV, ...
                                 bequest_p_1, bequest_phi_2, bequest_phi_3, ...
                                 sigma, gamma);
-                        calculate_b  ([], age, bv(ib), ssincmax);
+                        calculate_b  ([], age, bv(ib), bv(end), ssincmax);
                         
                         % Solve dynamic optimization subproblem
                         lab0 = 0.5;
-                        k0   = max(kv(ik), 0.1 * wage_eff * lab0);   % (Assumes taxation will not exceed 90% of labor income)
+                        k0   = max(kv(ik), min(kv(end), 0.1 * wage_eff * lab0));   % Assumes taxation will not exceed 90% of labor income and at the same time forces k to be in the grid
                         
                         [x, v] = fminsearch(@value_working, [k0, lab0], optim_options);
-                        
+
                         k   = x(1);
-                        lab = x(2);
+                        lab = x(2);       
+                        
+                        % Checks -> only work in the absence of mex file!
+                        assert( ~isinf(v)   , 'v is inf')
+                        assert( k <= kv(end), 'k is too big!')
                         
                         % Record utility and optimal decision values
                         OPT.V(iz,ik,ib,t) = -v;
@@ -463,30 +467,30 @@ end
 
 
 % Average earnings calculation function
-function [b] = calculate_b(labinc, age_, bv_ib_, ssincmax_)
+function [b] = calculate_b(labinc, age_, bv_ib_, bv_nb_, ssincmax_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
 
 % Define parameters as persistent variables
-persistent age bv_ib ssincmax ...
+persistent age bv_ib bv_nb ssincmax ...
            initialized
 
 % Initialize parameters for C code generation
 if isempty(initialized)
-    age = 0; bv_ib = 0; ssincmax = 0;
+    age = 0; bv_ib = 0; bv_nb = 0; ssincmax = 0;
     initialized = true;
 end
 
 % Set parameters if provided
 if (nargin > 1)
-    age = age_; bv_ib = bv_ib_; ssincmax = ssincmax_;
+    age = age_; bv_ib = bv_ib_; bv_nb = bv_nb_; ssincmax = ssincmax_;
     if isempty(labinc), return, end
 end
 
 
-% Calculate average earnings
-b = (bv_ib*(age-1) + min(labinc, ssincmax))/age;
+% Calculate average earnings and caps it to the maximum taxable earnings - bv(end)
+b = min(bv_nb, (bv_ib*(age-1) + min(labinc, ssincmax))/age);
 
 end
 

@@ -274,6 +274,7 @@ methods (Static)
                         
                         % Generate population distribution for next year
                         DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kv, bv, surv);
+                        assert(all(DIST_next(:)>=0), 'Negative mass of people at DIST_next.')
                         
                         % Increase legal immigrant population for amnesty, maintaining distributions over productivity
                         DISTz_legal = DIST_next(:,:,:,:,g.legal) ./ repmat(sum(DIST_next(:,:,:,:,g.legal), 1), [nz,1,1,1,1]);
@@ -305,7 +306,6 @@ methods (Static)
             
             % Normalize steady state population distribution
             switch economy, case 'steady', DIST = DIST / sum(DIST(:)); end
-            
             
             % Generate aggregates
             assert(all(DIST(:)>=0),'WARNING! Negative mass of people at DIST.')
