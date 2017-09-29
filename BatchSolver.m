@@ -56,7 +56,7 @@ methods (Static)
         scenario    = Scenario(s.run_def);
         
         % Execute dynamic model solver
-        save_dir = dynamicSolver.solve(scenario);
+        save_dir = DynamicSolver.solve(scenario);
         
         % Extract and save solver termination condition
         iterations = csvread(fullfile(save_dir, 'iterations.csv'));
@@ -86,7 +86,7 @@ methods (Static)
             s = load(BatchSolver.run_file(irun));
             
             % Generate baseline and counterfactual definition tags
-            [basedef_tag, counterdef_tag] = dynamicSolver.generate_tags(s.basedef, s.counterdef);
+            [basedef_tag, counterdef_tag] = DynamicSolver.generate_tags(s.basedef, s.counterdef);
             
             % Store termination condition, setting default values if missing
             if ~isfield(s, 'termination'), s.termination = struct('iter', Inf, 'eps', Inf); end
@@ -177,7 +177,7 @@ methods (Static)
         nyear      = length(years_csv);
         
         % Specify number of years to shift results
-        nshift = paramGenerator.timing(scenario).first_transition_year - first_year;
+        nshift = ParamGenerator.timing(scenario).first_transition_year - first_year;
         
         % Get dynamic baseline flag
         %   Applicable to closed economy runs only
@@ -200,7 +200,7 @@ methods (Static)
         end
             
         % Find number of entries to be trimmed or padded
-        T_model = paramGenerator.timing(scenario).T_model;
+        T_model = ParamGenerator.timing(scenario).T_model;
         nextra  = nshift + T_model - nyear;
         ntrim   =  max(nextra, 0);
         npad    = -min(nextra, 0);
@@ -261,7 +261,7 @@ methods (Static)
         connection.close();
         
         % Preload calibration grid for parameter inversion
-        [~, f_invert] = modelCalibrator.invert();
+        [~, f_invert] = ModelCalibrator.invert();
         
         % Initialize cell array of scenarios
         c = cell(size(rows));

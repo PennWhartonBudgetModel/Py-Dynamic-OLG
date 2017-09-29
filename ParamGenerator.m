@@ -2,7 +2,7 @@
 % Reader and generator of parameters for dynamic model
 %
 %%
-classdef paramGenerator
+classdef ParamGenerator
 
 
 properties (Constant)
@@ -65,8 +65,8 @@ methods (Static)
         DISTpers = diff(normcdf(persv/sqrt(0.124)));
         
         % Define deterministic lifecycle productivities
-        T_life = paramGenerator.timing(scenario).T_life;
-        T_work = paramGenerator.timing(scenario).T_work;
+        T_life = ParamGenerator.timing(scenario).T_life;
+        T_work = ParamGenerator.timing(scenario).T_work;
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
         zage   = read_series('ConesaEtAl_WageAgeProfile.csv', [], PathFinder.getMicrosimInputDir());
         
@@ -275,8 +275,8 @@ methods (Static)
     %
     function s = social_security( scenario )
         
-        bv               = paramGenerator.grids(scenario).bv;
-        T_model          = paramGenerator.timing(scenario).T_model;
+        bv               = ParamGenerator.grids(scenario).bv;
+        T_model          = ParamGenerator.timing(scenario).T_model;
         modelunit_dollar = scenario.modelunit_dollar;
         
         ssthresholds = [856, 5157]*12*modelunit_dollar;     % Thresholds for earnings brackets
@@ -300,7 +300,7 @@ methods (Static)
     %
     function s = budget( scenario )
         
-        s                       = paramGenerator.timing(scenario);
+        s = ParamGenerator.timing( scenario );
         first_transition_year   = s.first_transition_year;
         T_model                 = s.T_model;
         taxplan                 = scenario.taxplan;
@@ -445,7 +445,7 @@ methods (Static)
     
 end % methods
 
-end % class paramGenerator
+end % class ParamGenerator
 
 
 %%

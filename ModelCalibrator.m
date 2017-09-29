@@ -2,7 +2,7 @@
 % Dynamic model baseline parameter calibrator.
 % 
 %%
-classdef modelCalibrator
+classdef ModelCalibrator
 
 properties (Constant)
     
@@ -11,7 +11,7 @@ properties (Constant)
     
     % Define list of targets
     targetlist  = {'captoout', 'labelas', 'savelas', 'outperHH'};
-    ntarget     = length(modelCalibrator.targetlist);
+    ntarget     = length(ModelCalibrator.targetlist);
     
     % Define number of discretization points for each parameter
     npoint = 20;
@@ -22,12 +22,12 @@ properties (Constant)
     % Determine number of parameter sets and number of batches
     %   REM: There are 3 dimensions for the calibration grid:
     %              beta, sigma, gamma
-    nset   = modelCalibrator.npoint ^ 3;
-    nbatch = ceil(modelCalibrator.nset / modelCalibrator.batchsize);
+    nset   = ModelCalibrator.npoint ^ 3;
+    nbatch = ceil(ModelCalibrator.nset / ModelCalibrator.batchsize);
     
     % Define batch directory and batch file path
     batch_dir  = fullfile(PathFinder.getSourceDir(), 'Batches');
-    batch_file = @(ibatch) fullfile(modelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch));
+    batch_file = @(ibatch) fullfile(ModelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch));
     
     % Define the moment targets for the reports on how we did
     %    Cell array: Col1=varname, Col2=value, Col3=description
@@ -49,27 +49,27 @@ methods (Static)
         ub.beta = 1.200; ub.gamma = 0.900; ub.sigma = 30.00;
         
         % Construct vectors of parameter values
-        v.beta  = linspace(lb.beta        , ub.beta        , modelCalibrator.npoint);
-        v.gamma = linspace(lb.gamma       , ub.gamma       , modelCalibrator.npoint);
-        v.sigma = logspace(log10(lb.sigma), log10(ub.sigma), modelCalibrator.npoint);
+        v.beta  = linspace(lb.beta        , ub.beta        , ModelCalibrator.npoint);
+        v.gamma = linspace(lb.gamma       , ub.gamma       , ModelCalibrator.npoint);
+        v.sigma = logspace(log10(lb.sigma), log10(ub.sigma), ModelCalibrator.npoint);
         
         % Generate grid parameter sets as unique combinations of parameter values
         [grid.beta, grid.gamma, grid.sigma] = ndgrid(v.beta, v.gamma, v.sigma);
-        for i = 1:modelCalibrator.nset
+        for i = 1:ModelCalibrator.nset
             for p = {'beta', 'gamma', 'sigma'}
                 paramsets(i).(p{1}) = grid.(p{1})(i); %#ok<AGROW>
             end 
         end 
  
         % Clear or create batch directory
-        if exist(modelCalibrator.batch_dir, 'dir'), rmdir(modelCalibrator.batch_dir, 's'), end, mkdir(modelCalibrator.batch_dir)
+        if exist(ModelCalibrator.batch_dir, 'dir'), rmdir(ModelCalibrator.batch_dir, 's'), end, mkdir(ModelCalibrator.batch_dir)
         
         % Extract and save batches of parameter sets
-        for ibatch = 1:modelCalibrator.nbatch
+        for ibatch = 1:ModelCalibrator.nbatch
             
-            shift = (ibatch-1)*modelCalibrator.batchsize;
-            params = paramsets(shift+1 : min(shift+modelCalibrator.batchsize, end)); %#ok<NASGU>
-            save(modelCalibrator.batch_file(ibatch), 'params')
+            shift = (ibatch-1)*ModelCalibrator.batchsize;
+            params = paramsets(shift+1 : min(shift+ModelCalibrator.batchsize, end)); %#ok<NASGU>
+            save(ModelCalibrator.batch_file(ibatch), 'params')
             
         end
         
@@ -80,13 +80,13 @@ methods (Static)
     function [] = solve_batch(ibatch)
         
         % Load batch of parameter sets
-        s = load(modelCalibrator.batch_file(ibatch)); 
+        s = load(ModelCalibrator.batch_file(ibatch)); 
         params = s.params; clear('s');
         nparamsets = length(params);
         
         parfor i = 1:nparamsets  
             % Calibrate steady state on modelunit_dollar
-            [ targets(i), modelunit_dollar(i), solved(i) ] = modelCalibrator.calibrate_dollar( params(i) ); %#ok<NASGU,PFOUS,ASGLU>
+            [ targets(i), modelunit_dollar(i), solved(i) ] = ModelCalibrator.calibrate_dollar( params(i) ); %#ok<NASGU,PFOUS,ASGLU>
         end
         
         % Add modelunit_dollar to the params
@@ -96,7 +96,7 @@ methods (Static)
         
         % Save elasticity sets and solution conditions to batch file
         % Rem: Overwrite parambatch since modelunit_dollar will have been modified
-        save(modelCalibrator.batch_file(ibatch), '-append' ...
+        save(ModelCalibrator.batch_file(ibatch), '-append' ...
                             , 'targets', 'solved', 'params' );
         
     end
@@ -106,19 +106,19 @@ methods (Static)
     function [] = consolidate_batches(clean)
         
         % Initialize vectors of parameters, elasticities, and solution conditions
-        for p = modelCalibrator.paramlist , paramv.(p{1})  = []; end
-        for e = modelCalibrator.targetlist, targetv.(e{1}) = []; end
+        for p = ModelCalibrator.paramlist , paramv.(p{1})  = []; end
+        for e = ModelCalibrator.targetlist, targetv.(e{1}) = []; end
         solved = [];
         
         % Load and consolidate solutions from batch files
-        for ibatch = 1:modelCalibrator.nbatch
+        for ibatch = 1:ModelCalibrator.nbatch
             
-            fprintf('Reading batch %5d of %5d\n', ibatch, modelCalibrator.nbatch)
+            fprintf('Reading batch %5d of %5d\n', ibatch, ModelCalibrator.nbatch)
             
-            s = load(fullfile(modelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch)));
+            s = load(fullfile(ModelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch)));
             
-            for p = modelCalibrator.paramlist , paramv.(p{1})   = [paramv.(p{1}) , s.params.(p{1}) ]; end
-            for e = modelCalibrator.targetlist, targetv.( e{1}) = [targetv.(e{1}), s.targets.(e{1})]; end
+            for p = ModelCalibrator.paramlist , paramv.(p{1})   = [paramv.(p{1}) , s.params.(p{1}) ]; end
+            for e = ModelCalibrator.targetlist, targetv.( e{1}) = [targetv.(e{1}), s.targets.(e{1})]; end
             solved = [solved, s.solved]; %#ok<AGROW>
             
         end
@@ -130,7 +130,7 @@ methods (Static)
         save(fullfile(outdir, 'calibration.mat'), 'paramv', 'targetv', 'solved');
         
         % Delete batch directory
-        if (exist('clean', 'var') && clean), rmdir(modelCalibrator.batch_dir, 's'), end
+        if (exist('clean', 'var') && clean), rmdir(ModelCalibrator.batch_dir, 's'), end
         
     end
     
@@ -149,7 +149,7 @@ methods (Static)
         figure(1); ax = axes;
         
         % Determine colors
-        cv = zeros(modelCalibrator.nset, 3);
+        cv = zeros(ModelCalibrator.nset, 3);
         devs = min(abs(targetv.captoout(solved)' - 3).^0.5, 1);
         cv( solved, :) = [devs, ones(size(devs)), devs]*180/256;        % Gray to green
         cv(~solved, :) = repmat([200/256, 0, 0], [sum(~solved), 1]);    % Red
@@ -178,14 +178,14 @@ methods (Static)
         solved  = s.solved;
         
         % Construct inverse interpolants that map individual targets to parameters
-        for p = modelCalibrator.paramlist
+        for p = ModelCalibrator.paramlist
             interp.(p{1}) = scatteredInterpolant(targetv.captoout(solved)', targetv.labelas(solved)', targetv.savelas(solved)', paramv.(p{1})(solved)', 'nearest');
         end
         
         % Construct elasticity inverter by consolidating inverse interpolants
         function [inverse] = f_(target)
             captoout = 3;
-            for p_ = modelCalibrator.paramlist, inverse.(p_{1}) = interp.(p_{1})(captoout, target.labelas, target.savelas); end
+            for p_ = ModelCalibrator.paramlist, inverse.(p_{1}) = interp.(p_{1})(captoout, target.labelas, target.savelas); end
         end
         f = @f_;
         
@@ -203,8 +203,8 @@ methods (Static)
         %     from Alex $79.8k for 2016
         %     REM: In moment_targets, 
         %        col 1 = varname, col 2 = value, col 3 = description 
-        target_outperHH_index = find( strcmp( modelCalibrator.moment_targets(:, 1), 'outperHH' ), 1 );
-        target_outperHH       = cell2mat( modelCalibrator.moment_targets( target_outperHH_index, 2 ) );
+        target_outperHH_index = find( strcmp( ModelCalibrator.moment_targets(:, 1), 'outperHH' ), 1 );
+        target_outperHH       = cell2mat( ModelCalibrator.moment_targets( target_outperHH_index, 2 ) );
         
         % Set initial modelunit_dollar.
         % In the future, we could apply a heuristic better initial guess.
@@ -225,7 +225,7 @@ methods (Static)
                                          ,  'modelunit_dollar'  , modelunit_dollar  ...
                                          ,  'bequest_phi_1'     , 0                 ...
                                    ));
-            save_dir    = dynamicSolver.solve( scenario );
+            save_dir    = DynamicSolver.solve( scenario );
 
             % find target -- $gdp/pop
             s_paramsTargets = load( fullfile(save_dir, 'paramsTargets.mat' ) );
@@ -294,7 +294,7 @@ methods (Static)
         dollar          = 1/s_paramsTargets.modelunit_dollar; 
 
         if( ~exist('targets', 'var') || isempty(targets) )
-            targets = modelCalibrator.moment_targets;
+            targets = ModelCalibrator.moment_targets;
             targets(end+1,:) = {'labelas', 1, 'Labor elasticity'};
             targets(end+1,:) = {'savelas', 1, 'Savings elasticity'};
         end
@@ -365,7 +365,7 @@ methods (Static)
         fprintf( fileID, '%s \r\n', datestr(now));
         
         % load the matrix and get inverter function
-        [~, f_invert] = modelCalibrator.invert();               
+        [~, f_invert] = ModelCalibrator.invert();               
         
         for labelas = 0.25:0.25:1.0
             for savelas = 0.25:0.25:1.0
@@ -373,12 +373,12 @@ methods (Static)
                 fprintf( fileID, '\r\nBASELINE labor elas = %0.2f  savings elas = %0.2f \r\n', labelas, savelas ); 
                 inverse = f_invert(target);
 
-                save_dir = dynamicSolver.steady(inverse);
+                save_dir = DynamicSolver.steady(inverse);
 
-                targets  = modelCalibrator.moment_targets;
+                targets  = ModelCalibrator.moment_targets;
                 targets(end+1,:) = {'labelas', labelas, 'Labor elasticity'};
                 targets(end+1,:) = {'savelas', savelas, 'Savings elasticity'};
-                outstr   = modelCalibrator.report_moments( save_dir, targets );
+                outstr   = ModelCalibrator.report_moments( save_dir, targets );
                 fprintf( fileID, '%s \r\n', outstr );
                 fprintf( fileID, '-------------------------------------\r\n' );
             end % for 

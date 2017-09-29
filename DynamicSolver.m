@@ -2,7 +2,7 @@
 % Dynamic model solver.
 %
 %%
-classdef dynamicSolver
+classdef DynamicSolver
 
 methods (Static)
 
@@ -50,7 +50,7 @@ methods (Static)
         %% PARAMETERS
         
         % Define time constants
-        s           = paramGenerator.timing(scenario);
+        s = ParamGenerator.timing(scenario);
         first_transition_year   = s.first_transition_year;  % map model inputs (or outputs) to actual years
         T_life                  = s.T_life;                 % Total life years
         T_work                  = s.T_work;                 % Total working years
@@ -69,7 +69,7 @@ methods (Static)
         %   g    is population subgroup set: 'citizen',
         %           'legal', 'illegal'
         %   NOTE: DISTz and zs are indexed by g
-        s      = paramGenerator.grids( scenario );
+        s = ParamGenerator.grids( scenario );
         ndem   = s.ndem;      % demographic types
         g      = s.g;         % groups: citizen, legal, illegal 
         ng     = s.ng;        % num groups
@@ -83,15 +83,14 @@ methods (Static)
         bv     = s.bv;        % avg. earnings grid
         
         % Load production parameters
-        s       = paramGenerator.production();
+        s = ParamGenerator.production();
         A       = s.A;        % Total factor productivity
         alpha   = s.alpha;    % Capital share of output
         d       = s.d;        % Depreciation rate
         
         % Load population growth parameters
         % Load age-dependent parameters
-        % (To be updated; original sources outdated)        s       = paramGenerator.demographics();
-        s = paramGenerator.demographics();
+        s = ParamGenerator.demographics();
         birth_rate      = s.birth_rate;                 % Annual birth rate
         legal_rate      = s.legal_rate * legal_scale;   % Annual legal immigration rate
         illegal_rate    = s.illegal_rate;               % Annual illegal immigration rate
@@ -99,7 +98,7 @@ methods (Static)
         imm_age         = s.imm_age;                    % Immigrants' age distribution
         
         % Load Social Security parameters
-        s           = paramGenerator.social_security( scenario );
+        s = ParamGenerator.social_security( scenario );
         ssbenefits  = s.ssbenefits ;    % Benefits
         sstaxs      = s.sstaxs     ;    % Tax rates
         ssincmaxs   = s.ssincmaxs  ;    % Maximum taxable earnings
@@ -107,7 +106,7 @@ methods (Static)
         
         
         %%  Budget: CBO interest rates, expenditures, and debt
-        s               = paramGenerator.budget( scenario );
+        s = ParamGenerator.budget( scenario );
         GEXP_by_GDP     = s.GEXP_by_GDP;    % Gvt expenditures as pct GDP
         debt            = s.debt;           % Gvt debt as pct gdp
         debttoout       = s.debttoout;      % Initial debt/gdp (for steady state)
@@ -118,7 +117,7 @@ methods (Static)
         tax_revenue_by_GDP = s.tax_revenue_by_GDP;
         
         %% Tax parameters
-        s                   = paramGenerator.tax( taxplan );
+        s = ParamGenerator.tax( taxplan );
         tax_thresholds      = s.tax_thresholds; % Tax func is linearized, these are income thresholds 
         tax_burden          = s.tax_burden;     % Tax burden (cumulative tax) at thresholds
         tax_rates           = s.tax_rates;      % Effective marginal tax rate between thresholds
@@ -128,7 +127,7 @@ methods (Static)
         taucap              = s.taucap;         % Capital tax rate
         taucapgain          = s.taucapgain;     % Capital gains tax rate
         
-        s_base = paramGenerator.tax( 'base' );
+        s_base = ParamGenerator.tax( 'base' );
         expshare_base = s_base.expshare;        % expshare for baseline
         taucap_base   = s_base.taucap;          % taucap for baseline
         
@@ -136,7 +135,7 @@ methods (Static)
         qtobin  = 1 - expshare     *taucap     ;
 
         % Define parameters on residual value of bequest function.
-        s = paramGenerator.bequest_motive(scenario);
+        s = ParamGenerator.bequest_motive( scenario );
         bequest_phi_1 = s.phi1;                 % phi1 reflects parent's concern about leaving bequests to her children (THIS IS THE ONE WE WANT TO CALIBRATE FOR LATER!)
         bequest_phi_2 = s.phi2;                 % phi2 measures the extent to which bequests are a luxury good
         bequest_phi_3 = s.phi3;                 % phi3 is the relative risk aversion coefficient
@@ -329,7 +328,7 @@ methods (Static)
         if ~isbase
             
             baselineScenario = scenario.currentPolicy();
-            base_generator = @() dynamicSolver.solve(baselineScenario, callingtag);
+            base_generator = @() DynamicSolver.solve(baselineScenario, callingtag);
             base_dir = PathFinder.getWorkingDir(baselineScenario);
             
             % Load baseline market conditions, optimal labor values, and population distribution
@@ -392,7 +391,7 @@ methods (Static)
             case {'open', 'closed'}
                 % Make Scenario for current policy, steady state. 
                 steadyBaseScenario = scenario.currentPolicy().steady();
-                steady_generator = @() dynamicSolver.solve(steadyBaseScenario, callingtag);
+                steady_generator = @() DynamicSolver.solve(steadyBaseScenario, callingtag);
                 steady_dir = PathFinder.getWorkingDir(steadyBaseScenario);
                 
                 % Load steady state market conditions and dynamic aggregates
@@ -422,7 +421,7 @@ methods (Static)
             case 'closed'
                 % Make Scenario for the open economy. 
                 openScenario = scenario.open();
-                open_generator = @() dynamicSolver.solve(openScenario, callingtag);
+                open_generator = @() DynamicSolver.solve(openScenario, callingtag);
                 open_dir = PathFinder.getWorkingDir(openScenario);
                 
                 % Load government expenditure adjustments
@@ -702,7 +701,7 @@ methods (Static)
                 outperHH = (Dynamic.outs./Dynamic.pops)./modelunit_dollar;
                 
                 % Calculate gini
-                GiniTable = momentsGenerator(scenario,DIST,Market,OPTs).giniTable;
+                GiniTable = MomentsGenerator(scenario,DIST,Market,OPTs).giniTable;
                 gini      = GiniTable.model(GiniTable.Gini=='wealth');
 
                 % Save and display elasticities

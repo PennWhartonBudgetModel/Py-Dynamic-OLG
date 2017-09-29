@@ -2,7 +2,7 @@
 % Distribution moments generator tool.
 %
 %%
-classdef momentsGenerator
+classdef MomentsGenerator
     
     properties (Access = private)
         
@@ -17,7 +17,7 @@ classdef momentsGenerator
     methods
        
         % Constructor
-        function this = momentsGenerator(scenario,DIST,Market,OPTs)
+        function this = MomentsGenerator(scenario,DIST,Market,OPTs)
             
             if( ~strcmp(scenario.economy, 'steady' ) )
                 error('Unable to generate income distribution moments for transition paths.')
@@ -30,13 +30,13 @@ classdef momentsGenerator
             param_dir = PathFinder.getMicrosimInputDir();
 
             % Define time constants
-            s       = paramGenerator.timing(scenario);
+            s = ParamGenerator.timing( scenario );
             T_life  = s.T_life;    % Total life years
             T_work  = s.T_work;    % Retirement age
             T_model = s.T_model;   % Transition path model years
 
             % Define grids
-            s    = paramGenerator.grids(scenario);
+            s = ParamGenerator.grids( scenario );
             ndem = s.ndem;       % demographic types
             ng   = s.ng;         % num groups
             nz   = s.nz;         % num labor productivity shocks
@@ -117,7 +117,7 @@ classdef momentsGenerator
             % Compare model distribution with data
             l_ginigap = 100*(l_ginidata / this.l_ginimodel - 1);
 
-            % momentsGenerator output
+            % MomentsGenerator output
             gini_table = table(categorical({'wealth';'lab_income'}),...
                                  [a_ginidata; l_ginidata],...
                                  [this.a_ginimodel; this.l_ginimodel],...
@@ -266,9 +266,10 @@ classdef momentsGenerator
             
         end
                 
-    end % methods
+    end
     
-end % momentsGenerator
+end
+
 
 %%
 
