@@ -170,6 +170,10 @@ classdef Scenario
             end
         end
         
+        function [flag] = isEqual(this, scenario)
+            flag = isequal(this.getParams(), scenario.getParams());
+        end
+        
     end
     
     
