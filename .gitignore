@@ -11,7 +11,7 @@ Logs/
 
 # Ignore batch and run directories
 /Batches
-/Runs
+/Scenarios
 
 # Ignore designated directories
 .ignore/
