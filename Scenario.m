@@ -105,7 +105,7 @@ classdef Scenario
         end
         
         
-        % Generate analogous current policy scenario
+        % Generate corresponding current policy scenario
         function [scenario] = currentPolicy(this)
             params          = this.getParams();
             for f = fieldnames(Scenario.def_fields)'
@@ -115,7 +115,7 @@ classdef Scenario
         end
         
         
-        % Generate analogous steady state scenario
+        % Generate corresponding steady state scenario
         function [scenario] = steady(this)
             params          = this.getParams();
             params.economy  = 'steady';
@@ -123,7 +123,7 @@ classdef Scenario
         end
         
         
-        % Generate analogous open economy scenario
+        % Generate corresponding open economy scenario
         function [scenario] = open(this)
             params          = this.getParams();
             params.economy  = 'open';
@@ -131,7 +131,7 @@ classdef Scenario
         end
         
         
-        % Generate analogous closed economy scenario
+        % Generate corresponding closed economy scenario
         function [scenario] = closed(this)
             params          = this.getParams();
             params.economy  = 'closed';
