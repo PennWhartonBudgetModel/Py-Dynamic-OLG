@@ -52,7 +52,10 @@ methods (Static)
         [~, f_invert] = ModelCalibrator.invert();
         
         % Initialize cell array of scenarios
-        c = cell(size(rows));
+        scenarios = cell(size(rows));
+        
+        % Define function to remove empty entries from cell array of scenarios
+        compress = @(scenarios_) scenarios_(~cellfun(@isempty, scenarios_));
         
         for i = 1:length(rows)
             
@@ -79,22 +82,48 @@ methods (Static)
                 'gcut'              , -rows(i).ExpenditureShift     ));
             
             % Store scenario in cell array
-            c{i} = scenario;
+            scenarios{i} = scenario;
             
         end
+        scenarios = compress(scenarios);
         
-        % Construct array of relevant scenarios from nonempty values of cell array of scenarios
-        scenarios = [c{~cellfun(@isempty, c)}]';
+        % Remove duplicate scenarios
+        for i = 1:length(scenarios)
+            for j = i+1:length(scenarios)
+                if scenarios{j}.isEqual(scenarios{i})
+                    scenarios{i} = [];
+                    break;
+                end
+            end
+        end
+        scenarios = compress(scenarios);
         
+        % Remove open economy scenarios with a corresponding closed economy scenario
+        for i = 1:length(scenarios)
+            if strcmp(scenarios{i}.economy, 'open')
+                scenario_closed = scenarios{i}.closed();
+                for j = 1:length(scenarios)
+                    if ( i ~= j && ~isempty(scenarios{j}) && scenarios{j}.isEqual(scenario_closed) )
+                        scenarios{i} = [];
+                        break;
+                    end
+                end
+            end
+        end
+        scenarios = compress(scenarios);
         
-        
-        % ***
-        % Remove redundancies
-        %   Remove duplicate scenarios
-        %   Remove open economy scenarios with a corresponding closed economy scenario
-        %   Remove current policy scenarios with a corresponding non-current policy scenario
-        % ***
-        
+        % Remove current policy scenarios with a corresponding non-current policy scenario
+        for i = 1:length(scenarios)
+            if scenarios{i}.isCurrentPolicy()
+                for j = 1:length(scenarios)
+                    if ( i ~= j && ~isempty(scenarios{j}) && scenarios{j}.currentPolicy().isEqual(scenarios{i}) )
+                        scenarios{i} = [];
+                        break;
+                    end
+                end
+            end
+        end
+        scenarios = compress(scenarios);
         
         
         % Clear or create scenario directory
@@ -102,7 +131,7 @@ methods (Static)
         
         % Save scenarios to scenario files
         for iscenario = 1:length(scenarios)
-            scenario = scenarios(iscenario); %#ok<NASGU>
+            scenario = scenarios{iscenario}; %#ok<NASGU>
             save( BatchSolver.scenariofile(iscenario), 'scenario' );
         end
         
