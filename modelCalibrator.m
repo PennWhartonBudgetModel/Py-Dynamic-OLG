@@ -84,21 +84,9 @@ methods (Static)
         params = s.params; clear('s');
         nparamsets = length(params);
         
-        parfor i = 1:nparamsets  
+        for i = 1:nparamsets  
             % Calibrate steady state on modelunit_dollar
-            try
                 [ targets(i), modelunit_dollar(i), solved(i) ] = modelCalibrator.calibrate_dollar( params(i) ); %#ok<NASGU,PFOUS,ASGLU>
-            catch
-                
-                s = struct();
-                for p = modelCalibrator.targetlist, s.(p{1}) = NaN; end
-                targets(i) = s;
-                
-                modelunit_dollar(i) = NaN;
-                
-                solved(i) = false;
-                
-            end
         end
         
         % Add modelunit_dollar to the params
