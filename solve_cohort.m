@@ -149,6 +149,10 @@ for t = T_active:-1:1
                     % Solve dynamic optimization subproblem
                     [k, v] = fminsearch(@value_retirement, kv(ik), optim_options);
                     
+                    % Checks -> only work in the absence of mex file!
+                    assert( ~isinf(v)   , 'v is inf')
+                    assert( k <= kv(end), 'k is too big!')
+
                     % Record utility and optimal decision values
                     OPT.V(:,ik,ib,t) = -v;
                     OPT.K(:,ik,ib,t) = k ;
@@ -324,7 +328,7 @@ sst = sstax * min(labinc, ssincmax);
 cit = capshare*kv_ik*(taucap*(caprate - expsub)*captaxshare + taucapgain*capgain);
 
 % Calculate available resources
-resources = (1 + totrate)*kv_ik + labinc - (pit + sst + cit) + beq + kv_ik*capshare*capgain;
+resources = ssinc + (1 + totrate)*kv_ik + labinc - (pit + sst + cit) + beq + kv_ik*capshare*capgain;
 
 end
 
