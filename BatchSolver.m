@@ -42,6 +42,9 @@ methods (Static)
         
         % Preload calibration grid for parameter inversion
         [~, f_invert] = ModelCalibrator.invert();
+            
+        % Load the TaxPlanMap
+        taxplanMap = readtable(fullfile(PathFinder.getTaxPlanInputDir(), 'TaxPlanMap.csv'));
         
         % Initialize cell array of scenarios
         %   Empty values will correspond to rows unaddressable by the dynamic model
@@ -61,6 +64,19 @@ methods (Static)
                 'savelas', rows(i).SavingsElasticity, ...
                 'labelas', rows(i).LaborElasticity  ));
             
+            % find taxplan from the tax params
+            ind = find( (   strcmp(rows(i).BaseBrackets, taxplanMap.BaseBrackets)    ...
+                         &  (rows(i).HasBuffetRule == taxplanMap.HasBuffetRule)      ...
+                         &  (rows(i).HasAGISurcharge_5m == taxplanMap.HasAGISurcharge_5m)      ...
+                         &  (rows(i).CorporateTaxRate == taxplanMap.CorporateTaxRate)      ...
+                         &  (rows(i).HasDoubleStandardDeduction == taxplanMap.HasDoubleStandardDeduction)      ...
+                         &  (rows(i).HasLimitDeductions == taxplanMap.HasLimitDeductions)      ...
+                         &  (rows(i).NoAMT == taxplanMap.NoAMT)      ...
+                         &  (rows(i).HasExpandChildCredit == taxplanMap.HasExpandChildCredit)      ...
+                         &  (rows(i).NoACAIncomeTax == taxplanMap.NoACAIncomeTax)      ...
+                         ));
+            taxplan = taxplanMap.ID(ind);
+            
             % Construct dynamic model scenario
             scenario = Scenario(struct(...
                 'economy'           , economy                       , ...
@@ -69,7 +85,8 @@ methods (Static)
                 'sigma'             , params.sigma                  , ...
                 'modelunit_dollar'  , params.modelunit_dollar       , ... 
                 'bequest_phi_1'     , 0                             , ... % To be populated from parameter inversion
-                'gcut'              , -rows(i).ExpenditureShift     ));
+                'gcut'              , -rows(i).ExpenditureShift     , ...
+                'taxplan'           , taxplan                       ));
             
             % Store scenario in cell array
             scenarios{i} = scenario;
@@ -82,7 +99,7 @@ methods (Static)
     
     
     % Define minimal set of executable scenarios for a batch
-    function [scenarios] = defineScenarios(batch)
+    function [] = defineScenarios(batch)
         
         % Define function to remove empty entries from cell array of scenarios
         function [] = compress_scenarios()
@@ -138,7 +155,7 @@ methods (Static)
         % Save scenarios to scenario files
         for iscenario = 1:length(scenarios)
             scenario = scenarios{iscenario}; %#ok<NASGU>
-            save( BatchSolver.scenariofile(iscenario), 'scenario' );
+            save(BatchSolver.scenariofile(iscenario), 'scenario');
         end
         
     end

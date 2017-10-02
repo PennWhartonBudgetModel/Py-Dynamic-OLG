@@ -79,6 +79,10 @@ classdef Scenario
             for f = fieldnames(props)'
                 this.(f{1}) = props.(f{1});
             end
+            
+            % Special handling for taxplan param
+            %   Must be a char array since it is used to ID filenames.
+            this.taxplan = num2str(this.taxplan);
              
         end
         

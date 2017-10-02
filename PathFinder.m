@@ -11,7 +11,7 @@ properties (Constant, Access = private)
     inputversions = struct( ...
         'CBO'           , struct('cbo'          , '2017-09-14'                          ), ...
         'Microsim'      , struct('microsim'     , '2017-09-14'                          ), ...
-        'TaxCalculator' , struct('taxplan'      , '2017-09-20'                          ), ...
+        'TaxCalculator' , struct('taxplan'      , '2017-10-02'                          ), ...
         'DynamicModel'  , struct('calibration'  , '2017-09-26-12-41-danielav-8139c45'   ));
     
 end
@@ -22,7 +22,7 @@ methods (Static, Access = private)
     % Singleton execution mode wrapper
     %   Serves as both getter and setter
     %   Required to work around lack of non-constant static variables in Matlab
-    function mode = ExecutionMode(newmode)
+    function [mode] = ExecutionMode(newmode)
         
         persistent mode_;
         

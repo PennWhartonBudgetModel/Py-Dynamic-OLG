@@ -117,7 +117,7 @@ methods (Static)
         tax_revenue_by_GDP = s.tax_revenue_by_GDP;
         
         %% Tax parameters
-        s = ParamGenerator.tax( taxplan );
+        s = ParamGenerator.tax( scenario );
         tax_thresholds      = s.tax_thresholds; % Tax func is linearized, these are income thresholds 
         tax_burden          = s.tax_burden;     % Tax burden (cumulative tax) at thresholds
         tax_rates           = s.tax_rates;      % Effective marginal tax rate between thresholds
@@ -127,7 +127,7 @@ methods (Static)
         taucap              = s.taucap;         % Capital tax rate
         taucapgain          = s.taucapgain;     % Capital gains tax rate
         
-        s_base = ParamGenerator.tax( 'base' );
+        s_base = ParamGenerator.tax( scenario.currentPolicy );
         expshare_base = s_base.expshare;        % expshare for baseline
         taucap_base   = s_base.taucap;          % taucap for baseline
         
