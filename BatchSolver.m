@@ -169,7 +169,7 @@ methods (Static)
         nscenario = length(BatchSolver.scenariofiles());
         
         % Initialize cell array of termination conditions
-        terminations = cell(0,5);
+        terminations = cell(0,6);
         
         for iscenario = 1:nscenario
             
@@ -181,17 +181,17 @@ methods (Static)
             
             % Store termination condition, setting default values if missing
             if ~isfield(s, 'termination'), s.termination = struct('iter', Inf, 'eps', Inf); end
-            terminations = [terminations; {iscenario, basedef_tag, counterdef_tag, s.termination.iter, s.termination.eps}]; %#ok<AGROW>
+            terminations = [terminations; {iscenario, basedef_tag, counterdef_tag, s.scenario.economy, s.termination.iter, s.termination.eps}]; %#ok<AGROW>
             
         end
         
         % Sort termination conditions by increasing iterations and error terms
-        [~, sortinds] = sortrows(cell2mat(terminations(:,4:5)));
+        [~, sortinds] = sortrows(cell2mat(terminations(:,5:6)));
         
         % Save termination conditions to csv file
         fid = fopen(fullfile(BatchSolver.scenariodir, 'terminations.csv'), 'w');
-        fprintf(fid, 'ScenarioIndex,BaselineDefinition,CounterfactualDefinition,TerminationIteration,TerminationErrorTerm\n');
-        for iscenario = 1:nscenario, fprintf(fid, '%d,%s,%s,%d,%0.4f\n', terminations{sortinds(iscenario),:}); end
+        fprintf(fid, 'ScenarioIndex,BaselineDefinition,CounterfactualDefinition,Economy,TerminationIteration,TerminationErrorTerm\n');
+        for iscenario = 1:nscenario, fprintf(fid, '%d,%s,%s,%s,%d,%0.4f\n', terminations{sortinds(iscenario),:}); end
         fclose(fid);
         
     end
