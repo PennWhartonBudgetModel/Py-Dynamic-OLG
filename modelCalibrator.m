@@ -14,7 +14,7 @@ properties (Constant)
     ntarget     = length(modelCalibrator.targetlist);
     
     % Define number of discretization points for each parameter
-    npoint = 20;
+    npoint = 10;
     
     % Define number of parameter sets per batch
     batchsize = 4;
@@ -45,8 +45,8 @@ methods (Static)
     function [] = define_batches()
         
         % Specify parameter lower and upper bounds
-        lb.beta = 0.990; lb.gamma = 0.150; lb.sigma =  1.50;
-        ub.beta = 1.200; ub.gamma = 0.900; ub.sigma = 30.00;
+        lb.beta = 0.970; lb.gamma = 0.150; lb.sigma = 1.00;
+        ub.beta = 1.100; ub.gamma = 0.900; ub.sigma = 7.00;
         
         % Construct vectors of parameter values
         v.beta  = linspace(lb.beta        , ub.beta        , modelCalibrator.npoint);
@@ -393,6 +393,10 @@ methods (Static)
                 outstr   = modelCalibrator.report_moments( save_dir, targets );
                 fprintf( fileID, '%s \r\n', outstr );
                 fprintf( fileID, '-------------------------------------\r\n' );
+                
+                % For plot
+                
+                
             end % for 
         end % for 
         fprintf( fileID, ' ==== DONE ===== \r\n' );    
