@@ -85,11 +85,13 @@ methods (Static)
     function [scenarios] = defineScenarios(batch)
         
         % Define function to remove empty entries from cell array of scenarios
-        compress = @(scenarios_) scenarios_(~cellfun(@isempty, scenarios_));
+        function [] = compress_scenarios()
+            scenarios = scenarios(~cellfun(@isempty, scenarios));
+        end
         
         % Read batch of scenarios from database
         scenarios = BatchSolver.readBatch(batch);
-        scenarios = compress(scenarios);
+        compress_scenarios();
         
         % Remove duplicate scenarios
         for i = 1:length(scenarios)
@@ -100,7 +102,7 @@ methods (Static)
                 end
             end
         end
-        scenarios = compress(scenarios);
+        compress_scenarios();
         
         % Remove open economy scenarios with a corresponding closed economy scenario
         for i = 1:length(scenarios)
@@ -114,7 +116,7 @@ methods (Static)
                 end
             end
         end
-        scenarios = compress(scenarios);
+        compress_scenarios();
         
         % Remove current policy scenarios with a corresponding non-current policy scenario
         for i = 1:length(scenarios)
@@ -127,7 +129,7 @@ methods (Static)
                 end
             end
         end
-        scenarios = compress(scenarios);
+        compress_scenarios();
         
         
         % Clear or create scenario directory
