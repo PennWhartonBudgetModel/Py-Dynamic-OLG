@@ -272,25 +272,8 @@ methods (Static)
             
             
             
-            for name_ = fieldnames(dataseriesmap)'
-                
-                % Extract variable name
-                name = name_{1};
-                
-                % Consolidate, shift, trim, and pad dynamic and static variable values to form data series
-                dataseries = [ ones(1, nshift), Dynamic.(name)(1:end-ntrim), ones(1, npad) ;
-                               ones(1, nshift), Static. (name)(1:end-ntrim), ones(1, npad) ]';
-                
-                % Save data series to csv files
-                for id = dataseriesmap.(name)
-                    csvfile = fullfile(outputdir, sprintf('%u-%u.csv', rows(i).WithoutDynamicBaseline_Tag, id));
-                    fid = fopen(csvfile, 'w'); fprintf(fid, 'Year,Dynamic,Static\n'); fclose(fid);
-                    dlmwrite(csvfile, [years, dataseries], '-append')
-                end
-                
-            end
-            
-            
+            % Write data series output files
+            writeFiles(rows(i).WithoutDynamicBaseline_Tag);
             
             if ~isnan(rows(i).WithDynamicBaseline_Tag)
                 
@@ -298,26 +281,40 @@ methods (Static)
                 Dynamic_currentPolicyOpen   = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy().open()  ), 'dynamics.mat'));
                 Dynamic_currentPolicyClosed = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy().closed()), 'dynamics.mat'));
                 
-                for name_ = fieldnames(dataseriesmap)'
+                % Write data series output files with dynamic baseline scaling
+                writeFiles(rows(i).WithDynamicBaseline_Tag, Dynamic_currentPolicyOpen, Dynamic_currentPolicyClosed);
                 
-                    % Extract variable name
-                    name = name_{1};
-                    
-                    % Scale static variable values for dynamic baseline
-                    v = Static.(name) .* Dynamic_currentPolicyOpen.(name) ./ Dynamic_currentPolicyClosed.(name);
-                    v(isnan(v)) = 0;
-                    
-                    % Consolidate, shift, trim, and pad dynamic and scaled static variable values to form data series
-                    dataseries = [ ones(1, nshift), Dynamic.(name)(1:end-ntrim), ones(1, npad) ;
-                                   ones(1, nshift), v(             1:end-ntrim), ones(1, npad) ]';
-                    
-                    % Save data series to csv files
-                    for id = dataseriesmap.(name)
-                        csvfile = fullfile(outputdir, sprintf('%u-%u.csv', rows(i).WithDynamicBaseline_Tag, id));
-                        fid = fopen(csvfile, 'w'); fprintf(fid, 'Year,Dynamic,Static\n'); fclose(fid);
-                        dlmwrite(csvfile, [years, dataseries], '-append')
-                    end
-                    
+            end
+            
+        end
+        
+        
+        function [] = writeFiles(tag, Dynamic_currentPolicyOpen, Dynamic_currentPolicyClosed)
+            
+            for name_ = fieldnames(dataseriesmap)'
+                
+                % Extract variable name
+                name = name_{1};
+                
+                % Extract dynamic and static variable values
+                v_Dynamic = Dynamic.(name);
+                v_Static  = Static. (name);
+                
+                % Scale static variable values for dynamic baseline if scaling variables provided
+                if (exist('Dynamic_currentPolicyOpen', 'var') && exist('Dynamic_currentPolicyClosed', 'var'))
+                    v_Static = v_Static .* Dynamic_currentPolicyOpen.(name) ./ Dynamic_currentPolicyClosed.(name);
+                    v_Static(isnan(v_Static)) = 0;
+                end
+                
+                % Consolidate, shift, trim, and pad dynamic and static variable values to form data series
+                dataseries = [ ones(1, nshift), v_Dynamic(1:end-ntrim), ones(1, npad) ;
+                               ones(1, nshift), v_Static( 1:end-ntrim), ones(1, npad) ]';
+                
+                % Write data series to csv files
+                for id = dataseriesmap.(name)
+                    csvfile = fullfile(outputdir, sprintf('%u-%u.csv', tag, id));
+                    fid = fopen(csvfile, 'w'); fprintf(fid, 'Year,Dynamic,Static\n'); fclose(fid);
+                    dlmwrite(csvfile, [years, dataseries], '-append')
                 end
                 
             end
