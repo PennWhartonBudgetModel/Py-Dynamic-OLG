@@ -7,7 +7,7 @@ classdef BatchSolver
 
 properties (Constant)
     
-    % Define scenario directory path, file path generator, and file lister
+    % Define scenario directory path, scenario file path generator, and scenario file lister
     scenariodir   = fullfile(PathFinder.getSourceDir(), 'Scenarios');
     scenariofile  = @(iscenario) fullfile(BatchSolver.scenariodir, sprintf('scenario%04d.mat', iscenario));
     scenariofiles = @() dir(fullfile(BatchSolver.scenariodir, 'scenario*.mat'));
@@ -20,7 +20,7 @@ methods (Static)
     
     
     % Read batch of scenarios from database
-    function [rows] = readBatch(batch)
+    function [scenarios, rows] = readBatch(batch)
         
         % Add JDBC driver to Matlab Java path
         javaaddpath(fullfile(PathFinder.getSourceDir(), 'jar', 'sqljdbc41.jar'));
@@ -38,29 +38,19 @@ methods (Static)
         % Close database connection
         connection.close();
         
-    end
-    
-    
-    
-    % Define minimal set of executable scenarios for a batch
-    function [scenarios] = defineScenarios(batch)
         
-        % Read batch of scenarios from database
-        rows = BatchSolver.readBatch(batch);
         
         % Preload calibration grid for parameter inversion
         [~, f_invert] = ModelCalibrator.invert();
         
         % Initialize cell array of scenarios
+        %   Empty values will correspond to rows unaddressable by the dynamic model
         scenarios = cell(size(rows));
-        
-        % Define function to remove empty entries from cell array of scenarios
-        compress = @(scenarios_) scenarios_(~cellfun(@isempty, scenarios_));
         
         for i = 1:length(rows)
             
             % Identify economy openness, skipping scenarios that are neither fully open nor fully closed
-            switch (rows(i).OpenEconomy)
+            switch rows(i).OpenEconomy
                 case 1, economy = 'open'  ;
                 case 0, economy = 'closed';
                 otherwise, continue
@@ -85,6 +75,20 @@ methods (Static)
             scenarios{i} = scenario;
             
         end
+        
+    end
+    
+    
+    
+    
+    % Define minimal set of executable scenarios for a batch
+    function [scenarios] = defineScenarios(batch)
+        
+        % Define function to remove empty entries from cell array of scenarios
+        compress = @(scenarios_) scenarios_(~cellfun(@isempty, scenarios_));
+        
+        % Read batch of scenarios from database
+        scenarios = BatchSolver.readBatch(batch);
         scenarios = compress(scenarios);
         
         % Remove duplicate scenarios
@@ -229,36 +233,13 @@ methods (Static)
         
         
         % Read batch of scenarios from database
-        rows = BatchSolver.readBatch(batch);
-        
-        % Preload calibration grid for parameter inversion
-        [~, f_invert] = ModelCalibrator.invert();
+        [scenarios, rows] = BatchSolver.readBatch(batch);
         
         for i = 1:length(rows)
             
-            % Identify economy openness, skipping scenarios that are neither fully open nor fully closed
-            switch rows(i).OpenEconomy
-                case 1, economy = 'open'  ;
-                case 0, economy = 'closed';
-                otherwise, continue
-            end
-            
-            % Invert elasticities with calibration grid
-            params = f_invert(struct(...
-                'savelas', rows(i).SavingsElasticity, ...
-                'labelas', rows(i).LaborElasticity  ));
-            
-            % Construct dynamic model scenario
-            scenario = Scenario(struct(...
-                'economy'           , economy                       , ...
-                'beta'              , params.beta                   , ...
-                'gamma'             , params.gamma                  , ...
-                'sigma'             , params.sigma                  , ...
-                'modelunit_dollar'  , params.modelunit_dollar       , ... 
-                'bequest_phi_1'     , 0                             , ... % To be populated from parameter inversion
-                'gcut'              , -rows(i).ExpenditureShift     ));
-            
-            
+            % Extract scenario from cell array of scenarios
+            scenario = scenarios{i};
+            if isempty(scenario), continue, end
             
             % Identify scenario working directory
             workingdir = PathFinder.getWorkingDir(scenario);
