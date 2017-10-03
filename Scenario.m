@@ -105,25 +105,16 @@ classdef Scenario
         end
         
         
-        % Derived property: Get if isCurrentPolicy
+        % Identify if scenario corresponds to current policy
+        %   Current policy identified by default values for all optional parameters
         function [flag] = isCurrentPolicy(this)
-             % isCurrentPolicy if no deviation from def_params  
-            for f = fieldnames(Scenario.def_params)'
-                this_one = (this.(f{1})); def_one = (Scenario.def_params.(f{1}));
-                switch (class(this_one))
-                    case 'double'
-                        if (this_one ~= def_one )
-                            flag = false;
-                            return;
-                        end
-                    case 'char'
-                        if( ~strcmp(this_one, def_one) )
-                            flag = false;
-                            return;
-                        end
+            flag = true;
+            for o = fieldnames(Scenario.def_params)'
+                if ~isequal(this.(o{1}), Scenario.def_params.(o{1}))
+                    flag = false;
+                    return;
                 end
             end
-            flag = true;
         end
         
         
