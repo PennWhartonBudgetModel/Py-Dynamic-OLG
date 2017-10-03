@@ -27,11 +27,11 @@ methods (Static)
         isbase = scenario.isCurrentPolicy();
         
         % Unpack parameters from filled counterfactual definition
-        gcut        = scenario.gcut       ;
-        legal_scale = scenario.legal_scale;
-        prem_legal  = scenario.prem_legal ;
-        amnesty     = scenario.amnesty    ;
-        deportation = scenario.deportation;
+        expenditure_shift   = scenario.expenditure_shift;
+        legal_scale         = scenario.legal_scale      ;
+        prem_legal          = scenario.prem_legal       ;
+        amnesty             = scenario.amnesty          ;
+        deportation         = scenario.deportation      ;
         
         % Identify working directory
         [save_dir, ~, counterdef_tag] = PathFinder.getWorkingDir(scenario);
@@ -415,7 +415,7 @@ methods (Static)
                     % Calculate government expenditure adjustments
                     Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
                     
-                    Gtilde = Dynamic_base.Gtilde - gcut*GEXP_by_GDP(1:T_model).*Dynamic_base.outs;
+                    Gtilde = Dynamic_base.Gtilde + expenditure_shift*GEXP_by_GDP(1:T_model).*Dynamic_base.outs;
                     Ttilde = tax_revenue_by_GDP.*Dynamic_base.outs - Static.pits - Static.ssts - Static.cits;
                     
                 end
