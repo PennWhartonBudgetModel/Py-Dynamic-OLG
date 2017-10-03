@@ -46,7 +46,7 @@ methods (Static)
         
         % Specify parameter lower and upper bounds
         lb.beta = 0.950; lb.gamma = 0.150; lb.sigma = 1.20;
-        ub.beta = 1.050; ub.gamma = 0.900; ub.sigma = 8.00;
+        ub.beta = 1.000; ub.gamma = 0.900; ub.sigma = 8.00;
         
         % Construct vectors of parameter values
         v.beta  = linspace(lb.beta        , ub.beta        , modelCalibrator.npoint);
