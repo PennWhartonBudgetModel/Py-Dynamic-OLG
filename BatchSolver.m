@@ -184,11 +184,11 @@ methods (Static)
             s = load(BatchSolver.scenariofile(iscenario));
             
             % Generate baseline and counterfactual definition tags
-            [basedef_tag, counterdef_tag] = s.scenario.generate_tags();
+            [basedeftag, counterdeftag] = s.scenario.generateTags();
             
             % Store termination condition, setting default values if missing
             if ~isfield(s, 'termination'), s.termination = struct('iter', Inf, 'eps', Inf); end
-            terminations = [terminations; {iscenario, basedef_tag, counterdef_tag, s.scenario.economy, s.termination.iter, s.termination.eps}]; %#ok<AGROW>
+            terminations = [terminations; {iscenario, basedeftag, counterdeftag, s.scenario.economy, s.termination.iter, s.termination.eps}]; %#ok<AGROW>
             
         end
         
