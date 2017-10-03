@@ -367,13 +367,17 @@ methods (Static)
         % load the matrix and get inverter function
         [~, f_invert] = modelCalibrator.invert();               
         
-        for labelas = 0.25:0.25:1.0
+        parfor labelas = 0.25:0.25:1.0
             for savelas = 0.25:0.25:1.0
                 target = struct('labelas', labelas, 'savelas', savelas);
                 fprintf( fileID, '\r\nBASELINE labor elas = %0.2f  savings elas = %0.2f \r\n', labelas, savelas ); 
                 inverse = f_invert(target);
+                
+                scenario = Scenario(struct('economy','steady','beta',inverse.beta,'gamma',inverse.gamma,...
+                                           'sigma',inverse.sigma,'modelunit_dollar',inverse.modelunit_dollar,...
+                                           'bequest_phi_1',0));
 
-                save_dir = dynamicSolver.steady(inverse);
+                save_dir = dynamicSolver.solve(scenario);
 
                 targets  = modelCalibrator.moment_targets;
                 targets(end+1,:) = {'labelas', labelas, 'Labor elasticity'};
