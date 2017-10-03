@@ -84,7 +84,7 @@ methods (Static)
         params = s.params; clear('s');
         nparamsets = length(params);
         
-        for i = 1:nparamsets  
+        parfor i = 1:nparamsets  
             % Calibrate steady state on modelunit_dollar
                 [ targets(i), modelunit_dollar(i), solved(i) ] = modelCalibrator.calibrate_dollar( params(i) ); %#ok<NASGU,PFOUS,ASGLU>
         end
@@ -380,11 +380,7 @@ methods (Static)
                 targets(end+1,:) = {'savelas', savelas, 'Savings elasticity'};
                 outstr   = modelCalibrator.report_moments( save_dir, targets );
                 fprintf( fileID, '%s \r\n', outstr );
-                fprintf( fileID, '-------------------------------------\r\n' );
-                
-                % For plot
-                
-                
+                fprintf( fileID, '-------------------------------------\r\n' );                
             end % for 
         end % for 
         fprintf( fileID, ' ==== DONE ===== \r\n' );    
