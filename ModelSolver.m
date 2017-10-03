@@ -27,7 +27,6 @@ methods (Static)
         isbase = scenario.isCurrentPolicy();
         
         % Unpack parameters from filled counterfactual definition
-        taxplan     = scenario.taxplan    ;
         gcut        = scenario.gcut       ;
         legal_scale = scenario.legal_scale;
         prem_legal  = scenario.prem_legal ;
@@ -113,7 +112,7 @@ methods (Static)
         fedgovtnis      = s.fedgovtnis;     % Gvt net interest surplus (deficit)
         cborates        = s.cborates;       % Interest rates on gvt debt (from CBO)
         cbomeanrate     = s.cbomeanrate;    % Avg of cborates (for steady state)
-        % Tax revenue targets (for Ttilde), depend on taxplan
+        % Tax revenue targets (for Ttilde), depend on tax plan
         tax_revenue_by_GDP = s.tax_revenue_by_GDP;
         
         %% Tax parameters
