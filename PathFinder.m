@@ -156,9 +156,9 @@ methods (Static, Access = public)
     
     
     % Get working directory for a scenario
-    function [workingdir, basedeftag, counterdeftag] = getWorkingDir(scenario)
-        [basedeftag, counterdeftag] = scenario.generateTags();
-        workingdir = fullfile(PathFinder.getWorkingRootDir(), basedeftag, counterdeftag, scenario.economy);
+    function [workingdir] = getWorkingDir(scenario)
+        workingdir = fullfile(PathFinder.getWorkingRootDir(), ...
+            scenario.basedeftag, scenario.counterdeftag, scenario.economy);
     end
     
     

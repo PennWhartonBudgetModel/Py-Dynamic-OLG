@@ -34,12 +34,12 @@ methods (Static)
         deportation         = scenario.deportation      ;
         
         % Identify working directory
-        [save_dir, ~, counterdef_tag] = PathFinder.getWorkingDir(scenario);
+        save_dir = PathFinder.getWorkingDir(scenario);
         
         % Append caller tag to save directory name and generate calling tag
-        % (Obviates conflicts between parallel runs)
-        save_dir   = [save_dir                                  , callertag];
-        callingtag = [sprintf('^%s_%s', counterdef_tag, economy), callertag];
+        %   Obviates conflicts between parallel solver calls
+        save_dir   = [save_dir                                          , callertag];
+        callingtag = [sprintf('^%s_%s', scenario.counterdeftag, economy), callertag];
         
         % Clear or create save directory
         if exist(save_dir, 'dir'), rmdir(save_dir, 's'), end, mkdir(save_dir)
