@@ -328,7 +328,7 @@ sst = sstax * min(labinc, ssincmax);
 cit = capshare*kv_ik*(taucap*(caprate - expsub)*captaxshare + taucapgain*capgain);
 
 % Calculate available resources
-resources = ssinc + (1 + totrate)*kv_ik + labinc - (pit + sst + cit) + beq + kv_ik*capshare*capgain;
+resources = (1 + totrate)*kv_ik + labinc + ssinc - (pit + sst + cit) + beq + kv_ik*capshare*capgain;
 
 end
 

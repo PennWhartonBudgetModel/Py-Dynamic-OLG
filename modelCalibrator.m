@@ -45,7 +45,7 @@ methods (Static)
     function [] = define_batches()
         
         % Specify parameter lower and upper bounds
-        lb.beta = 0.970; lb.gamma = 0.150; lb.sigma = 1.00;
+        lb.beta = 0.970; lb.gamma = 0.150; lb.sigma = 1.20;
         ub.beta = 1.100; ub.gamma = 0.900; ub.sigma = 7.00;
         
         % Construct vectors of parameter values
