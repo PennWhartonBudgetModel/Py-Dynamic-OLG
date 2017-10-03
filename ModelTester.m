@@ -16,7 +16,7 @@ properties (Constant)
         'taxplan'           , 'trumpB'              );
     
 end
-    
+
 methods (Static)
 
     % Test steady state solution and elasticities
@@ -61,14 +61,6 @@ methods (Static)
         save_dir = ModelSolver.solve(scenario);
         setnames = {'market', 'dynamics', 'statics'};
         test_output(save_dir, setnames);
-    end
-    
-    
-    % Test calibrations
-    function [] = calibrate_dollar( )
-        % rem: gridpoint needs to contain beta,gamma,sigma
-        %  so, we can just pass test_params
-        ModelCalibrator.calibrate_dollar( ModelTester.test_params );
     end
     
     
