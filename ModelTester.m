@@ -21,7 +21,7 @@ methods (Static)
 
     % Test steady state solution and elasticities
     function [] = steady()
-        scenario = Scenario(ModelTester.test_params).currentPolicy.steady;
+        scenario = Scenario(ModelTester.test_params).currentPolicy().steady();
         save_dir = ModelSolver.solve(scenario);
         setnames = {'market', 'dynamics', 'paramsTargets'};
         test_output(save_dir, setnames);
@@ -30,7 +30,7 @@ methods (Static)
     
     % Test open economy baseline solution, dynamic aggregates, and static aggregates
     function [] = open_base()
-        scenario = Scenario(ModelTester.test_params).currentPolicy.open;
+        scenario = Scenario(ModelTester.test_params).currentPolicy().open();
         save_dir = ModelSolver.solve(scenario);
         setnames = {'market', 'dynamics'};
         test_output(save_dir, setnames);
@@ -39,7 +39,7 @@ methods (Static)
     
     % Test open economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = open_counter()
-        scenario = Scenario(ModelTester.test_params).open;
+        scenario = Scenario(ModelTester.test_params).open();
         save_dir = ModelSolver.solve(scenario);
         setnames = {'market', 'dynamics', 'statics'};
         test_output(save_dir, setnames);
@@ -48,7 +48,7 @@ methods (Static)
     
     % Test closed economy baseline solution, dynamic aggregates, and static aggregates
     function [] = closed_base()
-        scenario = Scenario(ModelTester.test_params).currentPolicy.closed;
+        scenario = Scenario(ModelTester.test_params).currentPolicy().closed();
         save_dir = ModelSolver.solve(scenario);
         setnames = {'market', 'dynamics'};
         test_output(save_dir, setnames);
@@ -57,7 +57,7 @@ methods (Static)
     
     % Test closed economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = closed_counter()
-        scenario = Scenario(ModelTester.test_params).closed;
+        scenario = Scenario(ModelTester.test_params).closed();
         save_dir = ModelSolver.solve(scenario);
         setnames = {'market', 'dynamics', 'statics'};
         test_output(save_dir, setnames);
