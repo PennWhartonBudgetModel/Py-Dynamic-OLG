@@ -117,7 +117,7 @@ methods (Static)
         % Remove duplicate scenarios
         for i = 1:length(scenarios)
             for j = i+1:length(scenarios)
-                if scenarios{j}.isEqual(scenarios{i})
+                if scenarios{j}.isEquivalent(scenarios{i})
                     scenarios{i} = [];
                     break;
                 end
@@ -127,10 +127,10 @@ methods (Static)
         
         % Remove open economy scenarios with a corresponding closed economy scenario
         for i = 1:length(scenarios)
-            if strcmp(scenarios{i}.economy, 'open')
+            if scenarios{i}.isOpen()
                 scenario_closed = scenarios{i}.closed();
                 for j = 1:length(scenarios)
-                    if ( i ~= j && ~isempty(scenarios{j}) && scenarios{j}.isEqual(scenario_closed) )
+                    if ( i ~= j && ~isempty(scenarios{j}) && scenarios{j}.isEquivalent(scenario_closed) )
                         scenarios{i} = [];
                         break;
                     end
@@ -143,7 +143,7 @@ methods (Static)
         for i = 1:length(scenarios)
             if scenarios{i}.isCurrentPolicy()
                 for j = 1:length(scenarios)
-                    if ( i ~= j && ~isempty(scenarios{j}) && scenarios{j}.currentPolicy().isEqual(scenarios{i}) )
+                    if ( i ~= j && ~isempty(scenarios{j}) && scenarios{j}.currentPolicy().isEquivalent(scenarios{i}) )
                         scenarios{i} = [];
                         break;
                     end

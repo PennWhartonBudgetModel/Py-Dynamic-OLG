@@ -139,7 +139,7 @@ classdef Scenario
         end
         
         
-        % Identify if scenario corresponds to current policy
+        % Identify if scenario represents current policy
         %   Current policy identified by default values for all optional parameters
         function [flag] = isCurrentPolicy(this)
             flag = true;
@@ -152,42 +152,28 @@ classdef Scenario
         end
         
         
-        % Generate corresponding current policy scenario
-        function [scenario] = currentPolicy(this)
-            params          = this.getParams();
-            for f = fieldnames(Scenario.def_params)'
-                params.(f{1}) = Scenario.def_params.(f{1});
-            end
-            scenario        = Scenario(params);
+        % Identify if scenario represents open economy
+        function [flag] = isOpen(this)
+            flag = strcmp(this.economy, 'open');
         end
         
         
-        % Generate corresponding steady state scenario
-        function [scenario] = steady(this)
-            params          = this.getParams();
-            params.economy  = 'steady';
-            scenario        = Scenario(params);
+        % Identify if scenario represents closed economy
+        function [flag] = isClosed(this)
+            flag = strcmp(this.economy, 'closed');
         end
         
         
-        % Generate corresponding open economy scenario
-        function [scenario] = open(this)
-            params          = this.getParams();
-            params.economy  = 'open';
-            scenario        = Scenario(params);
+        % Identify if scenario is equivalent to another scenario
+        %   Parameter representations in tags determine precision for equivalency evaluation
+        function [flag] = isEquivalent(this, scenario)
+            flag = strcmp(this.economy      , scenario.economy      ) ...
+                && strcmp(this.basedeftag   , scenario.basedeftag   ) ...
+                && strcmp(this.counterdeftag, scenario.counterdeftag);
         end
         
         
-        % Generate corresponding closed economy scenario
-        function [scenario] = closed(this)
-            params          = this.getParams();
-            params.economy  = 'closed';
-            scenario        = Scenario(params);
-        end
-        
-        
-        
-        
+        % Get all scenario parameters
         function [params] = getParams(this)
             params = struct();
             for f = [ Scenario.req_params ; fieldnames(Scenario.def_params) ]'
@@ -195,9 +181,40 @@ classdef Scenario
             end
         end
         
-        function [flag] = isEqual(this, scenario)
-            flag = isequal(this.getParams(), scenario.getParams());
+        
+        % Generate corresponding current policy scenario
+        function [scenario] = currentPolicy(this)
+            params = this.getParams();
+            for f = fieldnames(Scenario.def_params)'
+                params.(f{1}) = Scenario.def_params.(f{1});
+            end
+            scenario = Scenario(params);
         end
+        
+        
+        % Generate corresponding steady state scenario
+        function [scenario] = steady(this)
+            params = this.getParams();
+            params.economy = 'steady';
+            scenario = Scenario(params);
+        end
+        
+        
+        % Generate corresponding open economy scenario
+        function [scenario] = open(this)
+            params = this.getParams();
+            params.economy = 'open';
+            scenario = Scenario(params);
+        end
+        
+        
+        % Generate corresponding closed economy scenario
+        function [scenario] = closed(this)
+            params = this.getParams();
+            params.economy = 'closed';
+            scenario = Scenario(params);
+        end
+        
         
     end
     
