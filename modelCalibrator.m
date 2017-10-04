@@ -367,7 +367,7 @@ methods (Static)
         % load the matrix and get inverter function
         [~, f_invert] = modelCalibrator.invert();               
         
-        parfor labelas = 0.25:0.25:1.0
+        for labelas = 0.25:0.25:1.0
             for savelas = 0.25:0.25:1.0
                 target = struct('labelas', labelas, 'savelas', savelas);
                 fprintf( fileID, '\r\nBASELINE labor elas = %0.2f  savings elas = %0.2f \r\n', labelas, savelas ); 
