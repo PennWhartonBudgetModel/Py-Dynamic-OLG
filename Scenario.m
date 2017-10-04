@@ -4,7 +4,7 @@
 %%
 classdef Scenario
     
-    properties (SetAccess = protected)
+    properties (GetAccess = public, SetAccess = immutable)
         
         % Economy ('steady', 'open', or 'closed')
         economy;
@@ -43,7 +43,7 @@ classdef Scenario
     end
     
     
-    properties (Constant, Access = private )
+    properties (Constant, Access = private)
     
         % Define list of required parameters
         req_params = {...
