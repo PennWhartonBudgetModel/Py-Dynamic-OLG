@@ -1,5 +1,5 @@
 %%
-% Global model execution settings, most importantly file paths for reading and writing data.
+% Path finder for dynamic model source code, inputs, and outputs.
 %
 %%
 classdef PathFinder
@@ -11,7 +11,7 @@ properties (Constant, Access = private)
     inputversions = struct( ...
         'CBO'           , struct('cbo'          , '2017-09-14'                          ), ...
         'Microsim'      , struct('microsim'     , '2017-09-14'                          ), ...
-        'TaxCalculator' , struct('taxplan'      , '2017-09-20'                          ), ...
+        'TaxCalculator' , struct('taxplan'      , '2017-10-03'                          ), ...
         'DynamicModel'  , struct('calibration'  , '2017-10-03-18-29-danielav-7ab718e'   ));
     
 end
@@ -22,7 +22,7 @@ methods (Static, Access = private)
     % Singleton execution mode wrapper
     %   Serves as both getter and setter
     %   Required to work around lack of non-constant static variables in Matlab
-    function mode = ExecutionMode(newmode)
+    function [mode] = ExecutionMode(newmode)
         
         persistent mode_;
         
@@ -156,9 +156,9 @@ methods (Static, Access = public)
     
     
     % Get working directory for a scenario
-    function [workingdir, basedeftag, counterdeftag] = getWorkingDir(scenario)
-        [basedeftag, counterdeftag] = scenario.generate_tags();
-        workingdir = fullfile(PathFinder.getWorkingRootDir(), basedeftag, counterdeftag, scenario.economy);
+    function [workingdir] = getWorkingDir(scenario)
+        workingdir = fullfile(PathFinder.getWorkingRootDir(), ...
+            scenario.basedeftag, scenario.counterdeftag, scenario.economy);
     end
     
     

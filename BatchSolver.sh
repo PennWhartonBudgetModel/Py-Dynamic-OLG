@@ -1,30 +1,31 @@
 #!/bin/bash
+#$ -N define
 #$ -q short.q
 #$ -j y
 #$ -o /dev/null
 
-# Build mex functions and define production runs
-matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), MexBuilder.all(), BatchSolver.define_runs($1)"
+# Build mex functions and define scenarios for specified batch ($1)
+matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), MexBuilder.all(), BatchSolver.defineScenarios($1)"
 
 # Clear or create log directory
 LOGDIR='./Logs'
 rm -rf ${LOGDIR}
 mkdir -p ${LOGDIR}
 
-# Specify production run job execution queue, checking for presence of --aws flag
+# Specify batch solution job execution queue, checking for presence of --aws flag ($2)
 QUEUE=$([ $# -gt 1 ] && [ $2 = "--aws" ]               \
         && echo 'aws-ppi.q -l aws_ppi -P bepp_ppi_aws' \
         || echo 'short.q'                              )
 
-# Submit production run task array job
-# (Note use of -nojvm to deactivate Java and hence deactivate Matlab parfor)
-qsub -N run -t 1-$(ls -1 ./Runs | wc -l) \
+# Submit batch solution task array job
+#   Note use of -nojvm to deactivate Java and hence deactivate Matlab parfor
+qsub -N solve -t 1-$(ls -1 ./Scenarios | wc -l) \
      -q ${QUEUE} \
-     -j y -o ${LOGDIR}'/run$TASK_ID.log' \
-     -b y 'matlab -nojvm -nosplash -r "PathFinder.setToProductionMode(), BatchSolver.run(${SGE_TASK_ID})"'
+     -j y -o ${LOGDIR}'/scenario$TASK_ID.log' \
+     -b y 'matlab -nojvm -nosplash -r "PathFinder.setToProductionMode(), BatchSolver.solve(${SGE_TASK_ID})"'
 
-# Submit results packaging job, holding for production run task array job
-qsub -N package_results -hold_jid run \
+# Submit data series generation job, holding for batch solution task array job
+qsub -N generate -hold_jid solve \
      -q short.q \
-     -j y -o ${LOGDIR}'/package_results.log' \
-     -b y 'matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), BatchSolver.check_terminations(), BatchSolver.package_results()"'
+     -j y -o ${LOGDIR}'/generate.log' \
+     -b y 'matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), BatchSolver.checkTerminations(), BatchSolver.generateDataSeries($1)"'

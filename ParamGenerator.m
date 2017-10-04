@@ -2,7 +2,7 @@
 % Reader and generator of parameters for dynamic model
 %
 %%
-classdef paramGenerator
+classdef ParamGenerator
 
 
 properties (Constant)
@@ -65,8 +65,8 @@ methods (Static)
         DISTpers = diff(normcdf(persv/sqrt(0.124)));
         
         % Define deterministic lifecycle productivities
-        T_life = paramGenerator.timing(scenario).T_life;
-        T_work = paramGenerator.timing(scenario).T_work;
+        T_life = ParamGenerator.timing(scenario).T_life;
+        T_work = ParamGenerator.timing(scenario).T_work;
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
         zage   = read_series('ConesaEtAl_WageAgeProfile.csv', [], PathFinder.getMicrosimInputDir());
         
@@ -178,9 +178,13 @@ methods (Static)
     % 
     % Generate tax policy parameters according to predefined plans.
     % 
-    function s = tax( taxplan )
+    function s = tax( scenario )
+        
+        % Find tax plan ID corresponding to scenario tax parameters
+        taxplanid = find_taxplanid(scenario);
+        
         % Get PIT tax rates.
-        %  Input files PIT_<taxplan>.CSV expected to have the
+        %  Input files PIT_<taxplanid>.CSV expected to have the
         %  following structure:
         %      <Income $>, <Marginal Tax Rate>
         %  The marginal tax rate represents the rate charged 
@@ -188,7 +192,7 @@ methods (Static)
         %  until the next income threshold, if extant).
         %  First threshold must be zero to make explicit the
         %  fact that tax is charged on income from zero to some $ amount.
-        filename    = strcat('PIT_', taxplan, '.csv');
+        filename = strcat('PIT_', taxplanid, '.csv');
         [income_thresholds, tax_rates] = read_tax_rates( filename );
 
         % Calculate tax liability at each threshold.
@@ -204,21 +208,21 @@ methods (Static)
 
         % Store income tax and deduction functions.
         %   REM: Transpose into row vectors
-        s.tax_thresholds      = income_thresholds';
-        s.tax_burden          = income_tax';
-        s.tax_rates           = tax_rates';
+        s.tax_thresholds  = income_thresholds';
+        s.tax_burden      = income_tax';
+        s.tax_rates       = tax_rates';
 
         % Get the capital tax params and store them.
-        %  Input files CIT_<taxplan>.CSV expected to have the
+        %  Input files CIT_<taxplanid>.CSV expected to have the
         %  following structure:
         %      <Tax variable> as header, <Value> under that header
         %  The tax variable names are defined below.
-        filename                = strcat('CIT_', taxplan, '.csv');
-        tax_vars                = read_tax_vars( filename );
+        filename = strcat('CIT_', taxplanid, '.csv');
+        tax_vars = read_tax_vars( filename );
         s.captaxshare = tax_vars.CapitalTaxShare; 
         s.expshare    = tax_vars.ExpensingShare; 
         s.taucap      = tax_vars.CapitalTaxRate; 
-        s.taucapgain  = 0           ;
+        s.taucapgain  = 0;
         
         % Warn if parameters are outside expectations
         if( (s.captaxshare < 0) || (s.captaxshare > 1) )
@@ -275,8 +279,8 @@ methods (Static)
     %
     function s = social_security( scenario )
         
-        bv               = paramGenerator.grids(scenario).bv;
-        T_model          = paramGenerator.timing(scenario).T_model;
+        bv               = ParamGenerator.grids(scenario).bv;
+        T_model          = ParamGenerator.timing(scenario).T_model;
         modelunit_dollar = scenario.modelunit_dollar;
         
         ssthresholds = [856, 5157]*12*modelunit_dollar;     % Thresholds for earnings brackets
@@ -300,10 +304,10 @@ methods (Static)
     %
     function s = budget( scenario )
         
-        s                       = paramGenerator.timing(scenario);
+        s = ParamGenerator.timing( scenario );
         first_transition_year   = s.first_transition_year;
         T_model                 = s.T_model;
-        taxplan                 = scenario.taxplan;
+        
 
         %  CBO interest rates, expenditures, and debt
         % Input: CBOInterestRate.csv -- interest rate (as pct) 
@@ -403,18 +407,13 @@ methods (Static)
         % Tax revenues as fraction of GDP are loaded from
         % single-series CSV files which contain data by
         % tax plan.
-        % Input: Revenues_<taxplan>.csv -- Estimate of tax
+        % Input: Revenues_<taxplanid>.csv -- Estimate of tax
         %           revenues as percent GDP
         %           Format is (Year), (PctRevenues) w/ header row.
-        filename    = strcat('Revenues_', taxplan, '.csv');
-        taxplan_dir = PathFinder.getTaxPlanInputDir();
-        try
-            tax_revenue_by_GDP = read_series(filename, first_transition_year, taxplan_dir );
-        catch ex 
-            warning('Cannot read file %s for Tax Revenue targets. Using baseline instead.', filename );
-            filename = strcat('Revenues_', scenario.currentPolicy().taxplan, '.csv');
-            tax_revenue_by_GDP = read_series(filename, first_transition_year, taxplan_dir );
-        end
+        taxplaninputdir = PathFinder.getTaxPlanInputDir();
+        taxplanid = find_taxplanid( scenario );
+        filename = strcat('Revenues_', taxplanid, '.csv');
+        tax_revenue_by_GDP = read_series(filename, first_transition_year, taxplaninputdir );
         tax_revenue_by_GDP = tax_revenue_by_GDP'; 
         if( T_model - length(tax_revenue_by_GDP) < 0 )
             tax_revenue_by_GDP = tax_revenue_by_GDP(1:T_model);
@@ -445,7 +444,41 @@ methods (Static)
     
 end % methods
 
-end % class paramGenerator
+end % class ParamGenerator
+
+
+%%
+%  Helper function find tax plan ID corresponding to scenario tax parameters
+function [taxplanid] = find_taxplanid( scenario )
+    
+    % Load tax plan map from tax plan input directory
+    taxplanmap = table2struct(readtable(fullfile(PathFinder.getTaxPlanInputDir(), 'TaxPlanMap.csv')));
+    
+    % Find tax plan corresponding to scenario tax parameters
+    parammap = struct(...
+        'base_brackets'                 , 'BaseBrackets'                , ...
+        'has_buffet_rule'               , 'HasBuffetRule'               , ...
+        'has_agi_surcharge_5m'          , 'HasAGISurcharge_5m'          , ...
+        'corporate_tax_rate'            , 'CorporateTaxRate'            , ...
+        'has_double_standard_deduction' , 'HasDoubleStandardDeduction'  , ...
+        'has_limit_deductions'          , 'HasLimitDeductions'          , ...
+        'no_amt'                        , 'NoAMT'                       , ...
+        'has_expand_child_credit'       , 'HasExpandChildCredit'        , ...
+        'no_aca_income_tax'             , 'NoACAIncomeTax'              );
+    
+    match = arrayfun(@(row) ...
+        all(cellfun(@(param) ...
+            isequal(scenario.(param), row.(parammap.(param))), fieldnames(parammap))), ...
+        taxplanmap ...
+    );
+    
+    assert(sum(match) > 0, 'No tax plan found corresponding to scenario tax parameters.'           );
+    assert(sum(match) < 2, 'More than one tax plan found corresponding to scenario tax parameters.');
+    
+    % Extract ID and convert to character array
+    taxplanid = num2str(taxplanmap(match).ID);
+    
+end
 
 
 %%
