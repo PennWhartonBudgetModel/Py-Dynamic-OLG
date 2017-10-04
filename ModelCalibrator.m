@@ -142,34 +142,7 @@ methods (Static)
     end
     
     
-    % Invert target elasticities using calibration points in calibration input directory
-    %   Reusable inverter constructed in the process
-    function [inverse, f] = invert(targets)
-        
-        % Load calibration points from calibration input directory
-        s = load(fullfile(PathFinder.getCalibrationInputDir(), 'calibration.mat'));
-        paramv  = s.paramv ;
-        targetv = s.targetv;
-        solved  = s.solved ;
-        
-        % Construct inverse interpolants that map individual targets to parameters
-        for p = ModelCalibrator.paramlist
-            interp.(p{1}) = scatteredInterpolant(targetv.captoout(solved)', targetv.labelas(solved)', targetv.savelas(solved)', paramv.(p{1})(solved)', 'nearest');
-        end
-        
-        % Construct elasticity inverter by consolidating inverse interpolants
-        function [inverse] = f_(targets)
-            captoout = 3;
-            for p_ = ModelCalibrator.paramlist, inverse.(p_{1}) = interp.(p_{1})(captoout, targets.labelas, targets.savelas); end
-        end
-        f = @f_;
-        
-        % Invert target elasticities
-        if exist('targets', 'var'), inverse = f(targets); else, inverse = struct(); end
-        
-    end
-
-
+    
     %%
     %   Single loop to calibrate on modelunit_dollar targets
     function [ targets, modelunit_dollar, is_solved ] = calibrate_dollar( gridpoint )
@@ -340,7 +313,7 @@ methods (Static)
         fprintf( fileID, '%s \r\n', datestr(now));
         
         % load the matrix and get inverter function
-        [~, f_invert] = ModelCalibrator.invert();               
+        [~, f_invert] = ParamGenerator.invert();
         
         for labelas = 0.25:0.25:1.0
             for savelas = 0.25:0.25:1.0

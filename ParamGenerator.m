@@ -1,15 +1,54 @@
 %%
-% Reader and generator of parameters for dynamic model
+% Reader and generator of parameters for dynamic model.
 %
 %%
 classdef ParamGenerator
 
-
-properties (Constant)
-end % properties
-
 methods (Static)
-
+    
+    
+    %% ELASTICITY INVERSION
+    % 
+    % Invert target elasticities using calibration points
+    %   Reusable inverter constructed in the process
+    % 
+    function [inverse, f] = invert(targets)
+        
+        % Load calibration points from calibration input directory
+        s = load(fullfile(PathFinder.getCalibrationInputDir(), 'calibration.mat'));
+        paramv  = s.paramv ;
+        targetv = s.targetv;
+        solved  = s.solved ;
+        
+        % Determine list of calibration parameters
+        paramlist = fieldnames(paramv)';
+        
+        % Construct inverse interpolants that map individual target values to calibration parameters
+        %   Target values include capital-to-output ratio in addition to elasticities
+        for p = paramlist
+            interp.(p{1}) = scatteredInterpolant(...
+                targetv.captoout(solved)', ...
+                targetv.labelas (solved)', ...
+                targetv.savelas (solved)', ...
+                paramv.(p{1})(solved)', 'nearest');
+        end
+        
+        % Construct elasticity inverter by consolidating inverse interpolants
+        %   Capital-to-output ratio target fixed at 3
+        function [inverse] = f_(targets)
+            captoout = 3;
+            for p_ = paramlist
+                inverse.(p_{1}) = interp.(p_{1})(captoout, targets.labelas, targets.savelas);
+            end
+        end
+        f = @f_;
+        
+        % Invert target elasticities if provided
+        if exist('targets', 'var'), inverse = f(targets); else, inverse = struct(); end
+        
+    end
+    
+    
     %% TIMING
     %    
     function s = timing(scenario)
