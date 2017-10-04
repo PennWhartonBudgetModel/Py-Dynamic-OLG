@@ -18,7 +18,7 @@ QUEUE=$([ $# -gt 1 ] && [ $2 = "--aws" ]               \
         || echo 'short.q'                              )
 
 # Submit batch solution task array job
-# (Note use of -nojvm to deactivate Java and hence deactivate Matlab parfor)
+#   Note use of -nojvm to deactivate Java and hence deactivate Matlab parfor
 qsub -N solve -t 1-$(ls -1 ./Scenarios | wc -l) \
      -q ${QUEUE} \
      -j y -o ${LOGDIR}'/scenario$TASK_ID.log' \

@@ -256,43 +256,47 @@ methods (Static)
             % Identify scenario working directory
             workingdir = PathFinder.getWorkingDir(scenario);
             
-            % Load dynamic and static variables
-            Dynamic = load(fullfile(workingdir, 'dynamics.mat'));
-            if scenario.isCurrentPolicy()
-                Static = Dynamic;
-            else
-                Static = load(fullfile(workingdir, 'statics.mat'));
-            end
-            
-            
-            
-            % Specify data series years
-            first_year = 2016;
-            last_year  = 2089;
-            years = (first_year : last_year)';
-            
-            % Determine number of years to shift variable values
-            nshift  = ParamGenerator.timing(scenario).first_transition_year - first_year;
-            
-            % Determine number of variable values to be trimmed or padded
-            T_model = ParamGenerator.timing(scenario).T_model;
-            nextra  = nshift + T_model - length(years);
-            ntrim   = +max(nextra, 0);
-            npad    = -min(nextra, 0);
-            
-            
-            
-            % Write data series output files
-            writeFiles(rows(i).WithoutDynamicBaseline_Tag);
-            
-            if ~isnan(rows(i).WithDynamicBaseline_Tag)
+            try
                 
-                % Load additional variables for dynamic baseline scaling
-                Dynamic_currentPolicyOpen   = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy().open()  ), 'dynamics.mat'));
-                Dynamic_currentPolicyClosed = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy().closed()), 'dynamics.mat'));
+                % Load dynamic and static variables
+                Dynamic = load(fullfile(workingdir, 'dynamics.mat'));
+                if scenario.isCurrentPolicy()
+                    Static = Dynamic;
+                else
+                    Static = load(fullfile(workingdir, 'statics.mat'));
+                end
                 
-                % Write data series output files with dynamic baseline scaling
-                writeFiles(rows(i).WithDynamicBaseline_Tag, Dynamic_currentPolicyOpen, Dynamic_currentPolicyClosed);
+                % Specify data series years
+                first_year = 2016;
+                last_year  = 2089;
+                years = (first_year : last_year)';
+                
+                % Determine number of years to shift variable values
+                nshift  = ParamGenerator.timing(scenario).first_transition_year - first_year;
+                
+                % Determine number of variable values to be trimmed or padded
+                T_model = ParamGenerator.timing(scenario).T_model;
+                nextra  = nshift + T_model - length(years);
+                ntrim   = +max(nextra, 0);
+                npad    = -min(nextra, 0);
+                
+                % Write data series output files
+                writeFiles(rows(i).WithoutDynamicBaseline_Tag);
+                
+                if ~isnan(rows(i).WithDynamicBaseline_Tag)
+                    
+                    % Load additional variables for dynamic baseline scaling
+                    Dynamic_currentPolicyOpen   = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy().open()  ), 'dynamics.mat'));
+                    Dynamic_currentPolicyClosed = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy().closed()), 'dynamics.mat'));
+                    
+                    % Write data series output files with dynamic baseline scaling
+                    writeFiles(rows(i).WithDynamicBaseline_Tag, Dynamic_currentPolicyOpen, Dynamic_currentPolicyClosed);
+                    
+                end
+                
+            catch
+                
+                fprintf('Failed to generate data series output for row %6u of batch %s.\n', i, num2str(batch));
                 
             end
             
