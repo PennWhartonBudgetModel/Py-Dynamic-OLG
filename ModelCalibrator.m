@@ -14,10 +14,10 @@ properties (Constant)
     ntarget     = length(ModelCalibrator.targetlist);
     
     % Define number of discretization points for each parameter
-    npoint = 20;
+    npoint = 6;
     
     % Define number of parameter sets per batch
-    batchsize = 4;
+    batchsize = 1;
     
     % Determine number of parameter sets and number of batches
     %   REM: There are 3 dimensions for the calibration grid:
@@ -45,8 +45,8 @@ methods (Static)
     function [] = define_batches()
         
         % Specify parameter lower and upper bounds
-        lb.beta = 0.990; lb.gamma = 0.150; lb.sigma =  1.50;
-        ub.beta = 1.200; ub.gamma = 0.900; ub.sigma = 30.00;
+        lb.beta = 0.950; lb.gamma = 0.150; lb.sigma = 1.20;
+        ub.beta = 1.100; ub.gamma = 0.900; ub.sigma = 8.00;
         
         % Construct vectors of parameter values
         v.beta  = linspace(lb.beta        , ub.beta        , ModelCalibrator.npoint);
@@ -372,15 +372,19 @@ methods (Static)
                 target = struct('labelas', labelas, 'savelas', savelas);
                 fprintf( fileID, '\r\nBASELINE labor elas = %0.2f  savings elas = %0.2f \r\n', labelas, savelas ); 
                 inverse = f_invert(target);
-
-                save_dir = ModelSolver.steady(inverse);
-
+                
+                scenario = Scenario(struct('economy','steady','beta',inverse.beta,'gamma',inverse.gamma,...
+                                           'sigma',inverse.sigma,'modelunit_dollar',inverse.modelunit_dollar,...
+                                           'bequest_phi_1',0));
+                
+                save_dir = ModelSolver.solve(scenario);
+                
                 targets  = ModelCalibrator.moment_targets;
                 targets(end+1,:) = {'labelas', labelas, 'Labor elasticity'};
                 targets(end+1,:) = {'savelas', savelas, 'Savings elasticity'};
                 outstr   = ModelCalibrator.report_moments( save_dir, targets );
                 fprintf( fileID, '%s \r\n', outstr );
-                fprintf( fileID, '-------------------------------------\r\n' );
+                fprintf( fileID, '-------------------------------------\r\n' );                
             end % for 
         end % for 
         fprintf( fileID, ' ==== DONE ===== \r\n' );    
