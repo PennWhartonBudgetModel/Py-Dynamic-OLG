@@ -125,12 +125,15 @@ methods (Static)
         end
         compress_scenarios();
         
-        % Remove scenarios that are dependencies of others
+        % Remove open economy scenarios with a corresponding closed economy scenario
         for i = 1:length(scenarios)
-            for j = 1:length(scenarios)
-                if ( i ~= j && ~isempty(scenarios{j}) && scenarios{i}.isDependency(scenarios{j}) )
-                    scenarios{i} = [];
-                    break;
+            if scenarios{i}.isOpen()
+                scenario_closed = scenarios{i}.closed();
+                for j = 1:length(scenarios)
+                    if ( i ~= j && ~isempty(scenarios{j}) && scenarios{j}.isEquivalent(scenario_closed) )
+                        scenarios{i} = [];
+                        break;
+                    end
                 end
             end
         end
