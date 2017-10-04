@@ -87,6 +87,12 @@ methods (Static)
     % Consolidate solved calibration points
     function [] = consolidatePoints()
         
+        % Clear or create calibration output directory
+        outputdir = PathFinder.getCalibrationOutputDir();
+        if exist(outputdir, 'dir'), rmdir(outputdir, 's'), end, mkdir(outputdir)
+        
+        
+        
         % Initialize vectors of parameters, targets, and solution conditions
         for p = ModelCalibrator.paramlist , paramv.( p{1}) = []; end
         for e = ModelCalibrator.targetlist, targetv.(e{1}) = []; end
@@ -104,35 +110,23 @@ methods (Static)
             solved = [solved, s.solved]; %#ok<AGROW>
             
         end
-        solved = boolean(solved); %#ok<NASGU>
+        solved = boolean(solved);
         
-        % Save consolidated calibration points to calibration output directory
-        outdir = PathFinder.getCalibrationOutputDir();
-        if exist(outdir, 'dir'), rmdir(outdir, 's'), end, mkdir(outdir)
-        save(fullfile(outdir, 'calibration.mat'), 'paramv', 'targetv', 'solved');
+        % Save consolidated points to calibration output directory
+        save(fullfile(outputdir, 'calibration.mat'), 'paramv', 'targetv', 'solved');
         
-    end
-    
-    
-    % Plot solution conditions for calibration points in calibration input directory
-    function [] = plotConditions()
         
-        % Load calibration points from calibration input directory
-        s = load(fullfile(PathFinder.getCalibrationInputDir(), 'calibration.mat'));
-        paramv  = s.paramv ;
-        targetv = s.targetv;
-        solved  = s.solved ;
         
-        % Initialize figure
-        figure(1); ax = axes;
+        % Initialize plot of calibration point solution conditions
+        fig = figure; ax = axes;
         
         % Determine colors
-        cv = zeros(ModelCalibrator.nset, 3);
+        cv = zeros(ModelCalibrator.npoint, 3);
         devs = min(abs(targetv.captoout(solved)' - 3).^0.5, 1);
         cv( solved, :) = [devs, ones(size(devs)), devs]*180/256;        % Gray to green
         cv(~solved, :) = repmat([200/256, 0, 0], [sum(~solved), 1]);    % Red
         
-        % Plot parameter sets
+        % Plot solution conditions
         scatter3(paramv.beta, paramv.gamma, paramv.sigma, 40, cv, 'filled');
         
         % Format axes
@@ -141,6 +135,9 @@ methods (Static)
         ylabel('gamma'), ax.YScale = 'linear'; ax.YTickMode = 'manual'; ax.YTick = linspace(ax.YLim(1)       , ax.YLim(2)       , 3); ax.YMinorTick = 'off';
         zlabel('sigma'), ax.ZScale = 'log'   ; ax.ZTickMode = 'manual'; ax.ZTick = logspace(log10(ax.ZLim(1)), log10(ax.ZLim(2)), 3); ax.ZMinorTick = 'off';
         grid(ax, 'minor')
+        
+        % Save plot to calibration output directory
+        savefig(fig, fullfile(outputdir, 'conditions.fig'));
         
     end
     
