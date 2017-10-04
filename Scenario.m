@@ -152,6 +152,12 @@ classdef Scenario
         end
         
         
+        % Identify if scenario represents steady state
+        function [flag] = isSteady(this)
+            flag = strcmp(this.economy, 'steady');
+        end
+        
+        
         % Identify if scenario represents open economy
         function [flag] = isOpen(this)
             flag = strcmp(this.economy, 'open');
@@ -170,6 +176,39 @@ classdef Scenario
             flag = strcmp(this.economy      , scenario.economy      ) ...
                 && strcmp(this.basedeftag   , scenario.basedeftag   ) ...
                 && strcmp(this.counterdeftag, scenario.counterdeftag);
+        end
+        
+        
+        % Identify if scenario is a dependency of another scenario
+        % 
+        %   Dependencies:
+        %   
+        %       Steady state current policy         Steady state counterfactual
+        %           (None)                              (None)
+        %       
+        %       Open economy current policy         Open economy counterfactual
+        %           Steady state current policy         Steady state current policy
+        %                                               Open economy current policy
+        %       
+        %       Closed economy current policy       Closed economy counterfactual
+        %           Steady state current policy         Steady state current policy
+        %           Open economy current policy         Open economy current policy
+        %                                               Closed economy current policy
+        %                                               Open economy counterfactual
+        %   
+        function [flag] = isDependency(this, scenario)
+            if scenario.isSteady()
+                flag = false;
+            else
+                if scenario.isCurrentPolicy()
+                    flag = this.isEquivalent(scenario.steady())  ...
+                        || (scenario.isClosed() && this.isEquivalent(scenario.open()));
+                else
+                    scenario_currentPolicy = scenario.currentPolicy();
+                    flag = this.isEquivalent(scenario_currentPolicy)  || this.isEquivalent(scenario_currentPolicy.steady()) ...
+                        || (scenario.isClosed() && (this.isEquivalent(scenario.open()) || this.isEquivalent(scenario_currentPolicy.open())));
+                end
+            end
         end
         
         
