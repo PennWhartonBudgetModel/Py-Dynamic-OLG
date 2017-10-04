@@ -14,7 +14,7 @@ properties (Constant)
     ntarget     = length(modelCalibrator.targetlist);
     
     % Define number of discretization points for each parameter
-    npoint = 6;
+    npoint = 3;
     
     % Define number of parameter sets per batch
     batchsize = 1;

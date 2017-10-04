@@ -265,7 +265,7 @@ methods (Static)
     function s = production()
         
         s.A     = 1;      % Total factor productivity
-        s.alpha = 0.45;   % Capital share of output
+        s.alpha = 0.35;   % Capital share of output
         s.d     = 0.085;  % Depreciation rate
 
     end % production
