@@ -14,10 +14,10 @@ properties (Constant)
     ntarget     = length(ModelCalibrator.targetlist);
     
     % Define number of discretization points for each parameter
-    npoint = 4;
+    npoint = 10;
     
     % Define number of parameter sets per batch
-    batchsize = 1;
+    batchsize = 2;
     
     % Determine number of parameter sets and number of batches
     %   REM: There are 3 dimensions for the calibration grid:
