@@ -5,16 +5,16 @@
 *.o*
 *.e*
 
-# Ignore working directories and log directories
-Working/
-Logs/
-
-# Ignore batch and run directories
-/Batches
-/Scenarios
-
 # Ignore designated directories
 .ignore/
+
+# Ignore working directories and log directories
+/Working
+/Logs
+
+# Ignore calibration point and scenario directories
+/CalibrationPoints
+/Scenarios
 
 # Ignore Linux mex files (i.e. mex files built on the HPCC)
 *.mexa64
