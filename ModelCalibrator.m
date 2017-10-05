@@ -17,7 +17,7 @@ properties (Constant)
     npoint = 10;
     
     % Define number of parameter sets per batch
-    batchsize = 2;
+    batchsize = 1;
     
     % Determine number of parameter sets and number of batches
     %   REM: There are 3 dimensions for the calibration grid:
@@ -390,6 +390,59 @@ methods (Static)
         fprintf( fileID, ' ==== DONE ===== \r\n' );    
         fclose( fileID );
     end % function report_baseline_moments
+
+    %% 
+    %   Adjust calibration grid boundaries
+function [grid_beta, grid_gamma, grid_sigma] = adjust_grid()
+    
+    epsilon = 1e-4;
+    [~,f_invert] = ModelCalibrator.invert();
+    green = [0 180/256 0];
+    cv    = repmat(reshape(green, [3,1]), [1,16])';%zeros(16,3);
+    grid_beta  = [0.950 1.100];
+    grid_gamma = [0.150 0.900];
+    grid_sigma = [1.200 9.000];
+    delta_beta  = zeros(16,2);
+    delta_gamma = zeros(16,2);
+    delta_sigma = zeros(16,2);
+    labelasv = zeros(16,1);
+    savelasv = zeros(16,1);
+    iter = 1;
+    
+    for labelas = 0.25:0.25:1.00
+        for savelas = 0.25:0.25:1.00
+            
+            target  = struct('labelas', labelas, 'savelas', savelas);
+            inverse = f_invert(target);
+            delta_beta(iter,:)  = [(inverse.beta  - grid_beta(1))/inverse.beta , (grid_beta(2) - inverse.beta)/inverse.beta  ];
+            delta_gamma(iter,:) = [(inverse.gamma - grid_gamma(1))/inverse.gamma, (grid_gamma(2) - inverse.gamma)/inverse.gamma];
+            delta_sigma(iter,:) = [(inverse.sigma - grid_sigma(1))/inverse.sigma, (grid_sigma(2) - inverse.sigma)/inverse.sigma];
+            delta = min(min(min(delta_beta(iter,:), delta_gamma(iter,:)), delta_sigma(iter,:)));
+            if (delta <= epsilon)
+                cv(iter,:) = [1, delta, 0]*200/256;
+            end
+            labelasv(iter,1) = labelas;
+            savelasv(iter,1) = savelas;
+            iter = iter + 1;
+        end
+    end
+            
+    % Plot
+    scatter(labelasv, savelasv, 40, cv, 'filled');
+	xlabel('labor elasticity'  ,'FontSize',13); set(gca,'XTick',0:0.25:1.00) 
+	ylabel('savings elasticity','FontSize',13); set(gca,'YTick',0:0.25:1.00)
+    grid on
+
+    % Adjust grids
+    if (min(delta_beta(:,1))  <= epsilon), grid_beta(1)  = 0.9*grid_beta(1) ; end
+    if (min(delta_beta(:,2))  <= epsilon), grid_beta(2)  = 1.1*grid_beta(2) ; end
+    if (min(delta_gamma(:,1)) <= epsilon), grid_gamma(1) = 0.9*grid_gamma(1); end
+    if (min(delta_gamma(:,2)) <= epsilon), grid_gamma(2) = 1.1*grid_gamma(2); end
+    if (min(delta_sigma(:,1)) <= epsilon), grid_sigma(1) = max(1.01, 0.9*grid_sigma(1)); end
+    if (min(delta_sigma(:,2)) <= epsilon), grid_sigma(2) = 1.1*grid_sigma(2); end
+    
+    
+end
 
 end % methods
 
