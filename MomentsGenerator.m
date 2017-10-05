@@ -9,7 +9,7 @@ classdef MomentsGenerator
         modelunit_dollar;
         a_distdata; a_distmodel; a_ginimodel; a_lorenz;
         l_distdata; l_distmodel; l_ginimodel; l_lorenz;
-        DIST; T_life; karray;
+        DIST; T_life; kv; karray;
 
     end
     
@@ -44,6 +44,7 @@ classdef MomentsGenerator
             nk   = s.nk;         % num asset points
             nb   = s.nb;         % num avg. earnings points
             % Useful later for a couple of functions
+            this.kv = s.kv;
             this.karray = repmat(reshape(s.kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,T_model,ndem])  ;
             this.T_life = T_life;
 
@@ -251,6 +252,7 @@ classdef MomentsGenerator
         % Graph - Distribution of individuals by asset holdings grid points
         function [] = plot_a_dist(this)
             
+            kv     = this.kv;
             nk     = size(this.DIST,2);
             kdist  = zeros(1,nk);
             for ik = 1:nk
@@ -261,7 +263,16 @@ classdef MomentsGenerator
             figure
             plot(1:nk,kdist, 'LineWidth',2)
             title('Distribution of individuals by asset holdings grid points','FontSize',16)
-            xlabel('grid point number','FontSize',13)
+            xlabel('grid point in dollars','FontSize',13)
+            set(gca,'XTick',1:1:nk)
+            set(gca,'XTickLabel',{num2str(round(kv(1)/this.modelunit_dollar)),...
+                num2str(round(kv(2)/this.modelunit_dollar)),num2str(round(kv(3)/this.modelunit_dollar)),...
+                num2str(round(kv(4)/this.modelunit_dollar)),num2str(round(kv(5)/this.modelunit_dollar)),...
+                num2str(round(kv(6)/this.modelunit_dollar)),num2str(round(kv(7)/this.modelunit_dollar)),...
+                num2str(round(kv(8)/this.modelunit_dollar)),num2str(round(kv(9)/this.modelunit_dollar)),...
+                num2str(round(kv(10)/this.modelunit_dollar)),num2str(round(kv(11)/this.modelunit_dollar)),...
+                num2str(round(kv(12)/this.modelunit_dollar))})
+
             ylabel('share of population','FontSize',13)
             
         end
