@@ -28,4 +28,4 @@ qsub -N solve -t 1-$(ls -1 ./Scenarios | wc -l) \
 qsub -N generate -hold_jid solve \
      -q short.q \
      -j y -o ${LOGDIR}'/generate.log' \
-     -b y 'matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), BatchSolver.checkTerminations(), BatchSolver.generateDataSeries($1)"'
+     -b y 'matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), BatchSolver.checkTerminations(), BatchSolver.generateDataSeries('$1')"'

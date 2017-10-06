@@ -10,151 +10,123 @@ properties (Constant)
     paramlist = {'beta', 'gamma', 'sigma', 'modelunit_dollar'};
     
     % Define list of targets
-    targetlist  = {'captoout', 'labelas', 'savelas', 'outperHH'};
-    ntarget     = length(ModelCalibrator.targetlist);
+    targetlist = {'captoout', 'labelas', 'savelas', 'outperHH'};
+    ntarget    = length(ModelCalibrator.targetlist);
     
-    % Define number of discretization points for each parameter
-    npoint = 10;
+    % Define number of discretization points for each dimension of the calibration grid
+    ngrid = 2;
     
-    % Define number of parameter sets per batch
-    batchsize = 1;
+    % Determine total number of calibration points
+    %   There are 3 dimensions for the calibration grid -- beta, sigma, gamma
+    npoint = ModelCalibrator.ngrid ^ 3;
     
-    % Determine number of parameter sets and number of batches
-    %   REM: There are 3 dimensions for the calibration grid:
-    %              beta, sigma, gamma
-    nset   = ModelCalibrator.npoint ^ 3;
-    nbatch = ceil(ModelCalibrator.nset / ModelCalibrator.batchsize);
-    
-    % Define batch directory and batch file path
-    batch_dir  = fullfile(PathFinder.getSourceDir(), 'Batches');
-    batch_file = @(ibatch) fullfile(ModelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch));
+    % Define calibration point directory and calibration point file path
+    pointdir  = fullfile(PathFinder.getSourceDir(), 'CalibrationPoints');
+    pointfile = @(ipoint) fullfile(ModelCalibrator.pointdir, sprintf('point%05d.mat', ipoint));
     
     % Define the moment targets for the reports on how we did
-    %    Cell array: Col1=varname, Col2=value, Col3=description
+    %   Cell array: { Variable Name, Value, Description }
     moment_targets   = {'r',        0.05,   'Return on capital';
                         'PIT',      0.08,   'PIT/GDP';
                         'SSTax',    0.05,   'SSTax/GDP';
                         'KbyY',     3.0,    'Capital/GDP';
                         'outperHH', 7.98e4, 'GDP$/adult';};
     
- end
+end
 
 methods (Static)
     
-    % Define batches of parameter sets
-    function [] = define_batches()
+    % Define calibration points
+    function [] = definePoints()
+        
+        assert(ModelCalibrator.npoint <= 75000, 'Number of calibration points exceeds HPCC task array job size limit.')
+        
+        % Clear or create calibration point directory
+        if exist(ModelCalibrator.pointdir, 'dir'), rmdir(ModelCalibrator.pointdir, 's'), end, mkdir(ModelCalibrator.pointdir)
         
         % Specify parameter lower and upper bounds
         lb.beta = 0.950; lb.gamma = 0.150; lb.sigma = 1.08;
         ub.beta = 1.100; ub.gamma = 0.900; ub.sigma = 9.00;
         
         % Construct vectors of parameter values
-        v.beta  = linspace(lb.beta        , ub.beta        , ModelCalibrator.npoint);
-        v.gamma = linspace(lb.gamma       , ub.gamma       , ModelCalibrator.npoint);
-        v.sigma = logspace(log10(lb.sigma), log10(ub.sigma), ModelCalibrator.npoint);
+        v.beta  = linspace(lb.beta        , ub.beta        , ModelCalibrator.ngrid);
+        v.gamma = linspace(lb.gamma       , ub.gamma       , ModelCalibrator.ngrid);
+        v.sigma = logspace(log10(lb.sigma), log10(ub.sigma), ModelCalibrator.ngrid);
         
-        % Generate grid parameter sets as unique combinations of parameter values
+        % Generate calibration points as unique combinations of parameter values
         [grid.beta, grid.gamma, grid.sigma] = ndgrid(v.beta, v.gamma, v.sigma);
-        for i = 1:ModelCalibrator.nset
+        for ipoint = 1:ModelCalibrator.npoint
             for p = {'beta', 'gamma', 'sigma'}
-                paramsets(i).(p{1}) = grid.(p{1})(i); %#ok<AGROW>
-            end 
-        end 
- 
-        % Clear or create batch directory
-        if exist(ModelCalibrator.batch_dir, 'dir'), rmdir(ModelCalibrator.batch_dir, 's'), end, mkdir(ModelCalibrator.batch_dir)
-        
-        % Extract and save batches of parameter sets
-        for ibatch = 1:ModelCalibrator.nbatch
-            
-            shift = (ibatch-1)*ModelCalibrator.batchsize;
-            params = paramsets(shift+1 : min(shift+ModelCalibrator.batchsize, end)); %#ok<NASGU>
-            save(ModelCalibrator.batch_file(ibatch), 'params')
-            
+                params.(p{1}) = grid.(p{1})(ipoint); %#ok<STRNU>
+            end
+            save(ModelCalibrator.pointfile(ipoint), 'params')
         end
         
     end
     
     
-    % Solve dynamic model steady states for all parameter sets in a batch
-    function [] = solve_batch(ibatch)
+    % Solve calibration point
+    function [] = calibratePoint(ipoint)
         
-        % Load batch of parameter sets
-        s = load(ModelCalibrator.batch_file(ibatch)); 
+        % Load parameter values for calibration point
+        s = load(ModelCalibrator.pointfile(ipoint)); 
         params = s.params; clear('s');
-        nparamsets = length(params);
         
-        parfor i = 1:nparamsets  
-            % Calibrate steady state on modelunit_dollar
-            [ targets(i), modelunit_dollar(i), solved(i) ] = ModelCalibrator.calibrate_dollar( params(i) ); %#ok<NASGU,PFOUS,ASGLU>
-        end
+        % Calibrate steady state on modelunit_dollar
+        [targets, modelunit_dollar, solved] = ModelCalibrator.calibrate_dollar(params); %#ok<ASGLU>
         
-        % Add modelunit_dollar to the params
-        for i = 1:nparamsets
-            params(i).modelunit_dollar = modelunit_dollar(i);
-        end
+        % Extend parameters structure
+        params.modelunit_dollar = modelunit_dollar;
         
-        % Save elasticity sets and solution conditions to batch file
-        % Rem: Overwrite parambatch since modelunit_dollar will have been modified
-        save(ModelCalibrator.batch_file(ibatch), '-append' ...
-                            , 'targets', 'solved', 'params' );
+        % Save parameters, targets, and solution condition to calibration point file
+        save(ModelCalibrator.pointfile(ipoint), 'params', 'targets', 'solved');
         
     end
     
     
-    % Consolidate solutions from batch runs
-    function [] = consolidate_batches(clean)
+    % Consolidate solved calibration points
+    function [] = consolidatePoints()
         
-        % Initialize vectors of parameters, elasticities, and solution conditions
-        for p = ModelCalibrator.paramlist , paramv.(p{1})  = []; end
+        % Clear or create calibration output directory
+        outputdir = PathFinder.getCalibrationOutputDir();
+        if exist(outputdir, 'dir'), rmdir(outputdir, 's'), end, mkdir(outputdir)
+        
+        
+        
+        % Initialize vectors of parameters, targets, and solution conditions
+        for p = ModelCalibrator.paramlist , paramv.( p{1}) = []; end
         for e = ModelCalibrator.targetlist, targetv.(e{1}) = []; end
         solved = [];
         
-        % Load and consolidate solutions from batch files
-        for ibatch = 1:ModelCalibrator.nbatch
+        % Load and consolidate calibration points
+        for ipoint = 1:ModelCalibrator.npoint
             
-            fprintf('Reading batch %5d of %5d\n', ibatch, ModelCalibrator.nbatch)
+            fprintf('Reading calibration point %5d of %5d\n', ipoint, ModelCalibrator.npoint)
             
-            s = load(fullfile(ModelCalibrator.batch_dir, sprintf('batch%05d.mat', ibatch)));
+            s = load(ModelCalibrator.pointfile(ipoint));
             
-            for p = ModelCalibrator.paramlist , paramv.(p{1})   = [paramv.(p{1}) , s.params.(p{1}) ]; end
-            for e = ModelCalibrator.targetlist, targetv.( e{1}) = [targetv.(e{1}), s.targets.(e{1})]; end
+            for p = ModelCalibrator.paramlist , paramv.( p{1}) = [paramv.( p{1}), s.params.( p{1})]; end
+            for e = ModelCalibrator.targetlist, targetv.(e{1}) = [targetv.(e{1}), s.targets.(e{1})]; end
             solved = [solved, s.solved]; %#ok<AGROW>
             
         end
-        solved = boolean(solved); %#ok<NASGU>
+        solved = boolean(solved);
         
-        % Save solutions to new calibration file in new input version directory
-        outdir = PathFinder.getCalibrationOutputDir();
-        if exist(outdir, 'dir'), rmdir(outdir, 's'), end, mkdir(outdir)
-        save(fullfile(outdir, 'calibration.mat'), 'paramv', 'targetv', 'solved');
+        % Save consolidated points to calibration output directory
+        save(fullfile(outputdir, 'calibration.mat'), 'paramv', 'targetv', 'solved');
         
-        % Delete batch directory
-        if (exist('clean', 'var') && clean), rmdir(ModelCalibrator.batch_dir, 's'), end
         
-    end
-    
-    
-    % Plot calibration solution conditions
-    function [] = plot_conditions()
         
-        % Load calibration solutions
-        cal_dir = PathFinder.getCalibrationInputDir();
-        s       = load(fullfile(cal_dir, 'calibration.mat'));
-        paramv  = s.paramv;
-        targetv = s.targetv ;
-        solved  = s.solved;
-        
-        % Initialize figure
-        figure(1); ax = axes;
+        % Initialize plot of calibration point solution conditions
+        fig = figure; ax = axes;
         
         % Determine colors
-        cv = zeros(ModelCalibrator.nset, 3);
+        cv = zeros(ModelCalibrator.npoint, 3);
         devs = min(abs(targetv.captoout(solved)' - 3).^0.5, 1);
         cv( solved, :) = [devs, ones(size(devs)), devs]*180/256;        % Gray to green
         cv(~solved, :) = repmat([200/256, 0, 0], [sum(~solved), 1]);    % Red
         
-        % Plot parameter sets
+        % Plot solution conditions
         scatter3(paramv.beta, paramv.gamma, paramv.sigma, 40, cv, 'filled');
         
         % Format axes
@@ -164,37 +136,13 @@ methods (Static)
         zlabel('sigma'), ax.ZScale = 'log'   ; ax.ZTickMode = 'manual'; ax.ZTick = logspace(log10(ax.ZLim(1)), log10(ax.ZLim(2)), 3); ax.ZMinorTick = 'off';
         grid(ax, 'minor')
         
+        % Save plot to calibration output directory
+        savefig(fig, fullfile(outputdir, 'conditions.fig'));
+        
     end
     
     
-    % Invert target elasticities, constructing a reusable elasticity inverter in the process
-    function [inverse, f] = invert(target)
-        
-        % Load calibration solutions
-        cal_dir = PathFinder.getCalibrationInputDir();
-        s       = load(fullfile(cal_dir, 'calibration.mat'));
-        paramv  = s.paramv;
-        targetv = s.targetv ;
-        solved  = s.solved;
-        
-        % Construct inverse interpolants that map individual targets to parameters
-        for p = ModelCalibrator.paramlist
-            interp.(p{1}) = scatteredInterpolant(targetv.captoout(solved)', targetv.labelas(solved)', targetv.savelas(solved)', paramv.(p{1})(solved)', 'nearest');
-        end
-        
-        % Construct elasticity inverter by consolidating inverse interpolants
-        function [inverse] = f_(target)
-            captoout = 3;
-            for p_ = ModelCalibrator.paramlist, inverse.(p_{1}) = interp.(p_{1})(captoout, target.labelas, target.savelas); end
-        end
-        f = @f_;
-        
-        % Invert target
-        if exist('target', 'var'), inverse = f(target); else, inverse = struct(); end
-        
-    end
-
-
+    
     %%
     %   Single loop to calibrate on modelunit_dollar targets
     function [ targets, modelunit_dollar, is_solved ] = calibrate_dollar( gridpoint )
@@ -365,7 +313,7 @@ methods (Static)
         fprintf( fileID, '%s \r\n', datestr(now));
         
         % load the matrix and get inverter function
-        [~, f_invert] = ModelCalibrator.invert();               
+        [~, f_invert] = ParamGenerator.invert();
         
         for labelas = 0.25:0.25:1.0
             for savelas = 0.25:0.25:1.0
@@ -396,7 +344,7 @@ methods (Static)
 function [grid_beta, grid_gamma, grid_sigma] = adjust_grid()
     
     epsilon = 1e-4;
-    [~,f_invert] = ModelCalibrator.invert();
+    [~, f_invert] = ParamGenerator.invert();
     green = [0 180/256 0];
     cv    = repmat(reshape(green, [3,1]), [1,16])';%zeros(16,3);
     grid_beta  = [0.950 1.100];
