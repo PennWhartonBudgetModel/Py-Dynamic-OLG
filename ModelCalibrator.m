@@ -45,7 +45,7 @@ methods (Static)
         if exist(ModelCalibrator.pointdir, 'dir'), rmdir(ModelCalibrator.pointdir, 's'), end, mkdir(ModelCalibrator.pointdir)
         
         % Specify parameter lower and upper bounds
-        lb.beta = 0.950; lb.gamma = 0.150; lb.sigma = 1.08;
+        lb.beta = 0.950; lb.gamma = 0.150; lb.sigma = 1.20;
         ub.beta = 1.100; ub.gamma = 0.900; ub.sigma = 9.00;
         
         % Construct vectors of parameter values
@@ -349,7 +349,7 @@ function [grid_beta, grid_gamma, grid_sigma] = adjust_grid()
     cv    = repmat(reshape(green, [3,1]), [1,16])';%zeros(16,3);
     grid_beta  = [0.950 1.100];
     grid_gamma = [0.150 0.900];
-    grid_sigma = [1.080 9.000];
+    grid_sigma = [1.200 9.000];
     delta_beta  = zeros(16,2);
     delta_gamma = zeros(16,2);
     delta_sigma = zeros(16,2);
