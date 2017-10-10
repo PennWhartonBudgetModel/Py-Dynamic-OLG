@@ -139,6 +139,14 @@ methods (Static)
         end
         compress_scenarios();
         
+        % Remove CurrentPolicy scenarios to work around aws parallel read/write conflicts
+        for i = 1:length(scenarios)
+            if scenarios{i}.isCurrentPolicy()
+                scenarios{i} = [];
+            end
+        end
+        compress_scenarios();
+        
         % Clear or create scenario directory
         if exist(BatchSolver.scenariodir, 'dir'), rmdir(BatchSolver.scenariodir, 's'), end, mkdir(BatchSolver.scenariodir)
         
