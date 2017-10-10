@@ -130,8 +130,8 @@ methods (Static)
         nz = 5;
         zs(5,:,:) = zs(4,:,:) * 15;
         transz = [transz(1,1) transz(1,2) transz(1,3) transz(1,4) 0.00;
-                  transz(2,1) transz(2,2) 0.02        0.02        (1-2*transz(2,1)-2*0.02);
-                  transz(3,1) transz(3,2) 0.47        0.47        (1-2*transz(3,2)-2*0.465) ;
+                  transz(2,1) transz(2,2) 0.02        0.02        (1-(transz(2,1)+transz(2,2))-2*0.02);
+                  transz(3,1) transz(3,2) 0.47        0.47        (1-(transz(3,2)+transz(3,2))-2*0.47) ;
                   0.03        0.03        0.47        0.46         0.01                    ;
                   0.15        0.05        0.05        0.25         0.50];
         DISTz0 = [DISTz0 0];
