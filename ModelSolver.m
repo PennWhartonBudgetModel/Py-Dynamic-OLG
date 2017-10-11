@@ -364,8 +364,9 @@ methods (Static)
             Static.cits_foreign  = zeros(1,T_model);
             
             Static.caprevs       = Static.cits_domestic;
-            
-            
+            Static.debts         = Static.debts_domestic + Static.debts_foreign;
+            Static.revs          = Static.pits + Static.ssts + Static.cits - Static.bens;
+                 
             % Save static aggregates
             save(fullfile(save_dir, 'statics.mat'), '-struct', 'Static')
             
