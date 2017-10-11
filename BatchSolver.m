@@ -105,14 +105,14 @@ methods (Static)
     % Define minimal set of executable scenarios for a batch
     function [] = defineScenarios(batch)
         
-        % Define function to remove empty entries from cell array of scenarios
-        function [] = compress_scenarios()
-            scenarios = scenarios(~cellfun(@isempty, scenarios));
+        % Define function to remove empty entries from a cell array
+        function c_ = compress(c)
+            c_ = c(~cellfun(@isempty, c));
         end
         
         % Read batch of scenarios from database
         scenarios = BatchSolver.readBatch(batch);
-        compress_scenarios();
+        scenarios = compress(scenarios);
         
         % Remove duplicate scenarios
         for i = 1:length(scenarios)
@@ -123,7 +123,7 @@ methods (Static)
                 end
             end
         end
-        compress_scenarios();
+        scenarios = compress(scenarios);
         
         % Remove open economy scenarios with a corresponding closed economy scenario
         for i = 1:length(scenarios)
@@ -137,7 +137,7 @@ methods (Static)
                 end
             end
         end
-        compress_scenarios();
+        scenarios = compress(scenarios);
         
         % Remove CurrentPolicy scenarios to work around aws parallel read/write conflicts
         for i = 1:length(scenarios)
@@ -145,7 +145,7 @@ methods (Static)
                 scenarios{i} = [];
             end
         end
-        compress_scenarios();
+        scenarios = compress(scenarios);
         
         % Clear or create scenario directory
         if exist(BatchSolver.scenariodir, 'dir'), rmdir(BatchSolver.scenariodir, 's'), end, mkdir(BatchSolver.scenariodir)
