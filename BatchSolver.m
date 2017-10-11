@@ -86,7 +86,7 @@ methods (Static)
                 'CorporateTaxRate'              , 'corporate_tax_rate'              , ...
                 'HasSpecialPassThroughRate'     , 'has_special_pass_through_rate'   , ...
                 'HasImmediateExpensing'         , 'has_immediate_expensing'         , ...
-                'HasRepealCorporateExpensing'   , 'has_repeal_corporate_expensing'   );
+                'HasRepealCorporateExpensing'   , 'has_repeal_corporate_expensing'  );
             
             for o = fieldnames(colmap)'
                 colname = o{1};
@@ -164,7 +164,6 @@ methods (Static)
         currentpolicys  = compress(currentpolicys );
         counterfactuals = compress(counterfactuals);
         
-        
         % Clear or create scenario directory
         if exist(BatchSolver.scenariodir, 'dir'), rmdir(BatchSolver.scenariodir, 's'), end, mkdir(BatchSolver.scenariodir)
         
@@ -235,10 +234,13 @@ methods (Static)
             % Load scenario along with solver termination condition
             s = load(scenariofiles{i});
             
-            % Store termination condition, setting default values if missing
+            % Determine scenario index as listed in scenario directory
+            [~, index] = fileparts(scenariofiles{i});
+            
+            % Store termination condition, setting placeholder values if missing
             if ~isfield(s, 'termination'), s.termination = struct('iter', Inf, 'eps', Inf); end
             terminations = [terminations; ...
-                { i                         , ...
+                { index                     , ...
                   s.scenario.basedeftag     , ...
                   s.scenario.counterdeftag  , ...
                   s.scenario.economy        , ...
@@ -253,7 +255,7 @@ methods (Static)
         % Save termination conditions to csv file
         fid = fopen(fullfile(BatchSolver.scenariodir, 'terminations.csv'), 'w');
         fprintf(fid, 'ScenarioIndex,BaselineDefinition,CounterfactualDefinition,Economy,TerminationIteration,TerminationErrorTerm\n');
-        for i = 1:nscenario, fprintf(fid, '%d,%s,%s,%s,%d,%0.4f\n', terminations{sortinds(i),:}); end
+        for i = 1:nscenario, fprintf(fid, '%s,%s,%s,%s,%d,%0.4f\n', terminations{sortinds(i),:}); end
         fclose(fid);
         
     end
