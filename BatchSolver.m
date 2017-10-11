@@ -33,7 +33,7 @@ methods (Static)
                               'Server', 'ppi-slcsql.wharton.upenn.edu', 'PortNumber', 49170);
         
         % Get scenario rows from database using stored procedure
-        o = connection.exec( sprintf( 'EXEC p_ScenarioBatch %u', batch ) );
+        o = connection.exec( sprintf( 'EXEC p_ScenarioBatch "%s"', batch ) );
         rows = cell2struct( o.fetch().Data, o.columnnames(true), 2 );
         o.close();
         
