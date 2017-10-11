@@ -5,7 +5,7 @@
 #$ -o /dev/null
 
 # Build mex functions and define scenarios for specified batch ($1)
-matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), MexBuilder.all(), BatchSolver.defineScenarios($1)"
+matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), MexBuilder.all(), BatchSolver.defineScenarios('$1')"
 
 # Clear or create log directory
 LOGDIR='./Logs'
@@ -37,4 +37,4 @@ qsub -N counterfactual -hold_jid currentpolicy \
 qsub -N generate -hold_jid counterfactual \
      -q short.q \
      -j y -o ${LOGDIR}'/generate.log' \
-     -b y 'matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), BatchSolver.checkTerminations(), BatchSolver.generateDataSeries('$1')"'
+     -b y 'matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), BatchSolver.checkTerminations(), BatchSolver.generateDataSeries('"'"$1"'"')"'
