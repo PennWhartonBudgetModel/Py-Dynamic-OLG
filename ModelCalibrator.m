@@ -387,6 +387,7 @@ function [grid_beta, grid_gamma, grid_sigma] = adjust_grid()
     end
             
     % Plot
+    figure
     scatter(labelasv, savelasv, 40, cv, 'filled');
 	xlabel('labor elasticity'  ,'FontSize',13); set(gca,'XTick',0:0.25:1.00) 
 	ylabel('savings elasticity','FontSize',13); set(gca,'YTick',0:0.25:1.00)
