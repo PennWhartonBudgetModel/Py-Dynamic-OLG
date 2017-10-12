@@ -490,10 +490,10 @@ end % class ParamGenerator
 %  Helper function find tax plan ID corresponding to scenario tax parameters
 function [taxplanid] = find_taxplanid( scenario )
     
-    % Load tax plan map from tax plan input directory
-    taxplanmap = table2struct(readtable(fullfile(PathFinder.getTaxPlanInputDir(), 'TaxPlanMap.csv')));
+    % Load tax plan ID map from tax plan input directory
+    taxplanidmap = table2struct(readtable(fullfile(PathFinder.getTaxPlanInputDir(), 'TaxPlanMap.csv')));
     
-    % Find tax plan corresponding to scenario tax parameters
+    % Define mapping from dynamic model tax parameter names to tax plan parameter names
     parammap = struct(...
         'base_brackets'                 , 'BaseBrackets'                , ...
         'has_buffet_rule'               , 'HasBuffetRule'               , ...
@@ -506,20 +506,16 @@ function [taxplanid] = find_taxplanid( scenario )
         'has_immediate_expensing'       , 'HasImmediateExpensing'       , ...
         'has_repeal_corporate_expensing', 'HasRepealCorporateExpensing' );
     
-    match = arrayfun(@(row) ...
-        all(cellfun(@(param) ...
-            isequal(scenario.(param), row.(parammap.(param))), fieldnames(parammap))), ...
-        taxplanmap ...
-    );
-    
-    nmatch = sum(match);
-    assert(nmatch > 0, 'No tax plan found corresponding to scenario tax parameters.');
-    if (nmatch > 1)
-        fprintf('%u tax plans found corresponding to scenario tax parameters. First matching plan will be used\n', nmatch);
+    % Return ID of first tax plan with parameter values matching scenario tax parameter values
+    %   Tax plan parameters not used by the dynamic model are ignored
+    for i = 1:length(taxplanidmap)
+        if all(cellfun(@(param) isequal(scenario.(param), taxplanidmap(i).(parammap.(param))), fieldnames(parammap)))
+            taxplanid = num2str(taxplanidmap(i).ID);
+            return
+        end
     end
     
-    % Extract ID and convert to character array
-    taxplanid = num2str(taxplanmap(find(match,1)).ID); 
+    error('No tax plan found corresponding to scenario tax parameter values.');
     
 end
 
