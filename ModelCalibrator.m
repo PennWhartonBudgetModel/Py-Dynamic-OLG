@@ -72,8 +72,20 @@ methods (Static)
         s = load(ModelCalibrator.pointfile(ipoint)); 
         params = s.params; clear('s');
         
-        % Calibrate steady state on modelunit_dollar
-        [targets, modelunit_dollar, solved] = ModelCalibrator.calibrate_dollar(params); %#ok<ASGLU>
+        try
+            
+            % Calibrate steady state on modelunit_dollar
+            [targets, modelunit_dollar, solved] = ModelCalibrator.calibrate_dollar(params); %#ok<ASGLU>
+            
+        catch e
+            
+            fprintf('Error encountered calibrating point %u:\n\t%s\nSaving placeholder solution values.\n', ipoint, e.message);
+            
+            for o = ModelCalibrator.targetlist, targets.(o{1}) = NaN; end
+            modelunit_dollar = NaN;
+            solved = false; %#ok<NASGU>
+            
+        end
         
         % Extend parameters structure
         params.modelunit_dollar = modelunit_dollar;
