@@ -14,7 +14,7 @@ properties (Constant)
     ntarget    = length(ModelCalibrator.targetlist);
     
     % Define number of discretization points for each dimension of the calibration grid
-    ngrid = 16;
+    ngrid = 10;
     
     % Determine total number of calibration points
     %   There are 3 dimensions for the calibration grid -- beta, sigma, gamma
