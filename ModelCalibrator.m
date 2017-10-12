@@ -106,23 +106,22 @@ methods (Static)
         
         
         % Initialize vectors of parameters, targets, and solution conditions
-        for p = ModelCalibrator.paramlist , paramv.( p{1}) = []; end
-        for e = ModelCalibrator.targetlist, targetv.(e{1}) = []; end
-        solved = [];
+        for o = ModelCalibrator.paramlist , paramv.( o{1}) = NaN(1, ModelCalibrator.npoint); end
+        for o = ModelCalibrator.targetlist, targetv.(o{1}) = NaN(1, ModelCalibrator.npoint); end
+        solved = false(1, ModelCalibrator.npoint);
         
         % Load and consolidate calibration points
-        for ipoint = 1:ModelCalibrator.npoint
+        for i = 1:ModelCalibrator.npoint
             
-            fprintf('Reading calibration point %5d of %5d\n', ipoint, ModelCalibrator.npoint)
+            fprintf('Reading calibration point %5d of %5d\n', i, ModelCalibrator.npoint)
             
-            s = load(ModelCalibrator.pointfile(ipoint));
+            s = load(ModelCalibrator.pointfile(i));
             
-            for p = ModelCalibrator.paramlist , paramv.( p{1}) = [paramv.( p{1}), s.params.( p{1})]; end
-            for e = ModelCalibrator.targetlist, targetv.(e{1}) = [targetv.(e{1}), s.targets.(e{1})]; end
-            solved = [solved, s.solved]; %#ok<AGROW>
+            for o = ModelCalibrator.paramlist , paramv.( o{1})(i) = s.params.( o{1}); end
+            for o = ModelCalibrator.targetlist, targetv.(o{1})(i) = s.targets.(o{1}); end
+            solved(i) = s.solved;
             
         end
-        solved = boolean(solved);
         
         % Save consolidated points to calibration output directory
         save(fullfile(outputdir, 'calibration.mat'), 'paramv', 'targetv', 'solved');
