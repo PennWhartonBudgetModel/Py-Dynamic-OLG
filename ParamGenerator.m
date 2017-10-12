@@ -487,7 +487,7 @@ end % class ParamGenerator
 
 
 %%
-%  Helper function find tax plan ID corresponding to scenario tax parameters
+%  Helper function to find tax plan ID corresponding to scenario tax parameter values
 function [taxplanid] = find_taxplanid( scenario )
     
     % Load tax plan ID map from tax plan input directory
@@ -506,16 +506,19 @@ function [taxplanid] = find_taxplanid( scenario )
         'has_immediate_expensing'       , 'HasImmediateExpensing'       , ...
         'has_repeal_corporate_expensing', 'HasRepealCorporateExpensing' );
     
-    % Return ID of first tax plan with parameter values matching scenario tax parameter values
-    %   Tax plan parameters not used by the dynamic model are ignored
-    for i = 1:length(taxplanidmap)
-        if all(cellfun(@(param) isequal(scenario.(param), taxplanidmap(i).(parammap.(param))), fieldnames(parammap)))
-            taxplanid = num2str(taxplanidmap(i).ID);
-            return
-        end
-    end
+    % Identify tax plans with parameter values matching scenario tax parameter values
+    match = arrayfun(@(row) ...
+        all(cellfun(@(param) ...
+            isequal(scenario.(param), row.(parammap.(param))), fieldnames(parammap))), ...
+        taxplanidmap ...
+    );
     
-    error('No tax plan found corresponding to scenario tax parameter values.');
+    % Check for singular match
+    assert(sum(match) > 0, 'No tax plan found with parameter values matching scenario tax parameter values.'           );
+    assert(sum(match) < 2, 'More than one tax plan found with parameter values matching scenario tax parameter values.');
+    
+    % Extract ID of matching tax plan
+    taxplanid = num2str(taxplanidmap(match).ID);
     
 end
 
