@@ -14,7 +14,7 @@ properties (Constant)
     ntarget    = length(ModelCalibrator.targetlist);
     
     % Define number of discretization points for each dimension of the calibration grid
-    ngrid = 2;
+    ngrid = 10;
     
     % Determine total number of calibration points
     %   There are 3 dimensions for the calibration grid -- beta, sigma, gamma
@@ -72,8 +72,20 @@ methods (Static)
         s = load(ModelCalibrator.pointfile(ipoint)); 
         params = s.params; clear('s');
         
-        % Calibrate steady state on modelunit_dollar
-        [targets, modelunit_dollar, solved] = ModelCalibrator.calibrate_dollar(params); %#ok<ASGLU>
+        try
+            
+            % Calibrate steady state on modelunit_dollar
+            [targets, modelunit_dollar, solved] = ModelCalibrator.calibrate_dollar(params); %#ok<ASGLU>
+            
+        catch e
+            
+            fprintf('Error encountered calibrating point %u:\n\t%s\nSaving placeholder solution values.\n', ipoint, e.message);
+            
+            for o = ModelCalibrator.targetlist, targets.(o{1}) = NaN; end
+            modelunit_dollar = NaN;
+            solved = false; %#ok<NASGU>
+            
+        end
         
         % Extend parameters structure
         params.modelunit_dollar = modelunit_dollar;
@@ -94,23 +106,22 @@ methods (Static)
         
         
         % Initialize vectors of parameters, targets, and solution conditions
-        for p = ModelCalibrator.paramlist , paramv.( p{1}) = []; end
-        for e = ModelCalibrator.targetlist, targetv.(e{1}) = []; end
-        solved = [];
+        for o = ModelCalibrator.paramlist , paramv.( o{1}) = NaN(1, ModelCalibrator.npoint); end
+        for o = ModelCalibrator.targetlist, targetv.(o{1}) = NaN(1, ModelCalibrator.npoint); end
+        solved = false(1, ModelCalibrator.npoint);
         
         % Load and consolidate calibration points
-        for ipoint = 1:ModelCalibrator.npoint
+        for i = 1:ModelCalibrator.npoint
             
-            fprintf('Reading calibration point %5d of %5d\n', ipoint, ModelCalibrator.npoint)
+            fprintf('Reading calibration point %5d of %5d\n', i, ModelCalibrator.npoint)
             
-            s = load(ModelCalibrator.pointfile(ipoint));
+            s = load(ModelCalibrator.pointfile(i));
             
-            for p = ModelCalibrator.paramlist , paramv.( p{1}) = [paramv.( p{1}), s.params.( p{1})]; end
-            for e = ModelCalibrator.targetlist, targetv.(e{1}) = [targetv.(e{1}), s.targets.(e{1})]; end
-            solved = [solved, s.solved]; %#ok<AGROW>
+            for o = ModelCalibrator.paramlist , paramv.( o{1})(i) = s.params.( o{1}); end
+            for o = ModelCalibrator.targetlist, targetv.(o{1})(i) = s.targets.(o{1}); end
+            solved(i) = s.solved;
             
         end
-        solved = boolean(solved);
         
         % Save consolidated points to calibration output directory
         save(fullfile(outputdir, 'calibration.mat'), 'paramv', 'targetv', 'solved');
@@ -376,6 +387,7 @@ function [grid_beta, grid_gamma, grid_sigma] = adjust_grid()
     end
             
     % Plot
+    figure
     scatter(labelasv, savelasv, 40, cv, 'filled');
 	xlabel('labor elasticity'  ,'FontSize',13); set(gca,'XTick',0:0.25:1.00) 
 	ylabel('savings elasticity','FontSize',13); set(gca,'YTick',0:0.25:1.00)

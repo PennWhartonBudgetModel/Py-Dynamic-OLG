@@ -7,10 +7,12 @@ classdef BatchSolver
 
 properties (Constant)
     
-    % Define scenario directory path, scenario file path generator, and scenario file lister
-    scenariodir   = fullfile(PathFinder.getSourceDir(), 'Scenarios');
-    scenariofile  = @(iscenario) fullfile(BatchSolver.scenariodir, sprintf('scenario%04d.mat', iscenario));
-    scenariofiles = @() dir(fullfile(BatchSolver.scenariodir, 'scenario*.mat'));
+    % Define scenario directory path
+    scenariodir = fullfile(PathFinder.getSourceDir(), 'Scenarios');
+    
+    % Define current policy and counterfactual scenario file path generators
+    currentpolicyfile  = @(i) fullfile(BatchSolver.scenariodir, sprintf('currentpolicy%05d.mat' , i));
+    counterfactualfile = @(i) fullfile(BatchSolver.scenariodir, sprintf('counterfactual%05d.mat', i));
     
 end
 
@@ -31,7 +33,7 @@ methods (Static)
                               'Server', 'ppi-slcsql.wharton.upenn.edu', 'PortNumber', 49170);
         
         % Get scenario rows from database using stored procedure
-        o = connection.exec( sprintf( 'EXEC p_ScenarioBatch %u', batch ) );
+        o = connection.exec( sprintf( 'EXEC p_ScenarioBatch "%s"', batch ) );
         rows = cell2struct( o.fetch().Data, o.columnnames(true), 2 );
         o.close();
         
@@ -77,13 +79,14 @@ methods (Static)
                 'ExpenditureShift'              , 'expenditure_shift'               , ...
                 'BaseBrackets'                  , 'base_brackets'                   , ...
                 'HasBuffetRule'                 , 'has_buffet_rule'                 , ...
-                'HasAGISurcharge_5m'            , 'has_agi_surcharge_5m'            , ...
-                'CorporateTaxRate'              , 'corporate_tax_rate'              , ...
                 'HasDoubleStandardDeduction'    , 'has_double_standard_deduction'   , ...
                 'HasLimitDeductions'            , 'has_limit_deductions'            , ...
-                'NoAMT'                         , 'no_amt'                          , ...
                 'HasExpandChildCredit'          , 'has_expand_child_credit'         , ...
-                'NoACAIncomeTax'                , 'no_aca_income_tax'               );
+                'NoACAIncomeTax'                , 'no_aca_income_tax'               , ...
+                'CorporateTaxRate'              , 'corporate_tax_rate'              , ...
+                'HasSpecialPassThroughRate'     , 'has_special_pass_through_rate'   , ...
+                'HasImmediateExpensing'         , 'has_immediate_expensing'         , ...
+                'HasRepealCorporateExpensing'   , 'has_repeal_corporate_expensing'  );
             
             for o = fieldnames(colmap)'
                 colname = o{1};
@@ -105,14 +108,14 @@ methods (Static)
     % Define minimal set of executable scenarios for a batch
     function [] = defineScenarios(batch)
         
-        % Define function to remove empty entries from cell array of scenarios
-        function [] = compress_scenarios()
-            scenarios = scenarios(~cellfun(@isempty, scenarios));
+        % Define function to remove empty entries from a cell array
+        function c_ = compress(c)
+            c_ = c(~cellfun(@isempty, c));
         end
         
         % Read batch of scenarios from database
         scenarios = BatchSolver.readBatch(batch);
-        compress_scenarios();
+        scenarios = compress(scenarios);
         
         % Remove duplicate scenarios
         for i = 1:length(scenarios)
@@ -123,7 +126,7 @@ methods (Static)
                 end
             end
         end
-        compress_scenarios();
+        scenarios = compress(scenarios);
         
         % Remove open economy scenarios with a corresponding closed economy scenario
         for i = 1:length(scenarios)
@@ -137,26 +140,55 @@ methods (Static)
                 end
             end
         end
-        compress_scenarios();
+        scenarios = compress(scenarios);
+        
+        % Separate scenarios into current policy scenarios and counterfactual scenarios
+        currentpolicys  = cell(size(scenarios));
+        counterfactuals = cell(size(scenarios));
+        
+        for i = 1:length(scenarios)
+            if scenarios{i}.isCurrentPolicy()
+                currentpolicys{i} = scenarios{i};
+            else
+                currentpolicys{i} = scenarios{i}.currentPolicy();
+                for j = 1:i-1
+                    if (~isempty(currentpolicys{j}) && currentpolicys{i}.isEquivalent(currentpolicys{j}))
+                        currentpolicys{i} = [];
+                        break;
+                    end
+                end
+                counterfactuals{i} = scenarios{i};
+            end
+        end
+
+        currentpolicys  = compress(currentpolicys );
+        counterfactuals = compress(counterfactuals);
         
         % Clear or create scenario directory
         if exist(BatchSolver.scenariodir, 'dir'), rmdir(BatchSolver.scenariodir, 's'), end, mkdir(BatchSolver.scenariodir)
         
-        % Save scenarios to scenario files
-        for iscenario = 1:length(scenarios)
-            scenario = scenarios{iscenario}; %#ok<NASGU>
-            save(BatchSolver.scenariofile(iscenario), 'scenario');
+        % Save current policy scenarios
+        for i = 1:length(currentpolicys)
+            scenario = currentpolicys{i}; %#ok<NASGU>
+            save(BatchSolver.currentpolicyfile(i), 'scenario');
+        end
+        
+        % Save counterfactual scenarios
+        for i = 1:length(counterfactuals)
+            scenario = counterfactuals{i}; %#ok<NASGU>
+            save(BatchSolver.counterfactualfile(i), 'scenario');
         end
         
     end
     
     
     
-    % Solve dynamic model for scenario indexed in scenario directory
-    function [] = solve(iscenario)
+    
+    % Solve dynamic model for a scenario stored in a scenario file
+    function [] = solve(scenariofile)
         
         % Load scenario
-        s = load(BatchSolver.scenariofile(iscenario));
+        s = load(scenariofile);
         scenario = s.scenario;
         
         % Solve dynamic model for scenario
@@ -169,30 +201,46 @@ methods (Static)
         termination.eps  = iterations(end, 2);
         
         termination = termination; %#ok<ASGSL,NASGU>
-        save(BatchSolver.scenariofile(iscenario), '-append', 'termination');
+        save(scenariofile, '-append', 'termination');
         
     end
+    
+    function [] = solveCurrentPolicy(i)
+        BatchSolver.solve(BatchSolver.currentpolicyfile(i));
+    end
+    
+    function [] = solveCounterfactual(i)
+        BatchSolver.solve(BatchSolver.counterfactualfile(i));
+    end
+    
     
     
     
     % Check solver termination conditions for scenarios in scenario directory
     function [] = checkTerminations()
         
-        % Identify number of scenario files
-        nscenario = length(BatchSolver.scenariofiles());
+        % Get all scenario files
+        scenariofiles = arrayfun(@(s) fullfile(s.folder, s.name), ...
+            [ dir(fullfile(BatchSolver.scenariodir, 'currentpolicy*.mat' )) ;
+              dir(fullfile(BatchSolver.scenariodir, 'counterfactual*.mat')) ], ...
+            'UniformOutput', false);
+        nscenario = length(scenariofiles);
         
         % Initialize cell array of termination conditions
         terminations = cell(0,6);
         
-        for iscenario = 1:nscenario
+        for i = 1:nscenario
             
-            % Load scenario and termination condition
-            s = load(BatchSolver.scenariofile(iscenario));
+            % Load scenario along with solver termination condition
+            s = load(scenariofiles{i});
             
-            % Store termination condition, setting default values if missing
+            % Determine scenario index as listed in scenario directory
+            [~, index] = fileparts(scenariofiles{i});
+            
+            % Store termination condition, setting placeholder values if missing
             if ~isfield(s, 'termination'), s.termination = struct('iter', Inf, 'eps', Inf); end
             terminations = [terminations; ...
-                { iscenario                 , ...
+                { index                     , ...
                   s.scenario.basedeftag     , ...
                   s.scenario.counterdeftag  , ...
                   s.scenario.economy        , ...
@@ -207,10 +255,11 @@ methods (Static)
         % Save termination conditions to csv file
         fid = fopen(fullfile(BatchSolver.scenariodir, 'terminations.csv'), 'w');
         fprintf(fid, 'ScenarioIndex,BaselineDefinition,CounterfactualDefinition,Economy,TerminationIteration,TerminationErrorTerm\n');
-        for iscenario = 1:nscenario, fprintf(fid, '%d,%s,%s,%s,%d,%0.4f\n', terminations{sortinds(iscenario),:}); end
+        for i = 1:nscenario, fprintf(fid, '%s,%s,%s,%s,%d,%0.4f\n', terminations{sortinds(i),:}); end
         fclose(fid);
         
     end
+    
     
     
     

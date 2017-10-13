@@ -130,8 +130,8 @@ methods (Static)
         nz = 5;
         zs(5,:,:) = zs(4,:,:) * 15;
         transz = [transz(1,1) transz(1,2) transz(1,3) transz(1,4) 0.00;
-                  transz(2,1) transz(2,2) 0.02        0.02        (1-2*transz(2,1)-2*0.02);
-                  transz(3,1) transz(3,2) 0.47        0.47        (1-2*transz(3,2)-2*0.465) ;
+                  transz(2,1) transz(2,2) 0.02        0.02        (1-(transz(2,1)+transz(2,2))-2*0.02);
+                  transz(3,1) transz(3,2) 0.47        0.47        (1-(transz(3,2)+transz(3,2))-2*0.47) ;
                   0.03        0.03        0.47        0.46         0.01                    ;
                   0.15        0.05        0.05        0.25         0.50];
         DISTz0 = [DISTz0 0];
@@ -258,9 +258,9 @@ methods (Static)
         %  The tax variable names are defined below.
         filename = strcat('CIT_', taxplanid, '.csv');
         tax_vars = read_tax_vars( filename );
-        s.captaxshare = tax_vars.CapitalTaxShare; 
-        s.expshare    = tax_vars.ExpensingShare; 
-        s.taucap      = tax_vars.CapitalTaxRate; 
+        s.captaxshare = tax_vars.capitalTaxShare; 
+        s.expshare    = tax_vars.expensingShare; 
+        s.taucap      = tax_vars.capitalTaxRate; 
         s.taucapgain  = 0;
         
         % Warn if parameters are outside expectations
@@ -487,35 +487,42 @@ end % class ParamGenerator
 
 
 %%
-%  Helper function find tax plan ID corresponding to scenario tax parameters
+%  Helper function to find tax plan ID corresponding to scenario tax parameter values
 function [taxplanid] = find_taxplanid( scenario )
     
-    % Load tax plan map from tax plan input directory
-    taxplanmap = table2struct(readtable(fullfile(PathFinder.getTaxPlanInputDir(), 'TaxPlanMap.csv')));
+    % Load tax plan ID map from tax plan input directory
+    taxplanidmap = table2struct(readtable(fullfile(PathFinder.getTaxPlanInputDir(), 'TaxPlanMap.csv')));
     
-    % Find tax plan corresponding to scenario tax parameters
+    % Define mapping from dynamic model tax parameter names to tax plan parameter names
     parammap = struct(...
         'base_brackets'                 , 'BaseBrackets'                , ...
         'has_buffet_rule'               , 'HasBuffetRule'               , ...
-        'has_agi_surcharge_5m'          , 'HasAGISurcharge_5m'          , ...
-        'corporate_tax_rate'            , 'CorporateTaxRate'            , ...
         'has_double_standard_deduction' , 'HasDoubleStandardDeduction'  , ...
         'has_limit_deductions'          , 'HasLimitDeductions'          , ...
-        'no_amt'                        , 'NoAMT'                       , ...
         'has_expand_child_credit'       , 'HasExpandChildCredit'        , ...
-        'no_aca_income_tax'             , 'NoACAIncomeTax'              );
+        'no_aca_income_tax'             , 'NoACAIncomeTax'              , ...
+        'corporate_tax_rate'            , 'CorporateTaxRate'            , ...
+        'has_special_pass_through_rate' , 'HasSpecialPassThroughRate'   , ...
+        'has_immediate_expensing'       , 'HasImmediateExpensing'       , ...
+        'has_repeal_corporate_expensing', 'HasRepealCorporateExpensing' );
     
+    % Identify tax plans with parameter values matching scenario tax parameter values
+    %   Default values specified for tax plan parameters not represented in dynamic model
     match = arrayfun(@(row) ...
+        row.('HasAGISurcharge_5m'         ) == false && ...
+        row.('HasPITRateOnCarriedInterest') == false && ...
         all(cellfun(@(param) ...
-            isequal(scenario.(param), row.(parammap.(param))), fieldnames(parammap))), ...
-        taxplanmap ...
+            isequal(scenario.(param), row.(parammap.(param))), fieldnames(parammap) ...
+        )), ...
+        taxplanidmap ...
     );
     
-    assert(sum(match) > 0, 'No tax plan found corresponding to scenario tax parameters.'           );
-    assert(sum(match) < 2, 'More than one tax plan found corresponding to scenario tax parameters.');
+    % Check for singular match
+    assert(sum(match) > 0, 'No tax plan found with parameter values matching scenario tax parameter values.'           );
+    assert(sum(match) < 2, 'More than one tax plan found with parameter values matching scenario tax parameter values.');
     
-    % Extract ID and convert to character array
-    taxplanid = num2str(taxplanmap(match).ID);
+    % Extract ID of matching tax plan
+    taxplanid = num2str(taxplanidmap(match).ID);
     
 end
 

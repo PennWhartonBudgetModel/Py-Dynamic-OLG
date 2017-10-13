@@ -11,8 +11,9 @@ properties (Constant, Access = private)
     inputversions = struct( ...
         'CBO'           , struct('cbo'          , '2017-09-14'                          ), ...
         'Microsim'      , struct('microsim'     , '2017-09-14'                          ), ...
-        'TaxCalculator' , struct('taxplan'      , '2017-10-09-TPC'                          ), ...
-        'DynamicModel'  , struct('calibration'  , '2017-10-05-14-40-danielav-4547f5d'   ));
+        'TaxCalculator' , struct('taxplan'      , '2017-10-09-TPC'                      ), ...
+        'DynamicModel'  , struct('calibration'  , '2017-10-12-14-38-danielav-594b26c'   )  ...
+        );
     
 end
 
@@ -48,9 +49,14 @@ methods (Static, Access = private)
     
     
     % Get HPCC root directory
-    %   Assumes that the HPCC is the only non-Windows execution location
+    %   Local path used if executing on the HPCC or on AWS through the HPCC
+    %   Server path used if executing elsewhere
     function [hpccrootdir] = getHpccRootDir()
-        if (ispc()), d = '\\hpcc.wharton.upenn.edu'; else, d = getenv('HOME'); end
+        if ~isempty(regexp(getenv('HOSTNAME'), '^(hpcc|aws)', 'once'))
+            d = fullfile(filesep, 'home', 'wcit', 'data', 'projects');
+        else
+            d = fullfile([filesep, filesep], 'hpcc.wharton.upenn.edu');
+        end
         hpccrootdir = fullfile(d, 'ppi');
     end
     
