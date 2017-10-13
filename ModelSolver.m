@@ -165,7 +165,7 @@ methods (Static)
                 
                 % Package fixed dynamic optimization arguments into anonymous function
                 solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active) solve_cohort(V0, LAB_static, isdynamic, ...
-                    nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, kpricescale*kv, bv, beta, gamma, sigma, surv, ...
+                    nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, Market.kpricescale*kv, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                     modelunit_dollar, ...
                     sstaxcredit, ssbenefits, sstaxs, ssincmaxs, ...
@@ -266,7 +266,7 @@ methods (Static)
                         DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz(:,:,g.illegal), [nz,1,1,T_life,1]) * P * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
                         
                         % Generate population distribution for next year
-                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kpricescale*kv, bv, surv);
+                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, Market.kpricescale*kv, bv, surv);
                         assert(all(DIST_next(:)>=0), 'Negative mass of people at DIST_next.')
                         
                         % Increase legal immigrant population for amnesty, maintaining distributions over productivity
@@ -306,7 +306,7 @@ methods (Static)
             f = @(F) sum(sum(reshape(DIST_gs .* F, [], T_model, ndem), 1), 3);
             
             Aggregate.pops     = f(1);                                                                                   % Population
-            Aggregate.assets   = f(repmat(reshape(kpricescale*kv, [1,nk,1,1,1,1]), [nz,1,nb,T_life,T_model,ndem]));                  % Assets
+            Aggregate.assets   = f(repmat(reshape(Market.kpricescale*kv, [1,nk,1,1,1,1]), [nz,1,nb,T_life,T_model,ndem]));                  % Assets
             Aggregate.bequests = f(OPTs.K .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));    % Bequests
             Aggregate.labs     = f(OPTs.LAB);                                                                            % Labor
             Aggregate.labeffs  = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));      % Effective labor
@@ -522,7 +522,7 @@ methods (Static)
             Market.rhos  = ((qtobin*Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
             Market.wages = A*(1-alpha)*(Market.rhos.^alpha);
             
-            kpricescale = 1 + Market.capshares(1)*(qtobin - qtobin0)/qtobin;
+            Market.kpricescale = 1 + Market.capshares(1)*(qtobin - qtobin0)/qtobin;
             
             % Generate dynamic aggregates
             [Dynamic, LABs, DIST, pgr, OPTs] = generate_aggregates(Market, DIST_steady, {}, {});
