@@ -344,7 +344,7 @@ methods (Static)
             % (Intermediary structure used to filter out extraneous fields)
             [Static_] = generate_aggregates(Market, {}, LABs_static, DIST_static);
             
-            for series = {'incs', 'pits', 'ssts', 'cits', 'bens'}
+            for series = {'incs', 'pits', 'ssts', 'cits', 'bens', 'labs'}
                 Static.(series{1}) = Static_.(series{1});
             end
             
@@ -366,7 +366,7 @@ methods (Static)
             Static.caprevs       = Static.cits_domestic;
             Static.debts         = Static.debts_domestic + Static.debts_foreign;
             Static.revs          = Static.pits + Static.ssts + Static.cits - Static.bens;
-                 
+            
             % Save static aggregates
             save(fullfile(save_dir, 'statics.mat'), '-struct', 'Static')
             
