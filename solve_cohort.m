@@ -298,7 +298,7 @@ if (nargin > 1)
     beq = beq_; capshare = capshare_; caprate = caprate_; govrate = govrate_; totrate = totrate_; expsub = expsub_;
     
     % Pre-calculate the percent cap gain (adjusted for realization)
-    capgain = 1*(year == 1)*(qtobin - qtobin0)/qtobin; 
+    capgain = 0*(year == 1)*(qtobin - qtobin0)/qtobin; 
     
     if isempty(labinc), return, end
 end
