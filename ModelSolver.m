@@ -344,7 +344,7 @@ methods (Static)
             % (Intermediary structure used to filter out extraneous fields)
             [Static_] = generate_aggregates(Market, {}, LABs_static, DIST_static);
             
-            for series = {'incs', 'pits', 'ssts', 'cits', 'bens'}
+            for series = {'incs', 'pits', 'ssts', 'cits', 'bens', 'labs'}
                 Static.(series{1}) = Static_.(series{1});
             end
             
@@ -352,7 +352,8 @@ methods (Static)
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
             
-            for series = {'labeffs', 'caps', 'lfprs', 'labincs', 'capincs', 'outs', 'caps_domestic', 'caps_foreign', 'debts_domestic', 'debts_foreign'}
+            for series = {'assets', 'labeffs', 'caps', 'lfprs', 'labincs', ...
+                            'capincs', 'outs', 'caps_domestic', 'caps_foreign', 'debts_domestic', 'debts_foreign'}
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
             
@@ -364,7 +365,8 @@ methods (Static)
             Static.cits_foreign  = zeros(1,T_model);
             
             Static.caprevs       = Static.cits_domestic;
-            
+            Static.debts         = Static.debts_domestic + Static.debts_foreign;
+            Static.revs          = Static.pits + Static.ssts + Static.cits - Static.bens;
             
             % Save static aggregates
             save(fullfile(save_dir, 'statics.mat'), '-struct', 'Static')
