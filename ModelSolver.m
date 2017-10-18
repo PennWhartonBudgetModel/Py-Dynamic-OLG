@@ -508,7 +508,7 @@ methods (Static)
                         Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
                     end
                     
-                    Market.caprates = max((A*alpha*(Market.rhos.^(alpha-1)) - d)/qtobin, 0);
+                    Market.caprates = max((A*alpha*(Market.rhos.^(alpha-1)) - d), 0);
                     Market.totrates = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
                     
                 case 'open'
@@ -521,7 +521,7 @@ methods (Static)
                     
             end
             
-            Market.rhos  = ((qtobin*Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
+            Market.rhos  = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
             Market.wages = A*(1-alpha)*(Market.rhos.^alpha);
             
             Market.kpricescale = 1 + Market.capshares(1)*(qtobin - qtobin0)/qtobin;
