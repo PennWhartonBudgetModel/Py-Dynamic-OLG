@@ -216,9 +216,9 @@ methods (Static)
         %  The tax variable names are defined below.
         filename = strcat('CIT_', taxplanid, '.csv');
         tax_vars = read_tax_vars( filename );
-        s.captaxshare = tax_vars.CapitalTaxShare; 
-        s.expshare    = tax_vars.ExpensingShare; 
-        s.taucap      = tax_vars.CapitalTaxRate; 
+        s.captaxshare = tax_vars.capitalTaxShare; 
+        s.expshare    = tax_vars.expensingShare; 
+        s.taucap      = tax_vars.capitalTaxRate; 
         s.taucapgain  = 0;
         
         % Warn if parameters are outside expectations
