@@ -306,7 +306,7 @@ methods (Static)
             f = @(F) sum(sum(reshape(DIST_gs .* F, [], T_model, ndem), 1), 3);
             
             Aggregate.pops     = f(1);                                                                                   % Population
-            Aggregate.assets   = f(repmat(reshape(Market.kpricescale*kv, [1,nk,1,1,1,1]), [nz,1,nb,T_life,T_model,ndem]));                  % Assets
+            Aggregate.assets   = f(repmat(reshape(Market.kpricescale*kv, [1,nk,1,1,1,1]), [nz,1,nb,T_life,T_model,ndem])); % Assets
             Aggregate.bequests = f(OPTs.K .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));    % Bequests
             Aggregate.labs     = f(OPTs.LAB);                                                                            % Labor
             Aggregate.labeffs  = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));      % Effective labor
@@ -344,7 +344,7 @@ methods (Static)
             % (Intermediary structure used to filter out extraneous fields)
             [Static_] = generate_aggregates(Market, {}, LABs_static, DIST_static);
             
-            for series = {'incs', 'pits', 'ssts', 'cits', 'bens', 'labs'}
+            for series = {'incs', 'pits', 'ssts', 'cits', 'bens', 'labs', 'cons', 'pops'}
                 Static.(series{1}) = Static_.(series{1});
             end
             
@@ -525,6 +525,8 @@ methods (Static)
             Market.wages = A*(1-alpha)*(Market.rhos.^alpha);
             
             Market.kpricescale = 1 + Market.capshares(1)*(qtobin - qtobin0)/qtobin;
+            Market.qtobin0     = qtobin0;
+            Market.qtobin      = qtobin;
             
             % Generate dynamic aggregates
             [Dynamic, LABs, DIST, pgr, OPTs] = generate_aggregates(Market, DIST_steady, {}, {});
@@ -631,6 +633,7 @@ methods (Static)
                     
             end
             
+            Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
             
             % Calculate maximum error in market clearing series
             eps = max(abs(clearing));
