@@ -14,7 +14,7 @@ properties (Constant)
     ntarget    = length(ModelCalibrator.targetlist);
     
     % Define number of discretization points for each dimension of the calibration grid
-    ngrid = 10;
+    ngrid = 15;
     
     % Determine total number of calibration points
     %   There are 3 dimensions for the calibration grid -- beta, sigma, gamma
@@ -45,8 +45,8 @@ methods (Static)
         if exist(ModelCalibrator.pointdir, 'dir'), rmdir(ModelCalibrator.pointdir, 's'), end, mkdir(ModelCalibrator.pointdir)
         
         % Specify parameter lower and upper bounds
-        lb.beta = 0.950; lb.gamma = 0.150; lb.sigma = 1.20;
-        ub.beta = 1.100; ub.gamma = 0.900; ub.sigma = 9.00;
+        lb.beta = 0.920; lb.gamma = 0.150; lb.sigma = 1.20;
+        ub.beta = 1.050; ub.gamma = 0.900; ub.sigma = 9.00;
         
         % Construct vectors of parameter values
         v.beta  = linspace(lb.beta        , ub.beta        , ModelCalibrator.ngrid);
