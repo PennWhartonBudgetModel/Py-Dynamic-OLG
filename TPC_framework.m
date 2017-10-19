@@ -4,7 +4,7 @@
 %%
 
 wipe;
-params = ParamGenerator.invert(struct('savelas', 1.5, 'labelas', 0.5));
+params = ParamGenerator.invert(struct('savelas', 0.6, 'labelas', 0.6));
 
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
@@ -40,6 +40,10 @@ m_steady = load(fullfile(steady_dir, 'market.mat' ), 'caprates', 'wages', 'rhos'
 m_open   = load(fullfile(open_dir  , 'market.mat' ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
 m_closed = load(fullfile(closed_dir, 'market.mat' ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
 
+% Reshape qtobin
+m_open.qtobin   = repmat(m_open.qtobin  , [size(m_open.rhos  )]);
+m_closed.qtobin = repmat(m_closed.qtobin, [size(m_closed.rhos)]);
+
 % Include steady state year in all series
 include_ss = @(x, xss) [xss x];
 os = {'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'assets', 'cons', 'pops'};
@@ -60,25 +64,26 @@ s = ParamGenerator.timing(sc_closed);
 yearsv = [(s.first_transition_year - 1):1:(s.first_transition_year -1 + s.T_model)];
 
 % Raw values reports
-header      = {'year', 'caprates', 'govrates', 'totrates', 'wages', 'rhos', ...
-               'd_outs', 'd_caps', 'd_labs', 'd_labeffs', 'd_labeffs_by_pops', 'd_cons', 'd_assets', 'd_debts', ...
-               's_outs', 's_caps', 's_labs', 's_labeffs', 's_labeffs_by_pops', 's_cons', 's_assets', 's_debts'};
+header      = {'year', 'MPK_netDep', 'govrate', 'total_rate', 'qtobin', 'wages', 'K_L_ratio', ...
+               'output_d', 'capital_d', 'labor_d', 'labor_eff_d', 'labeffs_by_pop_d', 'consumption_d', 'assets_d', 'debt_d', 'revenues_d' ...
+               'output_s', 'capital_s', 'labor_s', 'labor_eff_s', 'labeffs_by_pop_s', 'consumption_s', 'assets_s', 'debt_s', 'revenues_s'};
 
-f = @( d, s, m ) table(yearsv', m.caprates', m.govrates', m.totrates', m.wages', m.rhos', ...
-                  d.outs', d.caps', d.labs', d.labeffs', (d.labeffs ./ d.pops)' , d.cons', d.assets', d.debts', ...
-                  s.outs', s.caps', s.labs', s.labeffs', (s.labeffs ./ s.pops)' , s.cons', s.assets', s.debts',...
+f = @( d, s, m ) table(yearsv', m.caprates', m.govrates', m.totrates', m.qtobin', m.wages', m.rhos', ...
+                  d.outs', d.caps', d.labs', d.labeffs', (d.labeffs ./ d.pops)' , d.cons', d.assets', d.debts', d.revs', ...
+                  s.outs', s.caps', s.labs', s.labeffs', (s.labeffs ./ s.pops)' , s.cons', s.assets', s.debts', s.revs', ...
                   'VariableNames', header);
            
 res_open   = f(d_open, s_open, m_open)      ;
 res_closed = f(d_closed, s_closed, m_closed);
 
+open('res_closed')
 writetable(res_open, 'res_open.csv')
            
 % Deltas report
-header = {'year', 'outs', 'debts', 'revs', 'caps', 'labs', 'labeffs', 'assets'};
+header = {'year', 'output', 'debts', 'revenues', 'capital', 'labs', 'labeffs', 'assets', 'consumption'};
 f = @( d, s ) table(yearsv', (d.outs ./ s.outs)', (d.debts ./ s.debts)', (d.revs ./ s.revs)',   ...
          (d.caps ./ s.caps)', (d.labs ./ s.labs)', (d.labeffs ./ s.labeffs)'          ,   ...
-         (d.assets ./ s.assets)', 'VariableNames', header);
+         (d.assets ./ s.assets)', (d.cons ./ s.cons)', 'VariableNames', header);
     
 delta_closed  = f(d_closed, s_closed);
 delta_open    = f(d_open  , s_open  );
