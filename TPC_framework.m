@@ -4,7 +4,7 @@
 %%
 
 wipe;
-params = ParamGenerator.invert(struct('savelas', 1.5, 'labelas', 0.5));
+params = ParamGenerator.invert(struct('savelas', 0.6, 'labelas', 0.6));
 
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
