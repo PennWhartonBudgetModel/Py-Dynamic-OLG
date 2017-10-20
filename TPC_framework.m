@@ -4,12 +4,16 @@
 %%
 
 wipe;
-params = ParamGenerator.invert(struct('savelas', 0.6, 'labelas', 0.6));
+params = ParamGenerator.invert(struct('savelas', 1.0, 'labelas', 0.5));
+
+% overwrite since not calibrated well
+params.sigma = 1.14;
+params.beta  = 0.999;
 
 % Solve for baseline steady state
-scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
+scenario   = Scenario(struct('economy', 'open', 'beta', params.beta, 'gamma', params.gamma, ...
                              'sigma', params.sigma, 'modelunit_dollar', params.modelunit_dollar, ...
-                             'bequest_phi_1', 0, 'base_brackets', 'Framework'));
+                             'bequest_phi_1', 0, 'corp_tax_rate', '0.2'));
 sc_steady  = scenario.currentPolicy.steady;
 steady_dir = PathFinder.getWorkingDir(sc_steady);
 
@@ -26,6 +30,7 @@ d_steady = load(fullfile(steady_dir  , 'dynamics.mat'), ...
             'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'assets', 'pops', 'cons' );
 d_open   = load(fullfile(open_dir  , 'dynamics.mat'), ... 
             'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'assets', 'pops', 'cons' );
+
 d_closed = load(fullfile(closed_dir, 'dynamics.mat'), ...
             'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'assets', 'pops', 'cons' );
 
