@@ -481,6 +481,11 @@ methods (Static)
     end
     
     
+    % TAXPLAN ID
+    function id = getTaxPlanID( scenario )
+        id = find_taxplanid( scenario );
+    end
+    
 end % methods
 
 end % class ParamGenerator
