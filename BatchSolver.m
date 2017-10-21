@@ -43,7 +43,15 @@ methods (Static)
         
         
         % Construct elasticity inverter
-        [~, f_invert] = ParamGenerator.invert();
+        % TEMP: While we refactor the inverted
+        % [~, f_invert] = ParamGenerator.invert();
+        f_invert = @(s) struct(     'beta'              , ModelTester.test_params.beta          ...
+                                ,   'gamma'             , ModelTester.test_params.gamma          ...
+                                ,   'sigma'             , ModelTester.test_params.sigma          ...
+                                ,   'modelunit_dollar'  , ModelTester.test_params.modelunit_dollar ...
+                                );
+                            
+        % END TEMP
         
         % Initialize cell array of scenarios
         %   Empty values will correspond to rows unaddressable by the dynamic model
