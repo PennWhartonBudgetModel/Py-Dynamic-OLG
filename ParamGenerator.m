@@ -263,11 +263,11 @@ methods (Static)
     %          TFP
     %        , depreciation
     %        , capital share
-    function s = production()
+    function s = production( scenario )
         
-        s.A     = 1;      % Total factor productivity
-        s.alpha = 0.34;   % Capital share of output
-        s.d     = 0.056;  % Depreciation rate
+        s.A     = 1;                            % Total factor productivity
+        s.alpha = 0.34;                         % Capital share of output
+        s.d     = scenario.depreciation;        % Depreciation rate
 
     end % production
         

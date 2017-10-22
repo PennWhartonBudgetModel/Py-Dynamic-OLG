@@ -82,7 +82,7 @@ methods (Static)
         bv     = s.bv;        % avg. earnings grid
         
         % Load production parameters
-        s = ParamGenerator.production();
+        s = ParamGenerator.production( scenario );
         A       = s.A;        % Total factor productivity
         alpha   = s.alpha;    % Capital share of output
         d       = s.d;        % Depreciation rate

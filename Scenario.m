@@ -13,8 +13,11 @@ classdef Scenario
         beta;
         gamma;
         sigma;
-        modelunit_dollar;
         bequest_phi_1;
+
+        % Core economy parameters
+        depreciation;
+        modelunit_dollar;
         
         % Government expenditure shift
         expenditure_shift;
@@ -52,8 +55,10 @@ classdef Scenario
             'beta'              ;
             'gamma'             ;
             'sigma'             ;
+            'bequest_phi_1'     ;
+            'depreciation'      ;
             'modelunit_dollar'  ;
-            'bequest_phi_1'     };
+            };
         
         % Specify default values for optional parameters
         def_params = struct(...
@@ -104,6 +109,9 @@ classdef Scenario
                 
             end
             
+            % Validate that there are no unused parameters
+            % TODO!
+            
             % Validate economy
             assert(any(strcmp(this.economy, {'steady', 'open', 'closed'})), ...
                 '<economy> parameter must be either ''steady'', ''open'', or ''closed''.');
@@ -116,10 +124,11 @@ classdef Scenario
                 sprintf('%.3f'  , this.gamma                ), ...
                 sprintf('%.2f'  , this.sigma                ), ...
                 sprintf('%.1f'  , this.modelunit_dollar*1e6 ), ...
+                sprintf('%.3f'  , this.depreciation         ), ...
                 sprintf('%.3f'  , this.bequest_phi_1        )}, '_');
             
             if this.isCurrentPolicy()
-                this.counterdeftag = 'baseline';
+                this.counterdeftag = 'currentpolicy';
             else
                 this.counterdeftag = strjoin({...
                     sprintf('%.2f'  , abs(this.expenditure_shift)           ), ...
