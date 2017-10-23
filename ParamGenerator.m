@@ -246,14 +246,14 @@ methods (Static)
     %        , illegal immigration rate
     function s = demographics()
         param_dir = PathFinder.getMicrosimInputDir();
-        survival  = read_series('XXXSurvivalProbability.csv', [], param_dir);
-        imm_age   = read_series('XXXImmigrantAgeDistribution.csv', [], param_dir);
+        survival  = read_series('SIMSurvivalProbability.csv', [], param_dir);
+        imm_age   = read_series('SIMImmigrantAgeDistribution.csv', [], param_dir);
         s.surv    = survival';
         s.imm_age = imm_age';
 
-        s.birth_rate   = 0.0200;    % Annual birth rate
-        s.legal_rate   = 0.0016;    % Annual legal immigration rate
-        s.illegal_rate = 0.0024;    % Annual illegal immigration rate
+        s.birth_rate   = 0.018923919;    % Annual birth rate
+        s.legal_rate   = 0.002371966;    % Annual legal immigration rate
+        s.illegal_rate = 0.000836294;    % Annual illegal immigration rate
 
     end % demographics
     
@@ -338,6 +338,7 @@ methods (Static)
         SIMGDP                      = read_series( 'SIMGDP.csv', first_year, sim_param );
         SIMRevenues                 = read_series( 'SIMRevenues.csv', first_year, sim_param );
         SIMExpenditures             = read_series( 'SIMExpenditures.csv', first_year, sim_param );
+        SIMGDPPriceIndex            = read_series( 'SIMGDPPriceIndex.csv', first_year, sim_param );
         CBONonInterestSpending      = read_series( 'CBONonInterestSpending.csv', first_year, cbo_param );
         CBOSocialSecuritySpending   = read_series( 'CBOSocialSecuritySpending.csv', first_year, cbo_param );
         CBOMedicareSpending         = read_series( 'CBOMedicareSpending.csv', first_year, cbo_param );
@@ -366,13 +367,13 @@ methods (Static)
             debt(i) = debt(i-1)*(1+CBORates(i)/100.0) - deficit_nis(i);
         end;
         
-        growth_GDP      = zeros(size(SIMGDP), 'double');
-        growth_GDP(1)   = 1.0;
-        for i = 2:size(growth_GDP)
-            growth_GDP(i) = SIMGDP(i)/SIMGDP(i-1);
+        growth_deflator      = zeros(size(SIMGDPPriceIndex), 'double');
+        growth_deflator(1)   = 1.0;
+        for i = 2:size(growth_deflator)
+            growth_deflator(i) = SIMGDPPriceIndex(i)/SIMGDPPriceIndex(i-1);
         end;
         
-        CBO_rates_growth_adjusted   = ((100.0+CBORates)./growth_GDP)./100.0 - 1.0;    
+        CBO_rates_growth_adjusted   = ((100.0+CBORates)./growth_deflator)./100.0 - 1.0;    
         deficit_nis_fraction_GDP    = deficit_nis./SIMGDP;                
         debt_percent_GDP            = debt./SIMGDP;                       
         
