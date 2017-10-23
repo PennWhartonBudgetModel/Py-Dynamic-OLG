@@ -4,18 +4,18 @@
 %%
 
 wipe;
-params = ParamGenerator.invert(struct('depreciation', 0.056, 'labelas', 0.5));
+% params = ParamGenerator.invert(struct('depreciation', 0.056, 'labelas', 0.5));
 
 % Params for K/Y=3 with d=0.056
-params.beta =  0.98745000;
-params.gamma = 0.75000000;
-params.sigma = 1.24000000;
-params.modelunit_dollar = 0.00004360;
+params.beta =  1.003510000000000;
+params.gamma = 0.680000000000000;
+params.sigma = 1.500000000000000;
+params.modelunit_dollar = 4.135682750000000e-05;
 
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
                              'sigma', params.sigma, 'modelunit_dollar', params.modelunit_dollar, ...
-                             'depreciation', 0.056, 'bequest_phi_1', 0, 'corporate_tax_rate', 0.2));
+                             'depreciation', 0.08, 'bequest_phi_1', 0, 'corporate_tax_rate', 0.2));
 sc_steady  = scenario.currentPolicy.steady;
 steady_dir = PathFinder.getWorkingDir(sc_steady);
 
@@ -24,6 +24,8 @@ sc_open    = scenario.open();
 sc_closed  = scenario.closed();
 open_dir   = PathFinder.getWorkingDir(sc_open);
 closed_dir = PathFinder.getWorkingDir(sc_closed);
+
+ModelSolver.solve(sc_steady);
 
 ModelSolver.solve(scenario);
 
