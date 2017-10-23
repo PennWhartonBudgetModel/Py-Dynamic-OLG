@@ -4,18 +4,18 @@
 %%
 
 wipe;
-params = ParamGenerator.invert(struct('savelas', 1.0, 'labelas', 0.5));
+params = ParamGenerator.invert(struct('depreciation', 0.056, 'labelas', 0.5));
 
 % Params for K/Y=3 with d=0.056
-params.beta =  0.99400000;
-params.gamma = 0.68571429;
-params.sigma =  1.14000000
-params.modelunit_dollar = 0.00004378;
+params.beta =  0.98745000;
+params.gamma = 0.75000000;
+params.sigma = 1.24000000;
+params.modelunit_dollar = 0.00004360;
 
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
                              'sigma', params.sigma, 'modelunit_dollar', params.modelunit_dollar, ...
-                             'bequest_phi_1', 0, 'corporate_tax_rate', 0.2));
+                             'depreciation', 0.056, 'bequest_phi_1', 0, 'corporate_tax_rate', 0.2));
 sc_steady  = scenario.currentPolicy.steady;
 steady_dir = PathFinder.getWorkingDir(sc_steady);
 
@@ -84,6 +84,7 @@ res_open   = f(d_open, s_open, m_open)      ;
 res_closed = f(d_closed, s_closed, m_closed);
 
 open('res_closed')
+open('res_open')
 writetable(res_open, 'res_open.csv')
            
 % Deltas report
