@@ -40,19 +40,6 @@ methods (Static)
         % Close database connection
         connection.close();
         
-        
-        
-        % Construct elasticity inverter
-        % TEMP: While we refactor the inverted
-        % [~, f_invert] = ParamGenerator.invert();
-        f_invert = @(s) struct(     'beta'              , ModelTester.test_params.beta          ...
-                                ,   'gamma'             , ModelTester.test_params.gamma          ...
-                                ,   'sigma'             , ModelTester.test_params.sigma          ...
-                                ,   'modelunit_dollar'  , ModelTester.test_params.modelunit_dollar ...
-                                );
-                            
-        % END TEMP
-        
         % Initialize cell array of scenarios
         %   Empty values will correspond to rows unaddressable by the dynamic model
         scenarios = cell(size(rows));
@@ -69,9 +56,9 @@ methods (Static)
             end
             
             % Invert elasticities
-            inverse = f_invert(struct(...
-                'savelas', row.SavingsElasticity, ...
-                'labelas', row.LaborElasticity  ));
+            inverse = ParamGenerator.invert (struct(...
+                'depreciation'  , row.Depreciation    , ...
+                'labelas'       , row.LaborElasticity  ));
             
             % Initialize scenario parameter structure with required parameters
             params = struct(...

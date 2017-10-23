@@ -444,7 +444,20 @@ methods (Static)
     % Invert target elasticities using calibration points
     %   Reusable inverter constructed in the process
     % 
-    function [inverse, f] = invert(targets)
+    function [inverse] = invert(targets)
+        
+        % TODO -- revisit the Calibration process
+        %   for now just pick one of two hardcoded targets
+        % BEGIN TEMP
+        inverse = ModelTester.test_params;
+        if( isfield( targets, 'depreciation' ) )
+            if ( targets.depreciation == 0.056 ) 
+                inverse = ModelTester.d_low_test_params;
+            end
+        end
+        
+        return;
+        %  END TEMP
         
         % Load calibration points from calibration input directory
         s = load(fullfile(PathFinder.getCalibrationInputDir(), 'calibration.mat'));
