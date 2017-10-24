@@ -15,7 +15,7 @@ params.modelunit_dollar = 4.135682750000000e-05;
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
                              'sigma', params.sigma, 'modelunit_dollar', params.modelunit_dollar, ...
-                             'depreciation', 0.08, 'bequest_phi_1', 0, 'corporate_tax_rate', 0.2));
+                             'depreciation', 0.056, 'bequest_phi_1', 0, 'base_brackets', 'Framework'));
 sc_steady  = scenario.currentPolicy.steady;
 steady_dir = PathFinder.getWorkingDir(sc_steady);
 
@@ -25,7 +25,6 @@ sc_closed  = scenario.closed();
 open_dir   = PathFinder.getWorkingDir(sc_open);
 closed_dir = PathFinder.getWorkingDir(sc_closed);
 
-ModelSolver.solve(sc_steady);
 
 ModelSolver.solve(scenario);
 
@@ -73,9 +72,9 @@ s = ParamGenerator.timing(sc_closed);
 yearsv = [(s.first_transition_year - 1):1:(s.first_transition_year -1 + s.T_model)];
 
 % Raw values reports
-header      = {'year', 'MPK_netDep', 'govrate', 'total_rate', 'qtobin', 'wages', 'K_L_ratio', ...
-               'output_d', 'capital_d', 'labor_d', 'labor_eff_d', 'labeffs_by_pop_d', 'consumption_d', 'assets_d', 'debt_d', 'revenues_d' ...
-               'output_s', 'capital_s', 'labor_s', 'labor_eff_s', 'labeffs_by_pop_s', 'consumption_s', 'assets_s', 'debt_s', 'revenues_s'};
+header      = {'year', 'MPK_netDep', 'gov_interest_rate', 'total_interest_rate', 'qtobin', 'wages', 'K_L_ratio', ...
+               'output_d', 'capital_d', 'labor_d', 'labor_efficient_d', 'labor_efficient_by_pop_d', 'consumption_d', 'assets_d', 'debt_d', 'revenues_d' ...
+               'output_s', 'capital_s', 'labor_s', 'labor_efficient_s', 'labor_efficient_by_pop_s', 'consumption_s', 'assets_s', 'debt_s', 'revenues_s'};
 
 f = @( d, s, m ) table(yearsv', m.caprates', m.govrates', m.totrates', m.qtobin', m.wages', m.rhos', ...
                   d.outs', d.caps', d.labs', d.labeffs', (d.labeffs ./ d.pops)' , d.cons', d.assets', d.debts', d.revs', ...
@@ -90,7 +89,7 @@ open('res_open')
 writetable(res_open, 'res_open.csv')
            
 % Deltas report
-header = {'year', 'output', 'debts', 'revenues', 'capital', 'labs', 'labeffs', 'assets', 'consumption'};
+header = {'year', 'output', 'debt', 'revenue', 'capital', 'labor', 'labor_efficient', 'assets', 'consumption'};
 f = @( d, s ) table(yearsv', (d.outs ./ s.outs)', (d.debts ./ s.debts)', (d.revs ./ s.revs)',   ...
          (d.caps ./ s.caps)', (d.labs ./ s.labs)', (d.labeffs ./ s.labeffs)'          ,   ...
          (d.assets ./ s.assets)', (d.cons ./ s.cons)', 'VariableNames', header);
