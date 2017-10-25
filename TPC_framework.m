@@ -7,15 +7,23 @@ wipe;
 % params = ParamGenerator.invert(struct('depreciation', 0.056, 'labelas', 0.5));
 
 % Params for K/Y=3 with d=0.056
-params.beta =  1.003510000000000;
-params.gamma = 0.680000000000000;
-params.sigma = 1.500000000000000;
-params.modelunit_dollar = 4.135682750000000e-05;
+params.beta =  0.98745000;
+params.gamma = 0.75000000;
+params.sigma = 1.24000000;
+params.modelunit_dollar = 4.359874681178362e-05;
+params.depreciation = 0.056;
+
+% Params for K/Y=3 with d=0.08
+% params.beta =  1.003510000000000;
+% params.gamma = 0.680000000000000;
+% params.sigma = 1.500000000000000;
+% params.modelunit_dollar = 4.135682750000000e-05;
+% params.depreciation = 0.08;
 
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
                              'sigma', params.sigma, 'modelunit_dollar', params.modelunit_dollar, ...
-                             'depreciation', 0.056, 'bequest_phi_1', 0, 'base_brackets', 'Framework'));
+                             'depreciation', params.depreciation, 'bequest_phi_1', 0, 'base_brackets', 'Framework'));
 sc_steady  = scenario.currentPolicy.steady;
 steady_dir = PathFinder.getWorkingDir(sc_steady);
 
@@ -24,7 +32,6 @@ sc_open    = scenario.open();
 sc_closed  = scenario.closed();
 open_dir   = PathFinder.getWorkingDir(sc_open);
 closed_dir = PathFinder.getWorkingDir(sc_closed);
-
 
 ModelSolver.solve(scenario);
 
@@ -100,4 +107,25 @@ delta_open    = f(d_open  , s_open  );
 open('delta_closed');
 open('delta_open');
 
-                        
+
+% TPC report
+header = {'year', 'MPK_netDep', 'gov_interest_rate', 'total_interest_rate', 'qtobin', 'wages', 'K_L_ratio', ...
+          'output', 'debt', 'revenue', 'capital', 'labor', 'labor_efficient', 'assets', 'assets_per_pop'};
+f = @( d, s, m ) table(yearsv', m.caprates', m.govrates', m.totrates', m.qtobin', m.wages', m.rhos', ...
+                      (d.outs ./ s.outs)', (d.debts ./ s.debts)', (d.revs ./ s.revs)', ...
+                      (d.caps ./ s.caps)', (d.labs ./ s.labs)', (d.labeffs ./ s.labeffs)', ...
+                      (d.assets ./ s.assets)', ((d.assets./d.pops) ./ (s.assets./s.pops))', ...
+                      'VariableNames', header);
+    
+TPC_closed  = f(d_closed, s_closed, m_closed);
+TPC_open    = f(d_open  , s_open  , m_open  );
+
+if (params.depreciation == 0.056)
+    filename = 'TPC_report_low_depreciation.xlsx';
+else
+    filename = 'TPC_report_high_depreciation.xlsx';
+end
+writetable(TPC_open  ,filename,'Sheet','open')
+writetable(TPC_closed,filename,'Sheet','closed')
+                 
+
