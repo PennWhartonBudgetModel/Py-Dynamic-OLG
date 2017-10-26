@@ -380,12 +380,13 @@ methods (Static)
         % Name, transpose, truncate vars to correspond to currently used variables 
         % NOTE: The series must go out to T_model or import will break.
         %       Breaking is good here. (Though gracefully would be better)
-        s.GEXP_by_GDP = GEXP_by_GDP;                                % Expenditures as pct gdp
-        s.debt        = debt;                                       % Debt as pct gdp
-        s.debttoout   = debt_percent_GDP(2);                        % Debt-to-output ratio of initial year
-        s.fedgovtnis  = deficit_nis_fraction_GDP(2:T_model + 1)';   % starts from first transition path year
-        s.cborates    = CBO_rates_growth_adjusted(2:T_model + 1)';  % starts from first transition path year
-        s.cbomeanrate = nanmean(CBO_rates_growth_adjusted(2:end));  % Mean growth-adjusted interest rate over modeling period
+        s.GEXP_by_GDP       = GEXP_by_GDP;                                % Expenditures as pct gdp
+        s.debt              = debt;                                       % Debt as pct gdp
+        s.debttoout         = debt_percent_GDP(1);                        % Debt-to-output ratio of initial year
+        s.debttoout_trans1  = debt_percent_GDP(2);                        % Debt-to-output ratio of first transition year
+        s.fedgovtnis        = deficit_nis_fraction_GDP(2:T_model + 1)';   % starts from first transition path year
+        s.cborates          = CBO_rates_growth_adjusted(2:T_model + 1)';  % starts from first transition path year
+        s.cbomeanrate       = nanmean(CBO_rates_growth_adjusted(2:end));  % Mean growth-adjusted interest rate over modeling period
         
         % Warn if parameters are outside expectations
         if( (s.cbomeanrate < -0.03) || (s.cbomeanrate > 0.08) )

@@ -106,12 +106,13 @@ methods (Static)
         
         %%  Budget: CBO interest rates, expenditures, and debt
         s = ParamGenerator.budget( scenario );
-        GEXP_by_GDP     = s.GEXP_by_GDP;    % Gvt expenditures as pct GDP
-        debt            = s.debt;           % Gvt debt as pct gdp
-        debttoout       = s.debttoout;      % Initial debt/gdp (for steady state)
-        fedgovtnis      = s.fedgovtnis;     % Gvt net interest surplus (deficit)
-        cborates        = s.cborates;       % Interest rates on gvt debt (from CBO)
-        cbomeanrate     = s.cbomeanrate;    % Avg of cborates (for steady state)
+        GEXP_by_GDP      = s.GEXP_by_GDP;           % Gvt expenditures as pct GDP
+        debt             = s.debt;                  % Gvt debt as pct gdp
+        debttoout        = s.debttoout;             % Initial debt/gdp (for steady state)
+        debttoout_trans1 = s.debttoout_trans1;      % First transition debt/gdp
+        fedgovtnis       = s.fedgovtnis;            % Gvt net interest surplus (deficit)
+        cborates         = s.cborates;              % Interest rates on gvt debt (from CBO)
+        cbomeanrate      = s.cbomeanrate;           % Avg of cborates (for steady state)
         % Tax revenue targets (for Ttilde), depend on tax plan
         tax_revenue_by_GDP = s.tax_revenue_by_GDP;
         
@@ -575,7 +576,7 @@ methods (Static)
                     end
                     
                     Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
-                    Dynamic.debts = [Dynamic0.debts, zeros(1,T_model-1)];
+                    Dynamic.debts = [debttoout_trans1*Dynamic0.outs, zeros(1,T_model-1)];
                     for year = 1:T_model-1
                         Dynamic.debts(year+1) = Gtilde(year) - Ttilde(year) - Dynamic.revs(year) + Dynamic.debts(year)*(1 + cborates(year));
                     end
@@ -604,7 +605,7 @@ methods (Static)
                     Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
                     
                     Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
-                    Dynamic.debts = [Dynamic0.debts, zeros(1,T_model-1)];
+                    Dynamic.debts = [debttoout_trans1*Dynamic0.outs, zeros(1,T_model-1)];
                     for year = 1:T_model-1
                         Dynamic.debts(year+1) = Gtilde(year) - Ttilde(year) - Dynamic.revs(year) + Dynamic.debts(year)*(1 + cborates(year));
                     end
@@ -615,7 +616,7 @@ methods (Static)
                     Dynamic.debts_foreign  = zeros(1,T_model);
                     
                     % Calculate capital and output
-                    Dynamic.caps = ([(Dynamic0.assets - Dynamic0.debts)/qtobin0, (Dynamic.assets(1:T_model-1) - Dynamic.debts(2:T_model))/qtobin]);
+                    Dynamic.caps = (Dynamic.assets - Dynamic.debts)/qtobin;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     Dynamic.caps_domestic = [qtobin0 * Dynamic.caps(1), qtobin * Dynamic.caps(2:T_model)];
