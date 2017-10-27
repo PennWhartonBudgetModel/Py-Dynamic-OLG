@@ -556,6 +556,14 @@ methods (Static)
                     beqs = Dynamic.bequests / pgr;
                     clearing = Market.rhos - rhos;
                     
+                    % Calculate income - THIS SHOULD BE OUTSIDE THE CASE
+                    % ECONOMY LOOP!
+                    Dynamic.labincs = Dynamic.labeffs .* Market.wages;
+                    Dynamic.capincs = qtobin * Market.caprates .* Dynamic.caps;
+                    
+                    Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
+                    Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
+
                 case 'open'
                     
                     % Calculate capital and output
