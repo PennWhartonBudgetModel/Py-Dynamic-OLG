@@ -265,9 +265,17 @@ methods (Static)
     %        , capital share
     function s = production( scenario )
         
-        s.A     = 1;                            % Total factor productivity
-        s.alpha = 0.34;                         % Capital share of output
-        s.d     = scenario.depreciation;        % Depreciation rate
+        s.A             = 1;                    % Total factor productivity
+        s.alpha         = 0.34;                 % Capital share of output
+        depreciation    = 0.056;                % Actual depreciation rate
+        d_low_return    = 0.080;                % "Depreciation rate" to generate r=risk-free rate         
+        % TEMP: Need to change Scenario field -- should not have
+        % 'depreciation'
+        if( scenario.depreciation == 0.056 )
+            s.d = depreciation;
+        else
+            s.d = d_low_return;
+        end
 
     end % production
         
