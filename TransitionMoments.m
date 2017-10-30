@@ -25,8 +25,6 @@ steady_dir = PathFinder.getWorkingDir(sc_steady);
 open_dir   = PathFinder.getWorkingDir(sc_open);
 closed_dir = PathFinder.getWorkingDir(sc_closed);
 
-save_dir   = closed_dir;
-
 
 %% PARAMETERS
 
@@ -47,37 +45,51 @@ nb   = s.nb;         % num avg. earnings points
 % Useful later for a couple of functions
 kv = s.kv;
 karray = repmat(reshape(s.kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,T_model,ndem]);
+yearsv = [2017:2017+T_model];
 
 
 %% DISTRIBUTION AND POLICY FUNCTIONS
 
 % Import households distribution
-s    = load( fullfile(save_dir, 'distribution.mat' ) );
-DIST = s.DIST;
-dist_l(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem) = DIST(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem); % Working age population
-dist_l(1:nz,1:nk,1:nb,T_work:T_life,1:ng,1:T_model,1:ndem) = 0; % Retired population
+DIST   = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+s      = load( fullfile(steady_dir, 'distribution.mat' ) );
+DISTss = s.DIST;
+s      = load( fullfile(closed_dir, 'distribution.mat' ) );
+DIST(:,:,:,:,:,1    ,:) = DISTss;
+DIST(:,:,:,:,:,2:end,:) = s.DIST;
 
 % Import market variables
-s     = load( fullfile(save_dir, 'market.mat' ) );
-wages = s.wages;
+s       = load( fullfile(steady_dir, 'market.mat' ) );
+wagesss = s.wages;
+s       = load( fullfile(closed_dir, 'market.mat' ) );
+wages   = [wagesss s.wages];
 
 % Import policy functions
+labinc = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+lab    = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+pit    = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+
+f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,1,ndem]), [1,1,1,1,ng,1,1]);
+s = load( fullfile(steady_dir, 'all_decisions.mat' ) );
+lab(:,:,:,:,:,1,:) = f(s.LAB);
+pit(:,:,:,:,:,1,:) = f(s.PIT);
+
 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
-s      = load( fullfile(save_dir, 'all_decisions.mat' ) );
-% labinc = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wages;
-k      = f(s.K);
-cons   = f(s.CON);
-pit    = f(s.PIT);
+s = load( fullfile(closed_dir, 'all_decisions.mat' ) );
+lab(:,:,:,:,:,2:end,:) = f(s.LAB);
+pit(:,:,:,:,:,2:end,:) = f(s.PIT);
+
+labinc = lab .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model+1,1]) .* repmat(reshape(wages, [1,1,1,1,1,T_model+1,1]),[nz,nk,nb,T_life,ng,1,ndem]);
 
 
 %% PIT DISTRIBUTION BY ASSETS
 
-pit_a        = zeros(nk,T_model);     % PIT at ik asset holdings level (in dollars)
-pit_a_groups = zeros( 3,T_model);
-pit_a_perc   = zeros(nk,T_model);     % percentage PIT at ik asset holdings level (% of total PIT)
-pit_a_pcap   = zeros(nk,T_model);     % PIT per capita at ik asset holdings level (in dollars)
+pit_a        = zeros(nk,T_model+1);     % PIT at ik asset holdings level (in dollars)
+pit_a_groups = zeros( 3,T_model+1);
+pit_a_perc   = zeros(nk,T_model+1);     % percentage PIT at ik asset holdings level (% of total PIT)
+pit_a_pcap   = zeros(nk,T_model+1);     % PIT per capita at ik asset holdings level (in dollars)
 
-for t = 1:T_model
+for t = 1:T_model+1
     
    pit_t     = pit (:,:,:,:,:,t,:);
    dist_t    = DIST(:,:,:,:,:,t,:);
@@ -100,20 +112,24 @@ for t = 1:T_model
 end
 
 figure
-plot(1:T_model,pit_a_graph(1,:),1:T_model,pit_a_graph(2,:),1:T_model,pit_a_graph(3,:),'LineWidth',2)
+plot(yearsv,pit_a_graph(1,:),yearsv,pit_a_graph(2,:),yearsv,pit_a_graph(3,:),'LineWidth',2)
 title('Total PIT by asset holdings group','FontSize',16)
 xlabel('T model','FontSize',13)
 ylabel('model units','FontSize',13)
+set(gca,'XTick',yearsv(1):4:yearsv(end))
+xlim([yearsv(1) yearsv(end)])
 legend({'poor', 'middle class', 'up middle class'},'Location','northwest','FontSize',13)
 
 figure
-plot(1:T_model,pit_a(1,:),1:T_model,pit_a(2,:),1:T_model,pit_a(3,:),...
-     1:T_model,pit_a(4,:),1:T_model,pit_a(5,:),1:T_model,pit_a(6,:),...
-     1:T_model,pit_a(7,:),1:T_model,pit_a(8,:),1:T_model,pit_a(9,:),...
+plot(yearsv,pit_a(1,:),yearsv,pit_a(2,:),yearsv,pit_a(3,:),...
+     yearsv,pit_a(4,:),yearsv,pit_a(5,:),yearsv,pit_a(6,:),...
+     yearsv,pit_a(7,:),yearsv,pit_a(8,:),yearsv,pit_a(9,:),...
      'LineWidth',2)
 title('Total PIT by asset holdings','FontSize',16)
 xlabel('T model','FontSize',13)
 ylabel('2016 dollars','FontSize',13)
+set(gca,'XTick',yearsv(1):4:yearsv(end))
+xlim([yearsv(1) yearsv(end)])
 legend({sprintf('%0.2f', kv(1)/params.modelunit_dollar),sprintf('%0.2f', kv(2)/params.modelunit_dollar), ...
         sprintf('%0.2f', kv(3)/params.modelunit_dollar),sprintf('%0.2f', kv(4)/params.modelunit_dollar), ...
         sprintf('%0.2f', kv(5)/params.modelunit_dollar),sprintf('%0.2f', kv(6)/params.modelunit_dollar), ...
@@ -121,13 +137,15 @@ legend({sprintf('%0.2f', kv(1)/params.modelunit_dollar),sprintf('%0.2f', kv(2)/p
         sprintf('%0.2f', kv(9)/params.modelunit_dollar)},'FontSize',13)
 
 figure
-plot(1:T_model,pit_a_pcap(1,:),1:T_model,pit_a_pcap(2,:),1:T_model,pit_a_pcap(3,:),...
-     1:T_model,pit_a_pcap(4,:),1:T_model,pit_a_pcap(5,:),1:T_model,pit_a_pcap(6,:),...
-     1:T_model,pit_a_pcap(7,:),1:T_model,pit_a_pcap(8,:),1:T_model,pit_a_pcap(9,:),...
+plot(yearsv,pit_a_pcap(1,:),yearsv,pit_a_pcap(2,:),yearsv,pit_a_pcap(3,:),...
+     yearsv,pit_a_pcap(4,:),yearsv,pit_a_pcap(5,:),yearsv,pit_a_pcap(6,:),...
+     yearsv,pit_a_pcap(7,:),yearsv,pit_a_pcap(8,:),yearsv,pit_a_pcap(9,:),...
      'LineWidth',2)
 title('PIT per capita by asset holdings','FontSize',16)
 xlabel('T model','FontSize',13)
 ylabel('2016 dollars','FontSize',13)
+set(gca,'XTick',yearsv(1):4:yearsv(end))
+xlim([yearsv(1) yearsv(end)])
 legend({sprintf('%0.2f', kv(1)/params.modelunit_dollar),sprintf('%0.2f', kv(2)/params.modelunit_dollar), ...
         sprintf('%0.2f', kv(3)/params.modelunit_dollar),sprintf('%0.2f', kv(4)/params.modelunit_dollar), ...
         sprintf('%0.2f', kv(5)/params.modelunit_dollar),sprintf('%0.2f', kv(6)/params.modelunit_dollar), ...
@@ -135,7 +153,7 @@ legend({sprintf('%0.2f', kv(1)/params.modelunit_dollar),sprintf('%0.2f', kv(2)/p
         sprintf('%0.2f', kv(9)/params.modelunit_dollar)},'FontSize',13)
 
 
-%% MODEL ASSET DISTRIBUTIONS BY GENERATION
+%% ASSET DISTRIBUTION BY GENERATION
 %{
 kdist_age = zeros(T_life,T_model);
 
