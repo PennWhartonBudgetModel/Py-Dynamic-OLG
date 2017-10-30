@@ -6,11 +6,18 @@
 %% SCENARIOS
 
 % Params for K/Y=3 with d=0.056
-params.beta =  0.98745000;
-params.gamma = 0.75000000;
-params.sigma = 1.24000000;
-params.modelunit_dollar = 4.359874681178362e-05;
-params.depreciation = 0.056;
+% params.beta =  0.98745000;
+% params.gamma = 0.75000000;
+% params.sigma = 1.24000000;
+% params.modelunit_dollar = 4.359874681178362e-05;
+% params.depreciation = 0.056;
+
+% Params for K/Y=3 with d=0.08
+params.beta =  1.003510000000000;
+params.gamma = 0.680000000000000;
+params.sigma = 1.500000000000000;
+params.modelunit_dollar = 4.135682750000000e-05;
+params.depreciation = 0.08;
 
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
@@ -29,13 +36,13 @@ closed_dir = PathFinder.getWorkingDir(sc_closed);
 %% PARAMETERS
 
 % Define time constants
-s = ParamGenerator.timing( sc_closed );
+s = ParamGenerator.timing( sc_open );
 T_life  = s.T_life;    % Total life years
 T_work  = s.T_work;    % Retirement age
 T_model = s.T_model;   % Transition path model years
 
 % Define grids
-s = ParamGenerator.grids( sc_closed );
+s = ParamGenerator.grids( sc_open );
 ndem = s.ndem;       % demographic types
 ng   = s.ng;         % num groups
 nz   = s.nz;         % num labor productivity shocks
@@ -54,35 +61,125 @@ yearsv = [2017:2017+T_model];
 DIST   = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
 s      = load( fullfile(steady_dir, 'distribution.mat' ) );
 DISTss = s.DIST;
-s      = load( fullfile(closed_dir, 'distribution.mat' ) );
+s      = load( fullfile(open_dir, 'distribution.mat' ) );
 DIST(:,:,:,:,:,1    ,:) = DISTss;
 DIST(:,:,:,:,:,2:end,:) = s.DIST;
 
 % Import market variables
 s       = load( fullfile(steady_dir, 'market.mat' ) );
 wagesss = s.wages;
-s       = load( fullfile(closed_dir, 'market.mat' ) );
+s       = load( fullfile(open_dir, 'market.mat' ) );
 wages   = [wagesss s.wages];
 
 % Import policy functions
 labinc = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
 lab    = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
 pit    = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+cit    = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+inc    = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+sst    = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
 
 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,1,ndem]), [1,1,1,1,ng,1,1]);
 s = load( fullfile(steady_dir, 'all_decisions.mat' ) );
 lab(:,:,:,:,:,1,:) = f(s.LAB);
 pit(:,:,:,:,:,1,:) = f(s.PIT);
+cit(:,:,:,:,:,1,:) = f(s.CIT);
+inc(:,:,:,:,:,1,:) = f(s.INC);
+sst(:,:,:,:,:,1,:) = f(s.SST);
 
 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
-s = load( fullfile(closed_dir, 'all_decisions.mat' ) );
+s = load( fullfile(open_dir, 'all_decisions.mat' ) );
 lab(:,:,:,:,:,2:end,:) = f(s.LAB);
 pit(:,:,:,:,:,2:end,:) = f(s.PIT);
+cit(:,:,:,:,:,2:end,:) = f(s.CIT);
+inc(:,:,:,:,:,2:end,:) = f(s.INC);
+sst(:,:,:,:,:,2:end,:) = f(s.SST);
 
 labinc = lab .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model+1,1]) .* repmat(reshape(wages, [1,1,1,1,1,T_model+1,1]),[nz,nk,nb,T_life,ng,1,ndem]);
+taxes = pit + cit + sst;
+
+
+%% TAXABLE INCOME PERCENTILES AT THE INITIAL PERIOD
+
+inc_ss = inc(:,:,:,:,:,1,:);
+dist_ss = DIST(:,:,:,:,:,1,:);
+taxable_inc_distribution = get_moments(dist_ss(:), inc_ss(:));
+
+
+%% TOTAL TAXES DISTRIBUTION BY TAXABLE INCOME
+
+total_tax  = zeros(T_model+1,1);
+tax_groups = zeros(T_model+1,5);
+tax_groups_perc = zeros(T_model+1,5);
+
+for t = 1:T_model+1
+ for iz = 1:nz
+  for ik = 1:nk
+   for ib = 1:nb
+    for age = 1:T_life
+     for ig = 1:ng
+      for idem = 1:ndem
+                            
+       if (inc(iz,ik,ib,age,ig,t,idem) <= taxable_inc_distribution.threshold(1))
+         tax_groups(t,1) = tax_groups(t,1) + taxes(iz,ik,ib,age,ig,t,idem);
+       elseif (taxable_inc_distribution.threshold(1) < inc(iz,ik,ib,age,ig,t,idem)) && (inc(iz,ik,ib,age,ig,t,idem) <= taxable_inc_distribution.threshold(2))
+        tax_groups(t,2) = tax_groups(t,2) + taxes(iz,ik,ib,age,ig,t,idem);
+       elseif (taxable_inc_distribution.threshold(2) < inc(iz,ik,ib,age,ig,t,idem)) && (inc(iz,ik,ib,age,ig,t,idem) <= taxable_inc_distribution.threshold(3))
+        tax_groups(t,3) = tax_groups(t,3) + taxes(iz,ik,ib,age,ig,t,idem);
+       elseif (taxable_inc_distribution.threshold(3) < inc(iz,ik,ib,age,ig,t,idem)) && (inc(iz,ik,ib,age,ig,t,idem) <= taxable_inc_distribution.threshold(4))
+        tax_groups(t,4) = tax_groups(t,4) + taxes(iz,ik,ib,age,ig,t,idem);
+       elseif (inc(iz,ik,ib,age,ig,t,idem) > taxable_inc_distribution.threshold(4))
+        tax_groups(t,5) = tax_groups(t,5) + taxes(iz,ik,ib,age,ig,t,idem);
+       end
+                            
+       total_tax(t,1) = total_tax(t,1) + taxes(iz,ik,ib,age,ig,t,idem);
+                            
+      end
+     end
+    end
+   end
+  end
+ end
+    
+ tax_groups_perc(t,:) = tax_groups(t,:)/total_tax(t,1);
+ tax_groups_perc(t,:) = tax_groups_perc(t,:)/sum(tax_groups_perc(t,:));
+    
+end
+
+figure
+hold on
+yyaxis left
+plot(yearsv,tax_groups_perc(:,1),yearsv,tax_groups_perc(:,2),yearsv,tax_groups_perc(:,3), ...
+     yearsv,tax_groups_perc(:,4),'LineWidth',2)
+yyaxis right
+plot(yearsv,tax_groups_perc(:,5),'LineWidth',2)
+title('Share of total taxes by taxable labor income quintile','FontSize',16)
+xlabel('T model','FontSize',13)
+ylabel('share','FontSize',13)
+set(gca,'XTick',yearsv(1):4:yearsv(end))
+xlim([yearsv(1) yearsv(end)])
+legend({'bottom 20%', '2nd quintile', '3rd quintile', '4th quintile', 'top quintile'},'Location','northwest','FontSize',13)
+hold off
+
+figure
+hold on
+yyaxis left
+plot(yearsv,tax_groups(:,1),yearsv,tax_groups(:,2),yearsv,tax_groups(:,3), ...
+     yearsv,tax_groups(:,4),'LineWidth',2)
+yyaxis right
+plot(yearsv,tax_groups(:,5),'LineWidth',2)
+title('Total taxes by taxable labor income quintile','FontSize',16)
+xlabel('T model','FontSize',13)
+ylabel('2016 dollars','FontSize',13)
+set(gca,'XTick',yearsv(1):4:yearsv(end))
+xlim([yearsv(1) yearsv(end)])
+legend({'bottom 20%', '2nd quintile', '3rd quintile', '4th quintile', 'top quintile'},'Location','northwest','FontSize',13)
+hold off
 
 
 %% PIT DISTRIBUTION BY ASSETS
+
+%{
 
 pit_a        = zeros(nk,T_model+1);     % PIT at ik asset holdings level (in dollars)
 pit_a_groups = zeros( 3,T_model+1);
@@ -165,6 +262,7 @@ PITDistSummary = table(yearsv', pit_a(1,:)', pit_a(2,:)', pit_a(3,:)', pit_a(4,:
                   'VariableNames', header);
 writetable(PITDistSummary, 'PITDistSummary.csv')           
 
+%}
 
 %% ASSET DISTRIBUTION BY GENERATION
 %{
@@ -194,4 +292,51 @@ kdist_generation = sum(kdist_age(51:60,:));
 kdist_generation = sum(kdist_age(61:70,:));
 kdist_generation = sum(kdist_age(71:80,:));
 %}
+
+%% FUNCTIONS
+
+function [moments] = get_moments(dist,x)
+
+% Computes selected percentiles of x distributed according to dist
+% Inputs:  dist = distribution vector of x
+%          x    = vector with variable of interest
+% Outputs: percentiles (usually slightly above the actual quintiles)
+%          thresholds
+%          cumulative share of x with each quintile
+
+    moments = table([], [], [], 'VariableNames', ...
+                    {'percentile', 'threshold', 'cumulativeShare'});
+            
+    for perc = [0.2 0.4 0.6 0.8 0.95 0.99]
+        moments = [moments; struct2table(get_percentile(perc,dist,x))]; %#ok<AGROW>
+    end
+
+end
+
+function [perc_summary] = get_percentile(perc, dist, x)
+
+% Computes percentile perc of x distributed according to dist
+% Inputs:  perc = percentile between 0 and 1
+%          dist = distribution vector of x
+%          x    = vector with variable of interest
+% Outputs: percentile (usually slightly above perc)
+%          threshold
+%          cummulative share of x below percentile perc
+
+    if perc >= 1
+        perc_summary = struct('percentile',      1, ...
+                              'threshold',       NaN, ...
+                              'cumulativeShare', 1);
+        return;
+    end
+
+    [x, sortv] = sort(x);
+    dist = dist(sortv);
+    i = find(cumsum(dist) >= perc,1);
+
+    perc_summary = struct('percentile',      sum(dist(1:i)), ...
+                          'threshold',       x(i), ...
+                          'cumulativeShare', sum(x(1:i).*dist(1:i))/sum(x.*dist));
+
+end
 
