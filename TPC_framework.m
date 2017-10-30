@@ -23,7 +23,7 @@ params.depreciation = 0.056;
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
                              'sigma', params.sigma, 'modelunit_dollar', params.modelunit_dollar, ...
-                             'depreciation', params.depreciation, 'bequest_phi_1', 0, 'base_brackets', 'Framework'));
+                             'depreciation', params.depreciation, 'bequest_phi_1', 0, 'base_brackets', 'C'));
 sc_steady  = scenario.currentPolicy.steady;
 steady_dir = PathFinder.getWorkingDir(sc_steady);
 
