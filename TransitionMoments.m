@@ -177,6 +177,90 @@ legend({'bottom 20%', '2nd quintile', '3rd quintile', '4th quintile', 'top quint
 hold off
 
 
+%% CIT DISTRIBUTION BY ASSETS
+
+cit_a        = zeros(nk,T_model+1);     % CIT at ik asset holdings level (in dollars)
+cit_a_groups = zeros( 3,T_model+1);
+cit_a_perc   = zeros(nk,T_model+1);     % percentage CIT at ik asset holdings level (% of total CIT)
+cit_a_pcap   = zeros(nk,T_model+1);     % CIT per capita at ik asset holdings level (in dollars)
+
+for t = 1:T_model+1
+    
+   cit_t     = cit (:,:,:,:,:,t,:);
+   dist_t    = DIST(:,:,:,:,:,t,:);
+   citdist_t = cit_t .* dist_t;
+   
+   for ik = 1:nk
+       
+      pop_ik = dist_t(:,ik,:,:,:,:,:);
+      citdist_t_ik = citdist_t(:,ik,:,:,:,:,:);
+      cit_a(ik,t) = sum(citdist_t_ik(:));
+      cit_a_perc(ik,t) = sum(citdist_t_ik(:))/sum(citdist_t(:));
+      cit_a_pcap(ik,t) = (sum(citdist_t_ik(:))/sum(pop_ik(:)))/params.modelunit_dollar;
+      
+   end
+   
+   cit_a_groups(1,t) = sum(cit_a(1:3,t));
+   cit_a_groups(2,t) = sum(cit_a(4:8,t));
+   cit_a_groups(3,t) = sum(cit_a(9:12,t));
+    
+end
+
+figure
+plot(yearsv,cit_a_groups(1,:),yearsv,cit_a_groups(2,:),yearsv,cit_a_groups(3,:),'LineWidth',2)
+title('Total CIT by asset holdings group','FontSize',16)
+xlabel('T model','FontSize',13)
+ylabel('model units','FontSize',13)
+set(gca,'XTick',yearsv(1):4:yearsv(end))
+xlim([yearsv(1) yearsv(end)])
+legend({'poor', 'middle class', 'up middle class'},'Location','northwest','FontSize',13)
+
+figure
+plot(yearsv,cit_a(1,:),yearsv,cit_a(2,:),yearsv,cit_a(3,:),...
+     yearsv,cit_a(4,:),yearsv,cit_a(5,:),yearsv,cit_a(6,:),...
+     yearsv,cit_a(7,:),yearsv,cit_a(8,:),yearsv,cit_a(9,:),...
+     'LineWidth',2)
+title('Total CIT by asset holdings','FontSize',16)
+xlabel('T model','FontSize',13)
+ylabel('2016 dollars','FontSize',13)
+set(gca,'XTick',yearsv(1):4:yearsv(end))
+xlim([yearsv(1) yearsv(end)])
+legend({sprintf('%0.2f', kv(1)/params.modelunit_dollar),sprintf('%0.2f', kv(2)/params.modelunit_dollar), ...
+        sprintf('%0.2f', kv(3)/params.modelunit_dollar),sprintf('%0.2f', kv(4)/params.modelunit_dollar), ...
+        sprintf('%0.2f', kv(5)/params.modelunit_dollar),sprintf('%0.2f', kv(6)/params.modelunit_dollar), ...
+        sprintf('%0.2f', kv(7)/params.modelunit_dollar),sprintf('%0.2f', kv(8)/params.modelunit_dollar) ...
+        sprintf('%0.2f', kv(9)/params.modelunit_dollar)},'FontSize',13)
+
+figure
+plot(yearsv,cit_a_pcap(1,:),yearsv,cit_a_pcap(2,:),yearsv,cit_a_pcap(3,:),...
+     yearsv,cit_a_pcap(4,:),yearsv,cit_a_pcap(5,:),yearsv,cit_a_pcap(6,:),...
+     yearsv,cit_a_pcap(7,:),yearsv,cit_a_pcap(8,:),yearsv,cit_a_pcap(9,:),...
+     'LineWidth',2)
+title('CIT per capita by asset holdings','FontSize',16)
+xlabel('T model','FontSize',13)
+ylabel('2016 dollars','FontSize',13)
+set(gca,'XTick',yearsv(1):4:yearsv(end))
+xlim([yearsv(1) yearsv(end)])
+legend({sprintf('%0.2f', kv(1)/params.modelunit_dollar),sprintf('%0.2f', kv(2)/params.modelunit_dollar), ...
+        sprintf('%0.2f', kv(3)/params.modelunit_dollar),sprintf('%0.2f', kv(4)/params.modelunit_dollar), ...
+        sprintf('%0.2f', kv(5)/params.modelunit_dollar),sprintf('%0.2f', kv(6)/params.modelunit_dollar), ...
+        sprintf('%0.2f', kv(7)/params.modelunit_dollar),sprintf('%0.2f', kv(8)/params.modelunit_dollar) ...
+        sprintf('%0.2f', kv(9)/params.modelunit_dollar)},'FontSize',13)
+
+% Export the data
+header      = {'year', 'total_CIT_1', 'total_CIT_2', 'total_CIT_3', 'total_CIT_4', 'total_CIT_5', 'total_CIT_6', ...
+               'total_CIT_7', 'total_CIT_8', 'total_CIT_9', 'total_CIT_10', 'total_CIT_11', 'total_CIT_12', ...
+               'pcap_CIT_1', 'pcap_CIT_2', 'pcap_CIT_3', 'pcap_CIT_4', 'pcap_CIT_5', 'pcap_CIT_6', ...
+               'pcap_CIT_7', 'pcap_CIT_8', 'pcap_CIT_9', 'pcap_CIT_10', 'pcap_CIT_11', 'pcap_CIT_12'};
+
+CITDistSummary = table(yearsv', cit_a(1,:)', cit_a(2,:)', cit_a(3,:)', cit_a(4,:)', cit_a(5,:)', cit_a(6,:)', ...
+                  cit_a(7,:)', cit_a(8,:)', cit_a(9,:)', cit_a(10,:)', cit_a(11,:)', cit_a(12,:)', ...
+                  cit_a_pcap(1,:)', cit_a_pcap(2,:)', cit_a_pcap(3,:)', cit_a_pcap(4,:)', cit_a_pcap(5,:)', cit_a_pcap(6,:)', ...
+                  cit_a_pcap(7,:)', cit_a_pcap(8,:)', cit_a_pcap(9,:)', cit_a_pcap(10,:)', cit_a_pcap(11,:)', cit_a_pcap(12,:)', ...
+                  'VariableNames', header);
+writetable(CITDistSummary, 'CITDistSummary.csv')           
+
+
 %% PIT DISTRIBUTION BY ASSETS
 
 %{
