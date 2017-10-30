@@ -105,14 +105,14 @@ for t = 1:T_model+1
       
    end
    
-   pit_a_graph(1,t) = sum(pit_a(1:3,t));
-   pit_a_graph(2,t) = sum(pit_a(4:8,t));
-   pit_a_graph(3,t) = sum(pit_a(9:12,t));
+   pit_a_groups(1,t) = sum(pit_a(1:3,t));
+   pit_a_groups(2,t) = sum(pit_a(4:8,t));
+   pit_a_groups(3,t) = sum(pit_a(9:12,t));
     
 end
 
 figure
-plot(yearsv,pit_a_graph(1,:),yearsv,pit_a_graph(2,:),yearsv,pit_a_graph(3,:),'LineWidth',2)
+plot(yearsv,pit_a_groups(1,:),yearsv,pit_a_groups(2,:),yearsv,pit_a_groups(3,:),'LineWidth',2)
 title('Total PIT by asset holdings group','FontSize',16)
 xlabel('T model','FontSize',13)
 ylabel('model units','FontSize',13)
@@ -151,6 +151,19 @@ legend({sprintf('%0.2f', kv(1)/params.modelunit_dollar),sprintf('%0.2f', kv(2)/p
         sprintf('%0.2f', kv(5)/params.modelunit_dollar),sprintf('%0.2f', kv(6)/params.modelunit_dollar), ...
         sprintf('%0.2f', kv(7)/params.modelunit_dollar),sprintf('%0.2f', kv(8)/params.modelunit_dollar) ...
         sprintf('%0.2f', kv(9)/params.modelunit_dollar)},'FontSize',13)
+
+% Export the data
+header      = {'year', 'total_PIT_1', 'total_PIT_2', 'total_PIT_3', 'total_PIT_4', 'total_PIT_5', 'total_PIT_6', ...
+               'total_PIT_7', 'total_PIT_8', 'total_PIT_9', 'total_PIT_10', 'total_PIT_11', 'total_PIT_12', ...
+               'pcap_PIT_1', 'pcap_PIT_2', 'pcap_PIT_3', 'pcap_PIT_4', 'pcap_PIT_5', 'pcap_PIT_6', ...
+               'pcap_PIT_7', 'pcap_PIT_8', 'pcap_PIT_9', 'pcap_PIT_10', 'pcap_PIT_11', 'pcap_PIT_12'};
+
+PITDistSummary = table(yearsv', pit_a(1,:)', pit_a(2,:)', pit_a(3,:)', pit_a(4,:)', pit_a(5,:)', pit_a(6,:)', ...
+                  pit_a(7,:)', pit_a(8,:)', pit_a(9,:)', pit_a(10,:)', pit_a(11,:)', pit_a(12,:)', ...
+                  pit_a_pcap(1,:)', pit_a_pcap(2,:)', pit_a_pcap(3,:)', pit_a_pcap(4,:)', pit_a_pcap(5,:)', pit_a_pcap(6,:)', ...
+                  pit_a_pcap(7,:)', pit_a_pcap(8,:)', pit_a_pcap(9,:)', pit_a_pcap(10,:)', pit_a_pcap(11,:)', pit_a_pcap(12,:)', ...
+                  'VariableNames', header);
+writetable(PITDistSummary, 'PITDistSummary.csv')           
 
 
 %% ASSET DISTRIBUTION BY GENERATION
