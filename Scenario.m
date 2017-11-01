@@ -110,7 +110,14 @@ classdef Scenario
             end
             
             % Validate that there are no unused parameters
-            % TODO!
+            for o = fieldnames(params)'
+                
+                if ( ~isfield(Scenario.def_params, o{1})     ...
+                    && ~any(strcmp(o{1}, Scenario.req_params)) )
+                    error( 'Field <%s> does not match any Scenario fields.', o{1} );
+                end
+                
+            end
             
             % Validate economy
             assert(any(strcmp(this.economy, {'steady', 'open', 'closed'})), ...

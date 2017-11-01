@@ -556,6 +556,14 @@ methods (Static)
                     beqs = Dynamic.bequests / pgr;
                     clearing = Market.rhos - rhos;
                     
+                    % Calculate income - THIS SHOULD BE OUTSIDE THE CASE
+                    % ECONOMY LOOP!
+                    Dynamic.labincs = Dynamic.labeffs .* Market.wages;
+                    Dynamic.capincs = qtobin * Market.caprates .* Dynamic.caps;
+                    
+                    Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
+                    Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
+
                 case 'open'
                     
                     % Calculate capital and output
@@ -659,14 +667,15 @@ methods (Static)
         % Save baseline optimal labor values and population distribution
         if isbase
             save(fullfile(save_dir, 'decisions.mat'   ), 'LABs')
-            save(fullfile(save_dir, 'all_decisions.mat'   ), '-struct', 'OPTs')
-            save(fullfile(save_dir, 'distribution.mat'), 'DIST')
+%             save(fullfile(save_dir, 'all_decisions.mat'   ), '-struct', 'OPTs')
+%             save(fullfile(save_dir, 'distribution.mat'), 'DIST')
         end
         
         % Save market conditions and dynamic aggregates
         save(fullfile(save_dir, 'market.mat'  ), '-struct', 'Market' )
         save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic')
-        
+        save(fullfile(save_dir, 'all_decisions.mat'   ), '-struct', 'OPTs')
+        save(fullfile(save_dir, 'distribution.mat'), 'DIST')        
         
         
         %% Elasticity calculation
