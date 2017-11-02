@@ -293,6 +293,7 @@ methods (Static)
                     
                 else
                     DIST = DIST_static;
+                    pgr  = -Inf;
                 end
                 
             end
@@ -343,11 +344,14 @@ methods (Static)
             
             % Generate static aggregates
             % (Intermediary structure used to filter out extraneous fields)
-            [Static_] = generate_aggregates(Market, {}, LABs_static, DIST_static);
+            [Static_, Static_LABs, Static_DIST, ~, Static_OPTs] = ...
+                generate_aggregates(Market, {}, LABs_static, DIST_static);
             
             for series = {'incs', 'pits', 'ssts', 'cits', 'bens', 'labs', 'cons', 'pops'}
                 Static.(series{1}) = Static_.(series{1});
             end
+            save(fullfile(save_dir, 'Static_all_decisions.mat'   ), '-struct', 'Static_OPTs')
+            save(fullfile(save_dir, 'Static_distribution.mat'), 'Static_DIST')        
             
             % THIS CALCULATION OF REVS SHOULD BE TEMPORARY
             Static.revs  = Static.pits + Static.ssts + Static.cits - Static.bens;
@@ -358,7 +362,7 @@ methods (Static)
             for series = {'labeffs', 'caps', 'lfprs', 'labincs', 'capincs', 'outs', 'caps_domestic', 'caps_foreign', 'debts_domestic', 'debts_foreign', 'debts', 'assets'}
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
-            
+
             
             % Calculate additional static aggregates
             Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
