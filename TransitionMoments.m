@@ -85,11 +85,24 @@ for var_name = var_list
     [var var_static] = append_decisions(var_name{1}, nz, nk, nb, T_life, ng, T_model, ndem, kv, steady_dir, sc_dir);
     quintiles.(var_name{1}) = generate_moments(var, dist, sort_inc, inc_index, T_model);
     quintiles.(strcat(var_name{1},'_static')) = generate_moments(var_static, dist_static, sort_inc_static, inc_index_static, T_model);
+    quintiles.(strcat(var_name{1},'_delta'))  = quintiles.(var_name{1})./ quintiles.(strcat(var_name{1},'_static'));
     
 end
 
-save_dir = PathFinder.getWorkingDir(scenario);
-save(fullfile(save_dir, 'quintiles.mat' ), '-struct', 'quintiles')
+save(fullfile(sc_dir, 'quintiles.mat' ), '-struct', 'quintiles');
+
+header = {'year', 'CIT_delta_q1', 'CIT_delta_q2', 'CIT_delta_q3', 'CIT_delta_q4', 'CIT_delta_q5', ...
+               'asset_delta_q1', 'asset_delta_q2', 'asset_delta_q3', 'asset_delta_q4', 'asset_delta_q5', ...
+               'PIT_delta_q1', 'PIT_delta_q2', 'PIT_delta_q3', 'PIT_delta_q4', 'PIT_delta_q5'};
+
+quint_table = table([2017:1:(2017 + T_model)]', quintiles.CIT_delta(:,1), quintiles.CIT_delta(:,2), ...
+                    quintiles.CIT_delta(:,3), quintiles.CIT_delta(:,4), quintiles.CIT_delta(:,5), ...
+                    quintiles.K_delta(:,1), quintiles.K_delta(:,2), quintiles.K_delta(:,3), ...
+                    quintiles.K_delta(:,4), quintiles.K_delta(:,5), quintiles.PIT_delta(:,1),  ...
+                    quintiles.PIT_delta(:,2), quintiles.PIT_delta(:,3), quintiles.PIT_delta(:,4), ...
+                    quintiles.PIT_delta(:,5), 'VariableNames', header);
+           
+writetable(quint_table, fullfile(sc_dir, 'quint_table.csv'));
 
 
 %% FUNCTIONS
