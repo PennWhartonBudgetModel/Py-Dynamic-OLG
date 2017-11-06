@@ -44,12 +44,12 @@ methods (Static)
         javaaddpath(fullfile(PathFinder.getSourceDir(), 'jar', 'sqljdbc41.jar'));
         
         % Establish database connection
-        connection = database('second_chart', 'development', 'yeFMa8cUEu9UYDmm', ...
+        connection = database('pwbm_scenario', 'development', 'yeFMa8cUEu9UYDmm', ...
                               'Vendor', 'Microsoft SQL Server', 'AuthType', 'Server', ...
                               'Server', 'ppi-slcsql.wharton.upenn.edu', 'PortNumber', 49170);
         
         % Get scenario rows from database using stored procedure
-        o = connection.exec( sprintf( 'EXEC p_ScenarioBatch "%s"', batch ) );
+        o = connection.exec( sprintf( 'EXEC p_ScenarioBatch ''%s'' ', batch ) );
         rows = cell2struct( o.fetch().Data, o.columnnames(true), 2 );
         o.close();
         
