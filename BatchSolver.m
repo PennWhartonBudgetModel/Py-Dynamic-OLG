@@ -20,6 +20,22 @@ end
 
 methods (Static)
     
+    % Run a batch locally (i.e. not on Cluster)
+    function [] = generateBatch( batchID )
+        
+        [currentpolicys, counterfactuals] = BatchSolver.defineScenarios( batchID );
+        
+        for i = 1:size(currentpolicys)
+            BatchSolver.solveCurrentPolicy(i);
+        end
+        for i = 1:size(counterfactuals)
+            BatchSolver.solveCounterfactual(i);
+        end
+        
+        BatchSolver.generateDataSeries( batchID );
+    end % generateBatch
+    
+    
     
     % Read batch of scenarios from database
     function [scenarios, rows] = readBatch(batch)
@@ -28,7 +44,7 @@ methods (Static)
         javaaddpath(fullfile(PathFinder.getSourceDir(), 'jar', 'sqljdbc41.jar'));
         
         % Establish database connection
-        connection = database('second_chart', 'pwbm', 'HbXk86rabjehD2AN', ...
+        connection = database('second_chart', 'development', 'yeFMa8cUEu9UYDmm', ...
                               'Vendor', 'Microsoft SQL Server', 'AuthType', 'Server', ...
                               'Server', 'ppi-slcsql.wharton.upenn.edu', 'PortNumber', 49170);
         
@@ -104,7 +120,7 @@ methods (Static)
     
     
     % Define minimal set of executable scenarios for a batch
-    function [] = defineScenarios(batch)
+    function [currentpolicys, counterfactuals] = defineScenarios(batch)
         
         % Define function to remove empty entries from a cell array
         function c_ = compress(c)
