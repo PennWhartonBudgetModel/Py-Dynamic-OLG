@@ -28,13 +28,6 @@ sc_steady  = scenario.currentPolicy.steady;
 steady_dir = PathFinder.getWorkingDir(sc_steady);
 sc_dir     = PathFinder.getWorkingDir(scenario);
 
-if scenario.economy == 'closed'
-    sc_base = scenario.currentPolicy.closed;
-else
-    sc_base = scenario.currentPolicy.open;
-end
-base_dir = PathFinder.getWorkingDir(sc_base);
-
 
 %% PARAMETERS
 
