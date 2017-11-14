@@ -11,8 +11,14 @@ function [] = TransitionMoments(scenario)
                          
     %% Scenarios and directories
     sc_steady  = scenario.currentPolicy.steady;
+    if strcmp(scenario.economy, 'open')
+        sc_base    = scenario.currentPolicy.open();
+    else
+        sc_base    = scenario.currentPolicy.closed();
+    end
     steady_dir = PathFinder.getWorkingDir(sc_steady);
     sc_dir     = PathFinder.getWorkingDir(scenario);
+    base_dir   = PathFinder.getWorkingDir(sc_base);
 
 
     %% PARAMETERS
@@ -33,6 +39,11 @@ function [] = TransitionMoments(scenario)
     nb     = s.nb;         % num avg. earnings points
     kv     = s.kv;         % asset grid
 
+    % Define captaxshare
+    s = ParamGenerator.tax( sc_steady );
+    captaxshare_ss = s.captaxshare;
+    s = ParamGenerator.tax( scenario );
+    captaxshare = s.captaxshare;
 
     %% Households distribution
 
@@ -40,7 +51,7 @@ function [] = TransitionMoments(scenario)
 
     %% Import taxable income and define quintiles
 
-    [inc inc_static] = append_decisions('INC', nz, nk, nb, T_life, ng, T_model, ndem, kv, steady_dir, sc_dir);
+    [inc inc_static] = append_decisions('INC', nz, nk, nb, T_life, ng, T_model, ndem, kv, zs, captaxshare, captaxshare_ss, steady_dir, sc_dir, base_dir);
 
     inc_groups = zeros(T_model+1,5);
     inc_index  = zeros(T_model+1,5);
@@ -58,9 +69,9 @@ function [] = TransitionMoments(scenario)
 
     %% Generate groups for other variables based on taxable income distribution
 
-    for var_name = {'CIT', 'K', 'PIT'}
+    for var_name = {'CIT', 'K', 'PIT', 'SST', 'BEN', 'LABINC', 'KINC', 'TAX'}
 
-        [var var_static] = append_decisions(var_name{1}, nz, nk, nb, T_life, ng, T_model, ndem, kv, steady_dir, sc_dir);
+        [var var_static] = append_decisions(var_name{1}, nz, nk, nb, T_life, ng, T_model, ndem, kv, zs, captaxshare, captaxshare_ss, steady_dir, sc_dir, base_dir);
         quintiles.(var_name{1}) = generate_moments(var, dist, sort_inc, inc_index, T_model);
         quintiles.(strcat(var_name{1},'_static')) = generate_moments(var_static, dist_static, sort_inc_static, inc_index_static, T_model);
         quintiles.(strcat(var_name{1},'_delta'))  = quintiles.(var_name{1})./ quintiles.(strcat(var_name{1},'_static'));
@@ -72,7 +83,10 @@ function [] = TransitionMoments(scenario)
     header = {'year', 'INC_delta_q1', 'INC_delta_q2', 'INC_delta_q3', 'INC_delta_q4', 'INC_delta_q5', ...
                    'CIT_delta_q1', 'CIT_delta_q2', 'CIT_delta_q3', 'CIT_delta_q4', 'CIT_delta_q5', ...
                    'asset_delta_q1', 'asset_delta_q2', 'asset_delta_q3', 'asset_delta_q4', 'asset_delta_q5', ...
-                   'PIT_delta_q1', 'PIT_delta_q2', 'PIT_delta_q3', 'PIT_delta_q4', 'PIT_delta_q5'};
+                   'PIT_delta_q1', 'PIT_delta_q2', 'PIT_delta_q3', 'PIT_delta_q4', 'PIT_delta_q5', ...
+                   'LABINC_delta_q1', 'LABINC_delta_q2', 'LABINC_delta_q3', 'LABINC_delta_q4', 'LABINC_delta_q5', ...
+                   'KINC_delta_q1', 'KINC_delta_q2', 'KINC_delta_q3', 'KINC_delta_q4', 'KINC_delta_q5', ...
+                   'TAX_delta_q1', 'TAX_delta_q2', 'TAX_delta_q3', 'TAX_delta_q4', 'TAX_delta_q5'};
 
     quint_table = table([2017:1:(2017 + T_model)]', inc_groups(:,1)./inc_groups_static(:,1), ...
                         inc_groups(:,2)./inc_groups_static(:,2), inc_groups(:,3)./inc_groups_static(:,3), ...
@@ -82,7 +96,13 @@ function [] = TransitionMoments(scenario)
                         quintiles.K_delta(:,1), quintiles.K_delta(:,2), quintiles.K_delta(:,3), ...
                         quintiles.K_delta(:,4), quintiles.K_delta(:,5), quintiles.PIT_delta(:,1),  ...
                         quintiles.PIT_delta(:,2), quintiles.PIT_delta(:,3), quintiles.PIT_delta(:,4), ...
-                        quintiles.PIT_delta(:,5), 'VariableNames', header);
+                        quintiles.PIT_delta(:,5), quintiles.LABINC_delta(:,1),  ...
+                        quintiles.LABINC_delta(:,2), quintiles.LABINC_delta(:,3), quintiles.LABINC_delta(:,4), ...
+                        quintiles.LABINC_delta(:,5), quintiles.KINC_delta(:,1),  ...
+                        quintiles.KINC_delta(:,2), quintiles.KINC_delta(:,3), quintiles.KINC_delta(:,4), ...
+                        quintiles.KINC_delta(:,5), quintiles.TAX_delta(:,1),  ...
+                        quintiles.TAX_delta(:,2), quintiles.TAX_delta(:,3), quintiles.TAX_delta(:,4), ...
+                        quintiles.TAX_delta(:,5), 'VariableNames', header);
 
     writetable(quint_table, fullfile(sc_dir, 'quint_table.csv'));
 
@@ -107,13 +127,76 @@ function [] = TransitionMoments(scenario)
     end
 
     % Pre-appends steady state variables from all_decisions mat file
-    function [x x_static] = append_decisions(x_name, nz, nk, nb, T_life, ng, T_model, ndem, kv, dir_ss, dir_sc)
+    function [x x_static] = append_decisions(x_name, nz, nk, nb, T_life, ng, T_model, ndem, kv, zs, captaxshare, captaxshare_ss, dir_ss, dir_sc, dir_bs)
 
         if strcmp(x_name, 'K')
 
             x        = repmat(reshape(kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,T_model+1,ndem]);
             x_static = repmat(reshape(kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,T_model+1,ndem]);
 
+        elseif strcmp(x_name, 'LABINC')
+
+            x        = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+            x_static = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+            
+            s        = load( fullfile(dir_ss, 'market.mat' ) );
+            wages_ss = s.wages;
+            f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,1,ndem]), [1,1,1,1,ng,1,1]);
+            s = load( fullfile(dir_ss, 'all_decisions.mat' ) );
+            x(:,:,:,:,:,1,:)        = wages_ss*f(s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,1,1]));
+            x_static(:,:,:,:,:,1,:) = wages_ss*f(s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,1,1]));
+
+            s     = load( fullfile(dir_sc, 'market.mat' ) );
+            wages = s.wages;
+            f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
+            s = load( fullfile(dir_sc, 'all_decisions.mat' ) );
+            x(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]) .* s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));
+            s     = load( fullfile(dir_bs, 'market.mat' ) );
+            wages_static = s.wages;
+            s = load( fullfile(dir_sc, 'Static_all_decisions.mat' ) );
+            x_static(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages_static, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]) .*s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));
+            
+        elseif strcmp(x_name, 'KINC')
+
+            x        = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+            x_static = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+            
+            s        = load( fullfile(dir_ss, 'market.mat' ) );
+            capshares_ss = s.capshares;
+            caprates_ss  = s.caprates;
+            qtobin_ss    = s.qtobin;
+            s = load( fullfile(dir_ss, 'all_decisions.mat' ) );
+            x(:,:,:,:,:,1,:)        = capshares_ss*(caprates_ss/qtobin_ss)*captaxshare_ss*repmat(reshape(kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,1,ndem]);
+            x_static(:,:,:,:,:,1,:) = capshares_ss*(caprates_ss/qtobin_ss)*captaxshare_ss*repmat(reshape(kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,1,ndem]);
+
+            s     = load( fullfile(dir_sc, 'market.mat' ) );
+            capshares = s.capshares;
+            caprates  = s.caprates;
+            qtobin    = s.qtobin;
+            f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
+            s = load( fullfile(dir_sc, 'all_decisions.mat' ) );
+            x(:,:,:,:,:,2:end,:) = (captaxshare/qtobin)*f(repmat(reshape(capshares, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]).*repmat(reshape(caprates, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]).*repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model,ndem]));
+            s     = load( fullfile(dir_bs, 'market.mat' ) );
+            wages_static = s.wages;
+            s = load( fullfile(dir_sc, 'Static_all_decisions.mat' ) );
+            x_static(:,:,:,:,:,2:end,:) = (captaxshare/qtobin)*f(repmat(reshape(capshares, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]).*repmat(reshape(caprates, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]).*repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model,ndem]));
+
+        elseif strcmp(x_name, 'TAX')
+
+            x        = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+            x_static = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+            
+            f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,1,ndem]), [1,1,1,1,ng,1,1]);
+            s = load( fullfile(dir_ss, 'all_decisions.mat' ) );
+            x(:,:,:,:,:,1,:)        = f(s.CIT + s.PIT + s.SST);
+            x_static(:,:,:,:,:,1,:) = f(s.CIT + s.PIT + s.SST);
+
+            f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
+            s = load( fullfile(dir_sc, 'all_decisions.mat' ) );
+            x(:,:,:,:,:,2:end,:) = f(s.CIT + s.PIT + s.SST);
+            s = load( fullfile(dir_sc, 'Static_all_decisions.mat' ) );
+            x_static(:,:,:,:,:,2:end,:) = f(s.CIT + s.PIT + s.SST);
+            
         else
 
             x        = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
