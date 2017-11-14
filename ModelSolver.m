@@ -444,12 +444,12 @@ methods (Static)
         
         
         % Define marketing clearing tolerance and initialize error term
-        tol = 1e-3;
+        tol = 1e-5;
         eps = Inf;
         
         % Initialize iteration count and set maximum number of iterations
         iter    =  0;
-        itermax = 25;
+        itermax = 30;
         
         % Create file for logging iterations
         % (Note that this should be done after any parallel pool is started to avoid file access issues)
