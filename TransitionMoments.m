@@ -162,24 +162,21 @@ function [] = TransitionMoments(scenario)
             x_static = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
             
             s        = load( fullfile(dir_ss, 'market.mat' ) );
-            capshares_ss = s.capshares;
             caprates_ss  = s.caprates;
-            qtobin_ss    = s.qtobin;
-            s = load( fullfile(dir_ss, 'all_decisions.mat' ) );
-            x(:,:,:,:,:,1,:)        = capshares_ss*(caprates_ss/qtobin_ss)*captaxshare_ss*repmat(reshape(kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,1,ndem]);
-            x_static(:,:,:,:,:,1,:) = capshares_ss*(caprates_ss/qtobin_ss)*captaxshare_ss*repmat(reshape(kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,1,ndem]);
+            capshares_ss = s.capshares;
+            x(:,:,:,:,:,1,:)        = capshares_ss*caprates_ss*repmat(reshape(kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,1,ndem]);
+            x_static(:,:,:,:,:,1,:) = capshares_ss*caprates_ss*repmat(reshape(kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,1,ndem]);
 
+            f = @(X) repmat(reshape(X, [1,1,1,1,1,T_model,1]), [nz,nk,nb,T_life,ng,1,ndem]);
+            g = @(X) repmat(reshape(X, [1,nk,1,1,1,1,1]), [nz,1,nb,T_life,ng,T_model,ndem]);
             s     = load( fullfile(dir_sc, 'market.mat' ) );
-            capshares = s.capshares;
             caprates  = s.caprates;
-            qtobin    = s.qtobin;
-            f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
-            s = load( fullfile(dir_sc, 'all_decisions.mat' ) );
-            x(:,:,:,:,:,2:end,:) = (captaxshare/qtobin)*f(repmat(reshape(capshares, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]).*repmat(reshape(caprates, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]).*repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model,ndem]));
+            capshares = s.capshares;
+            x(:,:,:,:,:,2:end,:) = f(caprates.*capshares).* g(kv);
             s     = load( fullfile(dir_bs, 'market.mat' ) );
-            wages_static = s.wages;
-            s = load( fullfile(dir_sc, 'Static_all_decisions.mat' ) );
-            x_static(:,:,:,:,:,2:end,:) = (captaxshare/qtobin)*f(repmat(reshape(capshares, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]).*repmat(reshape(caprates, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]).*repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model,ndem]));
+            caprates_static  = s.caprates;
+            capshares_static = s.capshares;
+            x_static(:,:,:,:,:,2:end,:) = f(caprates_static.*capshares_static).* g(kv);
 
         elseif strcmp(x_name, 'TAX')
 

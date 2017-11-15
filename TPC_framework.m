@@ -23,7 +23,7 @@ params.depreciation = 0.056;
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
                              'sigma', params.sigma, 'modelunit_dollar', params.modelunit_dollar, ...
-                             'depreciation', params.depreciation, 'bequest_phi_1', 0, 'base_brackets', 'HR1'));
+                             'depreciation', params.depreciation, 'bequest_phi_1', 0, 'base_brackets', 'SenCM'));
 sc_steady  = scenario.currentPolicy.steady;
 steady_dir = PathFinder.getWorkingDir(sc_steady);
 
@@ -37,7 +37,7 @@ closed_dir  = PathFinder.getWorkingDir(sc_closed);
 bopen_dir   = PathFinder.getWorkingDir(scb_open);
 bclosed_dir = PathFinder.getWorkingDir(scb_closed);
 
-% ModelSolver.solve(scenario);
+ModelSolver.solve(scenario);
 
 % Import variables in dynamics file
 d_steady = load(fullfile(steady_dir  , 'dynamics.mat'), ... 
