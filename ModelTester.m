@@ -22,49 +22,50 @@ methods (Static)
 
     % Test steady state solution and elasticities
     function [] = steady()
-        scenario = Scenario(ModelTester.test_params).currentPolicy().steady();
-        save_dir = ModelSolver.solve(scenario);
-        setnames = {'market', 'dynamics', 'paramsTargets'};
-        test_output(save_dir, setnames);
+        ModelTester.runTest( Scenario(ModelTester.test_params).currentPolicy().steady()     ...
+                            ,   {'market', 'dynamics', 'paramsTargets'}     );
     end
     
     
     % Test open economy baseline solution, dynamic aggregates, and static aggregates
     function [] = open_base()
-        scenario = Scenario(ModelTester.test_params).currentPolicy().open();
-        save_dir = ModelSolver.solve(scenario);
-        setnames = {'market', 'dynamics'};
-        test_output(save_dir, setnames);
+        ModelTester.runTest( Scenario(ModelTester.test_params).currentPolicy().open()       ...
+                            ,   {'market', 'dynamics'}                      );
     end
     
     
     % Test open economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = open_counter()
-        scenario = Scenario(ModelTester.test_params).open();
-        save_dir = ModelSolver.solve(scenario);
-        setnames = {'market', 'dynamics', 'statics'};
-        test_output(save_dir, setnames);
+        ModelTester.runTest( Scenario(ModelTester.test_params).open()                       ...
+                            ,   {'market', 'dynamics', 'statics'}           );
     end
     
     
     % Test closed economy baseline solution, dynamic aggregates, and static aggregates
     function [] = closed_base()
-        scenario = Scenario(ModelTester.test_params).currentPolicy().closed();
-        save_dir = ModelSolver.solve(scenario);
-        setnames = {'market', 'dynamics'};
-        test_output(save_dir, setnames);
+        ModelTester.runTest( Scenario(ModelTester.test_params).currentPolicy().closed()     ...
+                            ,   {'market', 'dynamics'}                      );
     end
     
     
     % Test closed economy counterfactual solution, dynamic aggregates, and static aggregates
     function [] = closed_counter()
-        scenario = Scenario(ModelTester.test_params).closed();
-        save_dir = ModelSolver.solve(scenario);
-        setnames = {'market', 'dynamics', 'statics'};
-        test_output(save_dir, setnames);
+        ModelTester.runTest( Scenario(ModelTester.test_params).closed()                      ...
+                            ,   {'market', 'dynamics', 'statics'}           );
     end
     
     
+end % methods
+
+
+methods (Static, Access = private )
+    
+    function [] = runTest( scenario, testset_names )
+        PathFinder.setToTestingMode();
+        save_dir = ModelSolver.solve(scenario);
+        test_output(save_dir, testset_names);
+        PathFinder.setToDevelopmentMode();
+    end
 end
 
 end
@@ -73,9 +74,9 @@ end
 % Test solver output against target values
 function [] = test_output(save_dir, setnames)
 
-    % Get test name from name of calling method
+    % Get test name from name of calling method (one level up)
     callstack = dbstack();
-    testname = regexp(callstack(2).name, '(?<=^ModelTester\.).*$', 'match', 'once');
+    testname = regexp(callstack(3).name, '(?<=^ModelTester\.).*$', 'match', 'once');
 
     % Load target values
     targetfile = fullfile(fileparts(mfilename('fullpath')), 'ModelTester.mat');
