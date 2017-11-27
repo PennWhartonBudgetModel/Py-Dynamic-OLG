@@ -37,29 +37,30 @@ closed_dir  = PathFinder.getWorkingDir(sc_closed);
 bopen_dir   = PathFinder.getWorkingDir(scb_open);
 bclosed_dir = PathFinder.getWorkingDir(scb_closed);
 
-ModelSolver.solve(scenario);
+% ModelSolver.solve(scenario);
 
 % Import variables in dynamics file
 d_steady = load(fullfile(steady_dir  , 'dynamics.mat'), ... 
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs' );
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens' );
+% d_steady.cits_domestic = d_steady.cits;
 d_open   = load(fullfile(open_dir  , 'dynamics.mat'), ... 
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs' );
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens' );
 
 d_closed = load(fullfile(closed_dir, 'dynamics.mat'), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs' );
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens' );
 
 % Import variables in **baseline** dynamics file
 b_open   = load(fullfile(bopen_dir  , 'dynamics.mat'), ... 
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs' );
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens' );
 
 b_closed = load(fullfile(bclosed_dir, 'dynamics.mat'), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs' );
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens' );
 
 % Import variables in statics file
 s_open   = load(fullfile(open_dir  , 'statics.mat' ), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs');
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens');
 s_closed = load(fullfile(closed_dir, 'statics.mat' ), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs');
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens');
 
 % Import variables in market file
 m_steady = load(fullfile(steady_dir, 'market.mat' ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
@@ -74,7 +75,7 @@ m_closed.qtobin = repmat(m_closed.qtobin, [size(m_closed.rhos)]);
 
 % Include steady state year in all series
 include_ss = @(x, xss) [xss x];
-os = {'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'cons', 'pops', 'labpits', 'caprevs'};
+os = {'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'cons', 'pops', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens'};
 for o = os
     d_open.(o{1})   = include_ss(d_open.(o{1})  , d_steady.(o{1}));
     s_open.(o{1})   = include_ss(s_open.(o{1})  , d_steady.(o{1}));
@@ -89,6 +90,14 @@ for o = os
     mb_open.(o{1})   = include_ss(mb_open.(o{1})  , m_steady.(o{1}));
     m_closed.(o{1}) = include_ss(m_closed.(o{1}), m_steady.(o{1}));
     mb_closed.(o{1}) = include_ss(mb_closed.(o{1}), m_steady.(o{1}));
+end
+
+% Create new variables
+for var_name = {'tax', 'totinc', 'totincwss'};
+    d_open.(var_name{1}) = build_var(var_name{1}, d_open, m_open);
+    s_open.(var_name{1}) = build_var(var_name{1}, s_open, m_open);
+    d_closed.(var_name{1}) = build_var(var_name{1}, d_closed, m_closed);
+    s_closed.(var_name{1}) = build_var(var_name{1}, s_closed, m_closed);
 end
 
 % Years vector
@@ -116,10 +125,11 @@ writetable(res_open, 'res_open.csv')
 writetable(res_closed, 'res_closed.csv')
            
 % Deltas report
-header = {'year', 'output', 'debt', 'revenue', 'capital', 'labor', 'labor_efficient', 'labpits', 'caprevs', 'assets', 'consumption'};
+header = {'year', 'output', 'debt', 'revenue', 'capital', 'labor', 'labor_efficient', 'labpits', 'caprevs', 'assets', 'consumption', 'pits', 'tax', 'totinc', 'totincwss'};
 f = @( d, s ) table(yearsv', (d.outs ./ s.outs)', (d.debts ./ s.debts)', (d.revs ./ s.revs)',   ...
          (d.caps ./ s.caps)', (d.labs ./ s.labs)', (d.labeffs ./ s.labeffs)' , (d.labpits ./ s.labpits)' ,   ...
-         (d.caprevs ./ s.caprevs)', (d.assets ./ s.assets)', (d.cons ./ s.cons)', 'VariableNames', header);
+         (d.caprevs ./ s.caprevs)', (d.assets ./ s.assets)', (d.cons ./ s.cons)', (d.pits ./ s.pits)',...
+         (d.tax ./ s.tax)', (d.totinc ./ s.totinc)', (d.totincwss ./ s.totincwss)', 'VariableNames', header);
     
 delta_closed  = f(d_closed, s_closed);
 delta_open    = f(d_open  , s_open  );
@@ -148,4 +158,30 @@ end
 writetable(TPC_open  ,filename,'Sheet','open')
 writetable(TPC_closed,filename,'Sheet','closed')
                  
+
+%% FUNCTIONS
+
+function x = build_var(x_name, dynamic_struct, market_struct)
+
+    if strcmp(x_name, 'tax')
+        
+        x = dynamic_struct.pits + dynamic_struct.cits + dynamic_struct.ssts;
+        
+    elseif strcmp(x_name, 'totinc')
+        
+        x = dynamic_struct.labincs + market_struct.totrates .* dynamic_struct.assets;
+        
+    elseif strcmp(x_name, 'totincwss')
+        
+        x = dynamic_struct.totinc + dynamic_struct.bens;
+        
+    else
+        
+        error('Variable does not exist.')
+        
+    end
+
+end
+
+
 
