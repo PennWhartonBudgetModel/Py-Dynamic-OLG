@@ -72,7 +72,7 @@ function [] = TransitionMoments(scenario)
     for var_name = {'CIT', 'K', 'PIT', 'SST', 'BEN', 'LABINC', 'AINC', 'TAX', 'TOTINC', 'TOTINCwSS'}
 
         [var var_static] = append_decisions(var_name{1}, nz, nk, nb, T_life, ng, T_model, ndem, kv, zs, captaxshare, captaxshare_ss, steady_dir, sc_dir, base_dir);
-        quintiles.(var_name{1}) = generate_moments(var, dist, sort_inc, inc_index, T_model);
+        quintiles.(var_name{1}) = generate_moments(var, dist, sort_inc_static, inc_index_static, T_model);
         quintiles.(strcat(var_name{1},'_static')) = generate_moments(var_static, dist_static, sort_inc_static, inc_index_static, T_model);
         quintiles.(strcat(var_name{1},'_delta'))  = quintiles.(var_name{1})./ quintiles.(strcat(var_name{1},'_static'));
 
