@@ -336,8 +336,8 @@ function [] = TransitionMoments(scenario)
             dist_t = dist_t(:);
 
             % Sort variables
-            x_t    = x_t(sortx(:,t));
-            dist_t = dist_t(sortx(:,t));
+            x_t    = x_t(sortx(:,2));
+            dist_t = dist_t(sortx(:,2));
 
             % Find quintiles
             x_cum = zeros(1,5);
@@ -345,7 +345,7 @@ function [] = TransitionMoments(scenario)
             for quintile = 0.2:0.2:0.8
 
                 % Asset distributed according to taxable income
-                i = q_index(t,q);
+                i = q_index(2,q);
                 x_cum(1,q) = sum(x_t(1:i).*dist_t(1:i));
                 % Counter
                 q = q + 1;
