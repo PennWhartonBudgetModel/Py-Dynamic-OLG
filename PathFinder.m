@@ -7,12 +7,22 @@ classdef PathFinder
 
 properties (Constant, Access = private)
     
-    % Specify input interface versions, organized by component
+    % Specify inputsets of interface versions, organized by component
+    %    Production set is for Production & Development modes
+    %    Testing set is for Testing mode
     inputversions = struct( ...
-        'CBO'           , struct('cbo'          , '2017-09-14'                          ), ...
-        'Microsim'      , struct('microsim'     , '2017-10-23'                          ), ...
-        'TaxCalculator' , struct('taxplan'      , '2017-11-19-SenCMA'                          ), ...
-        'DynamicModel'  , struct('calibration'  , '2017-10-20-05-56-efraim-f0a4c45'     )  ...
+        'Production'    , struct( ...
+            'CBO'           , struct('cbo'          , '2017-09-14'                          ), ...
+            'Microsim'      , struct('microsim'     , '2017-10-23'                          ), ...
+            'TaxCalculator' , struct('taxplan'      , '2017-11-19-SenCMA'                   ), ...
+            'DynamicModel'  , struct('calibration'  , '2017-10-20-05-56-efraim-f0a4c45'     )  ...
+        ), ...
+        'Testing'       , struct( ...
+            'CBO'           , struct('cbo'          , '2017-09-14'                          ), ...
+            'Microsim'      , struct('microsim'     , '2017-10-23'                          ), ...
+            'TaxCalculator' , struct('taxplan'      , '2017-11-14-SenCM'                    ), ...
+            'DynamicModel'  , struct('calibration'  , '2017-10-20-05-56-efraim-f0a4c45'     )  ...
+        )  ...
         );
     
 end
@@ -29,10 +39,10 @@ methods (Static, Access = private)
         
         % Set to new execution mode if provided
         if (exist('newmode', 'var'))
-            if (any(strcmp(newmode, {'Development', 'Production'})))
+            if (any(strcmp(newmode, {'Development', 'Production', 'Testing'})))
                 mode_ = newmode;
             else
-                error('Execution mode must be either ''Development'' or ''Production''.');
+                error('Execution mode must be in (''Development'', ''Testing'', ''Production'')');
             end
         else
             % Initialize to development mode if uninitialized
@@ -74,6 +84,7 @@ methods (Static, Access = private)
     function [workingrootdir] = getWorkingRootDir()
         switch (PathFinder.ExecutionMode())
             case 'Development', workingrootdir = fullfile(PathFinder.getSourceDir(), 'Working');
+            case 'Testing'    , workingrootdir = fullfile(PathFinder.getSourceDir(), 'Working');
             case 'Production' , workingrootdir = fullfile(PathFinder.getComponentRootDir(), 'Internal', PathFinder.getCommitTag());
         end
     end
@@ -83,13 +94,21 @@ methods (Static, Access = private)
     
     % Get input directory
     function [inputdir] = getInputDir(component, interface)
-        inputdir = fullfile(PathFinder.getComponentRootDir(component), 'Interfaces', PathFinder.inputversions.(component).(interface), interface);
+        % Production & Development input sets are the same
+        if( strcmp( PathFinder.ExecutionMode(), 'Testing' ) )
+            inputset = 'Testing';
+        else
+            inputset = 'Production';
+        end
+        version  = PathFinder.inputversions.(inputset).(component).(interface);
+        inputdir = fullfile(PathFinder.getComponentRootDir(component), 'Interfaces', version, interface);
     end
     
     % Get output directory
     function [outputdir] = getOutputDir(interface)
         switch (PathFinder.ExecutionMode())
             case 'Development', outputrootdir = PathFinder.getWorkingRootDir();
+            case 'Testing'    , outputrootdir = PathFinder.getWorkingRootDir();
             case 'Production' , outputrootdir = fullfile(PathFinder.getComponentRootDir(), 'Interfaces', PathFinder.getCommitTag());
         end
         outputdir = fullfile(outputrootdir, interface);
@@ -134,6 +153,11 @@ methods (Static, Access = public)
     % Set execution mode to development
     function [] = setToDevelopmentMode()
         PathFinder.ExecutionMode('Development');
+    end
+    
+    % Set execution mode to Testing
+    function [] = setToTestingMode()
+        PathFinder.ExecutionMode('Testing');
     end
     
     % Set execution mode to production
