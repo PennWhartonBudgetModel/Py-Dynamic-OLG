@@ -26,7 +26,6 @@ function [] = TransitionMoments(scenario)
     % Define time constants
     s = ParamGenerator.timing( scenario );
     T_life  = s.T_life;    % Total life years
-    T_work  = s.T_work;    % Retirement age
     T_model = s.T_model;   % Transition path model years
 
     % Define grids
@@ -39,39 +38,27 @@ function [] = TransitionMoments(scenario)
     nb     = s.nb;         % num avg. earnings points
     kv     = s.kv;         % asset grid
 
-    % Define captaxshare
-    s = ParamGenerator.tax( sc_steady );
-    captaxshare_ss = s.captaxshare;
-    s = ParamGenerator.tax( scenario );
-    captaxshare = s.captaxshare;
+    %% Import total income with Social Security transfers in the baseline economy and define percentiles
+
+    [totincwss_base, ~] = append_decisions('TOTINCwSSbase', nz, nk, nb, T_life, ng, T_model, ndem, kv, zs, steady_dir, base_dir, {});
+    [dist_base, ~] = append_dist(nz, nk, nb, T_life, ng, T_model, ndem, steady_dir, base_dir, 1);
+    [~ , sort_base, index_base] = get_percentiles(totincwss_base, dist_base, T_model);
+
 
     %% Households distribution
 
-    [dist, dist_static] = append_dist(nz, nk, nb, T_life, ng, T_model, ndem, steady_dir, sc_dir);
-
-    %% Import taxable income and define quintiles
-
-    [inc, inc_static] = append_decisions('INC', nz, nk, nb, T_life, ng, T_model, ndem, kv, zs, captaxshare, captaxshare_ss, steady_dir, sc_dir, base_dir);
-
-    % Dynamic and static quintiles
-    [inc_groups , ~, ~] = get_quintiles(inc, dist, T_model);
-    [inc_groups_static, sort_inc_static, inc_index_static] = get_quintiles(inc_static, dist_static, T_model);
-
-    % Change taxable income units back to model units
-    inc_groups = scenario.modelunit_dollar * inc_groups;
-    inc_groups_static = scenario.modelunit_dollar * inc_groups_static;
-
-
-    %% Generate groups for other variables based on taxable income distribution
+    [dist, dist_static] = append_dist(nz, nk, nb, T_life, ng, T_model, ndem, steady_dir, sc_dir, 0);
+    
+    %% Generate groups for other variables based on the distribution of total income with SS in baseline economy
 
     for var_name = {'CIT', 'K', 'PIT', 'SST', 'BEN', 'LABINC', 'AINC', 'TAX', 'TOTINC', 'TOTINCwSS'}
 
         % append steady state values
-        [var, var_static] = append_decisions(var_name{1}, nz, nk, nb, T_life, ng, T_model, ndem, kv, zs, captaxshare, captaxshare_ss, steady_dir, sc_dir, base_dir);
+        [var, var_static] = append_decisions(var_name{1}, nz, nk, nb, T_life, ng, T_model, ndem, kv, zs, steady_dir, sc_dir, base_dir);
 
         % generate quintile-like groups (dynamic and static)
-        groups.(var_name{1}) = generate_groups(var, dist, sort_inc_static, inc_index_static, T_model);
-        groups.(strcat(var_name{1},'_static')) = generate_groups(var_static, dist_static, sort_inc_static, inc_index_static, T_model);
+        groups.(var_name{1}) = generate_groups(var, dist, sort_base, index_base, T_model);
+        groups.(strcat(var_name{1},'_static')) = generate_groups(var_static, dist_static, sort_base, index_base, T_model);
 
         % generate deltas
         groups.(strcat(var_name{1},'_delta'))  = groups.(var_name{1})./ groups.(strcat(var_name{1},'_static'));
@@ -82,7 +69,7 @@ function [] = TransitionMoments(scenario)
     
 
     % Save deltas in a spreadsheet
-    header = {'year', 'INC_delta_q1', 'INC_delta_q2', 'INC_delta_q3', 'INC_delta_q4', 'INC_delta_q5', ...
+    header = {'year', ...
               'CIT_delta_q1', 'CIT_delta_q2', 'CIT_delta_q3', 'CIT_delta_q4', 'CIT_delta_q5', ...
               'asset_delta_q1', 'asset_delta_q2', 'asset_delta_q3', 'asset_delta_q4', 'asset_delta_q5', ...
               'PIT_delta_q1', 'PIT_delta_q2', 'PIT_delta_q3', 'PIT_delta_q4', 'PIT_delta_q5', ...
@@ -92,9 +79,7 @@ function [] = TransitionMoments(scenario)
               'TOTINC_delta_q1', 'TOTINC_delta_q2', 'TOTINC_delta_q3', 'TOTINC_delta_q4', 'TOTINC_delta_q5', ...
               'TOTINCwSS_delta_q1', 'TOTINCwSS_delta_q2', 'TOTINCwSS_delta_q3', 'TOTINCwSS_delta_q4', 'TOTINCwSS_delta_q5'};
 
-    quint_table = table([2017:1:(2017 + T_model)]', inc_groups(:,1)./inc_groups_static(:,1), ...
-                        inc_groups(:,2)./inc_groups_static(:,2), inc_groups(:,3)./inc_groups_static(:,3), ...
-                        inc_groups(:,4)./inc_groups_static(:,4), inc_groups(:,5)./inc_groups_static(:,5), ...
+    quint_table = table([2017:1:(2017 + T_model)]', ...
                         groups.CIT_delta(:,1), groups.CIT_delta(:,2), ...
                         groups.CIT_delta(:,3), groups.CIT_delta(:,4), groups.CIT_delta(:,5), ...
                         groups.K_delta(:,1), groups.K_delta(:,2), groups.K_delta(:,3), ...
@@ -118,7 +103,7 @@ function [] = TransitionMoments(scenario)
     %% FUNCTIONS
 
     % Pre-appends steady state distribution
-    function [x, x_static] = append_dist(nz, nk, nb, T_life, ng, T_model, ndem, dir_ss, dir_sc)
+    function [x, x_static] = append_dist(nz, nk, nb, T_life, ng, T_model, ndem, dir_ss, dir_sc, base)
         
     % Inputs:  (nz, nk, nb, T_life, ng, T_model, ndem) = dimensions of DIST (number of states for each state variable)
     %          dir_ss = steady state directory
@@ -127,24 +112,28 @@ function [] = TransitionMoments(scenario)
     %          x_static = static distribution array with pre-appended steady state distribution
 
         x        = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
-        x_static = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
 
         s = load( fullfile(dir_ss, 'distribution.mat' ) );
         x       (:,:,:,:,:,1,:) = s.DIST;
-        x_static(:,:,:,:,:,1,:) = s.DIST;
-
+        
+        if ~base
+            x_static = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+            x_static(:,:,:,:,:,1,:) = s.DIST;
+            s = load( fullfile(dir_sc, 'Static_distribution.mat' ) );
+            x_static(:,:,:,:,:,2:end,:) = s.Static_DIST;
+        else
+            x_static = {};
+        end
+        
         s = load( fullfile(dir_sc, 'distribution.mat' ) );
         x(:,:,:,:,:,2:end,:) = s.DIST;
-        s = load( fullfile(dir_sc, 'Static_distribution.mat' ) );
-        x_static(:,:,:,:,:,2:end,:) = s.Static_DIST;
 
     end
 
     % Pre-appends steady state variables from all_decisions mat file
-    function [x, x_static] = append_decisions(x_name, nz, nk, nb, T_life, ng, T_model, ndem, kv, zs, captaxshare, captaxshare_ss, dir_ss, dir_sc, dir_bs)
+    function [x, x_static] = append_decisions(x_name, nz, nk, nb, T_life, ng, T_model, ndem, kv, zs, dir_ss, dir_sc, dir_bs)
         
     % Inputs:  (nz, nk, nb, T_life, ng, T_model, ndem) = dimensions of DIST (number of states for each state variable)
-    %          captaxshare, captaxshare_ss = capital tax share for the scenario economy and the steady state economy, respectively
     %          x_name = name of variable of interest
     %          kv     = capital vector
     %          zs     = productivity shocks matrix
@@ -279,6 +268,28 @@ function [] = TransitionMoments(scenario)
             s = load( fullfile(dir_sc, 'Static_all_decisions.mat' ) );
             x_static(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages_static, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]) .*s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]) + ...
                                             repmat(reshape(totrates_static, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]) .* repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model,ndem]) + s.BEN);
+
+        % Total income with Social Security transfers case for baseline economy
+        elseif strcmp(x_name, 'TOTINCwSSbase')
+            
+            x        = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
+            x_static = {};
+            
+            s        = load( fullfile(dir_ss, 'market.mat' ) );
+            wages_ss = s.wages;
+            totrates_ss = s.totrates;
+            f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,1,ndem]), [1,1,1,1,ng,1,1]);
+            s = load( fullfile(dir_ss, 'all_decisions.mat' ) );
+            x(:,:,:,:,:,1,:)        = f(wages_ss*s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,1,1]) + ...
+                                      totrates_ss*repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,1,ndem]) + s.BEN);
+
+            s     = load( fullfile(dir_sc, 'market.mat' ) );
+            wages = s.wages;
+            totrates = s.totrates;
+            f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
+            s = load( fullfile(dir_sc, 'all_decisions.mat' ) );
+            x(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]) .* s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]) + ...
+                                     repmat(reshape(totrates, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]) .* repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model,ndem]) + s.BEN);
 
         % All other variables (already stored in all_decisions.mat file)    
         else
