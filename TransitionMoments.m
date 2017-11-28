@@ -70,31 +70,32 @@ function [] = TransitionMoments(scenario)
 
     % Save deltas in a spreadsheet
     header = {'year', ...
-              'CIT_delta_q1', 'CIT_delta_q2', 'CIT_delta_q3', 'CIT_delta_q4', 'CIT_delta_q5', ...
-              'asset_delta_q1', 'asset_delta_q2', 'asset_delta_q3', 'asset_delta_q4', 'asset_delta_q5', ...
-              'PIT_delta_q1', 'PIT_delta_q2', 'PIT_delta_q3', 'PIT_delta_q4', 'PIT_delta_q5', ...
-              'LABINC_delta_q1', 'LABINC_delta_q2', 'LABINC_delta_q3', 'LABINC_delta_q4', 'LABINC_delta_q5', ...
-              'AINC_delta_q1', 'AINC_delta_q2', 'AINC_delta_q3', 'AINC_delta_q4', 'AINC_delta_q5', ...
-              'TAX_delta_q1', 'TAX_delta_q2', 'TAX_delta_q3', 'TAX_delta_q4', 'TAX_delta_q5', ...
-              'TOTINC_delta_q1', 'TOTINC_delta_q2', 'TOTINC_delta_q3', 'TOTINC_delta_q4', 'TOTINC_delta_q5', ...
-              'TOTINCwSS_delta_q1', 'TOTINCwSS_delta_q2', 'TOTINCwSS_delta_q3', 'TOTINCwSS_delta_q4', 'TOTINCwSS_delta_q5'};
+              'CIT_delta_1', 'CIT_delta_2', 'CIT_delta_3', 'CIT_delta_4', 'CIT_delta_5', 'CIT_delta_6', 'CIT_delta_7', ...
+              'asset_delta_1', 'asset_delta_2', 'asset_delta_3', 'asset_delta_4', 'asset_delta_5', 'asset_delta_6', 'asset_delta_7' ...
+              'PIT_delta_1', 'PIT_delta_2', 'PIT_delta_3', 'PIT_delta_4', 'PIT_delta_5', 'PIT_delta_6', 'PIT_delta_7', ...
+              'LABINC_delta_1', 'LABINC_delta_2', 'LABINC_delta_3', 'LABINC_delta_4', 'LABINC_delta_5', 'LABINC_delta_6', 'LABINC_delta_7', ...
+              'AINC_delta_1', 'AINC_delta_2', 'AINC_delta_3', 'AINC_delta_4', 'AINC_delta_5', 'AINC_delta_6', 'AINC_delta_7', ...
+              'TAX_delta_1', 'TAX_delta_2', 'TAX_delta_3', 'TAX_delta_4', 'TAX_delta_5', 'TAX_delta_6', 'TAX_delta_7', ...
+              'TOTINC_delta_1', 'TOTINC_delta_2', 'TOTINC_delta_3', 'TOTINC_delta_4', 'TOTINC_delta_5', 'TOTINC_delta_6', 'TOTINC_delta_7', ...
+              'TOTINCwSS_delta_1', 'TOTINCwSS_delta_2', 'TOTINCwSS_delta_3', 'TOTINCwSS_delta_4', 'TOTINCwSS_delta_5', 'TOTINCwSS_delta_6', 'TOTINCwSS_delta_7'};
 
     quint_table = table([2017:1:(2017 + T_model)]', ...
-                        groups.CIT_delta(:,1), groups.CIT_delta(:,2), ...
-                        groups.CIT_delta(:,3), groups.CIT_delta(:,4), groups.CIT_delta(:,5), ...
-                        groups.K_delta(:,1), groups.K_delta(:,2), groups.K_delta(:,3), ...
-                        groups.K_delta(:,4), groups.K_delta(:,5), groups.PIT_delta(:,1),  ...
-                        groups.PIT_delta(:,2), groups.PIT_delta(:,3), groups.PIT_delta(:,4), ...
-                        groups.PIT_delta(:,5), groups.LABINC_delta(:,1),  ...
-                        groups.LABINC_delta(:,2), groups.LABINC_delta(:,3), groups.LABINC_delta(:,4), ...
-                        groups.LABINC_delta(:,5), groups.AINC_delta(:,1),  ...
-                        groups.AINC_delta(:,2), groups.AINC_delta(:,3), groups.AINC_delta(:,4), ...
-                        groups.AINC_delta(:,5), groups.TAX_delta(:,1),  ...
-                        groups.TAX_delta(:,2), groups.TAX_delta(:,3), groups.TAX_delta(:,4), ...
-                        groups.TAX_delta(:,5), groups.TOTINC_delta(:,1), groups.TOTINC_delta(:,2), ...
-                        groups.TOTINC_delta(:,3), groups.TOTINC_delta(:,4), groups.TOTINC_delta(:,5), ...
-                        groups.TOTINCwSS_delta(:,1), groups.TOTINCwSS_delta(:,2), groups.TOTINCwSS_delta(:,3), ...
-                        groups.TOTINCwSS_delta(:,4), groups.TOTINCwSS_delta(:,5), ...
+                        groups.CIT_delta(:,1), groups.CIT_delta(:,2), groups.CIT_delta(:,3), groups.CIT_delta(:,4), ...
+                        groups.CIT_delta(:,5), groups.CIT_delta(:,6), groups.CIT_delta(:,7), ...
+                        groups.K_delta(:,1), groups.K_delta(:,2), groups.K_delta(:,3), groups.K_delta(:,4), ...
+                        groups.K_delta(:,5), groups.K_delta(:,6), groups.K_delta(:,7), ...
+                        groups.PIT_delta(:,1), groups.PIT_delta(:,2), groups.PIT_delta(:,3), groups.PIT_delta(:,4), ...
+                        groups.PIT_delta(:,5), groups.PIT_delta(:,6), groups.PIT_delta(:,7), ...
+                        groups.LABINC_delta(:,1), groups.LABINC_delta(:,2), groups.LABINC_delta(:,3), groups.LABINC_delta(:,4), ...
+                        groups.LABINC_delta(:,5), groups.LABINC_delta(:,6), groups.LABINC_delta(:,7), ...
+                        groups.AINC_delta(:,1), groups.AINC_delta(:,2), groups.AINC_delta(:,3), groups.AINC_delta(:,4), ...
+                        groups.AINC_delta(:,5), groups.AINC_delta(:,6), groups.AINC_delta(:,7), ...
+                        groups.TAX_delta(:,1), groups.TAX_delta(:,2), groups.TAX_delta(:,3), groups.TAX_delta(:,4), ...
+                        groups.TAX_delta(:,5), groups.TAX_delta(:,6), groups.TAX_delta(:,7), ...
+                        groups.TOTINC_delta(:,1), groups.TOTINC_delta(:,2), groups.TOTINC_delta(:,3), groups.TOTINC_delta(:,4), ...
+                        groups.TOTINC_delta(:,5), groups.TOTINC_delta(:,6), groups.TOTINC_delta(:,7), ...
+                        groups.TOTINCwSS_delta(:,1), groups.TOTINCwSS_delta(:,2), groups.TOTINCwSS_delta(:,3), groups.TOTINCwSS_delta(:,4), ...
+                        groups.TOTINCwSS_delta(:,5), groups.TOTINCwSS_delta(:,6), groups.TOTINCwSS_delta(:,7), ...
                         'VariableNames', header);
 
     writetable(quint_table, fullfile(sc_dir, 'groups_table.csv'));
@@ -313,19 +314,18 @@ function [] = TransitionMoments(scenario)
     end
 
 
-    % Get quintiles function
-
-    function [quintiles, sort_x, index_x] = get_quintiles(x, dist, T_model)
+    % Get percentiles function
+    function [percentiles, sort_x, index_x] = get_percentiles(x, dist, T_model)
         
     % Inputs:  x       = array with the variable of interest
     %          dist    = measure of households at each state of x
     %          T_model = number of transition periods
-    % Outputs: quintiles = total amount of x held by each quintiles
+    % Outputs: percentiles = total amount of x held by each percentiles
     %          sort_x    = array on how to sort x in ascending order at each period
     %          index_x   = array with the cutoffs delimiting each quintile
 
-        quintiles = zeros(T_model+1, 5);
-        index_x   = zeros(T_model+1, 5);
+        percentiles = zeros(T_model+1, 7);
+        index_x   = zeros(T_model+1, 7);
         
         for t = 1:T_model+1
 
@@ -339,13 +339,13 @@ function [] = TransitionMoments(scenario)
             [x_t, sort_x(:,t)] = sort(x_t);
             dist_t = dist_t(sort_x(:,t));
 
-            % Find quintiles
-            x_cum = zeros(1,5);
+            % Find percentiles
+            x_cum = zeros(1,7);
             q = 1;
-            for quintile = 0.2:0.2:0.8
+            for percentile = [0.2, 0.4, 0.6, 0.8, 0.9, 0.95]
 
-                % Taxable income distribution
-                i = find(cumsum(dist_t) >= quintile,1);
+                % Total income with SS distribution
+                i = find(cumsum(dist_t) >= percentile,1);
                 x_cum(1,q)   = sum(x_t(1:i).*dist_t(1:i));
                 index_x(t,q) = i;
 
@@ -354,27 +354,30 @@ function [] = TransitionMoments(scenario)
 
             end
 
-            % Top quintile
+            % Top percentile
             x_cum(1,q)   = sum(x_t.*dist_t);
             index_x(t,q) = size(x_t,1);
+            
             % Groups
-            quintiles(t,:) = diff([0 x_cum(1,:)]);
+            percentiles(t,1:5) = diff([0 x_cum(1,1:5)]);
+            percentiles(t,6) = x_cum(1,7) - x_cum(1,5);
+            percentiles(t,7) = x_cum(1,7) - x_cum(1,6);
 
         end
 
-    end % get_quintiles
+    end % get_percentiles
 
-    % Generate quintile-like groups according to how households are distributed in taxable income quintiles (we chose taxable income, but could be any other variable)
+    % Generate percentile-like groups according to how households are distributed wrt total income with SS percentiles in the baseline economy
     function [x_groups] = generate_groups(x, dist, sortx, q_index, T_model)
         
     % Inputs:  x        = array with the variable of interest
     %          dist     = measure of households at each state of x
-    %          sort_x   = array on how to sort x in taxable income ascending order at each period
-    %          index_x  = array with the cutoffs delimiting each taxable income quintile
+    %          sort_x   = array on how to sort x in total income with SS ascending order at each period
+    %          index_x  = array with the cutoffs delimiting each total income with SS percentile
     %          T_model  = number of transition periods
-    % Outputs: x_groups = total amount of x held by each 'quintile-like group'
+    % Outputs: x_groups = total amount of x held by each 'percentile-like group'
 
-        x_groups = zeros(T_model+1,5);
+        x_groups = zeros(T_model+1,7);
 
         for t = 1:T_model+1
 
@@ -388,12 +391,12 @@ function [] = TransitionMoments(scenario)
             x_t    = x_t(sortx(:,2));
             dist_t = dist_t(sortx(:,2));
 
-            % Find quintiles
-            x_cum = zeros(1,5);
+            % Find percentiles
+            x_cum = zeros(1,7);
             q = 1;
-            for quintile = 0.2:0.2:0.8
-
-                % Asset distributed according to taxable income
+            for percentile = [0.2, 0.4, 0.6, 0.8, 0.9, 0.95]
+                
+                % Asset distributed according to total income with SS
                 i = q_index(2,q);
                 x_cum(1,q) = sum(x_t(1:i).*dist_t(1:i));
                 % Counter
@@ -403,7 +406,11 @@ function [] = TransitionMoments(scenario)
 
             % Top quintile
             x_cum(1,q)    = sum(x_t(1:end).*dist_t(1:end));
-            x_groups(t,:) = diff([0 x_cum(1,:)]);
+            
+            % Groups
+            x_groups(t,1:5) = diff([0 x_cum(1,1:5)]);
+            x_groups(t,6) = x_cum(1,7) - x_cum(1,5);
+            x_groups(t,7) = x_cum(1,7) - x_cum(1,6);
 
         end
 
