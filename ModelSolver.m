@@ -355,20 +355,18 @@ methods (Static)
             end
 
             % Calculate static budgetary aggregate variables
-            Static.revs  = Static.pits + Static.ssts + Static.cits - Static.bens;            
+            Static.cits_domestic = Static.cits;
+            Static.cits_foreign  = zeros(1,T_model);
+            Static.cits          = Static.cits_domestic + Static.cits_foreign;
+            Static.revs          = Static.pits + Static.ssts + Static.cits - Static.bens;            
+            Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
+            Static.caprevs       = Static.cits + Static.pits - Static.labpits;
+
             Static.debts = [Dynamic_base.debts(1), zeros(1,T_model-1)];
             for year = 1:T_model-1
                 Static.debts(year+1) = Static.Gtilde(year) - Static.Ttilde(year) - Static.revs(year) + Static.debts(year)*(1 + cborates(year));
             end
-            
-            % Calculate additional static aggregates
-            Static.cits_domestic = Static.cits;
-            Static.cits_foreign  = zeros(1,T_model);
-            Static.cits          = Static.cits_domestic + Static.cits_foreign;
-            Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
-            Static.caprevs       = Static.cits + Static.pits - Static.labpits;
-            
-            
+                        
             % Save static aggregates
             save(fullfile(save_dir, 'statics.mat'), '-struct', 'Static')
             save(fullfile(save_dir, 'Static_all_decisions.mat'   ), '-struct', 'Static_OPTs')
