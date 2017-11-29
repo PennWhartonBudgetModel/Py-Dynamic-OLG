@@ -365,12 +365,11 @@ methods (Static)
 
             
             % Calculate additional static aggregates
-            Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
-            
-            Static.cits_domestic = Static.cits + Static.pits - Static.labpits;
+            Static.cits_domestic = Static.cits;
             Static.cits_foreign  = zeros(1,T_model);
-            
-            Static.caprevs       = Static.cits_domestic;
+            Static.cits          = Static.cits_domestic + Static.cits_foreign;
+            Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
+            Static.caprevs       = Static.cits + Static.pits - Static.labpits;
             
             
             % Save static aggregates
