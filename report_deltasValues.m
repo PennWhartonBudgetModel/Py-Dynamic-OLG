@@ -37,30 +37,30 @@ closed_dir  = PathFinder.getWorkingDir(sc_closed);
 bopen_dir   = PathFinder.getWorkingDir(scb_open);
 bclosed_dir = PathFinder.getWorkingDir(scb_closed);
 
-% ModelSolver.solve(scenario);
+ModelSolver.solve(scenario);
 
 % Import variables in dynamics file
 d_steady = load(fullfile(steady_dir  , 'dynamics.mat'), ... 
             'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens' );
-% d_steady.cits_domestic = d_steady.cits;
+d_steady.cits_domestic = d_steady.cits;
 d_open   = load(fullfile(open_dir  , 'dynamics.mat'), ... 
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens' );
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens' );
 
 d_closed = load(fullfile(closed_dir, 'dynamics.mat'), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens' );
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens' );
 
 % Import variables in **baseline** dynamics file
 b_open   = load(fullfile(bopen_dir  , 'dynamics.mat'), ... 
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens' );
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens' );
 
 b_closed = load(fullfile(bclosed_dir, 'dynamics.mat'), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens' );
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens' );
 
 % Import variables in statics file
 s_open   = load(fullfile(open_dir  , 'statics.mat' ), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens');
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens');
 s_closed = load(fullfile(closed_dir, 'statics.mat' ), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens');
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens');
 
 % Import variables in market file
 m_steady = load(fullfile(steady_dir, 'market.mat' ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
@@ -75,7 +75,7 @@ m_closed.qtobin = repmat(m_closed.qtobin, [size(m_closed.rhos)]);
 
 % Include steady state year in all series
 include_ss = @(x, xss) [xss x];
-os = {'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'cons', 'pops', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens'};
+os = {'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'cons', 'pops', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens'};
 for o = os
     d_open.(o{1})   = include_ss(d_open.(o{1})  , d_steady.(o{1}));
     s_open.(o{1})   = include_ss(s_open.(o{1})  , d_steady.(o{1}));
@@ -165,7 +165,7 @@ function x = build_var(x_name, dynamic_struct, market_struct)
 
     if strcmp(x_name, 'tax')
         
-        x = dynamic_struct.pits + dynamic_struct.cits + dynamic_struct.ssts;
+        x = dynamic_struct.pits + dynamic_struct.cits_domestic + dynamic_struct.ssts;
         
     elseif strcmp(x_name, 'totinc')
         
