@@ -359,9 +359,7 @@ function [] = TransitionMoments(scenario)
             index_x(t,q) = size(x_t,1);
             
             % Groups
-            percentiles(t,1:5) = diff([0 x_cum(1,1:5)]);
-            percentiles(t,6) = x_cum(1,7) - x_cum(1,5);
-            percentiles(t,7) = x_cum(1,7) - x_cum(1,6);
+            percentiles(t,:) = diff([0 x_cum(1,:)]);
 
         end
 
@@ -408,12 +406,14 @@ function [] = TransitionMoments(scenario)
             x_cum(1,q)    = sum(x_t(1:end).*dist_t(1:end));
             
             % Groups
-            x_groups(t,1:5) = diff([0 x_cum(1,1:5)]);
-            x_groups(t,6) = x_cum(1,7) - x_cum(1,5);
-            x_groups(t,7) = x_cum(1,7) - x_cum(1,6);
+            x_groups(t,:) = diff([0 x_cum(1,:)]);
 
         end
 
     end
     
 end
+
+end % methods
+
+end %classdef
