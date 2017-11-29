@@ -347,16 +347,19 @@ methods (Static)
             [Static, ~, Static_DIST, ~, Static_OPTs] = ...
                 generate_aggregates(Market, {}, LABs_static, DIST_static);
             
-            % THIS CALCULATION OF REVS SHOULD BE TEMPORARY
-            Static.revs  = Static.pits + Static.ssts + Static.cits - Static.bens;
-            
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
             
-            for series = {'caps', 'labincs', 'capincs', 'outs', 'caps_domestic', 'caps_foreign', 'debts_domestic', 'debts_foreign', 'debts'}
+            for series = {'caps', 'labincs', 'capincs', 'outs', 'caps_domestic', 'caps_foreign', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde'}
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
 
+            % Calculate static budgetary aggregate variables
+            Static.revs  = Static.pits + Static.ssts + Static.cits - Static.bens;            
+            Static.debts = [Dynamic_base.debts(1), zeros(1,T_model-1)];
+            for year = 1:T_model-1
+                Static.debts(year+1) = Static.Gtilde(year) - Static.Ttilde(year) - Static.revs(year) + Static.debts(year)*(1 + cborates(year));
+            end
             
             % Calculate additional static aggregates
             Static.cits_domestic = Static.cits;
