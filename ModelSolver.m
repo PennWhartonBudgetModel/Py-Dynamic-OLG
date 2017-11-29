@@ -570,7 +570,7 @@ methods (Static)
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     Dynamic.caps_domestic = (Market.capshares .* [Dynamic0.assets, Dynamic.assets(1:T_model-1)])/qtobin;
-                    Dynamic.caps_foreign  = Dynamic.caps - Dynamic.caps_domestic/qtobin;
+                    Dynamic.caps_foreign  = Dynamic.caps - Dynamic.caps_domestic;
                     
                     % Calculate debt
                     Dynamic.cits_domestic = Dynamic.cits;
