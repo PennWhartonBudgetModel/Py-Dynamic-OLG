@@ -16,7 +16,7 @@ classdef Scenario
         bequest_phi_1;
 
         % Core economy parameters
-        depreciation;
+        is_low_return;
         modelunit_dollar;
         
         % Government expenditure shift
@@ -56,7 +56,7 @@ classdef Scenario
             'gamma'             ;
             'sigma'             ;
             'bequest_phi_1'     ;
-            'depreciation'      ;
+            'is_low_return'     ;
             'modelunit_dollar'  ;
             };
         
@@ -131,7 +131,7 @@ classdef Scenario
                 sprintf('%.3f'  , this.gamma                ), ...
                 sprintf('%.2f'  , this.sigma                ), ...
                 sprintf('%.1f'  , this.modelunit_dollar*1e6 ), ...
-                sprintf('%.3f'  , this.depreciation         ), ...
+                sprintf('%u'    , this.is_low_return        ), ...
                 sprintf('%.3f'  , this.bequest_phi_1        )}, '_');
             
             if this.isCurrentPolicy()
