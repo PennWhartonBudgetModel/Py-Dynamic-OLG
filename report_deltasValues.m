@@ -95,9 +95,9 @@ end
 % Create new variables
 for var_name = {'tax', 'totinc', 'totincwss'}
     d_open.(var_name{1}) = build_var(var_name{1}, d_open, m_open, sc_open, 0);
-    s_open.(var_name{1}) = build_var(var_name{1}, s_open, m_open, sc_open, 1);
+    s_open.(var_name{1}) = build_var(var_name{1}, s_open, mb_open, sc_open, 1);
     d_closed.(var_name{1}) = build_var(var_name{1}, d_closed, m_closed, sc_closed, 0);
-    s_closed.(var_name{1}) = build_var(var_name{1}, s_closed, m_closed, sc_closed, 1);
+    s_closed.(var_name{1}) = build_var(var_name{1}, s_closed, mb_closed, sc_closed, 1);
 end
 
 % Years vector
