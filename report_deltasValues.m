@@ -93,11 +93,11 @@ for o = os
 end
 
 % Create new variables
-for var_name = {'tax', 'totinc', 'totincwss'};
-    d_open.(var_name{1}) = build_var(var_name{1}, d_open, m_open);
-    s_open.(var_name{1}) = build_var(var_name{1}, s_open, m_open);
-    d_closed.(var_name{1}) = build_var(var_name{1}, d_closed, m_closed);
-    s_closed.(var_name{1}) = build_var(var_name{1}, s_closed, m_closed);
+for var_name = {'tax', 'totinc', 'totincwss'}
+    d_open.(var_name{1}) = build_var(var_name{1}, d_open, m_open, sc_open, 0);
+    s_open.(var_name{1}) = build_var(var_name{1}, s_open, m_open, sc_open, 1);
+    d_closed.(var_name{1}) = build_var(var_name{1}, d_closed, m_closed, sc_closed, 0);
+    s_closed.(var_name{1}) = build_var(var_name{1}, s_closed, m_closed, sc_closed, 1);
 end
 
 % Years vector
@@ -161,7 +161,7 @@ writetable(TPC_closed,filename,'Sheet','closed')
 
 %% FUNCTIONS
 
-function x = build_var(x_name, dynamic_struct, market_struct)
+function x = build_var(x_name, dynamic_struct, market_struct, scenario, static)
 
     if strcmp(x_name, 'tax')
         
@@ -169,7 +169,28 @@ function x = build_var(x_name, dynamic_struct, market_struct)
         
     elseif strcmp(x_name, 'totinc')
         
-        x = dynamic_struct.labincs + market_struct.totrates .* dynamic_struct.assets;
+        % Define time constants
+        s = ParamGenerator.timing( scenario );
+        T_life = s.T_life; T_model = s.T_model;
+        % Define assets grid and dimensions
+        s = ParamGenerator.grids( scenario );
+        ndem = s.ndem; nz = s.nz; nk = s.nk; nb = s.nb;
+        karray = repmat(reshape(s.kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model+1,ndem]);
+        DIST = zeros(nz,nk,nb,T_life,T_model+1,ndem);
+        s = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy.steady), 'distribution.mat'), 'DIST');
+        DIST(:,:,:,:,1,:) = reshape(sum(s.DIST, 5), [nz,nk,nb,T_life,1,ndem]);
+
+        if static
+            s = load(fullfile(PathFinder.getWorkingDir(scenario), 'Static_distribution.mat'), 'Static_DIST');
+            DIST(:,:,:,:,2:end,:) = reshape(sum(s.Static_DIST, 5), [nz,nk,nb,T_life,T_model,ndem]);
+        else
+            s = load(fullfile(PathFinder.getWorkingDir(scenario), 'distribution.mat'), 'DIST');
+            DIST(:,:,:,:,2:end,:) = reshape(sum(s.DIST, 5), [nz,nk,nb,T_life,T_model,ndem]);
+        end
+        
+        f = @(F) sum(sum(reshape(DIST .* F, [], T_model+1, ndem), 1), 3);
+%         f = @(F) squeeze(sum(sum(sum(sum(sum(F,1),2),3),4),6));
+        x = dynamic_struct.labincs + market_struct.totrates .* f(karray);
         
     elseif strcmp(x_name, 'totincwss')
         
@@ -182,6 +203,3 @@ function x = build_var(x_name, dynamic_struct, market_struct)
     end
 
 end
-
-
-
