@@ -1,5 +1,5 @@
 %%
-% Generate moments distribution for transition path
+% Generate moments distribution for the transition path of a counterfactual economy whose working folder is complete, that is, after solving for it
 % 
 %%
 classdef TransitionMoments
@@ -8,17 +8,17 @@ classdef TransitionMoments
 
     function [] = showDistribution(scenario)
 
-        if strcmp(scenario.economy, 'steady')
-            error('TransitionMoments scenario cannot be steady state.');        
-        end
-
-        %% Scenarios and directories
+        % Scenarios
         sc_steady  = scenario.currentPolicy.steady;
+        if isequal(scenario, sc_steady); error('TransitionMoments scenario economy cannot be steady state.'); end
         if strcmp(scenario.economy, 'open')
-            sc_base    = scenario.currentPolicy.open();
+            sc_base = scenario.currentPolicy.open();
         else
-            sc_base    = scenario.currentPolicy.closed();
+            sc_base = scenario.currentPolicy.closed();
         end
+        if isequal(scenario, sc_base)  ; error('Scenario must use a counterfactual policy plan.'); end
+        
+        % Directories
         steady_dir = PathFinder.getWorkingDir(sc_steady);
         sc_dir     = PathFinder.getWorkingDir(scenario);
         base_dir   = PathFinder.getWorkingDir(sc_base);
