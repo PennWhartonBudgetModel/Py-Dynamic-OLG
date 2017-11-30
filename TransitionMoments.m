@@ -41,25 +41,25 @@ classdef TransitionMoments
         nb     = s.nb;         % num avg. earnings points
         kv     = s.kv;         % asset grid
 
-        %% Import total income with Social Security transfers in the baseline economy and define percentiles
+        %% Import total income without Social Security transfers in the baseline economy and define percentiles
 
-        [totincwss_base, ~] = append_decisions('TOTINCwSSbase', nz, nk, nb, T_life, ng, T_model, ndem, kv, zs, steady_dir, base_dir, {});
+        [totinc_base, ~] = append_decisions('TOTINCbase', nz, nk, nb, T_life, ng, T_model, ndem, kv, zs, steady_dir, base_dir, {});
         [dist_base, ~] = append_dist(nz, nk, nb, T_life, ng, T_model, ndem, steady_dir, base_dir, 1);
-        [~ , sort_base, index_base] = get_percentiles(totincwss_base, dist_base, T_model);
+        [~ , sort_base, index_base] = get_percentiles(totinc_base, dist_base, T_model);
 
 
         %% Households distribution
 
         [dist, dist_static] = append_dist(nz, nk, nb, T_life, ng, T_model, ndem, steady_dir, sc_dir, 0);
 
-        %% Generate groups for other variables based on the distribution of total income with SS in baseline economy
+        %% Generate groups for other variables based on the distribution of total income without SS in baseline economy
 
         for var_name = {'CIT', 'K', 'PIT', 'SST', 'BEN', 'LABINC', 'AINC', 'TAX', 'TOTINC', 'TOTINCwSS'}
 
             % append steady state values
             [var, var_static] = append_decisions(var_name{1}, nz, nk, nb, T_life, ng, T_model, ndem, kv, zs, steady_dir, sc_dir, base_dir);
 
-            % generate quintile-like groups (dynamic and static)
+            % generate percentile-like groups (dynamic and static)
             groups.(var_name{1}) = generate_groups(var, dist, sort_base, index_base, T_model);
             groups.(strcat(var_name{1},'_static')) = generate_groups(var_static, dist_static, sort_base, index_base, T_model);
 
@@ -74,7 +74,6 @@ classdef TransitionMoments
         header = {'year'};
         data_table = [2017:1:(2017 + T_model)]';
         for v = fieldnames( groups )'
-            % check v{1} _delta
             if contains( v{1}, '_delta' )
                 for i = 1:7
                     header_name = sprintf( '%s_%i', v{1}, i );
@@ -257,8 +256,8 @@ classdef TransitionMoments
                 x_static(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages_static, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]) .*s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]) + ...
                                                 repmat(reshape(totrates_static, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]) .* repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model,ndem]) + s.BEN);
 
-            % Total income with Social Security transfers case for baseline economy
-            elseif strcmp(x_name, 'TOTINCwSSbase')
+            % Total income without Social Security transfers case for baseline economy
+            elseif strcmp(x_name, 'TOTINCbase')
 
                 x        = zeros(nz,nk,nb,T_life,ng,T_model+1,ndem);
                 x_static = {};
@@ -269,7 +268,7 @@ classdef TransitionMoments
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,1,ndem]), [1,1,1,1,ng,1,1]);
                 s = load( fullfile(dir_ss, 'all_decisions.mat' ) );
                 x(:,:,:,:,:,1,:)        = f(wages_ss*s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,1,1]) + ...
-                                          totrates_ss*repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,1,ndem]) + s.BEN);
+                                          totrates_ss*repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,1,ndem]));
 
                 s     = load( fullfile(dir_sc, 'market.mat' ) );
                 wages = s.wages;
@@ -277,7 +276,7 @@ classdef TransitionMoments
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
                 s = load( fullfile(dir_sc, 'all_decisions.mat' ) );
                 x(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]) .* s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]) + ...
-                                         repmat(reshape(totrates, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]) .* repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model,ndem]) + s.BEN);
+                                         repmat(reshape(totrates, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,1,ndem]) .* repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model,ndem]));
 
             % All other variables (already stored in all_decisions.mat file)    
             else
@@ -357,8 +356,8 @@ classdef TransitionMoments
 
         % Inputs:  x        = array with the variable of interest
         %          dist     = measure of households at each state of x
-        %          sort_x   = array on how to sort x in total income with SS ascending order at each period
-        %          index_x  = array with the cutoffs delimiting each total income with SS percentile
+        %          sort_x   = array on how to sort x in total income without SS ascending order at each period
+        %          index_x  = array with the cutoffs delimiting each total income without SS percentile
         %          T_model  = number of transition periods
         % Outputs: x_groups = total amount of x held by each 'percentile-like group'
 
@@ -381,7 +380,7 @@ classdef TransitionMoments
                 q = 1;
                 for percentile = [0.2, 0.4, 0.6, 0.8, 0.9, 0.95]
 
-                    % Asset distributed according to total income with SS
+                    % Asset distributed according to total income without SS
                     i = q_index(2,q);
                     x_cum(1,q) = sum(x_t(1:i).*dist_t(1:i));
                     % Counter
@@ -397,9 +396,9 @@ classdef TransitionMoments
 
             end
 
-        end
+        end % generate_groups
 
-    end
+    end % showDistribution
 
     end % methods
 
