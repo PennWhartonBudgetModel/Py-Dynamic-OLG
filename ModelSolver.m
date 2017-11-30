@@ -350,13 +350,13 @@ methods (Static)
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
             
-            for series = {'caps', 'labincs', 'capincs', 'outs', 'caps_domestic', 'caps_foreign', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde'}
+            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde'}
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
 
             % Calculate static budgetary aggregate variables
             Static.cits_domestic = Static.cits;
-            Static.cits_foreign  = zeros(1,T_model);
+            Static.cits_foreign  = taucap * Market.caprates * captaxshare .* (qtobin*Static.caps_foreign);
             Static.cits          = Static.cits_domestic + Static.cits_foreign;
             Static.revs          = Static.pits + Static.ssts + Static.cits - Static.bens;            
             Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
