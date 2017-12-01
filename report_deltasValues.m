@@ -4,40 +4,44 @@
 %%
 
 wipe;
-% params = ParamGenerator.invert(struct('depreciation', 0.056, 'labelas', 0.5));
 
-% Params for K/Y=3 with d=0.056
+%% Params for K/Y=3 with d=0.056
 % params.beta =  0.98600000;
 % params.gamma = 0.75000000;
 % params.sigma = 1.24000000;
 % params.modelunit_dollar = 4.359874681178362e-05;
 % params.depreciation = 0.056;
 
-% Params for K/Y=3 with d=0.08
+%% Params for K/Y=3 with d=0.08
 params.beta =  1.003341000000000;
 params.gamma = 0.680000000000000;
 params.sigma = 1.500000000000000;
 params.modelunit_dollar = 4.135682750000000e-05;
 params.depreciation = 0.08;
 
+%% Scenarios and directories
+
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
                              'sigma', params.sigma, 'modelunit_dollar', params.modelunit_dollar, ...
                              'depreciation', params.depreciation, 'bequest_phi_1', 0, 'base_brackets', 'SenCMA'));
-sc_steady  = scenario.currentPolicy.steady;
-steady_dir = PathFinder.getWorkingDir(sc_steady);
 
-% Solve for counterfactuals
+sc_steady   = scenario.currentPolicy.steady;
 sc_open     = scenario.open();
 sc_closed   = scenario.closed();
 scb_open    = scenario.currentPolicy.open();
 scb_closed  = scenario.currentPolicy.closed();
+
+steady_dir  = PathFinder.getWorkingDir(sc_steady);
 open_dir    = PathFinder.getWorkingDir(sc_open);
 closed_dir  = PathFinder.getWorkingDir(sc_closed);
 bopen_dir   = PathFinder.getWorkingDir(scb_open);
 bclosed_dir = PathFinder.getWorkingDir(scb_closed);
 
+%% Solve model
 ModelSolver.solve(scenario);
+
+%% Build variables
 
 % Import variables in dynamics file
 d_steady = load(fullfile(steady_dir  , 'dynamics.mat'), ... 
@@ -45,14 +49,12 @@ d_steady = load(fullfile(steady_dir  , 'dynamics.mat'), ...
 d_steady.cits_domestic = d_steady.cits;
 d_open   = load(fullfile(open_dir  , 'dynamics.mat'), ... 
             'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens' );
-
 d_closed = load(fullfile(closed_dir, 'dynamics.mat'), ...
             'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens' );
 
 % Import variables in **baseline** dynamics file
 b_open   = load(fullfile(bopen_dir  , 'dynamics.mat'), ... 
             'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens' );
-
 b_closed = load(fullfile(bclosed_dir, 'dynamics.mat'), ...
             'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens' );
 
@@ -63,10 +65,10 @@ s_closed = load(fullfile(closed_dir, 'statics.mat' ), ...
             'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens');
 
 % Import variables in market file
-m_steady = load(fullfile(steady_dir, 'market.mat' ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
-m_open   = load(fullfile(open_dir  , 'market.mat' ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
+m_steady  = load(fullfile(steady_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
+m_open    = load(fullfile(open_dir  , 'market.mat'  ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
 mb_open   = load(fullfile(bopen_dir  , 'market.mat' ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
-m_closed = load(fullfile(closed_dir, 'market.mat' ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
+m_closed  = load(fullfile(closed_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
 mb_closed = load(fullfile(bclosed_dir, 'market.mat' ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
 
 % Reshape qtobin
@@ -86,19 +88,21 @@ for o = os
 end
 os = {'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin'};
 for o = os
-    m_open.(o{1})   = include_ss(m_open.(o{1})  , m_steady.(o{1}));
+    m_open.(o{1})    = include_ss(m_open.(o{1})  , m_steady.(o{1}));
     mb_open.(o{1})   = include_ss(mb_open.(o{1})  , m_steady.(o{1}));
-    m_closed.(o{1}) = include_ss(m_closed.(o{1}), m_steady.(o{1}));
+    m_closed.(o{1})  = include_ss(m_closed.(o{1}), m_steady.(o{1}));
     mb_closed.(o{1}) = include_ss(mb_closed.(o{1}), m_steady.(o{1}));
 end
 
 % Create new variables
 for var_name = {'tax', 'totinc', 'totincwss'}
-    d_open.(var_name{1}) = build_var(var_name{1}, d_open, m_open, sc_open, 0);
-    s_open.(var_name{1}) = build_var(var_name{1}, s_open, mb_open, sc_open, 1);
+    d_open.(var_name{1})   = build_var(var_name{1}, d_open, m_open, sc_open, 0);
+    s_open.(var_name{1})   = build_var(var_name{1}, s_open, mb_open, sc_open, 1);
     d_closed.(var_name{1}) = build_var(var_name{1}, d_closed, m_closed, sc_closed, 0);
     s_closed.(var_name{1}) = build_var(var_name{1}, s_closed, mb_closed, sc_closed, 1);
 end
+
+%% Tables
 
 % Years vector
 s = ParamGenerator.timing(sc_closed);
@@ -189,7 +193,6 @@ function x = build_var(x_name, dynamic_struct, market_struct, scenario, static)
         end
         
         f = @(F) sum(sum(reshape(DIST .* F, [], T_model+1, ndem), 1), 3);
-%         f = @(F) squeeze(sum(sum(sum(sum(sum(F,1),2),3),4),6));
         x = dynamic_struct.labincs + market_struct.totrates .* f(karray);
         
     elseif strcmp(x_name, 'totincwss')
