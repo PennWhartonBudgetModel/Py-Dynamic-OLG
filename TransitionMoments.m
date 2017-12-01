@@ -320,6 +320,7 @@ classdef TransitionMoments
                 x_t    = x_t(:);
                 dist_t = dist(:,:,:,:,:,t,:);
                 dist_t = dist_t(:);
+                dist_t = dist_t/sum(dist_t(:));
 
                 % Sort variables
                 [x_t, sort_x(:,t)] = sort(x_t);
@@ -370,6 +371,7 @@ classdef TransitionMoments
                 dist_t = dist(:,:,:,:,:,t,:);
                 x_t    = x_t(:);
                 dist_t = dist_t(:);
+                dist_t = dist_t/sum(dist_t(:));
 
                 % Sort variables
                 x_t    = x_t(sortx(:,2));
