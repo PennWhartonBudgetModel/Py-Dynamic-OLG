@@ -209,16 +209,18 @@ methods (Static)
         s.tax_burden      = income_tax';
         s.tax_rates       = tax_rates';
 
-        % Get the capital tax params and store them.
+        % Get the capital and tax treatment allocation params and store them.
         %  Input files CIT_<taxplanid>.CSV expected to have the
         %  following structure:
         %      <Tax variable> as header, <Value> under that header
         %  The tax variable names are defined below.
         filename = strcat('CIT_', taxplanid, '.csv');
         tax_vars = read_tax_vars( filename );
-        s.captaxshare = tax_vars.capitalTaxShare; 
-        s.expshare    = tax_vars.expensingShare; 
-        s.taucap      = tax_vars.capitalTaxRate; 
+        s.captaxshare = tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred; 
+        s.expshare    = tax_vars.shareCapitalExpensing; 
+        s.taucap      = (   tax_vars.rateCorporate * tax_vars.shareCapitalCorporate         ...
+                            + tax_vars.ratePreferred * tax_vars.shareCapitalPreferred       ...
+                         ) / (tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred );
         s.taucapgain  = 0;
         
         % Warn if parameters are outside expectations
@@ -599,14 +601,17 @@ function [tax_vars] = read_tax_vars( filename )
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
     
-    % Check if file exists and generate if necessary
+    % Check if file exists 
     filepath = fullfile(PathFinder.getTaxPlanInputDir(), filename);
     if ~exist(filepath, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
         throw(MException('read_tax_vars:FILENAME', err_msg ));
     end;
         
-    T           = readtable(filepath, 'Format', '%f%f%f%f');
+    % Expected format is
+    %    rateCorporate	ratePreferred	rateOrdinary	expensingShare	shareCapitalCorporate	shareCapitalPreferred	shareCapitalOrdinary	shareLaborCorporate	shareLaborPreferred	shareLaborOrdinary
+
+    T           = readtable( filepath );
     tax_vars    = table2struct(T);
 
 end % read_tax_vars()
