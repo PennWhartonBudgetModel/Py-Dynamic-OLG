@@ -216,26 +216,43 @@ methods (Static)
         %  The tax variable names are defined below.
         filename = strcat('CIT_', taxplanid, '.csv');
         tax_vars = read_tax_vars( filename );
-        s.captaxshare = tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred; 
-        s.expshare    = tax_vars.shareCapitalExpensing; 
-        s.taucap      = (   tax_vars.rateCorporate * tax_vars.shareCapitalCorporate         ...
-                            + tax_vars.ratePreferred * tax_vars.shareCapitalPreferred       ...
-                         ) / (tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred );
-        s.taucapgain  = 0;
+        % Calculate combined tax rate and share for Capital
+        s.captaxshare           = tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred; 
+        s.taucap                = (   tax_vars.rateCorporate * tax_vars.shareCapitalCorporate   ...
+                                    + tax_vars.ratePreferred * tax_vars.shareCapitalPreferred   ...
+                                  ) ...
+                                  / (tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred );
+        s.taucapgain            = 0;
+        
+        % Pass along all parameters as well
+        for f = fieldnames(tax_vars)'
+            s.(f{1}) = tax_vars.(f{1});
+        end
         
         % Warn if parameters are outside expectations
         if( (s.captaxshare < 0) || (s.captaxshare > 1) )
-            fprintf( 'WARNING! captaxshare=%f outside expecations.\n', captaxshare );
+            fprintf( 'WARNING! captaxshare=%f outside expecations.\n', s.captaxshare );
         end
-        if( (s.expshare < 0) || (s.expshare > 1) )
-            fprintf( 'WARNING! expshare=%f outside expectations.\n', expshare );
+        if( (s.shareCapitalExpensing < 0) || (s.shareCapitalExpensing > 1) )
+            fprintf( 'WARNING! shareCapitalExpensing=%f outside expectations.\n', s.shareCapitalExpensing );
         end
         if( (s.taucap < 0) || (s.taucap > 1) )
-            fprintf( 'WARNING! taucap=%f outside expectations.\n', taucap );
+            fprintf( 'WARNING! taucap=%f outside expectations.\n', s.taucap );
         end        
         if( (s.taucapgain < 0) || (s.taucapgain > 1) )
-            fprintf( 'WARNING! taucapgain=%f outside expectations.\n', taucapgain );
+            fprintf( 'WARNING! taucapgain=%f outside expectations.\n', s.taucapgain );
         end  
+        
+        % Catch fatal errors
+        if( (s.shareCapitalOrdinary + s.shareCapitalPreferred + s.shareCapitalCorporate) ~= 1 ) 
+            error( 'Capital tax shares must sum to 1.' );
+        end
+        if( (s.shareLaborOrdinary + s.shareLaborPreferred + s.shareLaborCorporate) ~= 1 )
+            error( 'Labor tax shares must sum to 1.' );
+        end
+        if( s.shareLaborOrdinary ~= 1 )
+            error( 'Current model does not handle allocating taxable labor income outside Ordinary rates.' );
+        end
     end  % tax()
 
     
