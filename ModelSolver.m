@@ -143,7 +143,7 @@ methods (Static)
         
         %% Aggregate generation function
         
-        function [Aggregate, LABs, DIST, pgr, OPTs] = generate_aggregates(Market, DIST_steady, LABs_static, DIST_static)
+        function [Aggregate, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, LABs_static, DIST_static)
             
             % Define dynamic aggregate generation flag
             isdynamic = isempty(LABs_static) || isempty(DIST_static);
@@ -160,6 +160,11 @@ methods (Static)
             
             % Initialize population distribution array
             DIST = zeros(nz,nk,nb,T_life,ng,T_model,ndem);
+            if (strcmp(scenario.economy, 'steady'))
+                DIST_trans = zeros(nz,nk,nb,T_life,ng,T_model,ndem);
+            else
+                DIST_trans = {};
+            end
             
             
             for idem = 1:ndem
@@ -283,24 +288,26 @@ methods (Static)
                         f = @(D) sum(sum(reshape(D, [], T_life, ng), 1), 3) / sum(D(:));
                         disteps = max(abs(f(DIST_next) - f(DIST_year)));
                         
-                        % Calculate net population growth rate
-                        % (Note that rate is assumed to be independent of demographic type)
-                        pgr = sum(DIST_next(:)) / sum(DIST_year(:));
-                        
                         year = year + 1;
+                        
+                        switch economy, case 'steady'
+                            DIST_trans(:,:,:,:,:,1,idem) = DIST_next;
+                        end
                         
                     end
                     
                 else
                     DIST = DIST_static;
-                    pgr  = -Inf;
                 end
                 
             end
             
             
             % Normalize steady state population distribution
-            switch economy, case 'steady', DIST = DIST / sum(DIST(:)); end
+            switch economy, case 'steady'
+                DIST_trans = DIST_trans / sum(DIST(:));
+                DIST = DIST / sum(DIST(:));
+            end
             
             % Generate aggregates
             assert(all(DIST(:)>=0),'WARNING! Negative mass of people at DIST.')
@@ -344,37 +351,33 @@ methods (Static)
             
             % Generate static aggregates
             % (Intermediary structure used to filter out extraneous fields)
-            [Static_, Static_LABs, Static_DIST, ~, Static_OPTs] = ...
+            [Static, ~, Static_DIST, Static_OPTs, ~] = ...
                 generate_aggregates(Market, {}, LABs_static, DIST_static);
-            
-            for series = {'incs', 'pits', 'ssts', 'cits', 'bens', 'labs', 'cons', 'pops'}
-                Static.(series{1}) = Static_.(series{1});
-            end
-            save(fullfile(save_dir, 'Static_all_decisions.mat'   ), '-struct', 'Static_OPTs')
-            save(fullfile(save_dir, 'Static_distribution.mat'), 'Static_DIST')        
-            
-            % THIS CALCULATION OF REVS SHOULD BE TEMPORARY
-            Static.revs  = Static.pits + Static.ssts + Static.cits - Static.bens;
             
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
             
-            for series = {'labeffs', 'caps', 'lfprs', 'labincs', 'capincs', 'outs', 'caps_domestic', 'caps_foreign', 'debts_domestic', 'debts_foreign', 'debts', 'assets'}
+            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde'}
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
 
-            
-            % Calculate additional static aggregates
+            % Calculate static budgetary aggregate variables
+            Static.cits_domestic = Static.cits;
+            Static.cits_foreign  = taucap * Market.caprates * captaxshare .* (qtobin*Static.caps_foreign);
+            Static.cits          = Static.cits_domestic + Static.cits_foreign;
+            Static.revs          = Static.pits + Static.ssts + Static.cits - Static.bens;            
             Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
-            
-            Static.cits_domestic = Static.cits + Static.pits - Static.labpits;
-            Static.cits_foreign  = zeros(1,T_model);
-            
-            Static.caprevs       = Static.cits_domestic;
-            
-            
+            Static.caprevs       = Static.cits + Static.pits - Static.labpits;
+
+            Static.debts = [Dynamic_base.debts(1), zeros(1,T_model-1)];
+            for year = 1:T_model-1
+                Static.debts(year+1) = Static.Gtilde(year) - Static.Ttilde(year) - Static.revs(year) + Static.debts(year)*(1 + cborates(year));
+            end
+                        
             % Save static aggregates
             save(fullfile(save_dir, 'statics.mat'), '-struct', 'Static')
+            save(fullfile(save_dir, 'Static_all_decisions.mat'   ), '-struct', 'Static_OPTs')
+            save(fullfile(save_dir, 'Static_distribution.mat'), 'Static_DIST')        
             
         end
         
@@ -408,7 +411,7 @@ methods (Static)
                 % Load steady state population distribution
                 s        = hardyload('distribution.mat', steady_generator, steady_dir);
                 
-                DIST_steady = s.DIST;
+                DIST_steady = s.DIST_trans;
                 
         end
         
@@ -536,7 +539,7 @@ methods (Static)
             Market.qtobin      = qtobin;
             
             % Generate dynamic aggregates
-            [Dynamic, LABs, DIST, pgr, OPTs] = generate_aggregates(Market, DIST_steady, {}, {});
+            [Dynamic, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {});
             
             
             % Calculate additional dynamic aggregates
@@ -557,7 +560,7 @@ methods (Static)
                     
                     % Calculate market clearing series
                     rhos = max(Dynamic.caps, 0) / Dynamic.labeffs;
-                    beqs = Dynamic.bequests / pgr;
+                    beqs = Dynamic.bequests / (sum(DIST_trans(:))/sum(DIST(:)));
                     clearing = Market.rhos - rhos;
                     
                     % Calculate income - THIS SHOULD BE OUTSIDE THE CASE
@@ -574,12 +577,12 @@ methods (Static)
                     Dynamic.caps = Market.rhos .* Dynamic.labeffs;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
-                    Dynamic.caps_domestic = Market.capshares .* [Dynamic0.assets, Dynamic.assets(1:T_model-1)];
-                    Dynamic.caps_foreign  = qtobin*Dynamic.caps - Dynamic.caps_domestic;
+                    Dynamic.caps_domestic = (Market.capshares .* [Dynamic0.assets, Dynamic.assets(1:T_model-1)])/qtobin;
+                    Dynamic.caps_foreign  = Dynamic.caps - Dynamic.caps_domestic;
                     
                     % Calculate debt
                     Dynamic.cits_domestic = Dynamic.cits;
-                    Dynamic.cits_foreign  = taucap * Market.caprates * captaxshare .* Dynamic.caps_foreign;
+                    Dynamic.cits_foreign  = taucap * Market.caprates * captaxshare .* (qtobin*Dynamic.caps_foreign);
                     Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
                     
                     if isbase
@@ -631,7 +634,7 @@ methods (Static)
                     Dynamic.caps = ([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts)/qtobin;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
-                    Dynamic.caps_domestic = [qtobin0 * Dynamic.caps(1), qtobin * Dynamic.caps(2:T_model)];
+                    Dynamic.caps_domestic = Dynamic.caps;
                     Dynamic.caps_foreign  = zeros(1,T_model);
                     
                     % Calculate income
@@ -671,15 +674,19 @@ methods (Static)
         % Save baseline optimal labor values and population distribution
         if isbase
             save(fullfile(save_dir, 'decisions.mat'   ), 'LABs')
-%             save(fullfile(save_dir, 'all_decisions.mat'   ), '-struct', 'OPTs')
-%             save(fullfile(save_dir, 'distribution.mat'), 'DIST')
         end
         
         % Save market conditions and dynamic aggregates
         save(fullfile(save_dir, 'market.mat'  ), '-struct', 'Market' )
         save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic')
         save(fullfile(save_dir, 'all_decisions.mat'   ), '-struct', 'OPTs')
-        save(fullfile(save_dir, 'distribution.mat'), 'DIST')        
+        switch economy
+            case 'steady'
+                DIST = struct('DIST', DIST, 'DIST_trans', DIST_trans);
+                save(fullfile(save_dir, 'distribution.mat'), '-struct', 'DIST')
+            case {'open', 'closed'}
+                save(fullfile(save_dir, 'distribution.mat'), 'DIST')
+        end                
         
         
         %% Elasticity calculation
@@ -698,7 +705,7 @@ methods (Static)
                 for idem = 1:ndem
                     
                     LAB_idem  = LABs{1,idem};
-                    DIST_idem = sum(DIST(:,:,:,:,:,1,idem), 5);
+                    DIST_idem = sum(DIST.DIST(:,:,:,:,:,1,idem), 5);
                     
                     workind = (LAB_idem > 0.01);
                     
@@ -726,7 +733,7 @@ methods (Static)
                 outperHH = (Dynamic.outs./Dynamic.pops)./modelunit_dollar;
                 
                 % Calculate gini
-                GiniTable = MomentsGenerator(scenario,DIST,Market,OPTs).giniTable;
+                GiniTable = MomentsGenerator(scenario,DIST.DIST,Market,OPTs).giniTable;
                 gini      = GiniTable.model(GiniTable.Gini=='wealth');
 
                 % Save and display elasticities
