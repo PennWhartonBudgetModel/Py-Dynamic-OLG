@@ -178,6 +178,9 @@ function x = build_var(x_name, dynamic_struct, market_struct, scenario, static)
         s = ParamGenerator.grids( scenario );
         ndem = s.ndem; nz = s.nz; nk = s.nk; nb = s.nb;
         karray = repmat(reshape(s.kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model+1,ndem]);
+        % Define tax
+        s = ParamGenerator.tax( scenario );
+        shareCapitalCorporate = s.shareCapitalCorporate;
         DIST = zeros(nz,nk,nb,T_life,T_model+1,ndem);
         s = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy.steady), 'distribution.mat'), 'DIST');
         DIST(:,:,:,:,1,:) = reshape(sum(s.DIST, 5), [nz,nk,nb,T_life,1,ndem]);
@@ -191,7 +194,7 @@ function x = build_var(x_name, dynamic_struct, market_struct, scenario, static)
         end
         
         f = @(F) sum(sum(reshape(DIST .* F, [], T_model+1, ndem), 1), 3);
-        x = dynamic_struct.labincs + market_struct.totrates .* f(karray);
+        x = dynamic_struct.labincs + (1 - shareCapitalCorporate) * market_struct.totrates .* f(karray);
         
     elseif strcmp(x_name, 'totincwss')
         
