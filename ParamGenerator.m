@@ -209,31 +209,50 @@ methods (Static)
         s.tax_burden      = income_tax';
         s.tax_rates       = tax_rates';
 
-        % Get the capital tax params and store them.
+        % Get the capital and tax treatment allocation params and store them.
         %  Input files CIT_<taxplanid>.CSV expected to have the
         %  following structure:
         %      <Tax variable> as header, <Value> under that header
         %  The tax variable names are defined below.
         filename = strcat('CIT_', taxplanid, '.csv');
         tax_vars = read_tax_vars( filename );
-        s.captaxshare = tax_vars.capitalTaxShare; 
-        s.expshare    = tax_vars.expensingShare; 
-        s.taucap      = tax_vars.capitalTaxRate; 
-        s.taucapgain  = 0;
+        % Calculate combined tax rate and share for Capital
+        s.captaxshare           = tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred; 
+        s.taucap                = (   tax_vars.rateCorporate * tax_vars.shareCapitalCorporate   ...
+                                    + tax_vars.ratePreferred * tax_vars.shareCapitalPreferred   ...
+                                  ) ...
+                                  / (tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred );
+        s.taucapgain            = 0;
+        
+        % Pass along all parameters as well
+        for f = fieldnames(tax_vars)'
+            s.(f{1}) = tax_vars.(f{1});
+        end
         
         % Warn if parameters are outside expectations
         if( (s.captaxshare < 0) || (s.captaxshare > 1) )
-            fprintf( 'WARNING! captaxshare=%f outside expecations.\n', captaxshare );
+            fprintf( 'WARNING! captaxshare=%f outside expecations.\n', s.captaxshare );
         end
-        if( (s.expshare < 0) || (s.expshare > 1) )
-            fprintf( 'WARNING! expshare=%f outside expectations.\n', expshare );
+        if( (s.shareCapitalExpensing < 0) || (s.shareCapitalExpensing > 1) )
+            fprintf( 'WARNING! shareCapitalExpensing=%f outside expectations.\n', s.shareCapitalExpensing );
         end
         if( (s.taucap < 0) || (s.taucap > 1) )
-            fprintf( 'WARNING! taucap=%f outside expectations.\n', taucap );
+            fprintf( 'WARNING! taucap=%f outside expectations.\n', s.taucap );
         end        
         if( (s.taucapgain < 0) || (s.taucapgain > 1) )
-            fprintf( 'WARNING! taucapgain=%f outside expectations.\n', taucapgain );
+            fprintf( 'WARNING! taucapgain=%f outside expectations.\n', s.taucapgain );
         end  
+        
+        % Catch fatal errors
+        if( (s.shareCapitalOrdinary + s.shareCapitalPreferred + s.shareCapitalCorporate) ~= 1 ) 
+            error( 'Capital tax shares must sum to 1.' );
+        end
+        if( (s.shareLaborOrdinary + s.shareLaborPreferred + s.shareLaborCorporate) ~= 1 )
+            error( 'Labor tax shares must sum to 1.' );
+        end
+        if( s.shareLaborOrdinary ~= 1 )
+            error( 'Current model does not handle allocating taxable labor income outside Ordinary rates.' );
+        end
     end  % tax()
 
     
@@ -267,14 +286,9 @@ methods (Static)
         
         s.A             = 1;                    % Total factor productivity
         s.alpha         = 0.34;                 % Capital share of output
-        depreciation    = 0.056;                % Actual depreciation rate
-        d_low_return    = 0.080;                % "Depreciation rate" to generate r=risk-free rate         
-        % TEMP: Need to change Scenario field -- should not have
-        % 'depreciation'
-        if( scenario.depreciation == 0.056 )
-            s.d = depreciation;
-        else
-            s.d = d_low_return;
+        s.d             = 0.056;                % Actual depreciation rate
+        if( scenario.is_low_return )
+            s.d = 0.08;                         % "Depreciation rate" to generate r=risk-free rate         
         end
 
     end % production
@@ -459,22 +473,22 @@ methods (Static)
         % TODO -- revisit the Calibration process
         %   for now just pick one of two hardcoded targets
         % BEGIN TEMP
-        inverse = struct(                               ...
-        'beta'              , 1.003341000000000     ,   ...
-        'gamma'             , 0.680000000000000     ,   ...
-        'sigma'             , 1.500000000000000     ,   ...
-        'bequest_phi_1'     , 0                     ,   ...
-        'modelunit_dollar'  , 4.135682750000000e-05     ...
-        );
-    
-        if( isfield( targets, 'depreciation' ) )
-            if ( targets.depreciation == 0.056 ) 
-                inverse = struct(                             ...
-                'beta'              , 0.98600000            , ...
-                'gamma'             , 0.75000000            , ...
-                'sigma'             , 1.24000000            , ...
-                'bequest_phi_1'     , 0                     , ...
-                'modelunit_dollar'  , 4.359874681178362e-05   ...
+        inverse = struct(                             ...
+            'beta'              , 0.98600000            , ...
+            'gamma'             , 0.75000000            , ...
+            'sigma'             , 1.24000000            , ...
+            'bequest_phi_1'     , 0                     , ...
+            'modelunit_dollar'  , 4.359874681178362e-05   ...
+            );
+
+        if( isfield( targets, 'is_low_return' ) )
+            if ( targets.is_low_return ) 
+                inverse = struct(                               ...
+                'beta'              , 1.003341000000000     ,   ...
+                'gamma'             , 0.680000000000000     ,   ...
+                'sigma'             , 1.500000000000000     ,   ...
+                'bequest_phi_1'     , 0                     ,   ...
+                'modelunit_dollar'  , 4.135682750000000e-05     ...
                 );
             end
         end
@@ -604,14 +618,17 @@ function [tax_vars] = read_tax_vars( filename )
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
     
-    % Check if file exists and generate if necessary
+    % Check if file exists 
     filepath = fullfile(PathFinder.getTaxPlanInputDir(), filename);
     if ~exist(filepath, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
         throw(MException('read_tax_vars:FILENAME', err_msg ));
     end;
         
-    T           = readtable(filepath, 'Format', '%f%f%f%f');
+    % Expected format is
+    %    rateCorporate	ratePreferred	rateOrdinary	expensingShare	shareCapitalCorporate	shareCapitalPreferred	shareCapitalOrdinary	shareLaborCorporate	shareLaborPreferred	shareLaborOrdinary
+
+    T           = readtable( filepath );
     tax_vars    = table2struct(T);
 
 end % read_tax_vars()
