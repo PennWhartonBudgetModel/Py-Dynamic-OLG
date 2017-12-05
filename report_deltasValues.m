@@ -10,21 +10,19 @@ wipe;
 % params.gamma = 0.75000000;
 % params.sigma = 1.24000000;
 % params.modelunit_dollar = 4.359874681178362e-05;
-% params.depreciation = 0.056;
 
 %% Params for K/Y=3 with d=0.08
 params.beta =  1.003341000000000;
 params.gamma = 0.680000000000000;
 params.sigma = 1.500000000000000;
 params.modelunit_dollar = 4.135682750000000e-05;
-params.depreciation = 0.08;
 
 %% Scenarios and directories
 
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
                              'sigma', params.sigma, 'modelunit_dollar', params.modelunit_dollar, ...
-                             'depreciation', params.depreciation, 'bequest_phi_1', 0, 'base_brackets', 'SenCMA'));
+                             'is_low_return', true, 'bequest_phi_1', 0, 'base_brackets', 'SenCMA'));
 
 sc_steady   = scenario.currentPolicy.steady;
 sc_open     = scenario.open();
