@@ -9,7 +9,8 @@ classdef MomentsGenerator
         modelunit_dollar;
         a_distdata; a_distmodel; a_ginimodel; a_lorenz;
         l_distdata; l_distmodel; l_ginimodel; l_lorenz;
-        DIST; T_life; kv; karray;
+        DIST; T_work; T_life; kv; karray;
+        ben;
 
     end
     
@@ -46,6 +47,7 @@ classdef MomentsGenerator
             % Useful later for a couple of functions
             this.kv = s.kv;
             this.karray = repmat(reshape(s.kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,T_model,ndem])  ;
+            this.T_work = T_work;
             this.T_life = T_life;
 
             %% DISTRIBUTION AND POLICY FUNCTIONS
@@ -76,9 +78,11 @@ classdef MomentsGenerator
                 s      = load( fullfile(save_dir, 'all_decisions.mat' ) );
                 labinc = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wages;
                 k      = f(s.K);
+                this.ben = f(s.BEN);
             else
                 labinc = f(OPTs.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wages;
                 k      = f(OPTs.K);
+                this.ben = f(s.BEN);
             end
             labinc = labinc(:);  % Labor income
             k      = k     (:);  % Asset holdings for tomorrow (k')
@@ -274,6 +278,21 @@ classdef MomentsGenerator
                 num2str(round(kv(12)/this.modelunit_dollar))})
 
             ylabel('share of population','FontSize',13)
+            
+        end
+        
+        % Table with distribution of Social Security benefits among retired households
+        function [ben_distmodel] = SS_distribution(this)
+           
+            dist_retired  = this.DIST(:,:,:,this.T_work+1:this.T_life,:,:,:);
+            ben_retired   = this.ben (:,:,:,this.T_work+1:this.T_life,:,:,:);
+            dist_retired0 = this.DIST(:,:,1,this.T_work+1:this.T_life,:,:,:);
+            dist_retired0 = dist_retired0(:)/sum(dist_retired(:));
+            dist_retired  = dist_retired(:)/sum(dist_retired(:));
+            ben_retired   = ben_retired (:);           
+            ben_distmodel = get_moments(dist_retired,ben_retired);
+            ben0 = struct('percentile', sum(dist_retired0), 'threshold', 0, 'cumulativeShare', 0);
+            ben_distmodel = [struct2table(ben0); ben_distmodel];
             
         end
                 
