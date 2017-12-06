@@ -298,23 +298,44 @@ methods (Static)
     %
     function s = social_security( scenario )
         
-        bv               = ParamGenerator.grids(scenario).bv;
-        T_model          = ParamGenerator.timing(scenario).T_model;
-        modelunit_dollar = scenario.modelunit_dollar;
+        bv                      = ParamGenerator.grids(scenario).bv;
+        T_model                 = ParamGenerator.timing(scenario).T_model;
+        modelunit_dollar        = scenario.modelunit_dollar;
+        first_transition_year   = ParamGenerator.timing(scenario).first_transition_year;
         
+        % Read tax brackets and rates on payroll 
+        %   Pad if file years do not go to T_model, truncate if too long
+        [brackets, rates] = read_brackets_rates(  ...
+                                    strcat('PayrollTax_', find_ss_tax_id( scenario ), '.csv' )   ...
+                                ,   first_transition_year - 1     ...
+                            	,   PathFinder.getSocialSecurityInputDir()  ...
+                                 );
+        num_years = length(brackets);
+        if( T_model - num_years < 0 )
+            brackets    = brackets(1:T_model,:);
+            rates       = rates(1:T_model,:);
+        else
+            brackets    = [brackets; ...
+                repmat(brackets(end,:)  , [T_model-num_years, 1])   ];
+            rates       = [rates; ...
+                repmat(rates(end,:)     , [T_model-num_years, 1])   ];
+        end
+        
+        s.brackets      = brackets;
+        s.rates         = rates;
+        
+        s.taxcredit     = 0.15;     % Benefit tax credit percentage
+
+        % Calculate benefits
         ssthresholds = [856, 5157]*12*modelunit_dollar;     % Thresholds for earnings brackets
         ssrates      = [0.9, 0.32, 0.15];                   % Marginal benefit rates for earnings brackets
-        ss_scale     = 1.6;                                 % Benefit scaling factor used to match total outlays as a percentage of GDP
         
         ssbenefit = [ max(min(bv, ssthresholds(1)) - 0              , 0) , ...
                       max(min(bv, ssthresholds(2)) - ssthresholds(1), 0) , ...
                       max(min(bv, Inf            ) - ssthresholds(2), 0) ] * ssrates';
         
         s.ssbenefits  = repmat(ssbenefit                , [1,T_model]);  % Benefits
-        s.sstaxs      = repmat(0.124                    , [1,T_model]);  % Tax rates
-        s.ssincmaxs   = repmat(1.185e5*modelunit_dollar, [1,T_model]);   % Maximum taxable earnings
         
-        s.sstaxcredit = 0.15;     % Benefit tax credit percentage
 
     end % social_security
     
@@ -583,6 +604,34 @@ end
 
 
 %%
+%  Helper function to find SS.PayrollTax ID corresponding to scenario parameter values
+function [id] = find_ss_tax_id( scenario )
+    
+    % Load plan ID map from input directory
+    map = table2struct(readtable(fullfile(PathFinder.getSocialSecurityInputDir(), 'PayrollTaxMap.csv')));
+    
+    % Scenario param names match map names
+    matchparams = {'SSTaxPolicy'};
+    
+    % Identify policies with parameter values matching scenario parameter values
+    match = arrayfun(@(row) ...
+        all(cellfun(@(param) ...
+            isequal(scenario.(param), row.(param)), matchparams) ...
+        ), ...
+        map ...
+    );
+    
+    % Check for singular match
+    assert(sum(match) > 0, 'No ID found with parameter values matching scenario parameter values.'           );
+    assert(sum(match) < 2, 'More than one ID found with parameter values matching scenario parameter values.');
+    
+    % Extract ID of matching plan
+    id = num2str(map(match).ID);
+    
+end
+
+
+%%
 %  Helper function to read CSV files with format: (Income), (Rate)
 function [incomes, taxrates] = read_tax_rates( filename )
 
@@ -632,6 +681,49 @@ function [tax_vars] = read_tax_vars( filename )
     tax_vars    = table2struct(T);
 
 end % read_tax_vars()
+
+
+%%
+%  Helper function to read CSV files with format: (Year)
+%    , (Bracket1), ... (BracketN), (Rate1), ... (RateN)
+function [brackets, rates] = read_brackets_rates( filename, first_index, param_dir )
+
+    warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
+    warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
+
+    % Check if file exists and generate if necessary
+    filepath = fullfile(param_dir, filename);
+    if ~exist(filepath, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
+        throw(MException('read_brackets_rates:FILENAME', err_msg ));
+    end;
+        
+    T           = readtable(filepath);
+    T_arr       = table2array(T);
+    
+    % Find first year
+    indices     = T_arr(:,1);
+    if( isempty(first_index) )
+        idx_start   = 1;
+    else
+        idx_start   = find( indices == first_index, 1);
+    end
+    if( isempty(idx_start) )
+        throw(MException('read_brackets_rates:FIRSTINDEX','Cannot find first index in file.'));
+    end    
+    
+    % Find all brackets
+    % Enforce that first bracket must be zero.
+    brackets    = T_arr(idx_start:end,  contains(T.Properties.VariableNames, 'Bracket' ) );
+    if( all(brackets(:,1)) > 0 )
+        err_msg = strcat('First bracket must be 0 in file ', strrep(filepath, '\', '\\'));
+        throw(MException('read_brackets_rates:BRACKET0', err_msg ));
+    end 
+    
+    % Find all rates
+    rates       = T_arr(idx_start:end,  contains(T.Properties.VariableNames, 'Rate' ) );
+
+end % read_brackets_rates()
 
 
 %%

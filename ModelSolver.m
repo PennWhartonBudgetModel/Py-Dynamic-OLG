@@ -98,10 +98,10 @@ methods (Static)
         
         % Load Social Security parameters
         s = ParamGenerator.social_security( scenario );
-        ssbenefits  = s.ssbenefits ;    % Benefits
-        sstaxs      = s.sstaxs     ;    % Tax rates
-        ssincmaxs   = s.ssincmaxs  ;    % Maximum taxable earnings
-        sstaxcredit = s.sstaxcredit;    % Benefit tax credit percentage
+        ssbenefits      = s.ssbenefits  ;    % Benefits
+        sstaxbrackets   = s.brackets    ;    % Payroll tax brackets (currentlaw is 0 to taxmax)
+        sstaxrates      = s.rates       ;    % Payroll tax rates (currentlaw is 12.4%)
+        sstaxcredit     = s.taxcredit   ;    % Benefit tax credit percentage
         
         
         %%  Budget: CBO interest rates, expenditures, and debt
@@ -174,7 +174,7 @@ methods (Static)
                     nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, Market.kpricescale*kv, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                     modelunit_dollar, ...
-                    sstaxcredit, ssbenefits, sstaxs, ssincmaxs, ...
+                    sstaxcredit, ssbenefits, sstaxbrackets, sstaxrates, ...
                     tax_thresholds, tax_burden, tax_rates, ... 
                     captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                     Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);

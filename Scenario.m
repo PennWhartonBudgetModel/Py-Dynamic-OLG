@@ -40,6 +40,9 @@ classdef Scenario
         has_immediate_expensing;
         has_repeal_corporate_expensing;
         
+        % Social Security
+        SSTaxPolicy;
+        
         % Identifier tags
         basedeftag
         counterdeftag
@@ -76,7 +79,9 @@ classdef Scenario
             'corporate_tax_rate'            , 0.35              , ...
             'has_special_pass_through_rate' , false             , ...
             'has_immediate_expensing'       , false             , ...
-            'has_repeal_corporate_expensing', false             );
+            'has_repeal_corporate_expensing', false             , ...
+            'SSTaxPolicy'                   , 'CurrentPolicy'     ...
+        );
 
     end
     
