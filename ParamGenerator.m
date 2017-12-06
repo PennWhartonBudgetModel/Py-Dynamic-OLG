@@ -148,7 +148,7 @@ methods (Static)
         % Define savings and average earnings discretization vectors
         % (Upper bound of average earnings defined as maximum possible Social Security benefit)
         f  = @(lb, ub, n, curv) lb + (ub-lb)*((0:n-1)/(n-1))'.^curv;
-        nb =  5; bv = f(   0, 2.5e5*scenario.modelunit_dollar  , nb  , 2);   % average earnings vector --- built to range from 0 to around 120 thousand dollars (118,500 is the maximum annual labor income for Social Security tax purposes)
+        nb =  5; bv = f(   0, 1.185e5*scenario.modelunit_dollar, nb  , 2);   % average earnings vector --- built to range from 0 to around 120 thousand dollars (118,500 is the maximum annual labor income for Social Security tax purposes)
         nk = 12; kv = f(1e-3, 1/(275*scenario.modelunit_dollar), nk-4, 4);   % savings vector --- the grid is built to range from approx 10 to 1.5 million dollars --- 8.7230e-05 corresponds to the last modelunit_dollar value in steady state
         scale = 1;                                                           % scaling parameter to continue building the capital grid 
         for ik = nk-3:nk                                                     % this loop builds the top of capital grid such that:
