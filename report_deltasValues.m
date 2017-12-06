@@ -10,21 +10,19 @@ wipe;
 % params.gamma = 0.75000000;
 % params.sigma = 1.24000000;
 % params.modelunit_dollar = 4.359874681178362e-05;
-% params.depreciation = 0.056;
 
 %% Params for K/Y=3 with d=0.08
 params.beta =  1.003341000000000;
 params.gamma = 0.680000000000000;
 params.sigma = 1.500000000000000;
 params.modelunit_dollar = 4.135682750000000e-05;
-params.depreciation = 0.08;
 
 %% Scenarios and directories
 
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
                              'sigma', params.sigma, 'modelunit_dollar', params.modelunit_dollar, ...
-                             'depreciation', params.depreciation, 'bequest_phi_1', 0, 'base_brackets', 'SenCMA'));
+                             'is_low_return', true, 'bequest_phi_1', 0, 'base_brackets', 'SenCMA'));
 
 sc_steady   = scenario.currentPolicy.steady;
 sc_open     = scenario.open();
@@ -180,6 +178,9 @@ function x = build_var(x_name, dynamic_struct, market_struct, scenario, static)
         s = ParamGenerator.grids( scenario );
         ndem = s.ndem; nz = s.nz; nk = s.nk; nb = s.nb;
         karray = repmat(reshape(s.kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model+1,ndem]);
+        % Define tax
+        s = ParamGenerator.tax( scenario );
+        shareCapitalCorporate = s.shareCapitalCorporate;
         DIST = zeros(nz,nk,nb,T_life,T_model+1,ndem);
         s = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy.steady), 'distribution.mat'), 'DIST');
         DIST(:,:,:,:,1,:) = reshape(sum(s.DIST, 5), [nz,nk,nb,T_life,1,ndem]);
@@ -193,7 +194,7 @@ function x = build_var(x_name, dynamic_struct, market_struct, scenario, static)
         end
         
         f = @(F) sum(sum(reshape(DIST .* F, [], T_model+1, ndem), 1), 3);
-        x = dynamic_struct.labincs + market_struct.totrates .* f(karray);
+        x = dynamic_struct.labincs + (1 - shareCapitalCorporate) * market_struct.totrates .* f(karray);
         
     elseif strcmp(x_name, 'totincwss')
         
