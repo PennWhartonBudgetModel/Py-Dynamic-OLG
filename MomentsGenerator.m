@@ -10,7 +10,7 @@ classdef MomentsGenerator
         a_distdata; a_distmodel; a_ginimodel; a_lorenz;
         l_distdata; l_distmodel; l_ginimodel; l_lorenz;
         DIST; T_work; T_life; kv; karray;
-        ben;
+        ben; lab; con;
 
     end
     
@@ -79,10 +79,14 @@ classdef MomentsGenerator
                 labinc = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wages;
                 k      = f(s.K);
                 this.ben = f(s.BEN);
+                this.lab = f(s.LAB);
+                this.con = f(s.CON);
             else
                 labinc = f(OPTs.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wages;
                 k      = f(OPTs.K);
                 this.ben = f(s.BEN);
+                this.lab = f(s.LAB);
+                this.con = f(s.CON);
             end
             labinc = labinc(:);  % Labor income
             k      = k     (:);  % Asset holdings for tomorrow (k')
@@ -294,6 +298,26 @@ classdef MomentsGenerator
             ben0 = struct('percentile', sum(dist_retired0), 'threshold', 0, 'cumulativeShare', 0);
             ben_distmodel = [struct2table(ben0); ben_distmodel];
             
+        end
+        
+        function [zero_l zero_c] = zero_checks(this)
+            
+            dist_l = this.DIST(:,:,:,1:this.T_work,:,:,:);
+            lab_l  = this.lab (:,:,:,1:this.T_work,:,:,:);
+            dist_l = dist_l(:);
+            lab_l  = lab_l (:);
+            zero_l = 0;
+            for i = 1:size(dist_l,1); if lab_l(i) <= 1e-10
+                    zero_l = zero_l + dist_l(i);
+            end; end
+
+            dist_c = this.DIST(:);
+            con    = this.con (:);
+            zero_c = 0;
+            for i = 1:size(dist_c,1); if con(i) <= 1e-10
+                    zero_c = zero_c + dist_c(i);
+            end; end
+        
         end
                 
     end
