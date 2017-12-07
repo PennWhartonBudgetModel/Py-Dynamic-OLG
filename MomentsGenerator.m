@@ -286,7 +286,7 @@ classdef MomentsGenerator
         end
         
         % Table with distribution of Social Security benefits among retired households
-        function [ben_distmodel] = SS_distribution(this)
+        function [ben_distmodel k_retired0] = SS_distribution(this)
            
             dist_retired  = this.DIST(:,:,:,this.T_work+1:this.T_life,:,:,:);
             ben_retired   = this.ben (:,:,:,this.T_work+1:this.T_life,:,:,:);
@@ -295,8 +295,15 @@ classdef MomentsGenerator
             dist_retired  = dist_retired(:)/sum(dist_retired(:));
             ben_retired   = ben_retired (:);           
             ben_distmodel = get_moments(dist_retired,ben_retired);
-            ben0 = struct('percentile', sum(dist_retired0), 'threshold', 0, 'cumulativeShare', 0);
+            ben0          = struct('percentile', sum(dist_retired0), 'threshold', 0, 'cumulativeShare', 0);
             ben_distmodel = [struct2table(ben0); ben_distmodel];
+            
+            k_retired0    = this.karray(:,:,1,this.T_work+1:this.T_life,:,:,:);
+            k_retired0    = k_retired0(:);
+            k_retired0    = k_retired0 .* dist_retired0;
+            k_retired0(k_retired0==0) = [];
+            dist_retired0(dist_retired0==0) = [];
+            k_retired0    = sum(k_retired0)/sum(dist_retired0)/this.modelunit_dollar;
             
         end
         
