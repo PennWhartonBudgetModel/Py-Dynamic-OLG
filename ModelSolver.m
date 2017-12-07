@@ -98,11 +98,12 @@ methods (Static)
         
         % Load Social Security parameters
         s = ParamGenerator.social_security( scenario );
+        sstax_brackets  = s.brackets    ;    % Payroll tax brackets (currentlaw is 0 to taxmax)
+        sstax_rates     = s.rates       ;    % Payroll tax rates (currentlaw is 12.4%)
+        sstax_burdens   = s.burdens     ;    % Cumulative tax liability at each bracket
         ssbenefits      = s.ssbenefits  ;    % Benefits
-        sstaxbrackets   = s.brackets    ;    % Payroll tax brackets (currentlaw is 0 to taxmax)
-        sstaxrates      = s.rates       ;    % Payroll tax rates (currentlaw is 12.4%)
         sstaxcredit     = s.taxcredit   ;    % Benefit tax credit percentage
-        
+        ssincmaxs       = s.ssincmaxs   ;    % Maximum wage allowed for benefit calculation
         
         %%  Budget: CBO interest rates, expenditures, and debt
         s = ParamGenerator.budget( scenario );
@@ -118,9 +119,9 @@ methods (Static)
         
         %% Tax parameters
         s = ParamGenerator.tax( scenario );
-        tax_thresholds      = s.tax_thresholds; % Tax func is linearized, these are income thresholds 
-        tax_burden          = s.tax_burden;     % Tax burden (cumulative tax) at thresholds
-        tax_rates           = s.tax_rates;      % Effective marginal tax rate between thresholds
+        pittax_brackets     = s.tax_thresholds; % Tax func is linearized, these are income thresholds 
+        pittax_burdens      = s.tax_burdens;    % Tax burden (cumulative tax) at thresholds
+        pittax_rates        = s.tax_rates;      % Effective marginal tax rate between thresholds
         
         captaxshare         = s.captaxshare;            % Portion of capital income taxed at preferred rates
         expshare            = s.shareCapitalExpensing;  % Portion of investment which can be expensed
@@ -174,8 +175,9 @@ methods (Static)
                     nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, Market.kpricescale*kv, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                     modelunit_dollar, ...
-                    sstaxcredit, ssbenefits, sstaxbrackets, sstaxrates, ...
-                    tax_thresholds, tax_burden, tax_rates, ... 
+                    sstaxcredit, ssbenefits, ssincmaxs, ...
+                    sstax_brackets, sstax_burdens, sstax_rates, ...
+                    pittax_brackets, pittax_burdens, pittax_rates, ... 
                     captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                     Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);
                 

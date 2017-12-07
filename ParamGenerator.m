@@ -206,7 +206,7 @@ methods (Static)
         % Store income tax and deduction functions.
         %   REM: Transpose into row vectors
         s.tax_thresholds  = income_thresholds';
-        s.tax_burden      = income_tax';
+        s.tax_burdens     = income_tax';
         s.tax_rates       = tax_rates';
 
         % Get the capital and tax treatment allocation params and store them.
@@ -298,13 +298,12 @@ methods (Static)
     %
     function s = social_security( scenario )
         
-        bv                      = ParamGenerator.grids(scenario).bv;
         T_model                 = ParamGenerator.timing(scenario).T_model;
-        modelunit_dollar        = scenario.modelunit_dollar;
         first_transition_year   = ParamGenerator.timing(scenario).first_transition_year;
         
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long
+        %   Calculate cumulative liability to speed up calculation 
         [brackets, rates] = read_brackets_rates(  ...
                                     strcat('PayrollTax_', find_ss_tax_id( scenario ), '.csv' )   ...
                                 ,   first_transition_year - 1     ...
@@ -320,11 +319,16 @@ methods (Static)
             rates       = [rates; ...
                 repmat(rates(end,:)     , [T_model-num_years, 1])   ];
         end
+        burdens         = cumsum(diff(brackets).*rates(1:end-1)); 
+        s.burdens       = [0, burdens]';    % Cumulative tax burden
+        s.brackets      = brackets;         % Payroll tax brackets, rem: first one is zero
+        s.rates         = rates;            % Rate for above each bracket threshold
         
-        s.brackets      = brackets;
-        s.rates         = rates;
-        
+        %  OLD STUFF: TBD Revisit and revise
+        bv                      = ParamGenerator.grids(scenario).bv;
+        modelunit_dollar        = scenario.modelunit_dollar;
         s.taxcredit     = 0.15;     % Benefit tax credit percentage
+        s.ssincmaxs     = repmat(1.185e5*modelunit_dollar, [1,T_model]); % Maximum income subject to benefit calculation
 
         % Calculate benefits
         ssthresholds = [856, 5157]*12*modelunit_dollar;     % Thresholds for earnings brackets
