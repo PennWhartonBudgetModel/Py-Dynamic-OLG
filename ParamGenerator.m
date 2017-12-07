@@ -17,7 +17,9 @@ methods (Static)
             case 'steady'
                 s.T_model    = 1;                           % Steady state total modeling years
                 s.startyears = 0;                           % Steady state cohort start year
-                s.T_work     = 47;
+                s.T_work     = read_series('XXXNRA.csv', [], PathFinder.getMicrosimInputDir());
+                mass         = zeros(s.T_life); mass(1) = 1; for i = 2:s.T_life; mass(i) = mass(i-1)*ParamGenerator.demographics().surv(i-1); end;
+                s.T_work     = round(sum((mass.*s.T_work(1:s.T_life))/sum(mass))) - s.enter_work_force;
             case {'open', 'closed'}
                 s.T_model    = 25;                          % Transition path total modeling years
                 s.startyears = (-s.T_life+1):(s.T_model-1); % Transition path cohort start years
