@@ -12,14 +12,17 @@ methods (Static)
     function s = timing(scenario)
         s.first_transition_year = 2018;                 % This will come from Scenario
         s.T_life                = 80;
-        s.T_work                = 47;
+        s.enter_work_force      = 20;
         switch scenario.economy
             case 'steady'
                 s.T_model    = 1;                           % Steady state total modeling years
                 s.startyears = 0;                           % Steady state cohort start year
+                s.T_work     = 47;
             case {'open', 'closed'}
                 s.T_model    = 25;                          % Transition path total modeling years
                 s.startyears = (-s.T_life+1):(s.T_model-1); % Transition path cohort start years
+                s.T_work     = read_series('XXXNRA.csv', s.first_transition_year - (s.T_life + s.enter_work_force - 1), PathFinder.getMicrosimInputDir());
+                s.T_work     = s.T_work(1) - s.enter_work_force;
         end
     end % timing
        
