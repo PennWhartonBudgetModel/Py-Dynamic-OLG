@@ -22,7 +22,7 @@ methods (Static)
                 s.T_model    = 25;                          % Transition path total modeling years
                 s.startyears = (-s.T_life+1):(s.T_model-1); % Transition path cohort start years
                 s.T_work     = read_series('XXXNRA.csv', s.first_transition_year - (s.T_life + s.enter_work_force - 1), PathFinder.getMicrosimInputDir());
-                s.T_work     = s.T_work(1) - s.enter_work_force;
+                s.T_work     = s.T_work(1:length(s.startyears)) - s.enter_work_force;
         end
     end % timing
        
@@ -66,7 +66,7 @@ methods (Static)
         
         % Define deterministic lifecycle productivities
         T_life = ParamGenerator.timing(scenario).T_life;
-        T_work = ParamGenerator.timing(scenario).T_work;
+        T_work = max(ParamGenerator.timing(scenario).T_work);
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
         zage   = read_series('ConesaEtAl_WageAgeProfile.csv', [], PathFinder.getMicrosimInputDir());
         

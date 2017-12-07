@@ -170,7 +170,7 @@ methods (Static)
             for idem = 1:ndem
                 
                 % Package fixed dynamic optimization arguments into anonymous function
-                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active) solve_cohort(V0, LAB_static, isdynamic, ...
+                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_work) solve_cohort(V0, LAB_static, isdynamic, ...
                     nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, Market.kpricescale*kv, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                     modelunit_dollar, ...
@@ -188,7 +188,7 @@ methods (Static)
                     
                     % Solve dynamic optimization
                     % (Note that active time is set to full lifetime)
-                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life);
+                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_work(end));
                     
                     % Define series of terminal utility values
                     V0s(:,:,:,1:T_life-1) = OPT.V(:,:,:,2:T_life);
@@ -215,7 +215,7 @@ methods (Static)
                             V0 = V0s(:,:,:,T_ends(i)); %#ok<PFBNS>
                             
                             % Solve dynamic optimization
-                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i));
+                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i), T_work(i));
                             
                             LABs{i,idem} = OPTs_cohort{i}.LAB;
                             
