@@ -316,26 +316,6 @@ classdef MomentsGenerator
             
         end
         
-        function s = zero_checks(this)
-            
-            dist_l = this.DIST(:,:,:,1:this.T_work,:,:,:);
-            lab_l  = this.lab (:,:,:,1:this.T_work,:,:,:);
-            dist_l = dist_l(:);
-            lab_l  = lab_l (:);
-            s.lab  = 0;
-            for i = 1:size(dist_l,1); if lab_l(i) <= 1e-10
-                    s.lab = s.lab + dist_l(i);
-            end; end
-
-            dist_c = this.DIST(:);
-            con    = this.con (:);
-            s.con  = 0;
-            for i = 1:size(dist_c,1); if con(i) <= 1e-10
-                    s.con = s.con + dist_c(i);
-            end; end
-        
-        end
-                
     end
     
 end
