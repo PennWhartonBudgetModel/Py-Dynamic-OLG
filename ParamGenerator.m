@@ -162,6 +162,7 @@ methods (Static)
         nb =  5; bv = f(   0, ssincmax*scenario.modelunit_dollar, nb  , 2);  % average earnings vector --- Upper bound of average earnings defined as maximum possible Social Security benefit
         if ~(scenario.HasLimitedBenefits)
             bv = [bv; 2*ssincmax*scenario.modelunit_dollar];                 % max point arbitrarily set to twice the second largest one
+            nb = nb + 1;
         end
 
         s.ndem     = ndem;
@@ -312,12 +313,13 @@ methods (Static)
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long
         %   Calculate cumulative liability to speed up calculation 
-        [brackets, rates, burdens] = read_brackets_rates(  ...
-                                    strcat('PayrollTax_', find_ss_tax_id( scenario ), '.csv' )   ...
-                                ,   PathFinder.getSocialSecurityInputDir()  ...
-                                ,   first_transition_year - 1               ...
-                                ,   T_model                                 ...
-                                 );
+        matchparams     = {'SSTaxPolicy'};
+        mapfile         = fullfile( PathFinder.getSocialSecurityTaxInputDir(), 'PayrollTaxMap.csv' );
+        bracketsfile    = strcat('PayrollTax_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
+        bracketsfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir(), bracketsfile );      
+
+        [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_transition_year - 1, T_model );                               ...
+        
         s.burdens       = burdens;          % Cumulative tax burden
         s.brackets      = brackets;         % Payroll tax brackets, rem: first one is zero
         s.rates         = rates;            % Rate for above each bracket threshold
@@ -606,14 +608,14 @@ end
 
 
 %%
-%  Helper function to find SS.PayrollTax ID corresponding to scenario parameter values
-function [id] = find_ss_tax_id( scenario )
+%  Helper function to find a Policy ID corresponding to scenario parameter values
+%        matchparams : cell array of param names to match
+%        mapfile     : fullfile name of map file with format 
+%           (ID) (Param1) (Param2) ... (ParamN)
+function [id] = find_policy_id( scenario, matchparams, mapfile )
     
     % Load plan ID map from input directory
-    map = table2struct(readtable(fullfile(PathFinder.getSocialSecurityInputDir(), 'PayrollTaxMap.csv')));
-    
-    % Scenario param names match map names
-    matchparams = {'SSTaxPolicy'};
+    map = table2struct(readtable(mapfile));
     
     % Identify policies with parameter values matching scenario parameter values
     match = arrayfun(@(row) ...
@@ -630,7 +632,7 @@ function [id] = find_ss_tax_id( scenario )
     % Extract ID of matching plan
     id = num2str(map(match).ID);
     
-end
+end %find_policy_id
 
 
 %%
@@ -686,22 +688,23 @@ end % read_tax_vars()
 
 
 %%
-%  Helper function to read CSV files with format: (Year)
-%    , (Bracket1), ... (BracketN), (Rate1), ... (RateN)
+%  Helper function to read CSV files with format: 
+%    (Year), (Bracket1), ... (BracketN), (Rate1), ... (RateN)
+%    filename     : fullfile of CSV to read
+%    first_year   : don't read years before this param
 function [brackets, rates, burdens] = read_brackets_rates( ...
-                                        filename, param_dir, first_year, T_model )
+                                        filename, first_year, T_model )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
 
     % Check if file exists and generate if necessary
-    filepath = fullfile(param_dir, filename);
-    if ~exist(filepath, 'file')
-        err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
+    if ~exist(filename, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
         throw(MException('read_brackets_rates:FILENAME', err_msg ));
     end;
         
-    T           = readtable(filepath);
+    T           = readtable(filename);
     T_arr       = table2array(T);
     
     % Find first year
