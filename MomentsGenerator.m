@@ -6,7 +6,7 @@ classdef MomentsGenerator
     
     properties (Access = private)
         
-        modelunit_dollar; scenario;
+        scenario;
         a_distdata; a_distmodel; a_ginimodel; a_lorenz;
         l_distdata; l_distmodel; l_ginimodel; l_lorenz;
         DIST; T_work; T_life; kv; karray;
@@ -26,7 +26,6 @@ classdef MomentsGenerator
 
             %% PARAMETERS
     
-            this.modelunit_dollar = scenario.modelunit_dollar;
             this.scenario         = scenario;
             save_dir  = PathFinder.getWorkingDir(scenario);
             param_dir = PathFinder.getMicrosimInputDir();
@@ -189,7 +188,7 @@ classdef MomentsGenerator
         function [] = plot_a_threshold(this)
                          
             figure
-            plot(this.a_distdata.percentile,(this.a_distmodel.threshold/this.modelunit_dollar)/1000,...
+            plot(this.a_distdata.percentile,(this.a_distmodel.threshold/this.scenario.modelunit_dollar)/1000,...
                  this.a_distdata.percentile,this.a_distdata.threshold2016dollars/1000, 'LineWidth',2)
             title('Threshold by wealth percentile','FontSize',16)
             xlabel('percentiles','FontSize',13)
@@ -203,7 +202,7 @@ classdef MomentsGenerator
         function [] = plot_l_threshold(this)
                          
             figure
-            plot(this.l_distdata.percentile,(this.l_distmodel.threshold/this.modelunit_dollar)/1000,...
+            plot(this.l_distdata.percentile,(this.l_distmodel.threshold/this.scenario.modelunit_dollar)/1000,...
                  this.l_distdata.percentile,this.l_distdata.threshold2016dollars/1000, 'LineWidth',2)
             title('Threshold by labor income percentile','FontSize',16)
             xlabel('percentiles','FontSize',13)
@@ -247,7 +246,7 @@ classdef MomentsGenerator
             for age = 1:this.T_life
                 pop_age_temp   = this.DIST(:,:,:,age,:,:,:);
                 kdist_age_temp = kdist(:,:,:,age,:,:,:);
-                kdist_age(age) = (sum(kdist_age_temp(:))/sum(pop_age_temp(:)))/this.modelunit_dollar;
+                kdist_age(age) = (sum(kdist_age_temp(:))/sum(pop_age_temp(:)))/this.scenario.modelunit_dollar;
             end
             
             figure
@@ -274,13 +273,13 @@ classdef MomentsGenerator
             title('Distribution of individuals by asset holdings grid points','FontSize',16)
             xlabel('grid point in dollars','FontSize',13)
             set(gca,'XTick',1:1:nk)
-            set(gca,'XTickLabel',{num2str(round(kv(1)/this.modelunit_dollar)),...
-                num2str(round(kv(2)/this.modelunit_dollar)),num2str(round(kv(3)/this.modelunit_dollar)),...
-                num2str(round(kv(4)/this.modelunit_dollar)),num2str(round(kv(5)/this.modelunit_dollar)),...
-                num2str(round(kv(6)/this.modelunit_dollar)),num2str(round(kv(7)/this.modelunit_dollar)),...
-                num2str(round(kv(8)/this.modelunit_dollar)),num2str(round(kv(9)/this.modelunit_dollar)),...
-                num2str(round(kv(10)/this.modelunit_dollar)),num2str(round(kv(11)/this.modelunit_dollar)),...
-                num2str(round(kv(12)/this.modelunit_dollar))})
+            set(gca,'XTickLabel',{num2str(round(kv(1)/this.scenario.modelunit_dollar)),...
+                num2str(round(kv(2)/this.scenario.modelunit_dollar)),num2str(round(kv(3)/this.scenario.modelunit_dollar)),...
+                num2str(round(kv(4)/this.scenario.modelunit_dollar)),num2str(round(kv(5)/this.scenario.modelunit_dollar)),...
+                num2str(round(kv(6)/this.scenario.modelunit_dollar)),num2str(round(kv(7)/this.scenario.modelunit_dollar)),...
+                num2str(round(kv(8)/this.scenario.modelunit_dollar)),num2str(round(kv(9)/this.scenario.modelunit_dollar)),...
+                num2str(round(kv(10)/this.scenario.modelunit_dollar)),num2str(round(kv(11)/this.scenario.modelunit_dollar)),...
+                num2str(round(kv(12)/this.scenario.modelunit_dollar))})
 
             ylabel('share of population','FontSize',13)
             
@@ -312,7 +311,7 @@ classdef MomentsGenerator
             k_retired0    = this.karray(:,:,1,this.T_work+1:this.T_life,:,:,:);
             k_retired0    = k_retired0(:);
             k_retired0    = k_retired0 .* dist_retired0;
-            s.k_retired0  = sum(k_retired0)/sum(dist_retired0)/this.modelunit_dollar;
+            s.k_retired0  = sum(k_retired0)/sum(dist_retired0)/this.scenario.modelunit_dollar;
             
         end
         
