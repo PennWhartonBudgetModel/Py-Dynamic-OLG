@@ -257,6 +257,25 @@ classdef MomentsGenerator
             
         end
 
+        % Graph - Consumption by age
+        function [] = plot_c_age(this)
+            
+            cdist_age = zeros(1,this.T_life);
+            cdist = this.DIST .* this.con;
+            for age = 1:this.T_life
+                pop_age_temp   = this.DIST(:,:,:,age,:,:,:);
+                cdist_age_temp = cdist(:,:,:,age,:,:,:);
+                cdist_age(age) = (sum(cdist_age_temp(:))/sum(pop_age_temp(:)))/this.scenario.modelunit_dollar;
+            end
+            
+            figure
+            plot(21:100,cdist_age, 'LineWidth',2)
+            title('Average annual consumption by age','FontSize',16)
+            xlabel('age','FontSize',13)
+            ylabel('2016 dollars','FontSize',13)
+            
+        end
+        
         % Graph - Distribution of individuals by asset holdings grid points
         function [] = plot_a_dist(this)
             
