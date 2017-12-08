@@ -285,7 +285,7 @@ classdef MomentsGenerator
             
         end
         
-        % Table with Social Security benefits moments
+        % Social Security benefits moments
         function s = SS_distribution(this)
             
             % Import variables common to all elements of s           
@@ -297,7 +297,8 @@ classdef MomentsGenerator
             % Calculate SS outlays as a percentage of GDP
             steady_dir    = PathFinder.getWorkingDir(this.scenario);
             s_dynamics    = load( fullfile(steady_dir, 'dynamics.mat' ) );
-            s.SStoout     = sum(ben_retired.*dist_retired)/s_dynamics.outs;
+            s.SSbentoout  = sum(ben_retired.*dist_retired)/s_dynamics.outs;
+            s.SStaxtoout  = s_dynamics.ssts/s_dynamics.outs;
             
             % Table with distribution of Social Security benefits among retired households
             dist_retired0 = this.DIST(:,:,1,this.T_work+1:this.T_life,:,:,:);
