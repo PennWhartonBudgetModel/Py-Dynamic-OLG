@@ -304,23 +304,13 @@ methods (Static)
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long
         %   Calculate cumulative liability to speed up calculation 
-        [brackets, rates] = read_brackets_rates(  ...
+        [brackets, rates, burdens] = read_brackets_rates(  ...
                                     strcat('PayrollTax_', find_ss_tax_id( scenario ), '.csv' )   ...
-                                ,   first_transition_year - 1     ...
-                            	,   PathFinder.getSocialSecurityInputDir()  ...
+                                ,   PathFinder.getSocialSecurityInputDir()  ...
+                                ,   first_transition_year - 1               ...
+                                ,   T_model                                 ...
                                  );
-        num_years = length(brackets);
-        if( T_model - num_years < 0 )
-            brackets    = brackets(1:T_model,:);
-            rates       = rates(1:T_model,:);
-        else
-            brackets    = [brackets; ...
-                repmat(brackets(end,:)  , [T_model-num_years, 1])   ];
-            rates       = [rates; ...
-                repmat(rates(end,:)     , [T_model-num_years, 1])   ];
-        end
-        burdens         = cumsum(diff(brackets).*rates(1:end-1)); 
-        s.burdens       = [0, burdens]';    % Cumulative tax burden
+        s.burdens       = burdens;          % Cumulative tax burden
         s.brackets      = brackets;         % Payroll tax brackets, rem: first one is zero
         s.rates         = rates;            % Rate for above each bracket threshold
         
@@ -690,7 +680,8 @@ end % read_tax_vars()
 %%
 %  Helper function to read CSV files with format: (Year)
 %    , (Bracket1), ... (BracketN), (Rate1), ... (RateN)
-function [brackets, rates] = read_brackets_rates( filename, first_index, param_dir )
+function [brackets, rates, burdens] = read_brackets_rates( ...
+                                        filename, param_dir, first_year, T_model )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
@@ -706,27 +697,38 @@ function [brackets, rates] = read_brackets_rates( filename, first_index, param_d
     T_arr       = table2array(T);
     
     % Find first year
-    indices     = T_arr(:,1);
-    if( isempty(first_index) )
-        idx_start   = 1;
-    else
-        idx_start   = find( indices == first_index, 1);
-    end
-    if( isempty(idx_start) )
+    years       = T_arr(:,1);
+    year_start  = find( years == first_year, 1);
+    if( isempty(year_start) )
         throw(MException('read_brackets_rates:FIRSTINDEX','Cannot find first index in file.'));
     end    
     
     % Find all brackets
     % Enforce that first bracket must be zero.
-    brackets    = T_arr(idx_start:end,  contains(T.Properties.VariableNames, 'Bracket' ) );
+    brackets    = T_arr(year_start:end,  contains(T.Properties.VariableNames, 'Bracket' ) );
     if( all(brackets(:,1)) > 0 )
         err_msg = strcat('First bracket must be 0 in file ', strrep(filepath, '\', '\\'));
         throw(MException('read_brackets_rates:BRACKET0', err_msg ));
     end 
     
     % Find all rates
-    rates       = T_arr(idx_start:end,  contains(T.Properties.VariableNames, 'Rate' ) );
+    rates       = T_arr(year_start:end,  contains(T.Properties.VariableNames, 'Rate' ) );
 
+    % Pad brackets and rates if not long enough, truncate if too long
+    num_years = size(brackets,1);
+    if( T_model - num_years <= 0 )
+        brackets    = brackets(1:T_model,:);
+        rates       = rates(1:T_model,:);
+    else
+        brackets    = [brackets; ...
+            repmat(brackets(end,:)  , [T_model-num_years, 1])   ];
+        rates       = [rates; ...
+            repmat(rates(end,:)     , [T_model-num_years, 1])   ];
+    end
+    
+    % Calculate cumulative tax burdens along brackets dimension
+    burdens         = cumsum(diff(brackets, 1, 2).*rates(:, 1:end-1), 2); 
+    burdens         = [zeros(size(brackets, 1), 1), burdens];  % rem: first burden is zero
 end % read_brackets_rates()
 
 
