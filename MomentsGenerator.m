@@ -286,7 +286,7 @@ classdef MomentsGenerator
         end
         
         % Table with distribution of Social Security benefits among retired households
-        function [ben_distmodel k_retired0] = SS_distribution(this)
+        function s = SS_distribution(this)
            
             dist_retired  = this.DIST(:,:,:,this.T_work+1:this.T_life,:,:,:);
             ben_retired   = this.ben (:,:,:,this.T_work+1:this.T_life,:,:,:);
@@ -296,33 +296,33 @@ classdef MomentsGenerator
             ben_retired   = ben_retired (:);           
             ben_distmodel = get_moments(dist_retired,ben_retired);
             ben0          = struct('percentile', sum(dist_retired0), 'threshold', 0, 'cumulativeShare', 0);
-            ben_distmodel = [struct2table(ben0); ben_distmodel];
+            s.ben_dist    = [struct2table(ben0); ben_distmodel];
             
             k_retired0    = this.karray(:,:,1,this.T_work+1:this.T_life,:,:,:);
             k_retired0    = k_retired0(:);
             k_retired0    = k_retired0 .* dist_retired0;
             k_retired0(k_retired0==0) = [];
             dist_retired0(dist_retired0==0) = [];
-            k_retired0    = sum(k_retired0)/sum(dist_retired0)/this.modelunit_dollar;
+            s.k_retired0  = sum(k_retired0)/sum(dist_retired0)/this.modelunit_dollar;
             
         end
         
-        function [zero_l zero_c] = zero_checks(this)
+        function s = zero_checks(this)
             
             dist_l = this.DIST(:,:,:,1:this.T_work,:,:,:);
             lab_l  = this.lab (:,:,:,1:this.T_work,:,:,:);
             dist_l = dist_l(:);
             lab_l  = lab_l (:);
-            zero_l = 0;
+            s.lab  = 0;
             for i = 1:size(dist_l,1); if lab_l(i) <= 1e-10
-                    zero_l = zero_l + dist_l(i);
+                    s.lab = s.lab + dist_l(i);
             end; end
 
             dist_c = this.DIST(:);
             con    = this.con (:);
-            zero_c = 0;
+            s.con  = 0;
             for i = 1:size(dist_c,1); if con(i) <= 1e-10
-                    zero_c = zero_c + dist_c(i);
+                    s.con = s.con + dist_c(i);
             end; end
         
         end
