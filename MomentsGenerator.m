@@ -351,6 +351,12 @@ classdef MomentsGenerator
             k_retired0    = k_retired0 .* dist_retired0;
             s.k_retired0  = sum(k_retired0)/sum(dist_retired0)/this.scenario.modelunit_dollar;
             
+            % Average consumption of retiree earning no SS benefits
+            c_retired0    = this.con(:,:,1,this.T_work+1:this.T_life,:,:,:);
+            c_retired0    = c_retired0(:);
+            c_retired0    = c_retired0 .* dist_retired0;
+            s.c_retired0  = sum(c_retired0)/sum(dist_retired0)/this.scenario.modelunit_dollar;
+            
         end
         
     end
