@@ -10,7 +10,7 @@ classdef MomentsGenerator
         a_distdata; a_distmodel; a_ginimodel; a_lorenz;
         l_distdata; l_distmodel; l_ginimodel; l_lorenz;
         DIST; T_work; T_life; kv; karray;
-        ben; lab; con;
+        ben; con; lab;
 
     end
     
@@ -273,6 +273,24 @@ classdef MomentsGenerator
             title('Average annual consumption by age','FontSize',16)
             xlabel('age','FontSize',13)
             ylabel('2016 dollars','FontSize',13)
+            
+        end
+        
+        % Graph - Labor supply by age
+        function [] = plot_l_age(this)
+            
+            ldist_age = zeros(1,this.T_life);
+            ldist = this.DIST .* this.lab;
+            for age = 1:this.T_life
+                pop_age_temp   = this.DIST(:,:,:,age,:,:,:);
+                ldist_age_temp = ldist(:,:,:,age,:,:,:);
+                ldist_age(age) = sum(ldist_age_temp(:)) / sum(pop_age_temp(:));
+            end
+            
+            figure
+            plot(21:100,ldist_age, 'LineWidth',2)
+            title('Average annual labor supply by age','FontSize',16)
+            xlabel('age','FontSize',13)
             
         end
         
