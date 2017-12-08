@@ -339,7 +339,7 @@ pit_dollar  = tax_burdens(bracket) + tax_rates(bracket)*(inc - tax_thresholds(br
 pit         = modelunit_dollar*pit_dollar;     % Convert to model units
 
 % Calculate Social Security tax
-sst_dollar  = find_tax_liability( labinc, sst_thresholds, sst_burdens, sst_rates );
+sst_dollar  = find_tax_liability( labinc/modelunit_dollar, sst_thresholds, sst_burdens, sst_rates );
 sst         = modelunit_dollar*sst_dollar;
 
 % Calculate corporate income tax
@@ -532,7 +532,7 @@ function [tax] = find_tax_liability( income, brackets, burdens, rates )
     thebracket  = find(brackets <= income, 1, 'last');
     thebracket  = thebracket(1);   % Force to scalar for C code generation
     tax         = burdens(thebracket) + rates(thebracket)*(income - brackets(thebracket));
-    
+
 end % find_tax_liability
 
 
