@@ -6,7 +6,7 @@ classdef MomentsGenerator
     
     properties (Access = private)
         
-        modelunit_dollar;
+        modelunit_dollar; scenario;
         a_distdata; a_distmodel; a_ginimodel; a_lorenz;
         l_distdata; l_distmodel; l_ginimodel; l_lorenz;
         DIST; T_work; T_life; kv; karray;
@@ -27,6 +27,7 @@ classdef MomentsGenerator
             %% PARAMETERS
     
             this.modelunit_dollar = scenario.modelunit_dollar;
+            this.scenario         = scenario;
             save_dir  = PathFinder.getWorkingDir(scenario);
             param_dir = PathFinder.getMicrosimInputDir();
 
@@ -285,24 +286,32 @@ classdef MomentsGenerator
             
         end
         
-        % Table with distribution of Social Security benefits among retired households
+        % Table with Social Security benefits moments
         function s = SS_distribution(this)
-           
+            
+            % Import variables common to all elements of s           
             dist_retired  = this.DIST(:,:,:,this.T_work+1:this.T_life,:,:,:);
             ben_retired   = this.ben (:,:,:,this.T_work+1:this.T_life,:,:,:);
+            dist_retired  = dist_retired(:);
+            ben_retired   = ben_retired (:);
+            
+            % Calculate SS outlays as a percentage of GDP
+            steady_dir    = PathFinder.getWorkingDir(this.scenario);
+            s_dynamics    = load( fullfile(steady_dir, 'dynamics.mat' ) );
+            s.SStoout     = sum(ben_retired.*dist_retired)/s_dynamics.outs;
+            
+            % Table with distribution of Social Security benefits among retired households
             dist_retired0 = this.DIST(:,:,1,this.T_work+1:this.T_life,:,:,:);
-            dist_retired0 = dist_retired0(:)/sum(dist_retired(:));
-            dist_retired  = dist_retired(:)/sum(dist_retired(:));
-            ben_retired   = ben_retired (:);           
+            dist_retired0 = dist_retired0(:)/sum(dist_retired);
+            dist_retired  = dist_retired/sum(dist_retired(:));
             ben_distmodel = get_moments(dist_retired,ben_retired);
             ben0          = struct('percentile', sum(dist_retired0), 'threshold', 0, 'cumulativeShare', 0);
             s.ben_dist    = [struct2table(ben0); ben_distmodel];
             
+            % Average asset holdings of retiree earning no SS benefits
             k_retired0    = this.karray(:,:,1,this.T_work+1:this.T_life,:,:,:);
             k_retired0    = k_retired0(:);
             k_retired0    = k_retired0 .* dist_retired0;
-            k_retired0(k_retired0==0) = [];
-            dist_retired0(dist_retired0==0) = [];
             s.k_retired0  = sum(k_retired0)/sum(dist_retired0)/this.modelunit_dollar;
             
         end
