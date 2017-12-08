@@ -42,6 +42,7 @@ classdef Scenario
         
         % Social Security parameters
         HasLimitedBenefits;
+        SSTaxPolicy;
         
         % Identifier tags
         basedeftag
@@ -80,7 +81,9 @@ classdef Scenario
             'has_special_pass_through_rate' , false             , ...
             'has_immediate_expensing'       , false             , ...
             'has_repeal_corporate_expensing', false             , ...
-            'HasLimitedBenefits'            , true              );
+            'HasLimitedBenefits'            , true              , ...
+            'SSTaxPolicy'                   , 'CurrentPolicy'     ...
+        );
 
     end
     
