@@ -162,6 +162,7 @@ methods (Static)
         nb =  5; bv = f(   0, ssincmax*scenario.modelunit_dollar, nb  , 2);  % average earnings vector --- Upper bound of average earnings defined as maximum possible Social Security benefit
         if ~(scenario.HasLimitedBenefits)
             bv = [bv; 2*ssincmax*scenario.modelunit_dollar];                 % max point arbitrarily set to twice the second largest one
+            nb = nb + 1;
         end
 
         s.ndem     = ndem;
