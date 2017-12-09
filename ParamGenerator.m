@@ -8,22 +8,30 @@ methods (Static)
     
     
     %% TIMING
-    %    
+    %      Includes policy-specific SS.NRA
     function s = timing(scenario)
-        s.first_transition_year = 2018;                 % This will come from Scenario
+        s.first_transition_year = 2018;                 % TBD: This will come from Scenario
         s.T_life                = 80;
         s.enter_work_force      = 20;
+        
+        nramapfile  = fullfile( PathFinder.getSocialSecurityNRAInputDir(), 'Map.csv' );
+        nrafile     = strcat(   'NRA_'                                      ...
+                            ,   find_policy_id( scenario                    ...
+                                    ,   {'SSNRAPolicy'}                     ...
+                                    ,   nramapfile )                        ...
+                            ,   '.csv' );
+        
         switch scenario.economy
             case 'steady'
                 s.T_model    = 1;                           % Steady state total modeling years
                 s.startyears = 0;                           % Steady state cohort start year
-                s.T_work     = read_series('XXXNRA.csv', s.first_transition_year - (s.T_life + s.enter_work_force + 1), PathFinder.getMicrosimInputDir());
+                s.T_work     = read_series(nrafile, s.first_transition_year - (s.T_life + s.enter_work_force + 1), PathFinder.getSocialSecurityNRAInputDir());
                 mass         = zeros(s.T_life); mass(1) = 1; for i = 2:s.T_life; mass(i) = mass(i-1)*ParamGenerator.demographics().surv(i-1); end;
                 s.T_work     = round(sum((mass.*s.T_work(1:s.T_life))/sum(mass))) - s.enter_work_force;
             case {'open', 'closed'}
                 s.T_model    = 25;                          % Transition path total modeling years
                 s.startyears = (-s.T_life+1):(s.T_model-1); % Transition path cohort start years
-                s.T_work     = read_series('XXXNRA.csv', s.first_transition_year - (s.T_life + s.enter_work_force), PathFinder.getMicrosimInputDir());
+                s.T_work     = read_series(nrafile, s.first_transition_year - (s.T_life + s.enter_work_force), PathFinder.getSocialSecurityNRAInputDir());
                 s.T_work     = s.T_work(1:length(s.startyears)) - s.enter_work_force;
         end
     end % timing
@@ -314,7 +322,7 @@ methods (Static)
         %   Pad if file years do not go to T_model, truncate if too long
         %   Calculate cumulative liability to speed up calculation 
         matchparams     = {'SSTaxPolicy'};
-        mapfile         = fullfile( PathFinder.getSocialSecurityTaxInputDir(), 'PayrollTaxMap.csv' );
+        mapfile         = fullfile( PathFinder.getSocialSecurityTaxInputDir(), 'Map.csv' );
         bracketsfile    = strcat('PayrollTax_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
         bracketsfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir(), bracketsfile );      
 
