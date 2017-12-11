@@ -75,10 +75,10 @@ methods (Static)
         DISTpers = diff(normcdf(persv/sqrt(0.124)));
         
         % Define deterministic lifecycle productivities
-        T_life = ParamGenerator.timing(scenario).T_life;
-        T_work = max(ParamGenerator.timing(scenario).T_work);
+        T_life    = ParamGenerator.timing(scenario).T_life;
+        T_workMax = max(ParamGenerator.timing(scenario).T_work);
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
-        zage   = read_series('ConesaEtAl_WageAgeProfile.csv', [], PathFinder.getMicrosimInputDir());
+        zage      = read_series('ConesaEtAl_WageAgeProfile.csv', [], PathFinder.getMicrosimInputDir());
         
         % Calculate total productivity
         ndem = nperm; nz = ntrans*npers;
@@ -88,7 +88,7 @@ methods (Static)
                   + repmat(reshape(kron(ones(1,npers), ztrans) ...
                                  + kron(zpers, ones(1,ntrans)), [nz,1     ,1   ]), [1 ,T_life,ndem]));
 
-        zs_check = zs(:,1:T_work,:);
+        zs_check = zs(:,1:T_workMax,:);
         assert(all(zs_check(:) > 0), 'WARNING! Productivity shock grid contains zero.')
         
         % Construct Markov transition matrix for all shocks / productivities
