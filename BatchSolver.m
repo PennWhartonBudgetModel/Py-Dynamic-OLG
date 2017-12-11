@@ -304,7 +304,7 @@ methods (Static)
             'lfprs'             , [25]          , ...
             'labincs'           , [28]          , ...
             'capincs'           , [29]          , ...
-            'ones'              , []              ...
+            'nonindexed'        , []              ...
         ); %#ok<NBRAK>
         
         
@@ -378,7 +378,7 @@ methods (Static)
                 % Extract dynamic and static variable values
                 %  and handle special series
                 switch name
-                    case 'ones'
+                    case 'nonindexed'
                         v_Dynamic = ones(1,T_model); v_Static = ones(1,T_model);
                     otherwise
                         v_Dynamic = Dynamic.(name);
