@@ -195,36 +195,25 @@ methods (Static)
     function s = tax( scenario )
         
         % Find tax plan ID corresponding to scenario tax parameters
-        taxplanid = find_taxplanid(scenario);
+        taxplanid               = find_taxplanid(scenario);
         
-        % Get PIT tax rates.
-        %  Input files PIT_<taxplanid>.CSV expected to have the
-        %  following structure:
-        %      <Income $>, <Marginal Tax Rate>
-        %  The marginal tax rate represents the rate charged 
-        %  above the listed income threshold (and implicitly
-        %  until the next income threshold, if extant).
-        %  First threshold must be zero to make explicit the
-        %  fact that tax is charged on income from zero to some $ amount.
-        filename = strcat('PIT_', taxplanid, '.csv');
-        [income_thresholds, tax_rates] = read_tax_rates( filename );
+        T_model                 = ParamGenerator.timing(scenario).T_model;
+        switch scenario.economy
+            case 'steady'
+                first_year      = ParamGenerator.timing(scenario).first_transition_year - 1;
+            otherwise
+                first_year      = ParamGenerator.timing(scenario).first_transition_year;
+        end    
+        
+        mapfile         = fullfile( PathFinder.getTaxPlanInputDir(), 'Map.csv' );
+        bracketsfile    = strcat('PIT_', taxplanid, '.csv' );
+        bracketsfile    = fullfile( PathFinder.getTaxPlanInputDir(), bracketsfile );      
 
-        % Calculate tax liability at each threshold.
-        %  REM: Last tax rate is for last threshold to Inf, so do not
-        %  apply.
-        tax_        = cumsum(diff(income_thresholds).*tax_rates(1:end-1)); 
-        income_tax  = [0; tax_];
-
-        % No deductions, re-calculate effective tax if existent
-        %  NOTE: If the deduction thresholds are different, we need to make
-        %        a single vector of the union of the two threshold vectors
-        %        and calculate effective income tax at those points
-
-        % Store income tax and deduction functions.
-        %   REM: Transpose into row vectors
-        s.tax_thresholds  = income_thresholds';
-        s.tax_burdens     = income_tax';
-        s.tax_rates       = tax_rates';
+        [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_year, T_model );                               ...
+        
+        s.burdens       = burdens;          % Cumulative tax burden
+        s.brackets      = brackets;         % PIT tax brackets, rem: first one is zero
+        s.rates         = rates;            % Rate for above each bracket threshold
 
         % Get the capital and tax treatment allocation params and store them.
         %  Input files CIT_<taxplanid>.CSV expected to have the
@@ -316,16 +305,15 @@ methods (Static)
     function s = social_security( scenario )
         
         T_model                 = ParamGenerator.timing(scenario).T_model;
-        first_transition_year   = ParamGenerator.timing(scenario).first_transition_year;
         nstartyears             = length(ParamGenerator.timing(scenario).startyears);
         switch scenario.economy
             case 'steady'
-                oldest_birth_year   = first_transition_year - ...
-                                  (ParamGenerator.timing(scenario).T_life + ParamGenerator.timing(scenario).enter_work_force + 1);
+                first_year        = ParamGenerator.timing(scenario).first_transition_year - 1;
             case {'open', 'closed'}
-                oldest_birth_year   = first_transition_year - ...
-                                  (ParamGenerator.timing(scenario).T_life + ParamGenerator.timing(scenario).enter_work_force);
+                first_year          = ParamGenerator.timing(scenario).first_transition_year;
         end
+        oldest_birth_year = first_year - (ParamGenerator.timing(scenario).T_life + ...
+                                          ParamGenerator.timing(scenario).enter_work_force);
         
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long
@@ -335,7 +323,7 @@ methods (Static)
         bracketsfile    = strcat('PayrollTax_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
         bracketsfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir(), bracketsfile );      
 
-        [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_transition_year - 1, T_model );                               ...
+        [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_year, T_model );                               ...
         
         s.burdens       = burdens;          % Cumulative tax burden
         s.brackets      = brackets;         % Payroll tax brackets, rem: first one is zero
@@ -596,7 +584,7 @@ end % class ParamGenerator
 function [taxplanid] = find_taxplanid( scenario )
     
     % Load tax plan ID map from tax plan input directory
-    taxplanidmap = table2struct(readtable(fullfile(PathFinder.getTaxPlanInputDir(), 'TaxPlanMap.csv')));
+    taxplanidmap = table2struct(readtable(fullfile(PathFinder.getTaxPlanInputDir(), 'Map.csv')));
     
     % Define mapping from dynamic model tax parameter names to tax plan parameter names
     parammap = struct(...
@@ -658,34 +646,6 @@ function [id] = find_policy_id( scenario, matchparams, mapfile )
     id = num2str(map(match).ID);
     
 end %find_policy_id
-
-
-%%
-%  Helper function to read CSV files with format: (Income), (Rate)
-function [incomes, taxrates] = read_tax_rates( filename )
-
-    warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
-    warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
-
-    % Check if file exists and generate if necessary
-    filepath = fullfile(PathFinder.getTaxPlanInputDir(), filename);
-    if ~exist(filepath, 'file')
-        err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
-        throw(MException('read_tax_table:FILENAME', err_msg ));
-    end;
-        
-    T           = readtable(filepath, 'Format', '%f%f');
-    incomes     = table2array(T(:,1));
-    taxrates    = table2array(T(:,2));
-    
-    % Enforce that first threshold must be zero.
-    if( incomes(1) > 0 )
-        err_msg = strcat('First income threshold must be 0 in file ', strrep(filepath, '\', '\\'));
-        throw(MException('read_tax_table:INCOME_THRESHOLD', err_msg ));
-    end 
-        
-
-end % read_tax_rates()
 
 
 %%

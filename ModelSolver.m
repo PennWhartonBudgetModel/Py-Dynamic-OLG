@@ -119,9 +119,10 @@ methods (Static)
         
         %% Tax parameters
         s = ParamGenerator.tax( scenario );
-        pittax_brackets     = s.tax_thresholds; % Tax func is linearized, these are income thresholds 
-        pittax_burdens      = s.tax_burdens;    % Tax burden (cumulative tax) at thresholds
-        pittax_rates        = s.tax_rates;      % Effective marginal tax rate between thresholds
+        %  The following brackets, burdens, rates vary by year
+        pittax_brackets     = s.brackets;   % Tax func is linearized, these are income thresholds 
+        pittax_burdens      = s.burdens;    % Tax burden (cumulative tax) at thresholds
+        pittax_rates        = s.rates;      % Effective marginal tax rate between thresholds
         
         captaxshare         = s.captaxshare;            % Portion of capital income taxed at preferred rates
         expshare            = s.shareCapitalExpensing;  % Portion of investment which can be expensed
