@@ -297,13 +297,15 @@ methods (Static)
             'caps_foreign'      , [402]         , ...
             'debts_domestic'    , [403]         , ...
             'debts_foreign'     , [404]         , ...
-            'outs'              , [199, 299, 6] , ...
+            'outs'              , [6, 199, 299] , ...
             'bens'              , [202]         , ...
             'caps'              , [1]           , ...
             'labeffs'           , [24]          , ...
             'lfprs'             , [25]          , ...
             'labincs'           , [28]          , ...
-            'capincs'           , [29]          ); %#ok<NBRAK>
+            'capincs'           , [29]          , ...
+            'nonindexed'        , []              ...
+        ); %#ok<NBRAK>
         
         
         
@@ -374,14 +376,21 @@ methods (Static)
                 name = name_{1};
                 
                 % Extract dynamic and static variable values
-                v_Dynamic = Dynamic.(name);
-                v_Static  = Static. (name);
+                %  and handle special series
+                switch name
+                    case 'nonindexed'
+                        v_Dynamic = ones(1,T_model); v_Static = ones(1,T_model);
+                    otherwise
+                        v_Dynamic = Dynamic.(name);
+                        v_Static  = Static. (name);
+                end
                 
                 % Scale static variable values for dynamic baseline if scaling variables provided
                 if (exist('Dynamic_currentPolicyOpen', 'var') && exist('Dynamic_currentPolicyClosed', 'var'))
                     v_Static = v_Static .* Dynamic_currentPolicyOpen.(name) ./ Dynamic_currentPolicyClosed.(name);
                     v_Static(isnan(v_Static)) = 0;
                 end
+                
                 
                 % Consolidate, shift, trim, and pad dynamic and static variable values to form data series
                 dataseries = [ ones(1, nshift), v_Dynamic(1:end-ntrim), ones(1, npad) ;

@@ -8,22 +8,30 @@ methods (Static)
     
     
     %% TIMING
-    %    
+    %      Includes policy-specific SS.NRA
     function s = timing(scenario)
-        s.first_transition_year = 2018;                 % This will come from Scenario
+        s.first_transition_year = 2018;                 % TBD: This will come from Scenario
         s.T_life                = 80;
         s.enter_work_force      = 20;
+        
+        nramapfile  = fullfile( PathFinder.getSocialSecurityNRAInputDir(), 'Map.csv' );
+        nrafile     = strcat(   'NRA_'                                      ...
+                            ,   find_policy_id( scenario                    ...
+                                    ,   {'SSNRAPolicy'}                     ...
+                                    ,   nramapfile )                        ...
+                            ,   '.csv' );
+        
         switch scenario.economy
             case 'steady'
                 s.T_model    = 1;                           % Steady state total modeling years
                 s.startyears = 0;                           % Steady state cohort start year
-                s.T_work     = read_series('XXXNRA.csv', s.first_transition_year - (s.T_life + s.enter_work_force + 1), PathFinder.getMicrosimInputDir());
+                s.T_work     = read_series(nrafile, s.first_transition_year - (s.T_life + s.enter_work_force + 1), PathFinder.getSocialSecurityNRAInputDir());
                 mass         = zeros(s.T_life); mass(1) = 1; for i = 2:s.T_life; mass(i) = mass(i-1)*ParamGenerator.demographics().surv(i-1); end;
                 s.T_work     = round(sum((mass.*s.T_work(1:s.T_life))/sum(mass))) - s.enter_work_force;
             case {'open', 'closed'}
                 s.T_model    = 25;                          % Transition path total modeling years
                 s.startyears = (-s.T_life+1):(s.T_model-1); % Transition path cohort start years
-                s.T_work     = read_series('XXXNRA.csv', s.first_transition_year - (s.T_life + s.enter_work_force), PathFinder.getMicrosimInputDir());
+                s.T_work     = read_series(nrafile, s.first_transition_year - (s.T_life + s.enter_work_force), PathFinder.getSocialSecurityNRAInputDir());
                 s.T_work     = s.T_work(1:length(s.startyears)) - s.enter_work_force;
         end
     end % timing
@@ -313,12 +321,13 @@ methods (Static)
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long
         %   Calculate cumulative liability to speed up calculation 
-        [brackets, rates, burdens] = read_brackets_rates(  ...
-                                    strcat('PayrollTax_', find_ss_tax_id( scenario ), '.csv' )   ...
-                                ,   PathFinder.getSocialSecurityInputDir()  ...
-                                ,   first_transition_year - 1               ...
-                                ,   T_model                                 ...
-                                 );
+        matchparams     = {'SSTaxPolicy'};
+        mapfile         = fullfile( PathFinder.getSocialSecurityTaxInputDir(), 'Map.csv' );
+        bracketsfile    = strcat('PayrollTax_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
+        bracketsfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir(), bracketsfile );      
+
+        [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_transition_year - 1, T_model );                               ...
+        
         s.burdens       = burdens;          % Cumulative tax burden
         s.brackets      = brackets;         % Payroll tax brackets, rem: first one is zero
         s.rates         = rates;            % Rate for above each bracket threshold
@@ -607,14 +616,14 @@ end
 
 
 %%
-%  Helper function to find SS.PayrollTax ID corresponding to scenario parameter values
-function [id] = find_ss_tax_id( scenario )
+%  Helper function to find a Policy ID corresponding to scenario parameter values
+%        matchparams : cell array of param names to match
+%        mapfile     : fullfile name of map file with format 
+%           (ID) (Param1) (Param2) ... (ParamN)
+function [id] = find_policy_id( scenario, matchparams, mapfile )
     
     % Load plan ID map from input directory
-    map = table2struct(readtable(fullfile(PathFinder.getSocialSecurityInputDir(), 'PayrollTaxMap.csv')));
-    
-    % Scenario param names match map names
-    matchparams = {'SSTaxPolicy'};
+    map = table2struct(readtable(mapfile));
     
     % Identify policies with parameter values matching scenario parameter values
     match = arrayfun(@(row) ...
@@ -631,7 +640,7 @@ function [id] = find_ss_tax_id( scenario )
     % Extract ID of matching plan
     id = num2str(map(match).ID);
     
-end
+end %find_policy_id
 
 
 %%
@@ -687,22 +696,23 @@ end % read_tax_vars()
 
 
 %%
-%  Helper function to read CSV files with format: (Year)
-%    , (Bracket1), ... (BracketN), (Rate1), ... (RateN)
+%  Helper function to read CSV files with format: 
+%    (Year), (Bracket1), ... (BracketN), (Rate1), ... (RateN)
+%    filename     : fullfile of CSV to read
+%    first_year   : don't read years before this param
 function [brackets, rates, burdens] = read_brackets_rates( ...
-                                        filename, param_dir, first_year, T_model )
+                                        filename, first_year, T_model )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
 
     % Check if file exists and generate if necessary
-    filepath = fullfile(param_dir, filename);
-    if ~exist(filepath, 'file')
-        err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
+    if ~exist(filename, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
         throw(MException('read_brackets_rates:FILENAME', err_msg ));
     end;
         
-    T           = readtable(filepath);
+    T           = readtable(filename);
     T_arr       = table2array(T);
     
     % Find first year
