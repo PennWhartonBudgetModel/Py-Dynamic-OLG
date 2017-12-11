@@ -52,7 +52,7 @@ assert( isa(bequest_phi_3, 'double' ) && (size(bequest_phi_3, 1) == 1 ) && (size
 assert( isa(modelunit_dollar, 'double' ) && (size(modelunit_dollar, 1) == 1 ) && (size(modelunit_dollar, 2) == 1 ) );
 
 assert( isa(sstaxcredit , 'double'  ) && (size(sstaxcredit  , 1) == 1       ) && (size(sstaxcredit  , 2) == 1       ) );
-assert( isa(ssbenefits  , 'double'  ) && (size(ssbenefits   , 1) <= nb_max  ) && (size(ssbenefits   , 2) <= T_max   ) );
+assert( isa(ssbenefits  , 'double'  ) && (size(ssbenefits   , 1) <= nb_max  ) && (size(ssbenefits   , 2) == 1       ) );
 assert( isa(ssincmaxs   , 'double'  ) && (size(ssincmaxs    , 1) == 1       ) && (size(ssincmaxs    , 2) <= T_max   ) );
 
 assert( isa(sstax_brackets  , 'double' ) && (size(sstax_brackets  , 1) <= T_max ) && (size(sstax_brackets  , 2) <= nthresholds_max ) );
@@ -110,7 +110,6 @@ for t = T_active:-1:1
     year = min(t + T_shift, T_model);
     
     % Extract parameters for current year
-    ssbenefit  = ssbenefits(:, year);
     ssincmax   = ssincmaxs    (year);
     beq        = beqs         (year);
     wage       = wages        (year);
@@ -137,7 +136,7 @@ for t = T_active:-1:1
             if (age > T_work)
                 
                 % Calculate available resources and tax terms
-                ssinc = ssbenefit(ib);
+                ssinc = ssbenefits(ib);
                 [resources, inc, pit, ~, cit] = calculate_resources(0, kv(ik), year, ...
                     modelunit_dollar, ...
                     ssinc, sstaxcredit, ...

@@ -317,6 +317,15 @@ methods (Static)
         
         T_model                 = ParamGenerator.timing(scenario).T_model;
         first_transition_year   = ParamGenerator.timing(scenario).first_transition_year;
+        nstartyears             = length(ParamGenerator.timing(scenario).startyears);
+        switch scenario.economy
+            case 'steady'
+                oldest_birth_year   = first_transition_year - ...
+                                  (ParamGenerator.timing(scenario).T_life + ParamGenerator.timing(scenario).enter_work_force + 1);
+            case {'open', 'closed'}
+                oldest_birth_year   = first_transition_year - ...
+                                  (ParamGenerator.timing(scenario).T_life + ParamGenerator.timing(scenario).enter_work_force);
+        end
         
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long
@@ -344,14 +353,14 @@ methods (Static)
         bracketsfile    = strcat('Benefits_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
         bracketsfile    = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), bracketsfile );      
 
-        [ssthresholds, ssrates, ~] = read_brackets_rates( bracketsfile, first_transition_year - 1, T_model );                               ...
+        [ssthresholds, ssrates, ~] = read_brackets_rates( bracketsfile, oldest_birth_year, nstartyears );                               ...
         ssthresholds = 12*modelunit_dollar*ssthresholds;    % Thresholds for earnings brackets
-        ssbenefit = zeros(size(bv,1), T_model);
+        ssbenefit = zeros(size(bv,1), nstartyears);
 
-        for year = 1:T_model
-            ssbenefit(:,year) = [ max(min(bv, ssthresholds(year,2)) - ssthresholds(year,1), 0) , ...
-                          max(min(bv, ssthresholds(year,3)) - ssthresholds(year,2), 0) , ...
-                          max(min(bv, Inf            ) - ssthresholds(year,3), 0) ] * ssrates(year,:)';
+        for i = 1:nstartyears
+            ssbenefit(:,i) = [ max(min(bv, ssthresholds(i,2)) - ssthresholds(i,1), 0) , ...
+                          max(min(bv, ssthresholds(i,3)) - ssthresholds(i,2), 0) , ...
+                          max(min(bv, Inf            ) - ssthresholds(i,3), 0) ] * ssrates(i,:)';
         end
         
         s.ssbenefits  = ssbenefit;  % Benefits
