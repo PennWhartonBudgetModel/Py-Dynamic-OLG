@@ -329,8 +329,6 @@ inc         = max( 0,...
             );
 pit_dollar  = find_tax_liability( inc/modelunit_dollar, pit_thresholds, pit_burdens, pit_rates );
 pit         = modelunit_dollar*pit_dollar;     % Convert to model units
-% TBD:  INC should be in modelunit_dollars for consistency
-inc         = inc/modelunit_dollar;
 
 % Calculate Social Security tax from wage income in dollars
 sst_dollar  = find_tax_liability( labinc/modelunit_dollar, sst_thresholds, sst_burdens, sst_rates );
