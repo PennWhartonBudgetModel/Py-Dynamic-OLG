@@ -339,14 +339,22 @@ methods (Static)
         s.ssincmaxs     = repmat(1.185e5*modelunit_dollar, [1,T_model]); % Maximum income subject to benefit calculation
 
         % Calculate benefits
-        ssthresholds = [856, 5157]*12*modelunit_dollar;     % Thresholds for earnings brackets
-        ssrates      = [0.9, 0.32, 0.15];                   % Marginal benefit rates for earnings brackets
+        matchparams     = {'SSBenefitsPolicy'};
+        mapfile         = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), 'Map.csv' );
+        bracketsfile    = strcat('Benefits_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
+        bracketsfile    = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), bracketsfile );      
+
+        [ssthresholds, ssrates, ~] = read_brackets_rates( bracketsfile, first_transition_year - 1, T_model );                               ...
+        ssthresholds = 12*modelunit_dollar*ssthresholds;    % Thresholds for earnings brackets
+        ssbenefit = zeros(size(bv,1), T_model);
+
+        for year = 1:T_model
+            ssbenefit(:,year) = [ max(min(bv, ssthresholds(year,2)) - ssthresholds(year,1), 0) , ...
+                          max(min(bv, ssthresholds(year,3)) - ssthresholds(year,2), 0) , ...
+                          max(min(bv, Inf            ) - ssthresholds(year,3), 0) ] * ssrates(year,:)';
+        end
         
-        ssbenefit = [ max(min(bv, ssthresholds(1)) - 0              , 0) , ...
-                      max(min(bv, ssthresholds(2)) - ssthresholds(1), 0) , ...
-                      max(min(bv, Inf            ) - ssthresholds(2), 0) ] * ssrates';
-        
-        s.ssbenefits  = repmat(ssbenefit                , [1,T_model]);  % Benefits
+        s.ssbenefits  = ssbenefit;  % Benefits
         
 
     end % social_security
