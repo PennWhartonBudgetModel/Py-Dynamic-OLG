@@ -198,13 +198,18 @@ methods (Static)
         taxplanid               = find_taxplanid(scenario);
         
         T_model                 = ParamGenerator.timing(scenario).T_model;
-        first_transition_year   = ParamGenerator.timing(scenario).first_transition_year;
+        switch scenario.economy
+            case 'steady'
+                first_year      = ParamGenerator.timing(scenario).first_transition_year - 1;
+            otherwise
+                first_year      = ParamGenerator.timing(scenario).first_transition_year;
+        end    
         
         mapfile         = fullfile( PathFinder.getTaxPlanInputDir(), 'Map.csv' );
         bracketsfile    = strcat('PIT_', taxplanid, '.csv' );
         bracketsfile    = fullfile( PathFinder.getTaxPlanInputDir(), bracketsfile );      
 
-        [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_transition_year - 1, T_model );                               ...
+        [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_year, T_model );                               ...
         
         s.burdens       = burdens;          % Cumulative tax burden
         s.brackets      = brackets;         % PIT tax brackets, rem: first one is zero
@@ -300,7 +305,12 @@ methods (Static)
     function s = social_security( scenario )
         
         T_model                 = ParamGenerator.timing(scenario).T_model;
-        first_transition_year   = ParamGenerator.timing(scenario).first_transition_year;
+        switch scenario.economy
+            case 'steady'
+                first_year      = ParamGenerator.timing(scenario).first_transition_year - 1;
+            otherwise
+                first_year      = ParamGenerator.timing(scenario).first_transition_year;
+        end
         
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long
@@ -310,7 +320,7 @@ methods (Static)
         bracketsfile    = strcat('PayrollTax_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
         bracketsfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir(), bracketsfile );      
 
-        [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_transition_year - 1, T_model );                               ...
+        [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_year, T_model );                               ...
         
         s.burdens       = burdens;          % Cumulative tax burden
         s.brackets      = brackets;         % Payroll tax brackets, rem: first one is zero
