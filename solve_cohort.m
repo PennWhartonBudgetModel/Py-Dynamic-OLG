@@ -59,9 +59,9 @@ assert( isa(sstax_brackets  , 'double' ) && (size(sstax_brackets  , 1) <= T_max 
 assert( isa(sstax_burdens   , 'double' ) && (size(sstax_burdens   , 1) <= T_max ) && (size(sstax_burdens   , 2) <= nthresholds_max ) );
 assert( isa(sstax_rates     , 'double' ) && (size(sstax_rates     , 1) <= T_max ) && (size(sstax_rates     , 2) <= nthresholds_max ) );
 
-assert( isa(pittax_brackets  , 'double' ) && (size(pittax_brackets  , 1) == 1     ) && (size(pittax_brackets  , 2) <= nthresholds_max ) );
-assert( isa(pittax_burdens   , 'double' ) && (size(pittax_burdens   , 1) == 1     ) && (size(pittax_burdens   , 2) <= nthresholds_max ) );
-assert( isa(pittax_rates     , 'double' ) && (size(pittax_rates     , 1) == 1     ) && (size(pittax_rates     , 2) <= nthresholds_max ) );
+assert( isa(pittax_brackets  , 'double' ) && (size(pittax_brackets  , 1) <= T_max ) && (size(pittax_brackets  , 2) <= nthresholds_max ) );
+assert( isa(pittax_burdens   , 'double' ) && (size(pittax_burdens   , 1) <= T_max ) && (size(pittax_burdens   , 2) <= nthresholds_max ) );
+assert( isa(pittax_rates     , 'double' ) && (size(pittax_rates     , 1) <= T_max ) && (size(pittax_rates     , 2) <= nthresholds_max ) );
 
 assert( isa(captaxshare , 'double'  ) && (size(captaxshare  , 1) == 1       ) && (size(captaxshare  , 2) == 1       ) );
 assert( isa(taucap      , 'double'  ) && (size(taucap       , 1) == 1       ) && (size(taucap       , 2) == 1       ) );
@@ -124,9 +124,9 @@ for t = T_active:-1:1
     sst_burdens     = sstax_burdens     (year, :);
     sst_rates       = sstax_rates       (year, :);
     
-    tax_brackets    = pittax_brackets;
-    tax_burdens     = pittax_burdens;
-    tax_rates       = pittax_rates;
+    pit_brackets    = pittax_brackets   (year, :);
+    pit_burdens     = pittax_burdens    (year, :);
+    pit_rates       = pittax_rates      (year, :);
     
     % Pre-calculate for speed and conciseness
     bequest_p_1   = beta * (1-surv(age))* bequest_phi_1;
@@ -142,7 +142,7 @@ for t = T_active:-1:1
                     modelunit_dollar, ...
                     ssinc, sstaxcredit, ...
                     sst_brackets, sst_burdens, sst_rates, ...
-                    tax_brackets, tax_burdens, tax_rates, ... 
+                    pit_brackets, pit_burdens, pit_rates, ... 
                     captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                     beq, capshare, caprate, govrate, totrate, expsub);
                 
@@ -197,7 +197,7 @@ for t = T_active:-1:1
                         modelunit_dollar, ...
                         0, 0, ...
                         sst_brackets, sst_burdens, sst_rates, ...
-                        tax_brackets, tax_burdens, tax_rates, ... 
+                        pit_brackets, pit_burdens, pit_rates, ... 
                         captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                         beq, capshare, caprate, govrate, totrate, expsub);
                     
@@ -273,7 +273,7 @@ function [resources, inc, pit, sst, cit] = calculate_resources(labinc, ...
              modelunit_dollar_, ...
              ssinc_, sstaxcredit_, ...
              sst_thresholds_, sst_burdens_, sst_rates_, ...
-             tax_thresholds_, tax_burdens_, tax_rates_, ... 
+             pit_thresholds_, pit_burdens_, pit_rates_, ... 
              captaxshare_, taucap_, taucapgain_, qtobin_, qtobin0_, ...
              beq_, capshare_, caprate_, govrate_, totrate_, expsub_) %#codegen
 
@@ -285,7 +285,7 @@ persistent kv_ik year ...
            modelunit_dollar ...
            ssinc sstaxcredit ...
            sst_thresholds sst_burdens sst_rates ...
-           tax_thresholds tax_burdens tax_rates ... 
+           pit_thresholds pit_burdens pit_rates ... 
            captaxshare taucap taucapgain qtobin qtobin0 ...
            beq capshare caprate govrate totrate expsub ...
            capgain ...
@@ -297,7 +297,7 @@ if isempty(initialized)
     modelunit_dollar = 0; 
     ssinc = 0; sstaxcredit = 0; 
     sst_thresholds = 0; sst_burdens = 0; sst_rates = 0;
-    tax_thresholds = 0; tax_burdens = 0; tax_rates = 0;
+    pit_thresholds = 0; pit_burdens = 0; pit_rates = 0;
     captaxshare = 0; taucap = 0; taucapgain = 0; qtobin = 0; qtobin0 = 0;
     beq = 0; capshare = 0; caprate = 0; govrate = 0; totrate = 0; expsub = 0;
     capgain = 0;
@@ -310,7 +310,7 @@ if (nargin > 1)
     modelunit_dollar = modelunit_dollar_; 
     ssinc = ssinc_; sstaxcredit = sstaxcredit_; 
     sst_thresholds = sst_thresholds_; sst_burdens = sst_burdens_; sst_rates = sst_rates_;
-    tax_thresholds = tax_thresholds_; tax_burdens = tax_burdens_; tax_rates = tax_rates_;
+    pit_thresholds = pit_thresholds_; pit_burdens = pit_burdens_; pit_rates = pit_rates_;
     captaxshare = captaxshare_; taucap = taucap_; taucapgain = taucapgain_; qtobin = qtobin_; qtobin0 = qtobin0_;
     beq = beq_; capshare = capshare_; caprate = caprate_; govrate = govrate_; totrate = totrate_; expsub = expsub_;
     
@@ -323,30 +323,24 @@ end
 
 % Calculate taxable income in dollars
 %   We do not allow negative incomes
-inc     = (1/modelunit_dollar)*max(0,...
-        capshare*caprate*kv_ik*(1-captaxshare) + (1-capshare)*govrate*kv_ik ...
-        + (1-sstaxcredit)*ssinc + labinc...
-        );
-
-% Calculate personal income tax
-%       Expect equal-size vectors with tax_thresholds(1)=0
-%       tax_rates apply for income between tax_thresholds(i-1) and tax_thresholds(i)
-%       tax_burden are pre-calculated total tax liability at tax_thresholds
-%       pit_dollar is income tax in dollars
-bracket     = find(tax_thresholds <= inc, 1, 'last');
-bracket     = bracket(1);   % Force to scalar for C code generation
-pit_dollar  = tax_burdens(bracket) + tax_rates(bracket)*(inc - tax_thresholds(bracket));
+inc         = max( 0,...
+            capshare*caprate*kv_ik*(1-captaxshare) + (1-capshare)*govrate*kv_ik ...
+            + (1-sstaxcredit)*ssinc + labinc...
+            );
+pit_dollar  = find_tax_liability( inc/modelunit_dollar, pit_thresholds, pit_burdens, pit_rates );
 pit         = modelunit_dollar*pit_dollar;     % Convert to model units
+% TBD:  INC should be in modelunit_dollars for consistency
+inc         = inc/modelunit_dollar;
 
-% Calculate Social Security tax
+% Calculate Social Security tax from wage income in dollars
 sst_dollar  = find_tax_liability( labinc/modelunit_dollar, sst_thresholds, sst_burdens, sst_rates );
 sst         = modelunit_dollar*sst_dollar;
 
 % Calculate corporate income tax
-cit = capshare*kv_ik*(taucap*(caprate - expsub)*captaxshare + taucapgain*capgain);
+cit         = capshare*kv_ik*(taucap*(caprate - expsub)*captaxshare + taucapgain*capgain);
 
 % Calculate available resources
-resources = (1 + totrate)*kv_ik + labinc + ssinc - (pit + sst + cit) + beq + kv_ik*capshare*capgain;
+resources   = (1 + totrate)*kv_ik + labinc + ssinc - (pit + sst + cit) + beq + kv_ik*capshare*capgain;
 
 end
 
