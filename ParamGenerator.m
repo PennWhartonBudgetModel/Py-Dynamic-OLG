@@ -205,7 +205,6 @@ methods (Static)
                 first_year      = ParamGenerator.timing(scenario).first_transition_year;
         end    
         
-        mapfile         = fullfile( PathFinder.getTaxPlanInputDir(), 'Map.csv' );
         bracketsfile    = strcat('PIT_', taxplanid, '.csv' );
         bracketsfile    = fullfile( PathFinder.getTaxPlanInputDir(), bracketsfile );      
 
