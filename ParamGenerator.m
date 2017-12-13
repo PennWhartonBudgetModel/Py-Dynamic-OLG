@@ -26,15 +26,18 @@ methods (Static)
             case 'steady'
                 s.T_model    = 1;                           % Steady state total modeling years
                 s.startyears = 0;                           % Steady state cohort start year
-                s.T_work     = read_series(nrafile, s.first_transition_year - (s.T_life + s.enter_work_force + 1), PathFinder.getSocialSecurityNRAInputDir());
-                mass         = zeros(s.T_life); mass(1) = 1; for i = 2:s.T_life; mass(i) = mass(i-1)*survivalprob(i-1); end;
-                s.T_work     = round(sum((mass.*s.T_work(1:s.T_life))/sum(mass))) - s.enter_work_force;
+                T_works      = read_series(nrafile, s.first_transition_year - (s.T_life + s.enter_work_force + 1), PathFinder.getSocialSecurityNRAInputDir());
+                mass         = ones(s.T_life,1); for i = 2:s.T_life; mass(i) = mass(i-1)*survivalprob(i-1); end;
+                T_works      = round(sum((mass.*T_works(1:s.T_life))/sum(mass))) - s.enter_work_force;
             case {'open', 'closed'}
                 s.T_model    = 25;                          % Transition path total modeling years
                 s.startyears = (-s.T_life+1):(s.T_model-1); % Transition path cohort start years
-                s.T_work     = read_series(nrafile, s.first_transition_year - (s.T_life + s.enter_work_force), PathFinder.getSocialSecurityNRAInputDir());
-                s.T_work     = s.T_work(1:length(s.startyears)) - s.enter_work_force;
+                T_works      = read_series(nrafile, s.first_transition_year - (s.T_life + s.enter_work_force), PathFinder.getSocialSecurityNRAInputDir());
+                T_works      = T_works(1:length(s.startyears)) - s.enter_work_force;
         end
+        
+        s.T_works   = T_works;
+        
     end % timing
        
     
@@ -76,8 +79,9 @@ methods (Static)
         DISTpers = diff(normcdf(persv/sqrt(0.124)));
         
         % Define deterministic lifecycle productivities
-        T_life    = ParamGenerator.timing(scenario).T_life;
-        T_workMax = max(ParamGenerator.timing(scenario).T_work);
+        timing    = ParamGenerator.timing(scenario);
+        T_life    = timing.T_life;
+        T_workMax = max(timing.T_works);
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
         zage      = read_series('ConesaEtAl_WageAgeProfile.csv', [], PathFinder.getMicrosimInputDir());
         

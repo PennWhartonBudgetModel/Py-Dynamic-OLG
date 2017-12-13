@@ -33,7 +33,7 @@ classdef MomentsGenerator
             % Define time constants
             s = ParamGenerator.timing( scenario );
             T_life  = s.T_life;    % Total life years
-            T_work  = s.T_work;    % Retirement age
+            T_works = s.T_works;   % Retirement age
             T_model = s.T_model;   % Transition path model years
 
             % Define grids
@@ -47,7 +47,7 @@ classdef MomentsGenerator
             % Useful later for a couple of functions
             this.kv = s.kv;
             this.karray = repmat(reshape(s.kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,T_model,ndem])  ;
-            this.T_work = T_work;
+            this.T_work = T_works;
             this.T_life = T_life;
 
             %% DISTRIBUTION AND POLICY FUNCTIONS
@@ -58,8 +58,8 @@ classdef MomentsGenerator
                 DIST = s.DIST;
             end
             dist = DIST(:);
-            dist_l(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem) = DIST(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem); % Working age population
-            dist_l(1:nz,1:nk,1:nb,T_work:T_life,1:ng,1:T_model,1:ndem) = 0; % Retired population
+            dist_l(1:nz,1:nk,1:nb,1:T_works,1:ng,1:T_model,1:ndem) = DIST(1:nz,1:nk,1:nb,1:T_works,1:ng,1:T_model,1:ndem); % Working age population
+            dist_l(1:nz,1:nk,1:nb,T_works:T_life,1:ng,1:T_model,1:ndem) = 0; % Retired population
             dist_l = dist_l(:)/sum(dist_l(:));
             % Useful later for a couple of functions
             this.DIST   = DIST;
