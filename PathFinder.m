@@ -65,7 +65,6 @@ methods (Static, Access = private)
     
     
     
-    
     % Get HPCC root directory
     %   Local path used if executing on the HPCC or on AWS through the HPCC
     %   Server path used if executing elsewhere
@@ -183,6 +182,23 @@ methods (Static, Access = public)
     end
     
     
+    % Get list of input set used for this ExecutionMode
+    function [versionset] = getInputSet()
+        % Production & Development input sets are the same
+        if( strcmp( PathFinder.ExecutionMode(), 'Testing' ) )
+            inputset = 'Testing';
+        else
+            inputset = 'Production';
+        end
+        
+        versionset = {};
+        for component = fieldnames(PathFinder.inputversions.(inputset))'
+            for interface = fieldnames(PathFinder.inputversions.(inputset).(component{1}))'
+                version  = PathFinder.inputversions.(inputset).(component{1}).(interface{1});
+                versionset{end+1} = {component{1}, interface{1}, version};
+            end
+        end
+    end %getInputSet
     
     
     % Get source code directory
