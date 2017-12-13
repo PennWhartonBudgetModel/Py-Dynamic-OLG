@@ -496,9 +496,6 @@ end
 % Calculate average earnings and cap it to the minimum (floor) and maximum (ceiling) taxable earnings
 b = max(ssincmin, (bv_ib*(age-1) + min(labinc, ssincmax))/age);
 
-% Enforce b is within the boundaries (without this step, interp2 in value_working might return NaN even if b - bv_nb = 1e-15)
-b = min(bv_nb, b);
-
 end
 
 
