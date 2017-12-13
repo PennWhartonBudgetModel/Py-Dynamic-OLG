@@ -430,16 +430,16 @@ k   = x(1);
 lab = x(2);
 
 labinc = wage_eff * lab;
-b      = calculate_b(labinc);
 
 if ~((0 <= lab) && (lab <= 1) ...
-     && (kv(1) <= k) && (k <= kv(end)) ...
-     && (bv(1) <= b) && (b <= bv(end)))
+     && (kv(1) <= k) && (k <= kv(end)))
     
     v = Inf;
     return
     
 end
+
+b = calculate_b(labinc);
 
 % Calculate available resources
 resources = calculate_resources(labinc);
