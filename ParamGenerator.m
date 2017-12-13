@@ -342,14 +342,14 @@ methods (Static)
         bracketsfile    = strcat('Benefits_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
         bracketsfile    = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), bracketsfile );      
 
-        [ssthresholds, ssrates, ~] = read_brackets_rates( bracketsfile, oldest_birth_year, nstartyears );                               ...
-        ssthresholds = 12*modelunit_dollar*ssthresholds;    % Thresholds for earnings brackets
+        [ssbrackets, ssrates, ~] = read_brackets_rates( bracketsfile, oldest_birth_year, nstartyears );                               ...
+        ssbrackets = 12*modelunit_dollar*ssbrackets;    % Thresholds for earnings brackets
         ssbenefit = zeros(size(bv,1), nstartyears);
 
         for i = 1:nstartyears
-            ssbenefit(:,i) = [ max(min(bv, ssthresholds(i,2)) - ssthresholds(i,1), 0) , ...
-                          max(min(bv, ssthresholds(i,3)) - ssthresholds(i,2), 0) , ...
-                          max(min(bv, Inf            ) - ssthresholds(i,3), 0) ] * ssrates(i,:)';
+            ssbenefit(:,i) = [ max(min(bv, ssbrackets(i,2)) - ssbrackets(i,1), 0) , ...
+                          max(min(bv, ssbrackets(i,3)) - ssbrackets(i,2), 0) , ...
+                          max(min(bv, Inf            ) - ssbrackets(i,3), 0) ] * ssrates(i,:)';
         end
         
         s.ssbenefits  = ssbenefit;  % Benefits
