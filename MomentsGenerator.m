@@ -10,7 +10,7 @@ classdef MomentsGenerator
         a_distdata; a_distmodel; a_ginimodel; a_lorenz;
         l_distdata; l_distmodel; l_ginimodel; l_lorenz;
         DIST; T_work; T_life; kv; karray;
-        ben; lab; con;
+        ben; con; lab;
 
     end
     
@@ -257,6 +257,43 @@ classdef MomentsGenerator
             
         end
 
+        % Graph - Consumption by age
+        function [] = plot_c_age(this)
+            
+            cdist_age = zeros(1,this.T_life);
+            cdist = this.DIST .* this.con;
+            for age = 1:this.T_life
+                pop_age_temp   = this.DIST(:,:,:,age,:,:,:);
+                cdist_age_temp = cdist(:,:,:,age,:,:,:);
+                cdist_age(age) = (sum(cdist_age_temp(:))/sum(pop_age_temp(:)))/this.scenario.modelunit_dollar;
+            end
+            
+            figure
+            plot(21:100,cdist_age, 'LineWidth',2)
+            title('Average annual consumption by age','FontSize',16)
+            xlabel('age','FontSize',13)
+            ylabel('2016 dollars','FontSize',13)
+            
+        end
+        
+        % Graph - Labor supply by age
+        function [] = plot_l_age(this)
+            
+            ldist_age = zeros(1,this.T_life);
+            ldist = this.DIST .* this.lab;
+            for age = 1:this.T_life
+                pop_age_temp   = this.DIST(:,:,:,age,:,:,:);
+                ldist_age_temp = ldist(:,:,:,age,:,:,:);
+                ldist_age(age) = sum(ldist_age_temp(:)) / sum(pop_age_temp(:));
+            end
+            
+            figure
+            plot(21:100,ldist_age, 'LineWidth',2)
+            title('Average annual labor supply by age','FontSize',16)
+            xlabel('age','FontSize',13)
+            
+        end
+        
         % Graph - Distribution of individuals by asset holdings grid points
         function [] = plot_a_dist(this)
             
@@ -314,28 +351,14 @@ classdef MomentsGenerator
             k_retired0    = k_retired0 .* dist_retired0;
             s.k_retired0  = sum(k_retired0)/sum(dist_retired0)/this.scenario.modelunit_dollar;
             
-        end
-        
-        function s = zero_checks(this)
+            % Average consumption of retiree earning no SS benefits
+            c_retired0    = this.con(:,:,1,this.T_work+1:this.T_life,:,:,:);
+            c_retired0    = c_retired0(:);
+            c_retired0    = c_retired0 .* dist_retired0;
+            s.c_retired0  = sum(c_retired0)/sum(dist_retired0)/this.scenario.modelunit_dollar;
             
-            dist_l = this.DIST(:,:,:,1:this.T_work,:,:,:);
-            lab_l  = this.lab (:,:,:,1:this.T_work,:,:,:);
-            dist_l = dist_l(:);
-            lab_l  = lab_l (:);
-            s.lab  = 0;
-            for i = 1:size(dist_l,1); if lab_l(i) <= 1e-10
-                    s.lab = s.lab + dist_l(i);
-            end; end
-
-            dist_c = this.DIST(:);
-            con    = this.con (:);
-            s.con  = 0;
-            for i = 1:size(dist_c,1); if con(i) <= 1e-10
-                    s.con = s.con + dist_c(i);
-            end; end
-        
         end
-                
+        
     end
     
 end

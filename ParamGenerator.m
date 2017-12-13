@@ -75,10 +75,10 @@ methods (Static)
         DISTpers = diff(normcdf(persv/sqrt(0.124)));
         
         % Define deterministic lifecycle productivities
-        T_life = ParamGenerator.timing(scenario).T_life;
-        T_work = max(ParamGenerator.timing(scenario).T_work);
+        T_life    = ParamGenerator.timing(scenario).T_life;
+        T_workMax = max(ParamGenerator.timing(scenario).T_work);
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
-        zage   = read_series('ConesaEtAl_WageAgeProfile.csv', [], PathFinder.getMicrosimInputDir());
+        zage      = read_series('ConesaEtAl_WageAgeProfile.csv', [], PathFinder.getMicrosimInputDir());
         
         % Calculate total productivity
         ndem = nperm; nz = ntrans*npers;
@@ -88,7 +88,7 @@ methods (Static)
                   + repmat(reshape(kron(ones(1,npers), ztrans) ...
                                  + kron(zpers, ones(1,ntrans)), [nz,1     ,1   ]), [1 ,T_life,ndem]));
 
-        zs_check = zs(:,1:T_work,:);
+        zs_check = zs(:,1:T_workMax,:);
         assert(all(zs_check(:) > 0), 'WARNING! Productivity shock grid contains zero.')
         
         % Construct Markov transition matrix for all shocks / productivities
@@ -205,7 +205,6 @@ methods (Static)
                 first_year      = ParamGenerator.timing(scenario).first_transition_year;
         end    
         
-        mapfile         = fullfile( PathFinder.getTaxPlanInputDir(), 'Map.csv' );
         bracketsfile    = strcat('PIT_', taxplanid, '.csv' );
         bracketsfile    = fullfile( PathFinder.getTaxPlanInputDir(), bracketsfile );      
 
@@ -306,12 +305,15 @@ methods (Static)
     function s = social_security( scenario )
         
         T_model                 = ParamGenerator.timing(scenario).T_model;
+        nstartyears             = length(ParamGenerator.timing(scenario).startyears);
         switch scenario.economy
             case 'steady'
-                first_year      = ParamGenerator.timing(scenario).first_transition_year - 1;
-            otherwise
-                first_year      = ParamGenerator.timing(scenario).first_transition_year;
+                first_year        = ParamGenerator.timing(scenario).first_transition_year - 1;
+            case {'open', 'closed'}
+                first_year          = ParamGenerator.timing(scenario).first_transition_year;
         end
+        oldest_birth_year = first_year - (ParamGenerator.timing(scenario).T_life + ...
+                                          ParamGenerator.timing(scenario).enter_work_force);
         
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long
@@ -335,14 +337,22 @@ methods (Static)
         s.ssincmaxs     = repmat(1.185e5*modelunit_dollar, [1,T_model]); % Maximum income subject to benefit calculation
 
         % Calculate benefits
-        ssthresholds = [856, 5157]*12*modelunit_dollar;     % Thresholds for earnings brackets
-        ssrates      = [0.9, 0.32, 0.15];                   % Marginal benefit rates for earnings brackets
+        matchparams     = {'SSBenefitsPolicy'};
+        mapfile         = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), 'Map.csv' );
+        bracketsfile    = strcat('Benefits_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
+        bracketsfile    = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), bracketsfile );      
+
+        [ssthresholds, ssrates, ~] = read_brackets_rates( bracketsfile, oldest_birth_year, nstartyears );                               ...
+        ssthresholds = 12*modelunit_dollar*ssthresholds;    % Thresholds for earnings brackets
+        ssbenefit = zeros(size(bv,1), nstartyears);
+
+        for i = 1:nstartyears
+            ssbenefit(:,i) = [ max(min(bv, ssthresholds(i,2)) - ssthresholds(i,1), 0) , ...
+                          max(min(bv, ssthresholds(i,3)) - ssthresholds(i,2), 0) , ...
+                          max(min(bv, Inf            ) - ssthresholds(i,3), 0) ] * ssrates(i,:)';
+        end
         
-        ssbenefit = [ max(min(bv, ssthresholds(1)) - 0              , 0) , ...
-                      max(min(bv, ssthresholds(2)) - ssthresholds(1), 0) , ...
-                      max(min(bv, Inf            ) - ssthresholds(2), 0) ] * ssrates';
-        
-        s.ssbenefits  = repmat(ssbenefit                , [1,T_model]);  % Benefits
+        s.ssbenefits  = ssbenefit;  % Benefits
         
 
     end % social_security

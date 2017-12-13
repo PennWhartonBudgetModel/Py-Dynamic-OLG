@@ -22,7 +22,7 @@ nz_max          = 50;
 nk_max          = 50;
 nb_max          = 50;
 T_max           = 100;
-nthresholds_max = 20;
+nbrackets_max = 20;
 
 assert( isa(V0          , 'double'  ) && (size(V0           , 1) <= nz_max  ) && (size(V0           , 2) <= nk_max  ) && (size(V0           , 3) <= nb_max  ) );
 assert( isa(LAB_static  , 'double'  ) && (size(LAB_static   , 1) <= nz_max  ) && (size(LAB_static   , 2) <= nk_max  ) && (size(LAB_static   , 3) <= nb_max  ) && (size(LAB_static   , 4) <= T_max   ) );
@@ -52,16 +52,16 @@ assert( isa(bequest_phi_3, 'double' ) && (size(bequest_phi_3, 1) == 1 ) && (size
 assert( isa(modelunit_dollar, 'double' ) && (size(modelunit_dollar, 1) == 1 ) && (size(modelunit_dollar, 2) == 1 ) );
 
 assert( isa(sstaxcredit , 'double'  ) && (size(sstaxcredit  , 1) == 1       ) && (size(sstaxcredit  , 2) == 1       ) );
-assert( isa(ssbenefits  , 'double'  ) && (size(ssbenefits   , 1) <= nb_max  ) && (size(ssbenefits   , 2) <= T_max   ) );
+assert( isa(ssbenefits  , 'double'  ) && (size(ssbenefits   , 1) <= nb_max  ) && (size(ssbenefits   , 2) == 1       ) );
 assert( isa(ssincmaxs   , 'double'  ) && (size(ssincmaxs    , 1) == 1       ) && (size(ssincmaxs    , 2) <= T_max   ) );
 
-assert( isa(sstax_brackets  , 'double' ) && (size(sstax_brackets  , 1) <= T_max ) && (size(sstax_brackets  , 2) <= nthresholds_max ) );
-assert( isa(sstax_burdens   , 'double' ) && (size(sstax_burdens   , 1) <= T_max ) && (size(sstax_burdens   , 2) <= nthresholds_max ) );
-assert( isa(sstax_rates     , 'double' ) && (size(sstax_rates     , 1) <= T_max ) && (size(sstax_rates     , 2) <= nthresholds_max ) );
+assert( isa(sstax_brackets  , 'double' ) && (size(sstax_brackets  , 1) <= T_max ) && (size(sstax_brackets  , 2) <= nbrackets_max ) );
+assert( isa(sstax_burdens   , 'double' ) && (size(sstax_burdens   , 1) <= T_max ) && (size(sstax_burdens   , 2) <= nbrackets_max ) );
+assert( isa(sstax_rates     , 'double' ) && (size(sstax_rates     , 1) <= T_max ) && (size(sstax_rates     , 2) <= nbrackets_max ) );
 
-assert( isa(pittax_brackets  , 'double' ) && (size(pittax_brackets  , 1) <= T_max ) && (size(pittax_brackets  , 2) <= nthresholds_max ) );
-assert( isa(pittax_burdens   , 'double' ) && (size(pittax_burdens   , 1) <= T_max ) && (size(pittax_burdens   , 2) <= nthresholds_max ) );
-assert( isa(pittax_rates     , 'double' ) && (size(pittax_rates     , 1) <= T_max ) && (size(pittax_rates     , 2) <= nthresholds_max ) );
+assert( isa(pittax_brackets  , 'double' ) && (size(pittax_brackets  , 1) <= T_max ) && (size(pittax_brackets  , 2) <= nbrackets_max ) );
+assert( isa(pittax_burdens   , 'double' ) && (size(pittax_burdens   , 1) <= T_max ) && (size(pittax_burdens   , 2) <= nbrackets_max ) );
+assert( isa(pittax_rates     , 'double' ) && (size(pittax_rates     , 1) <= T_max ) && (size(pittax_rates     , 2) <= nbrackets_max ) );
 
 assert( isa(captaxshare , 'double'  ) && (size(captaxshare  , 1) == 1       ) && (size(captaxshare  , 2) == 1       ) );
 assert( isa(taucap      , 'double'  ) && (size(taucap       , 1) == 1       ) && (size(taucap       , 2) == 1       ) );
@@ -110,7 +110,6 @@ for t = T_active:-1:1
     year = min(t + T_shift, T_model);
     
     % Extract parameters for current year
-    ssbenefit  = ssbenefits(:, year);
     ssincmax   = ssincmaxs    (year);
     beq        = beqs         (year);
     wage       = wages        (year);
@@ -137,7 +136,7 @@ for t = T_active:-1:1
             if (age > T_work)
                 
                 % Calculate available resources and tax terms
-                ssinc = ssbenefit(ib);
+                ssinc = ssbenefits(ib);
                 [resources, inc, pit, ~, cit] = calculate_resources(0, kv(ik), year, ...
                     modelunit_dollar, ...
                     ssinc, sstaxcredit, ...
@@ -272,8 +271,8 @@ function [resources, inc, pit, sst, cit] = calculate_resources(labinc, ...
              kv_ik_, year_, ...
              modelunit_dollar_, ...
              ssinc_, sstaxcredit_, ...
-             sst_thresholds_, sst_burdens_, sst_rates_, ...
-             pit_thresholds_, pit_burdens_, pit_rates_, ... 
+             sst_brackets_, sst_burdens_, sst_rates_, ...
+             pit_brackets_, pit_burdens_, pit_rates_, ... 
              captaxshare_, taucap_, taucapgain_, qtobin_, qtobin0_, ...
              beq_, capshare_, caprate_, govrate_, totrate_, expsub_) %#codegen
 
@@ -284,8 +283,8 @@ coder.inline('always');
 persistent kv_ik year ...
            modelunit_dollar ...
            ssinc sstaxcredit ...
-           sst_thresholds sst_burdens sst_rates ...
-           pit_thresholds pit_burdens pit_rates ... 
+           sst_brackets sst_burdens sst_rates ...
+           pit_brackets pit_burdens pit_rates ... 
            captaxshare taucap taucapgain qtobin qtobin0 ...
            beq capshare caprate govrate totrate expsub ...
            capgain ...
@@ -296,8 +295,8 @@ if isempty(initialized)
     kv_ik = 0; year = 0;
     modelunit_dollar = 0; 
     ssinc = 0; sstaxcredit = 0; 
-    sst_thresholds = 0; sst_burdens = 0; sst_rates = 0;
-    pit_thresholds = 0; pit_burdens = 0; pit_rates = 0;
+    sst_brackets = 0; sst_burdens = 0; sst_rates = 0;
+    pit_brackets = 0; pit_burdens = 0; pit_rates = 0;
     captaxshare = 0; taucap = 0; taucapgain = 0; qtobin = 0; qtobin0 = 0;
     beq = 0; capshare = 0; caprate = 0; govrate = 0; totrate = 0; expsub = 0;
     capgain = 0;
@@ -309,8 +308,8 @@ if (nargin > 1)
     kv_ik = kv_ik_; year = year_;
     modelunit_dollar = modelunit_dollar_; 
     ssinc = ssinc_; sstaxcredit = sstaxcredit_; 
-    sst_thresholds = sst_thresholds_; sst_burdens = sst_burdens_; sst_rates = sst_rates_;
-    pit_thresholds = pit_thresholds_; pit_burdens = pit_burdens_; pit_rates = pit_rates_;
+    sst_brackets = sst_brackets_; sst_burdens = sst_burdens_; sst_rates = sst_rates_;
+    pit_brackets = pit_brackets_; pit_burdens = pit_burdens_; pit_rates = pit_rates_;
     captaxshare = captaxshare_; taucap = taucap_; taucapgain = taucapgain_; qtobin = qtobin_; qtobin0 = qtobin0_;
     beq = beq_; capshare = capshare_; caprate = caprate_; govrate = govrate_; totrate = totrate_; expsub = expsub_;
     
@@ -327,11 +326,11 @@ inc         = max( 0,...
             capshare*caprate*kv_ik*(1-captaxshare) + (1-capshare)*govrate*kv_ik ...
             + (1-sstaxcredit)*ssinc + labinc...
             );
-pit_dollar  = find_tax_liability( inc/modelunit_dollar, pit_thresholds, pit_burdens, pit_rates );
+pit_dollar  = find_tax_liability( inc/modelunit_dollar, pit_brackets, pit_burdens, pit_rates );
 pit         = modelunit_dollar*pit_dollar;     % Convert to model units
 
 % Calculate Social Security tax from wage income in dollars
-sst_dollar  = find_tax_liability( labinc/modelunit_dollar, sst_thresholds, sst_burdens, sst_rates );
+sst_dollar  = find_tax_liability( labinc/modelunit_dollar, sst_brackets, sst_burdens, sst_rates );
 sst         = modelunit_dollar*sst_dollar;
 
 % Calculate corporate income tax

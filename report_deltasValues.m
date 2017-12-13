@@ -152,10 +152,10 @@ f = @( d, s, m ) table(yearsv', m.caprates', m.govrates', m.totrates', m.qtobin'
 TPC_closed  = f(d_closed, s_closed, m_closed);
 TPC_open    = f(d_open  , s_open  , m_open  );
 
-if (params.depreciation == 0.056)
-    filename = 'TPC_report_low_depreciation.xlsx';
+if (scenario.is_low_return)
+    filename = 'TPC_report_lo_return.xlsx';
 else
-    filename = 'TPC_report_high_depreciation.xlsx';
+    filename = 'TPC_report_hi_return.xlsx';
 end
 writetable(TPC_open  ,filename,'Sheet','open')
 writetable(TPC_closed,filename,'Sheet','closed')
