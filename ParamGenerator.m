@@ -335,6 +335,7 @@ methods (Static)
         modelunit_dollar        = scenario.modelunit_dollar;
         s.taxcredit     = 0.15;     % Benefit tax credit percentage
         s.ssincmaxs     = repmat(1.185e5*modelunit_dollar, [1,T_model]); % Maximum income subject to benefit calculation
+        s.ssincmins     = zeros(1,T_model);                              % Minimum income subject to benefit calculation
 
         % Calculate benefits
         matchparams     = {'SSBenefitsPolicy'};

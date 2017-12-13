@@ -8,7 +8,7 @@ function [OPT] = solve_cohort(V0, LAB_static, isdynamic, ...
                         nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, ... 
                         zs_idem, transz, kv, bv, beta, gamma, sigma, surv, ...
                         bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
-                        sstaxcredit, ssbenefits, ssincmaxs, ...
+                        sstaxcredit, ssbenefits, ssincmins, ssincmaxs, ...
                         sstax_brackets, sstax_burdens, sstax_rates, ...
                         pittax_brackets, pittax_burdens, pittax_rates, ... 
                         captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
@@ -50,6 +50,7 @@ assert( isa(bequest_phi_3, 'double' ) && (size(bequest_phi_3, 1) == 1 ) && (size
 
 assert( isa(sstaxcredit , 'double'  ) && (size(sstaxcredit  , 1) == 1       ) && (size(sstaxcredit  , 2) == 1       ) );
 assert( isa(ssbenefits  , 'double'  ) && (size(ssbenefits   , 1) <= nb_max  ) && (size(ssbenefits   , 2) == 1       ) );
+assert( isa(ssincmins   , 'double'  ) && (size(ssincmins    , 1) == 1       ) && (size(ssincmins    , 2) <= T_max   ) );
 assert( isa(ssincmaxs   , 'double'  ) && (size(ssincmaxs    , 1) == 1       ) && (size(ssincmaxs    , 2) <= T_max   ) );
 
 assert( isa(sstax_brackets  , 'double' ) && (size(sstax_brackets  , 1) <= T_max ) && (size(sstax_brackets  , 2) <= nbrackets_max ) );
@@ -108,6 +109,7 @@ for t = T_active:-1:1
     
     % Extract parameters for current year
     ssincmax   = ssincmaxs    (year);
+    ssincmin   = ssincmins    (year);
     beq        = beqs         (year);
     wage       = wages        (year);
     caprate    = caprates     (year);
@@ -206,7 +208,7 @@ for t = T_active:-1:1
                         value_working([], kv, bv, wage_eff, EV, ...
                                 bequest_p_1, bequest_phi_2, bequest_phi_3, ...
                                 sigma, gamma);
-                        calculate_b  ([], age, bv(ib), bv(end), ssincmax);
+                        calculate_b  ([], age, bv(ib), bv(end), ssincmin, ssincmax);
                         
                         % Solve dynamic optimization subproblem
                         lab0 = 0.5;
@@ -469,24 +471,24 @@ end
 
 
 % Average earnings calculation function
-function [b] = calculate_b(labinc, age_, bv_ib_, bv_nb_, ssincmax_)
+function [b] = calculate_b(labinc, age_, bv_ib_, bv_nb_, ssincmin_, ssincmax_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
 
 % Define parameters as persistent variables
-persistent age bv_ib bv_nb ssincmax ...
+persistent age bv_ib bv_nb ssincmin ssincmax ...
            initialized
 
 % Initialize parameters for C code generation
 if isempty(initialized)
-    age = 0; bv_ib = 0; bv_nb = 0; ssincmax = 0;
+    age = 0; bv_ib = 0; bv_nb = 0; ssincmin = 0; ssincmax = 0;
     initialized = true;
 end
 
 % Set parameters if provided
 if (nargin > 1)
-    age = age_; bv_ib = bv_ib_; bv_nb = bv_nb_; ssincmax = ssincmax_;
+    age = age_; bv_ib = bv_ib_; bv_nb = bv_nb_; ssincmin = ssincmin_; ssincmax = ssincmax_;
     if isempty(labinc), return, end
 end
 
