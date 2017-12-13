@@ -96,7 +96,8 @@ methods (Static)
         surv            = s.surv;                       % Survival probabilities by age
         imm_age         = s.imm_age;                    % Immigrants' age distribution
         
-        % Load Social Security parameters
+        % Load Social Security parameters, 
+        %   rem: all USdollars have been converted to modelunit dollars
         s = ParamGenerator.social_security( scenario );
         sstax_brackets  = s.brackets    ;    % Payroll tax brackets (currentlaw is 0 to taxmax)
         sstax_rates     = s.rates       ;    % Payroll tax rates (currentlaw is 12.4%)
@@ -118,6 +119,7 @@ methods (Static)
         tax_revenue_by_GDP = s.tax_revenue_by_GDP;
         
         %% Tax parameters
+        %    rem: all US dollars have been converted to modelunit_dollars
         s = ParamGenerator.tax( scenario );
         %  The following brackets, burdens, rates vary by year
         pittax_brackets     = s.brackets;   % Tax func is linearized, these are income thresholds 

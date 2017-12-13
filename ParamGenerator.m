@@ -211,9 +211,10 @@ methods (Static)
 
         [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_year, T_model );                               ...
         
-        s.burdens       = burdens;          % Cumulative tax burden
-        s.brackets      = brackets;         % PIT tax brackets, rem: first one is zero
-        s.rates         = rates;            % Rate for above each bracket threshold
+        % Convert US dollar amounts into modelunit_dollars
+        s.burdens       = burdens  .*scenario.modelunit_dollar;   % Cumulative tax burden
+        s.brackets      = brackets .*scenario.modelunit_dollar;   % PIT tax brackets, rem: first one is zero
+        s.rates         = rates;                                  % Rate for above each bracket threshold
 
         % Get the capital and tax treatment allocation params and store them.
         %  Input files CIT_<taxplanid>.CSV expected to have the
@@ -322,9 +323,10 @@ methods (Static)
 
         [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_year, T_model );                               ...
         
-        s.burdens       = burdens;          % Cumulative tax burden
-        s.brackets      = brackets;         % Payroll tax brackets, rem: first one is zero
-        s.rates         = rates;            % Rate for above each bracket threshold
+        % Convert from US dollars to modelunit dollars
+        s.burdens       = burdens  .*scenario.modelunit_dollar;     % Cumulative tax burden
+        s.brackets      = brackets .*scenario.modelunit_dollar;     % Payroll tax brackets, rem: first one is zero
+        s.rates         = rates;                                    % Rate for above each bracket threshold
         
         %  OLD STUFF: TBD Revisit and revise
         bv                      = ParamGenerator.grids(scenario).bv;
