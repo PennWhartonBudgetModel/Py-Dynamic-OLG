@@ -14,19 +14,20 @@ methods (Static)
         s.T_life                = 80;
         s.enter_work_force      = 20;
         
-        nramapfile  = fullfile( PathFinder.getSocialSecurityNRAInputDir(), 'Map.csv' );
-        nrafile     = strcat(   'NRA_'                                      ...
-                            ,   find_policy_id( scenario                    ...
-                                    ,   {'SSNRAPolicy'}                     ...
-                                    ,   nramapfile )                        ...
-                            ,   '.csv' );
+        survivalprob    = ParamGenerator.demographics(scenario).surv;
+        nramapfile      = fullfile( PathFinder.getSocialSecurityNRAInputDir(), 'Map.csv' );
+        nrafile         = strcat(   'NRA_'                                      ...
+                                ,   find_policy_id( scenario                    ...
+                                       ,   {'SSNRAPolicy'}                     ...
+                                       ,   nramapfile )                        ...
+                                ,   '.csv' );
         
         switch scenario.economy
             case 'steady'
                 s.T_model    = 1;                           % Steady state total modeling years
                 s.startyears = 0;                           % Steady state cohort start year
                 s.T_work     = read_series(nrafile, s.first_transition_year - (s.T_life + s.enter_work_force + 1), PathFinder.getSocialSecurityNRAInputDir());
-                mass         = zeros(s.T_life); mass(1) = 1; for i = 2:s.T_life; mass(i) = mass(i-1)*ParamGenerator.demographics().surv(i-1); end;
+                mass         = zeros(s.T_life); mass(1) = 1; for i = 2:s.T_life; mass(i) = mass(i-1)*survivalprob(i-1); end;
                 s.T_work     = round(sum((mass.*s.T_work(1:s.T_life))/sum(mass))) - s.enter_work_force;
             case {'open', 'closed'}
                 s.T_model    = 25;                          % Transition path total modeling years
@@ -269,7 +270,7 @@ methods (Static)
     %        , birth rate
     %        , legal immigration rate
     %        , illegal immigration rate
-    function s = demographics()
+    function s = demographics( scenario ) %#ok<INUSD>
         param_dir = PathFinder.getMicrosimInputDir();
         survival  = read_series('SIMSurvivalProbability.csv', [], param_dir);
         imm_age   = read_series('SIMImmigrantAgeDistribution.csv', [], param_dir);
