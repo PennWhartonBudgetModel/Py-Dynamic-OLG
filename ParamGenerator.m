@@ -199,15 +199,16 @@ methods (Static)
     % 
     function s = tax( scenario )
         
+        timing                  = ParamGenerator.timing(scenario);
         % Find tax plan ID corresponding to scenario tax parameters
         taxplanid               = find_taxplanid(scenario);
         
-        T_model                 = ParamGenerator.timing(scenario).T_model;
+        T_model                 = timing.T_model;
         switch scenario.economy
             case 'steady'
-                first_year      = ParamGenerator.timing(scenario).first_transition_year - 1;
+                first_year      = timing.first_transition_year - 1;
             otherwise
-                first_year      = ParamGenerator.timing(scenario).first_transition_year;
+                first_year      = timing.first_transition_year;
         end    
         
         bracketsfile    = strcat('PIT_', taxplanid, '.csv' );
@@ -309,16 +310,16 @@ methods (Static)
     %
     function s = social_security( scenario )
         
-        T_model                 = ParamGenerator.timing(scenario).T_model;
-        nstartyears             = length(ParamGenerator.timing(scenario).startyears);
+        timing                  = ParamGenerator.timing(scenario);
+        T_model                 = timing.T_model;
+        nstartyears             = length(timing.startyears);
         switch scenario.economy
             case 'steady'
-                first_year        = ParamGenerator.timing(scenario).first_transition_year - 1;
+                first_year          = timing.first_transition_year - 1;
             case {'open', 'closed'}
-                first_year          = ParamGenerator.timing(scenario).first_transition_year;
+                first_year          = timing.first_transition_year;
         end
-        oldest_birth_year = first_year - (ParamGenerator.timing(scenario).T_life + ...
-                                          ParamGenerator.timing(scenario).enter_work_force);
+        oldest_birth_year = first_year - (timing.T_life + timing.enter_work_force);
         
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long
