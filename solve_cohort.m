@@ -494,7 +494,7 @@ end
 
 
 % Calculate average earnings and cap it to the minimum (floor) and maximum (ceiling) taxable earnings
-b = max(ssincmin, (bv_ib*(age-1) + min(labinc, ssincmax))/age);
+b = max(ssincmin, (bv_ib*(age-1) + min(labinc, ssincmax))/age - 10*eps );
 
 end
 

@@ -167,7 +167,7 @@ methods (Static)
             kv(ik) = scale*1e+6*scenario.modelunit_dollar;                   % ii. and its last point is around 150 million dollars 
         end
         ssincmax = 1.185e5;                                                  % 118,500 is the maximum annual labor income for Social Security tax purposes
-        nb =  5; bv = f(   0, ssincmax*scenario.modelunit_dollar + 1e-14, nb  , 2);  % average earnings vector --- Upper bound of average earnings defined as maximum possible Social Security benefit
+        nb =  5; bv = f(   0, ssincmax*scenario.modelunit_dollar, nb  , 2);  % average earnings vector --- Upper bound of average earnings defined as maximum possible Social Security benefit
         if ~(scenario.HasLimitedBenefits)
             bv = [bv; 2*ssincmax*scenario.modelunit_dollar];                 % max point arbitrarily set to twice the second largest one
             nb = nb + 1;
