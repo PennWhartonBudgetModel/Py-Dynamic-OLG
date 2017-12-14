@@ -10,33 +10,17 @@ methods (Static)
     %% TIMING
     %      Includes policy-specific SS.NRA
     function s = timing(scenario)
-        s.first_transition_year = 2018;                 % TBD: This will come from Scenario
-        s.T_life                = 80;
-        s.enter_work_force      = 20;
-        
-        survivalprob    = ParamGenerator.demographics(scenario).surv;
-        nramapfile      = fullfile( PathFinder.getSocialSecurityNRAInputDir(), 'Map.csv' );
-        nrafile         = strcat(   'NRA_'                                      ...
-                                ,   find_policy_id( scenario                    ...
-                                       ,   {'SSNRAPolicy'}                     ...
-                                       ,   nramapfile )                        ...
-                                ,   '.csv' );
-        
+        s.first_transition_year = 2018  ;   % TBD: This will come from Scenario
+        s.T_life                = 80    ;   % Death year
+        s.Tmax_work             = 52    ;   % Last possible year of working age     
         switch scenario.economy
             case 'steady'
                 s.T_model    = 1;                           % Steady state total modeling years
                 s.startyears = 0;                           % Steady state cohort start year
-                T_works      = read_series(nrafile, s.first_transition_year - (s.T_life + s.enter_work_force + 1), PathFinder.getSocialSecurityNRAInputDir());
-                mass         = ones(s.T_life,1); for i = 2:s.T_life; mass(i) = mass(i-1)*survivalprob(i-1); end;
-                T_works      = round(sum((mass.*T_works(1:s.T_life))/sum(mass))) - s.enter_work_force;
             case {'open', 'closed'}
                 s.T_model    = 25;                          % Transition path total modeling years
                 s.startyears = (-s.T_life+1):(s.T_model-1); % Transition path cohort start years
-                T_works      = read_series(nrafile, s.first_transition_year - (s.T_life + s.enter_work_force), PathFinder.getSocialSecurityNRAInputDir());
-                T_works      = T_works(1:length(s.startyears)) - s.enter_work_force;
         end
-        
-        s.T_works   = T_works;
         
     end % timing
        
@@ -81,7 +65,7 @@ methods (Static)
         % Define deterministic lifecycle productivities
         timing    = ParamGenerator.timing(scenario);
         T_life    = timing.T_life;
-        T_workMax = max(timing.T_works);
+        T_workMax = timing.Tmax_work;
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
         zage      = read_series('ConesaEtAl_WageAgeProfile.csv', [], PathFinder.getMicrosimInputDir());
         
@@ -312,14 +296,34 @@ methods (Static)
         
         timing                  = ParamGenerator.timing(scenario);
         T_model                 = timing.T_model;
+        T_life                  = timing.T_life;
+        first_transition_year   = timing.first_transition_year;
         nstartyears             = length(timing.startyears);
+        s.enter_work_force      = 20;
+        
+        % Input file for T_works (retirement ages)
+        nrafile     = strcat(   'NRA_'                                                                          ...
+                            ,   find_policy_id( scenario                                                        ...
+                                       ,   {'SSNRAPolicy'}                                                      ...
+                                       ,   fullfile( PathFinder.getSocialSecurityNRAInputDir(), 'Map.csv' ) )   ...                    ...
+                            ,   '.csv' );
+
+        
         switch scenario.economy
             case 'steady'
-                first_year          = timing.first_transition_year - 1;
+                first_year   = first_transition_year - 1;
+                survivalprob = ParamGenerator.demographics(scenario).surv;
+                T_works      = read_series(nrafile, first_transition_year - (T_life + s.enter_work_force + 1), PathFinder.getSocialSecurityNRAInputDir());
+                mass         = ones(T_life,1); for i = 2:T_life; mass(i) = mass(i-1)*survivalprob(i-1); end;
+                T_works      = round(sum((mass.*T_works(1:T_life))/sum(mass))) - s.enter_work_force;
             case {'open', 'closed'}
-                first_year          = timing.first_transition_year;
+                first_year   = first_transition_year;
+                T_works      = read_series(nrafile, first_transition_year - (T_life + s.enter_work_force), PathFinder.getSocialSecurityNRAInputDir());
+                T_works      = T_works(1:nstartyears) - s.enter_work_force;
         end
-        oldest_birth_year = first_year - (timing.T_life + timing.enter_work_force);
+        oldest_birth_year   = first_year - (T_life + s.enter_work_force);
+        
+        s.T_works           = T_works;
         
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long

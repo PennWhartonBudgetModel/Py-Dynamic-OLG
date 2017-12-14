@@ -52,7 +52,6 @@ methods (Static)
         s = ParamGenerator.timing(scenario);
         first_transition_year   = s.first_transition_year;  % map model inputs (or outputs) to actual years
         T_life                  = s.T_life;                 % Total life years
-        T_works                 = s.T_works;                % Total working years
         T_model                 = s.T_model;                % Transition path model years
         startyears              = s.startyears;             % Cohort start years as offsets to year 1
         nstartyears             = length(startyears);
@@ -99,6 +98,7 @@ methods (Static)
         % Load Social Security parameters, 
         %   rem: all USdollars have been converted to modelunit dollars
         s = ParamGenerator.social_security( scenario );
+        T_works         = s.T_works     ;    % Total working years
         sstax_brackets  = s.brackets    ;    % Payroll tax brackets (currentlaw is 0 to taxmax)
         sstax_rates     = s.rates       ;    % Payroll tax rates (currentlaw is 12.4%)
         sstax_burdens   = s.burdens     ;    % Cumulative tax liability at each bracket
