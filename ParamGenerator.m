@@ -355,8 +355,10 @@ methods (Static)
         first_birthyear = first_year - (T_life + realage_entry);
         matchparams     = {'SSBenefitsPolicy'};
         mapfile         = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), 'Map.csv' );
-        bracketsfile    = strcat('InitialBenefits_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
-        bracketsfile    = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), bracketsfile );      
+        policy_id       = find_policy_id( scenario, matchparams, mapfile );
+        
+        bracketsfile    = fullfile( PathFinder.getSocialSecurityBenefitsInputDir() ...
+                                ,   strcat('InitialBenefits_', policy_id , '.csv' ) );      
         
         [brackets, rates, ~]    = read_brackets_rates( bracketsfile, first_birthyear, nstartyears );                               ...
         
@@ -364,7 +366,16 @@ methods (Static)
         s.startyear_benefitrates      = rates;
         
         % Year-based policy for benefit rates adjustments
-        s.benefits_adjustment   = ones(T_model, 1);
+        filename = strcat('BenefitsAdjustment_', policy_id , '.csv' );
+        
+        adjrates = read_series( filename, first_year, PathFinder.getSocialSecurityBenefitsInputDir() );      
+    
+        % Verify that adj has same number of brackets
+        if( size(adjrates, 2) ~= size(brackets, 2) )
+            throw(MException('ParamGenerator.social_security:SIZE','SSBenefits and BenefitsAdjustments must have same number of brackets.'));
+        end
+        
+        s.benefits_adjustment = adjrates;
     end % social_security
     
     
