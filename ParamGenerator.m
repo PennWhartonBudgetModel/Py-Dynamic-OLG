@@ -10,30 +10,18 @@ methods (Static)
     %% TIMING
     %      Includes policy-specific SS.NRA
     function s = timing(scenario)
-        s.first_transition_year = 2018;                 % TBD: This will come from Scenario
-        s.T_life                = 80;
-        s.enter_work_force      = 20;
-        
-        nramapfile  = fullfile( PathFinder.getSocialSecurityNRAInputDir(), 'Map.csv' );
-        nrafile     = strcat(   'NRA_'                                      ...
-                            ,   find_policy_id( scenario                    ...
-                                    ,   {'SSNRAPolicy'}                     ...
-                                    ,   nramapfile )                        ...
-                            ,   '.csv' );
-        
+        s.first_transition_year = 2018  ;   % TBD: This will come from Scenario
+        s.T_life                = 80    ;   % Death year
+        s.Tmax_work             = 52    ;   % Last possible year of working age     
         switch scenario.economy
             case 'steady'
                 s.T_model    = 1;                           % Steady state total modeling years
                 s.startyears = 0;                           % Steady state cohort start year
-                s.T_work     = read_series(nrafile, s.first_transition_year - (s.T_life + s.enter_work_force + 1), PathFinder.getSocialSecurityNRAInputDir());
-                mass         = zeros(s.T_life); mass(1) = 1; for i = 2:s.T_life; mass(i) = mass(i-1)*ParamGenerator.demographics().surv(i-1); end;
-                s.T_work     = round(sum((mass.*s.T_work(1:s.T_life))/sum(mass))) - s.enter_work_force;
             case {'open', 'closed'}
                 s.T_model    = 25;                          % Transition path total modeling years
                 s.startyears = (-s.T_life+1):(s.T_model-1); % Transition path cohort start years
-                s.T_work     = read_series(nrafile, s.first_transition_year - (s.T_life + s.enter_work_force), PathFinder.getSocialSecurityNRAInputDir());
-                s.T_work     = s.T_work(1:length(s.startyears)) - s.enter_work_force;
         end
+        
     end % timing
        
     
@@ -75,8 +63,9 @@ methods (Static)
         DISTpers = diff(normcdf(persv/sqrt(0.124)));
         
         % Define deterministic lifecycle productivities
-        T_life    = ParamGenerator.timing(scenario).T_life;
-        T_workMax = max(ParamGenerator.timing(scenario).T_work);
+        timing    = ParamGenerator.timing(scenario);
+        T_life    = timing.T_life;
+        T_workMax = timing.Tmax_work;
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
         zage      = read_series('ConesaEtAl_WageAgeProfile.csv', [], PathFinder.getMicrosimInputDir());
         
@@ -194,15 +183,16 @@ methods (Static)
     % 
     function s = tax( scenario )
         
+        timing                  = ParamGenerator.timing(scenario);
         % Find tax plan ID corresponding to scenario tax parameters
         taxplanid               = find_taxplanid(scenario);
         
-        T_model                 = ParamGenerator.timing(scenario).T_model;
+        T_model                 = timing.T_model;
         switch scenario.economy
             case 'steady'
-                first_year      = ParamGenerator.timing(scenario).first_transition_year - 1;
+                first_year      = timing.first_transition_year - 1;
             otherwise
-                first_year      = ParamGenerator.timing(scenario).first_transition_year;
+                first_year      = timing.first_transition_year;
         end    
         
         bracketsfile    = strcat('PIT_', taxplanid, '.csv' );
@@ -269,7 +259,7 @@ methods (Static)
     %        , birth rate
     %        , legal immigration rate
     %        , illegal immigration rate
-    function s = demographics()
+    function s = demographics( scenario ) %#ok<INUSD>
         param_dir = PathFinder.getMicrosimInputDir();
         survival  = read_series('SIMSurvivalProbability.csv', [], param_dir);
         imm_age   = read_series('SIMImmigrantAgeDistribution.csv', [], param_dir);
@@ -304,16 +294,35 @@ methods (Static)
     %
     function s = social_security( scenario )
         
-        T_model                 = ParamGenerator.timing(scenario).T_model;
-        nstartyears             = length(ParamGenerator.timing(scenario).startyears);
+        timing                  = ParamGenerator.timing(scenario);
+        T_model                 = timing.T_model;
+        T_life                  = timing.T_life;
+        first_transition_year   = timing.first_transition_year;
+        nstartyears             = length(timing.startyears);
+        s.enter_work_force      = 20;
+        
+        % Input file for T_works (retirement ages)
+        nrafile     = strcat(   'NRA_'                                                                          ...
+                            ,   find_policy_id( scenario                                                        ...
+                                       ,   {'SSNRAPolicy'}                                                      ...
+                                       ,   fullfile( PathFinder.getSocialSecurityNRAInputDir(), 'Map.csv' ) )   ...                    ...
+                            ,   '.csv' );
+
+        
         switch scenario.economy
             case 'steady'
-                first_year        = ParamGenerator.timing(scenario).first_transition_year - 1;
+                first_year   = first_transition_year - 1;
+                survivalprob = ParamGenerator.demographics(scenario).surv;
+                T_works      = read_series(nrafile, first_transition_year - (T_life + s.enter_work_force + 1), PathFinder.getSocialSecurityNRAInputDir());
+                mass         = ones(T_life,1); for i = 2:T_life; mass(i) = mass(i-1)*survivalprob(i-1); end;
+                T_works      = round(sum((mass.*T_works(1:T_life))/sum(mass))) - s.enter_work_force;
             case {'open', 'closed'}
-                first_year          = ParamGenerator.timing(scenario).first_transition_year;
+                first_year   = first_transition_year;
+                T_works      = read_series(nrafile, first_transition_year - (T_life + s.enter_work_force), PathFinder.getSocialSecurityNRAInputDir());
+                T_works      = T_works(1:nstartyears) - s.enter_work_force;
         end
-        oldest_birth_year = first_year - (ParamGenerator.timing(scenario).T_life + ...
-                                          ParamGenerator.timing(scenario).enter_work_force);
+        
+        s.T_works           = T_works;
         
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long
@@ -331,31 +340,26 @@ methods (Static)
         s.rates         = rates;                                    % Rate for above each bracket threshold
         
         %  OLD STUFF: TBD Revisit and revise
-        bv                      = ParamGenerator.grids(scenario).bv;
-        modelunit_dollar        = scenario.modelunit_dollar;
         s.taxcredit     = 0.15;     % Benefit tax credit percentage
-        s.ssincmaxs     = repmat(1.185e5*modelunit_dollar, [1,T_model]); % Maximum income subject to benefit calculation
-        s.ssincmins     = zeros(1,T_model);                              % Minimum income subject to benefit calculation
+        s.ssincmaxs     = repmat(1.185e5*scenario.modelunit_dollar, [1,T_model]); % Maximum income subject to benefit calculation
+        s.ssincmins     = zeros(1,T_model);                                       % Minimum income subject to benefit calculation
 
-        % Calculate benefits
+        % Fetch initial benefits for each cohort 
+        %   REM: Benefits are per month in US dollars 
+        %        in year = first_transition_year - 1
+        first_birthyear = first_year - (T_life + s.enter_work_force);
         matchparams     = {'SSBenefitsPolicy'};
         mapfile         = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), 'Map.csv' );
-        bracketsfile    = strcat('Benefits_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
+        bracketsfile    = strcat('InitialBenefits_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
         bracketsfile    = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), bracketsfile );      
-
-        [ssbrackets, ssrates, ~] = read_brackets_rates( bracketsfile, oldest_birth_year, nstartyears );                               ...
-        ssbrackets = 12*modelunit_dollar*ssbrackets;    % Thresholds for earnings brackets
-        ssbenefit = zeros(size(bv,1), nstartyears);
-
-        for i = 1:nstartyears
-            ssbenefit(:,i) = [ max(min(bv, ssbrackets(i,2)) - ssbrackets(i,1), 0) , ...
-                          max(min(bv, ssbrackets(i,3)) - ssbrackets(i,2), 0) , ...
-                          max(min(bv, Inf            ) - ssbrackets(i,3), 0) ] * ssrates(i,:)';
-        end
         
-        s.ssbenefits  = ssbenefit;  % Benefits
+        [brackets, rates, ~]    = read_brackets_rates( bracketsfile, first_birthyear, nstartyears );                               ...
         
-
+        s.startyear_benefitbrackets   = 12*scenario.modelunit_dollar*brackets;    
+        s.startyear_benefitrates      = rates;
+        
+        % Year-based policy for benefit rates adjustments
+        s.benefits_adjustment   = ones(T_model, 1);
     end % social_security
     
     
@@ -679,8 +683,9 @@ end % read_tax_vars()
 %    (Year), (Bracket1), ... (BracketN), (Rate1), ... (RateN)
 %    filename     : fullfile of CSV to read
 %    first_year   : don't read years before this param
+%    T_years      : read this many years 
 function [brackets, rates, burdens] = read_brackets_rates( ...
-                                        filename, first_year, T_model )
+                                        filename, first_year, T_years )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
@@ -714,14 +719,14 @@ function [brackets, rates, burdens] = read_brackets_rates( ...
 
     % Pad brackets and rates if not long enough, truncate if too long
     num_years = size(brackets,1);
-    if( T_model - num_years <= 0 )
-        brackets    = brackets(1:T_model,:);
-        rates       = rates(1:T_model,:);
+    if( T_years - num_years <= 0 )
+        brackets    = brackets(1:T_years,:);
+        rates       = rates(1:T_years,:);
     else
         brackets    = [brackets; ...
-            repmat(brackets(end,:)  , [T_model-num_years, 1])   ];
+            repmat(brackets(end,:)  , [T_years-num_years, 1])   ];
         rates       = [rates; ...
-            repmat(rates(end,:)     , [T_model-num_years, 1])   ];
+            repmat(rates(end,:)     , [T_years-num_years, 1])   ];
     end
     
     % Calculate cumulative tax burdens along brackets dimension

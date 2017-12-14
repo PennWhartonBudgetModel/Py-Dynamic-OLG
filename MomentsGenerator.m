@@ -30,24 +30,23 @@ classdef MomentsGenerator
             save_dir  = PathFinder.getWorkingDir(scenario);
             param_dir = PathFinder.getMicrosimInputDir();
 
-            % Define time constants
-            s = ParamGenerator.timing( scenario );
-            T_life  = s.T_life;    % Total life years
-            T_work  = s.T_work;    % Retirement age
-            T_model = s.T_model;   % Transition path model years
-
-            % Define grids
-            s = ParamGenerator.grids( scenario );
-            ndem = s.ndem;       % demographic types
-            ng   = s.ng;         % num groups
-            nz   = s.nz;         % num labor productivity shocks
-            zs   = s.zs;         % shocks grid (by demographic type and age)
-            nk   = s.nk;         % num asset points
-            nb   = s.nb;         % num avg. earnings points
+            % Define time constants and grids
+            timing      = ParamGenerator.timing  ( scenario );
+            grids       = ParamGenerator.grids   ( scenario );
+            T_life      = timing.T_life;        % Total life years
+            T_model     = timing.T_model;       % Transition path model years
+            Tmax_work   = timing.Tmax_work;     % Largest retirement age
+            ndem        = grids.ndem;           % demographic types
+            ng          = grids.ng;             % num groups
+            nz          = grids.nz;             % num labor productivity shocks
+            zs          = grids.zs;             % shocks grid (by demographic type and age)
+            nk          = grids.nk;             % num asset points
+            nb          = grids.nb;             % num avg. earnings points
+            
             % Useful later for a couple of functions
-            this.kv = s.kv;
-            this.karray = repmat(reshape(s.kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,T_model,ndem])  ;
-            this.T_work = T_work;
+            this.kv     = grids.kv;
+            this.karray = repmat(reshape(grids.kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,T_model,ndem])  ;
+            this.T_work = Tmax_work;
             this.T_life = T_life;
 
             %% DISTRIBUTION AND POLICY FUNCTIONS
@@ -58,8 +57,8 @@ classdef MomentsGenerator
                 DIST = s.DIST;
             end
             dist = DIST(:);
-            dist_l(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem) = DIST(1:nz,1:nk,1:nb,1:T_work,1:ng,1:T_model,1:ndem); % Working age population
-            dist_l(1:nz,1:nk,1:nb,T_work:T_life,1:ng,1:T_model,1:ndem) = 0; % Retired population
+            dist_l(1:nz,1:nk,1:nb,1:Tmax_work,1:ng,1:T_model,1:ndem) = DIST(1:nz,1:nk,1:nb,1:Tmax_work,1:ng,1:T_model,1:ndem); % Working age population
+            dist_l(1:nz,1:nk,1:nb,Tmax_work:T_life,1:ng,1:T_model,1:ndem) = 0; % Retired population
             dist_l = dist_l(:)/sum(dist_l(:));
             % Useful later for a couple of functions
             this.DIST   = DIST;

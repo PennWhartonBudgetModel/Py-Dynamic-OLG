@@ -52,7 +52,6 @@ methods (Static)
         s = ParamGenerator.timing(scenario);
         first_transition_year   = s.first_transition_year;  % map model inputs (or outputs) to actual years
         T_life                  = s.T_life;                 % Total life years
-        T_work                  = s.T_work;                 % Total working years
         T_model                 = s.T_model;                % Transition path model years
         startyears              = s.startyears;             % Cohort start years as offsets to year 1
         nstartyears             = length(startyears);
@@ -98,14 +97,16 @@ methods (Static)
         
         % Load Social Security parameters, 
         %   rem: all USdollars have been converted to modelunit dollars
-        s = ParamGenerator.social_security( scenario );
-        sstax_brackets  = s.brackets    ;    % Payroll tax brackets (currentlaw is 0 to taxmax)
-        sstax_rates     = s.rates       ;    % Payroll tax rates (currentlaw is 12.4%)
-        sstax_burdens   = s.burdens     ;    % Cumulative tax liability at each bracket
-        ssbenefits      = s.ssbenefits  ;    % Benefits
-        sstaxcredit     = s.taxcredit   ;    % Benefit tax credit percentage
-        ssincmaxs       = s.ssincmaxs   ;    % Maximum wage allowed for benefit calculation
-        ssincmins       = s.ssincmins   ;    % Minimum wage allowed for benefit calculation
+        socialsecurity  = ParamGenerator.social_security( scenario );
+        T_works         = socialsecurity.T_works     ;    % Total working years
+        sstax_brackets  = socialsecurity.brackets    ;    % Payroll tax brackets (currentlaw is 0 to taxmax)
+        sstax_rates     = socialsecurity.rates       ;    % Payroll tax rates (currentlaw is 12.4%)
+        sstax_burdens   = socialsecurity.burdens     ;    % Cumulative tax liability at each bracket
+        sstaxcredit     = socialsecurity.taxcredit   ;    % Benefit tax credit percentage
+        ssincmaxs       = socialsecurity.ssincmaxs   ;    % Maximum wage allowed for benefit calculation
+        ssincmins       = socialsecurity.ssincmins   ;    % Minimum wage allowed for benefit calculation
+        
+        % NOTE: Social Security benefits are calculated per cohort
         
         %%  Budget: CBO interest rates, expenditures, and debt
         s = ParamGenerator.budget( scenario );
@@ -174,9 +175,16 @@ methods (Static)
             
             for idem = 1:ndem
                 
+                % Calculate cohort-specific SS Benefits 
+                %    TBD: Actually do that
+                ssbenefits = ModelSolver.calculateSSBenefit(    bv                                          ...
+                                                            ,   socialsecurity.startyear_benefitbrackets    ...
+                                                            ,   socialsecurity.startyear_benefitrates       ...
+                                                            ,   Market.wages );
+                
                 % Package fixed dynamic optimization arguments into anonymous function
-                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_work, ssbenefits) solve_cohort(V0, LAB_static, isdynamic, ...
-                    nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, zs(:,:,idem), transz, Market.kpricescale*kv, bv, beta, gamma, sigma, surv, ...
+                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits) solve_cohort(V0, LAB_static, isdynamic, ...
+                    nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, Market.kpricescale*kv, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                     sstaxcredit, ssbenefits, ssincmins, ssincmaxs, ...
                     sstax_brackets, sstax_burdens, sstax_rates, ...
@@ -193,7 +201,7 @@ methods (Static)
                     
                     % Solve dynamic optimization
                     % (Note that active time is set to full lifetime)
-                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_work(end), ssbenefits(:,end));
+                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits(:,end));
                     
                     % Define series of terminal utility values
                     V0s(:,:,:,1:T_life-1) = OPT.V(:,:,:,2:T_life);
@@ -220,7 +228,7 @@ methods (Static)
                             V0 = V0s(:,:,:,T_ends(i)); %#ok<PFBNS>
                             
                             % Solve dynamic optimization
-                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i), T_work(i), ssbenefits(:,i));
+                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits(:,i));
                             
                             LABs{i,idem} = OPTs_cohort{i}.LAB;
                             
@@ -772,6 +780,27 @@ methods (Static)
     end % solve
     
 end % methods
+
+
+
+methods (Static, Access = private ) 
+    
+    function ssbenefit = calculateSSBenefit( bv, brackets, rates, wages ) %#ok<INUSD>
+        
+        % Cohort based benefits
+        nstartyears = size(brackets,1);
+        ssbenefit = zeros(size(bv,1), nstartyears);
+
+        for i = 1:nstartyears
+            ssbenefit(:,i) = [  max(min(bv, brackets(i,2)) - brackets(i,1), 0) , ...
+                                max(min(bv, brackets(i,3)) - brackets(i,2), 0) , ...
+                                max(min(bv, Inf          ) - brackets(i,3), 0) ] * rates(i,:)';
+        end
+
+        
+    end % calculateSSBenefit
+
+end % private methods
 
 end
 
