@@ -10,9 +10,12 @@ methods (Static)
     %% TIMING
     %      Includes policy-specific SS.NRA
     function s = timing(scenario)
+        
+        s.realage_entry         = 20    ;   % Real age of model age=0   
         s.first_transition_year = 2018  ;   % TBD: This will come from Scenario
         s.T_life                = 80    ;   % Death year
         s.Tmax_work             = 52    ;   % Last possible year of working age     
+        
         switch scenario.economy
             case 'steady'
                 s.T_model    = 1;                           % Steady state total modeling years
@@ -67,7 +70,7 @@ methods (Static)
         T_life    = timing.T_life;
         T_workMax = timing.Tmax_work;
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
-        zage      = read_series('ConesaEtAl_WageAgeProfile.csv', [], PathFinder.getMicrosimInputDir());
+        zage      = read_series('ConesaEtAl_WageAgeProfile.csv', 1 + timing.realage_entry, PathFinder.getMicrosimInputDir());
         
         % Calculate total productivity
         ndem = nperm; nz = ntrans*npers;
@@ -259,10 +262,13 @@ methods (Static)
     %        , birth rate
     %        , legal immigration rate
     %        , illegal immigration rate
-    function s = demographics( scenario ) %#ok<INUSD>
+    function s = demographics( scenario ) 
+        
+        timing    = ParamGenerator.timing( scenario );
+        
         param_dir = PathFinder.getMicrosimInputDir();
-        survival  = read_series('SIMSurvivalProbability.csv', [], param_dir);
-        imm_age   = read_series('SIMImmigrantAgeDistribution.csv', [], param_dir);
+        survival  = read_series('SIMSurvivalProbability.csv'        , 1 + timing.realage_entry, param_dir);
+        imm_age   = read_series('SIMImmigrantAgeDistribution.csv'   , 1 + timing.realage_entry, param_dir);
         s.surv    = survival';
         s.imm_age = imm_age';
 
@@ -299,7 +305,7 @@ methods (Static)
         T_life                  = timing.T_life;
         first_transition_year   = timing.first_transition_year;
         nstartyears             = length(timing.startyears);
-        s.enter_work_force      = 20;
+        realage_entry           = timing.realage_entry;
         
         % Input file for T_works (retirement ages)
         nrafile     = strcat(   'NRA_'                                                                          ...
@@ -313,13 +319,13 @@ methods (Static)
             case 'steady'
                 first_year   = first_transition_year - 1;
                 survivalprob = ParamGenerator.demographics(scenario).surv;
-                T_works      = read_series(nrafile, first_transition_year - (T_life + s.enter_work_force + 1), PathFinder.getSocialSecurityNRAInputDir());
+                T_works      = read_series(nrafile, first_transition_year - (T_life + realage_entry + 1), PathFinder.getSocialSecurityNRAInputDir());
                 mass         = ones(T_life,1); for i = 2:T_life; mass(i) = mass(i-1)*survivalprob(i-1); end;
-                T_works      = round(sum((mass.*T_works(1:T_life))/sum(mass))) - s.enter_work_force;
+                T_works      = round(sum((mass.*T_works(1:T_life))/sum(mass))) - realage_entry;
             case {'open', 'closed'}
                 first_year   = first_transition_year;
-                T_works      = read_series(nrafile, first_transition_year - (T_life + s.enter_work_force), PathFinder.getSocialSecurityNRAInputDir());
-                T_works      = T_works(1:nstartyears) - s.enter_work_force;
+                T_works      = read_series(nrafile, first_transition_year - (T_life + realage_entry), PathFinder.getSocialSecurityNRAInputDir());
+                T_works      = T_works(1:nstartyears) - realage_entry;
         end
         
         s.T_works           = T_works;
@@ -346,7 +352,7 @@ methods (Static)
         % Fetch initial benefits for each cohort 
         %   REM: Benefits are per month in US dollars 
         %        in year = first_transition_year - 1
-        first_birthyear = first_year - (T_life + s.enter_work_force);
+        first_birthyear = first_year - (T_life + realage_entry);
         matchparams     = {'SSBenefitsPolicy'};
         mapfile         = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), 'Map.csv' );
         bracketsfile    = strcat('InitialBenefits_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
@@ -398,15 +404,15 @@ methods (Static)
         sim_param   = PathFinder.getMicrosimInputDir();
         
         first_year                  = first_transition_year - 1;    % first year from which to read series
-        CBODebt                     = read_series( 'CBOPublicDebt.csv', first_year, cbo_param );
-        CBORates                    = read_series( 'CBOInterestRate.csv', first_year, cbo_param );
-        SIMGDP                      = read_series( 'SIMGDP.csv', first_year, sim_param );
-        SIMRevenues                 = read_series( 'SIMRevenues.csv', first_year, sim_param );
-        SIMExpenditures             = read_series( 'SIMExpenditures.csv', first_year, sim_param );
-        SIMGDPPriceIndex            = read_series( 'SIMGDPPriceIndex.csv', first_year, sim_param );
-        CBONonInterestSpending      = read_series( 'CBONonInterestSpending.csv', first_year, cbo_param );
-        CBOSocialSecuritySpending   = read_series( 'CBOSocialSecuritySpending.csv', first_year, cbo_param );
-        CBOMedicareSpending         = read_series( 'CBOMedicareSpending.csv', first_year, cbo_param );
+        CBODebt                     = read_series( 'CBOPublicDebt.csv'              , first_year, cbo_param );
+        CBORates                    = read_series( 'CBOInterestRate.csv'            , first_year, cbo_param );
+        SIMGDP                      = read_series( 'SIMGDP.csv'                     , first_year, sim_param );
+        SIMRevenues                 = read_series( 'SIMRevenues.csv'                , first_year, sim_param );
+        SIMExpenditures             = read_series( 'SIMExpenditures.csv'            , first_year, sim_param );
+        SIMGDPPriceIndex            = read_series( 'SIMGDPPriceIndex.csv'           , first_year, sim_param );
+        CBONonInterestSpending      = read_series( 'CBONonInterestSpending.csv'     , first_year, cbo_param );
+        CBOSocialSecuritySpending   = read_series( 'CBOSocialSecuritySpending.csv'  , first_year, cbo_param );
+        CBOMedicareSpending         = read_series( 'CBOMedicareSpending.csv'        , first_year, cbo_param );
 
         if( size(SIMGDP) ~= size(SIMRevenues) ...
             | size(SIMGDP) ~= size(SIMExpenditures) ...
@@ -735,14 +741,10 @@ end % read_brackets_rates()
 
 
 %%
-% Read a CSV file in format (Index), (Value)
+% Read a CSV file in format (Index), (Value1), (Value2), ... (ValueN)
+%       first_index     : first index to read (previous part of file is ignored
 %    For time series, (Index) is (Year), 
-%       return a vector with first element being the value at
-%       first_index (that is, first_year_transition - 1). The next value is the value at the start of
-%       the transition path.
-%   For other series (e.g. age_survival_probability, (Index) is (Age)
-%       return the series from first_index. 
-%   If first_index is empty, then return whole vector.
+%    For other series (e.g. age_survival_probability, (Index) is (Age)
 function [series] = read_series(filename, first_index, param_dir )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
@@ -755,21 +757,16 @@ function [series] = read_series(filename, first_index, param_dir )
         throw(MException('read_series:FILENAME', err_msg ));
     end;
         
-    T           = readtable(filepath, 'Format', '%u%f');
+    T           = readtable(filepath);
     indices     = table2array(T(:,1));
-    vals        = table2array(T(:,2));
+    vals        = table2array(T(:,2:end));
     
-    if( isempty(first_index) )
-        idx_start   = 1;
-    else
-        idx_start   = find( indices == first_index, 1);
-    end;
-
+    idx_start   = find( indices == first_index, 1);
     if( isempty(idx_start) )
         throw(MException('read_series:FIRSTINDEX','Cannot find first index in file.'));
     end;
     
-    series      = vals(idx_start:end );
+    series      = vals(idx_start:end, : );
 
 end % read_series
 
