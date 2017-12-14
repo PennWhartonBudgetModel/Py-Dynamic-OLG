@@ -493,8 +493,19 @@ if (nargin > 1)
 end
 
 
-% Calculate average earnings and cap it to the minimum (floor) and maximum (ceiling) taxable earnings
-b = max(ssincmin, (bv_ib*(age-1) + min(labinc, ssincmax))/age - 10*eps );
+% Calculate average earnings, cap them to a policy ceiling, and check if they are larger
+% than a policy floor (if not, earnings do not count for pension purposes).
+%   Since bv(end) = ssincmax, one would expect the min operation below to handle off-grid points at the top.
+%   However, due to rounding errors of an order of magnitude of 1e-15, b > bv_nb might occur.
+%   If that's the case, interp2 in value_working returns NaN, compromising results.
+%   To correct for the rounding error, we introduce a discounting term '10*eps'.
+% We choose to believe b < bv(1) = 0 is not a possibility since a negative labinc would
+% cause the code to break before getting here.
+if labinc > (ssincmin + 10*eps)
+    b = (bv_ib*(age-1) + min(labinc, ssincmax))/age - 10*eps;
+else
+    b = bv_ib;
+end
 
 end
 
