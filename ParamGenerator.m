@@ -160,10 +160,8 @@ methods (Static)
         end
         ssincmax = 1.185e5;                                                  % 118,500 is the maximum annual labor income for Social Security tax purposes
         nb =  5; bv = f(   0, ssincmax*scenario.modelunit_dollar, nb  , 2);  % average earnings vector --- Upper bound of average earnings defined as maximum possible Social Security benefit
-        if ~(scenario.HasLimitedBenefits)
-            bv = [bv; 2*ssincmax*scenario.modelunit_dollar];                 % max point arbitrarily set to twice the second largest one
-            nb = nb + 1;
-        end
+        bv = [bv; 15*bv(end)];                                               % max point arbitrarily set to 15x the second largest one
+        nb = nb + 1;
 
         s.ndem     = ndem;
         s.g        = g;
