@@ -88,7 +88,7 @@ methods (Static)
         
         % Load population growth parameters
         % Load age-dependent parameters
-        s = ParamGenerator.demographics();
+        s = ParamGenerator.demographics( scenario );
         birth_rate      = s.birth_rate;                 % Annual birth rate
         legal_rate      = s.legal_rate * legal_scale;   % Annual legal immigration rate
         illegal_rate    = s.illegal_rate;               % Annual illegal immigration rate
