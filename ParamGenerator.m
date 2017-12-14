@@ -321,7 +321,6 @@ methods (Static)
                 T_works      = read_series(nrafile, first_transition_year - (T_life + s.enter_work_force), PathFinder.getSocialSecurityNRAInputDir());
                 T_works      = T_works(1:nstartyears) - s.enter_work_force;
         end
-        oldest_birth_year   = first_year - (T_life + s.enter_work_force);
         
         s.T_works           = T_works;
         
@@ -341,30 +340,25 @@ methods (Static)
         s.rates         = rates;                                    % Rate for above each bracket threshold
         
         %  OLD STUFF: TBD Revisit and revise
-        bv                      = ParamGenerator.grids(scenario).bv;
-        modelunit_dollar        = scenario.modelunit_dollar;
         s.taxcredit     = 0.15;     % Benefit tax credit percentage
-        s.ssincmaxs     = repmat(1.185e5*modelunit_dollar, [1,T_model]); % Maximum income subject to benefit calculation
+        s.ssincmaxs     = repmat(1.185e5*scenario.modelunit_dollar, [1,T_model]); % Maximum income subject to benefit calculation
 
-        % Calculate benefits
+        % Fetch initial benefits for each cohort 
+        %   REM: Benefits are per month in US dollars 
+        %        in year = first_transition_year - 1
+        first_birthyear = first_year - (T_life + s.enter_work_force);
         matchparams     = {'SSBenefitsPolicy'};
         mapfile         = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), 'Map.csv' );
-        bracketsfile    = strcat('Benefits_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
+        bracketsfile    = strcat('InitialBenefits_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
         bracketsfile    = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), bracketsfile );      
-
-        [ssbrackets, ssrates, ~] = read_brackets_rates( bracketsfile, oldest_birth_year, nstartyears );                               ...
-        ssbrackets = 12*modelunit_dollar*ssbrackets;    % Thresholds for earnings brackets
-        ssbenefit = zeros(size(bv,1), nstartyears);
-
-        for i = 1:nstartyears
-            ssbenefit(:,i) = [ max(min(bv, ssbrackets(i,2)) - ssbrackets(i,1), 0) , ...
-                          max(min(bv, ssbrackets(i,3)) - ssbrackets(i,2), 0) , ...
-                          max(min(bv, Inf            ) - ssbrackets(i,3), 0) ] * ssrates(i,:)';
-        end
         
-        s.ssbenefits  = ssbenefit;  % Benefits
+        [brackets, rates, ~]    = read_brackets_rates( bracketsfile, first_birthyear, nstartyears );                               ...
         
-
+        s.startyear_benefitbrackets   = 12*scenario.modelunit_dollar*brackets;    
+        s.startyear_benefitrates      = rates;
+        
+        % Year-based policy for benefit rates adjustments
+        s.benefits_adjustment   = ones(T_model, 1);
     end % social_security
     
     
@@ -688,8 +682,9 @@ end % read_tax_vars()
 %    (Year), (Bracket1), ... (BracketN), (Rate1), ... (RateN)
 %    filename     : fullfile of CSV to read
 %    first_year   : don't read years before this param
+%    T_years      : read this many years 
 function [brackets, rates, burdens] = read_brackets_rates( ...
-                                        filename, first_year, T_model )
+                                        filename, first_year, T_years )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
@@ -723,14 +718,14 @@ function [brackets, rates, burdens] = read_brackets_rates( ...
 
     % Pad brackets and rates if not long enough, truncate if too long
     num_years = size(brackets,1);
-    if( T_model - num_years <= 0 )
-        brackets    = brackets(1:T_model,:);
-        rates       = rates(1:T_model,:);
+    if( T_years - num_years <= 0 )
+        brackets    = brackets(1:T_years,:);
+        rates       = rates(1:T_years,:);
     else
         brackets    = [brackets; ...
-            repmat(brackets(end,:)  , [T_model-num_years, 1])   ];
+            repmat(brackets(end,:)  , [T_years-num_years, 1])   ];
         rates       = [rates; ...
-            repmat(rates(end,:)     , [T_model-num_years, 1])   ];
+            repmat(rates(end,:)     , [T_years-num_years, 1])   ];
     end
     
     % Calculate cumulative tax burdens along brackets dimension
