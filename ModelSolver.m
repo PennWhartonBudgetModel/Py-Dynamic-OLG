@@ -179,7 +179,7 @@ methods (Static)
                 solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits) solve_cohort(V0, LAB_static, isdynamic, ...
                     nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, Market.kpricescale*kv, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
-                    sstaxcredit, ssbenefits, ssincmins, ssincmaxs, ...
+                    sstaxcredit, ssbenefits, ssincmins .* Market.wageinflations, ssincmaxs .* Market.wageinflations, ...
                     sstax_brackets, sstax_burdens, sstax_rates, ...
                     pittax_brackets, pittax_burdens, pittax_rates, ... 
                     captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
@@ -553,12 +553,13 @@ methods (Static)
                     
             end
             
-            Market.rhos  = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
-            Market.wages = A*(1-alpha)*(Market.rhos.^alpha);
+            Market.rhos           = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
+            Market.wages          = A*(1-alpha)*(Market.rhos.^alpha);
+            Market.wageinflations = ones(T_model,1); % TBD: Substitute for Market.wages/Market.wages(1);
             
-            Market.kpricescale = 1 + Market.capshares(1)*(qtobin - qtobin0)/qtobin;
-            Market.qtobin0     = qtobin0;
-            Market.qtobin      = qtobin;
+            Market.kpricescale    = 1 + Market.capshares(1)*(qtobin - qtobin0)/qtobin;
+            Market.qtobin0        = qtobin0;
+            Market.qtobin         = qtobin;
             
             % Generate dynamic aggregates
             [Dynamic, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {});

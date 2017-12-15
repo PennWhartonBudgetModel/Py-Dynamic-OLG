@@ -49,8 +49,8 @@ assert( isa(bequest_phi_2, 'double' ) && (size(bequest_phi_2, 1) == 1 ) && (size
 assert( isa(bequest_phi_3, 'double' ) && (size(bequest_phi_3, 1) == 1 ) && (size(bequest_phi_3, 2) == 1 ) );
 
 assert( isa(sstaxcredit , 'double'  ) && (size(sstaxcredit  , 1) == 1       ) && (size(sstaxcredit  , 2) == 1       ) );
-assert( isa(ssincmins   , 'double'  ) && (size(ssincmins    , 1) == 1       ) && (size(ssincmins    , 2) <= T_max   ) );
-assert( isa(ssincmaxs   , 'double'  ) && (size(ssincmaxs    , 1) == 1       ) && (size(ssincmaxs    , 2) <= T_max   ) );
+assert( isa(ssincmins   , 'double'  ) && (size(ssincmins    , 1) <= T_max   ) && (size(ssincmins    , 2) == 1       ) );
+assert( isa(ssincmaxs   , 'double'  ) && (size(ssincmaxs    , 1) <= T_max   ) && (size(ssincmaxs    , 2) == 1       ) );
 
 assert( isa(ssbenefits      , 'double' ) && (size(ssbenefits      , 1) <= T_max ) && (size(ssbenefits      , 2) <= nb_max        ) );
 

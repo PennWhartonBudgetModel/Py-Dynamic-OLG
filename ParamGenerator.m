@@ -345,8 +345,8 @@ methods (Static)
         
         %  OLD STUFF: TBD Revisit and revise
         s.taxcredit     = 0.15;     % Benefit tax credit percentage
-        s.ssincmaxs     = repmat(1.185e5*scenario.modelunit_dollar, [1,T_model]); % Maximum income subject to benefit calculation
-        s.ssincmins     = zeros(1,T_model);                                       % Minimum income subject to benefit calculation
+        s.ssincmaxs     = repmat(1.185e5*scenario.modelunit_dollar, [T_model, 1]); % Maximum income subject to benefit calculation
+        s.ssincmins     = zeros(T_model, 1);                                       % Minimum income subject to benefit calculation
 
         % Fetch initial benefits for each cohort 
         %   REM: Benefits are per month in US dollars 
