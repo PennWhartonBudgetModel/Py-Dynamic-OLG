@@ -364,8 +364,18 @@ methods (Static)
                 fprintf('Failed to generate data series output for row %6u of batch %s.\n', i, num2str(batch));
                 
             end
-            
+        end % for loop on batch
+        
+        % Generate interface dependences file for this version
+        depfileName = fullfile( PathFinder.getDataSeriesOutputDir(), 'InterfaceDependences.csv');  
+        fid         = fopen( depfileName, 'w' ); 
+        
+        fprintf  (fid, 'Component,Interface,Version\n'); 
+        for r = PathFinder.getInputSet()
+            fprintf( fid, '%s,%s,%s\n', r{1}{1}, r{1}{2}, r{1}{3});
         end
+        fclose   (fid);
+        
         
         
         function [] = writeFiles(tag, Dynamic_currentPolicyOpen, Dynamic_currentPolicyClosed)
