@@ -98,6 +98,9 @@ OPT.CON = zeros(nz,nk,nb,T_active);   % Consumption
 % Initialize forward-looking utility values
 V_step = V0;
 
+% Pre-calculate for speed and conciseness
+reciprocal_1sigma = 1/(1-sigma);
+
 % Specify settings for dynamic optimization subproblems
 optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
 
@@ -133,6 +136,7 @@ for t = T_active:-1:1
     
     % Pre-calculate for speed and conciseness
     bequest_p_1   = beta * (1-surv(age))* bequest_phi_1;
+    reciprocalage = 1/age;
     
     for ib = 1:nb
         for ik = 1:nk
@@ -158,7 +162,7 @@ for t = T_active:-1:1
                     % Call retirement age value function to set parameters
                     value_retirement([], kv, resources, EV(:,ib), ... 
                                 bequest_p_1, bequest_phi_2, bequest_phi_3, ...
-                                sigma, gamma);
+                                sigma, gamma, reciprocal_1sigma);
                     
                     % Solve dynamic optimization subproblem
                     [k, v] = fminsearch(@value_retirement, kv(ik), optim_options);
@@ -212,8 +216,8 @@ for t = T_active:-1:1
                         % Call working age value function and average earnings calculation function to set parameters
                         value_working([], kv, bv, wage_eff, EV, ...
                                 bequest_p_1, bequest_phi_2, bequest_phi_3, ...
-                                sigma, gamma);
-                        calculate_b  ([], age, bv(ib), bv(end), ssincmin, ssincmax, sswageindex);
+                                sigma, gamma, reciprocal_1sigma);
+                        calculate_b  ([], age, reciprocalage, bv(ib), bv(end), ssincmin, ssincmax, sswageindex);
                         
                         % Solve dynamic optimization subproblem
                         lab0 = 0.5;
@@ -343,7 +347,7 @@ end
 % Retirement age value function
 function v = value_retirement(k, kv_, resources_, EV_ib_,... 
                     bequest_p_1_, bequest_phi_2_, bequest_phi_3_, ...
-                    sigma_, gamma_)
+                    sigma_, gamma_, reciprocal_1sigma_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -351,14 +355,14 @@ coder.inline('always');
 % Define parameters as persistent variables
 persistent kv resources EV_ib ...
             bequest_p_1 bequest_phi_2 bequest_phi_3 ...
-            sigma gamma ...
+            sigma gamma reciprocal_1sigma ...
             initialized
 
 % Initialize parameters for C code generation
 if isempty(initialized)
     kv = 0; resources = 0; EV_ib = 0; 
     bequest_p_1 = 0; bequest_phi_2 = 0; bequest_phi_3 = 0;
-    sigma = 0; gamma = 0;
+    sigma = 0; gamma = 0; reciprocal_1sigma = 1;
     initialized = true;
 end
 
@@ -366,7 +370,7 @@ end
 if (nargin > 1)
     kv = kv_; resources = resources_; EV_ib = EV_ib_; 
     bequest_p_1 = bequest_p_1_; bequest_phi_2 = bequest_phi_2_; bequest_phi_3 = bequest_phi_3_; 
-    sigma = sigma_; gamma = gamma_;
+    sigma = sigma_; gamma = gamma_; reciprocal_1sigma = reciprocal_1sigma_;
     if isempty(k), return, end
 end
 
@@ -383,9 +387,9 @@ if (kv(1) <= k) && (k <= kv(end)) && (0 <= consumption)
     value_bequest = bequest_p_1 * (1 + k/bequest_phi_2)^(1-bequest_phi_3);
     
     % Calculate utility
-    v = (consumption^(gamma*(1-sigma)))/(1-sigma) ... % flow utility
-        + interp1(kv, EV_ib, k, 'linear')         ... % continuation value of life
-        + value_bequest                           ;   % value of bequest
+    v = (consumption^(gamma*(1-sigma)))*reciprocal_1sigma ... % flow utility
+        + interp1(kv, EV_ib, k, 'linear')                 ... % continuation value of life
+        + value_bequest                                   ;   % value of bequest
     
     % Negate utility for minimization and force to scalar for C code generation
     v = -v(1);
@@ -402,7 +406,7 @@ end
 % Working age value function
 function v = value_working(x, kv_, bv_, wage_eff_, EV_, ...
                     bequest_p_1_, bequest_phi_2_, bequest_phi_3_, ...
-                    sigma_, gamma_)
+                    sigma_, gamma_, reciprocal_1sigma_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
@@ -410,14 +414,14 @@ coder.inline('always');
 % Define parameters as persistent variables
 persistent kv bv wage_eff EV ...
             bequest_p_1 bequest_phi_2 bequest_phi_3 ...
-            sigma gamma ...
+            sigma gamma reciprocal_1sigma...
             initialized
 
 % Initialize parameters for C code generation
 if isempty(initialized)
     kv = 0; bv = 0; wage_eff = 0; EV = 0; 
     bequest_p_1 = 0; bequest_phi_2 = 0; bequest_phi_3 = 0;
-    sigma = 0; gamma = 0;
+    sigma = 0; gamma = 0; reciprocal_1sigma = 1;
     initialized = true;
 end
 
@@ -425,7 +429,7 @@ end
 if (nargin > 1)
     kv = kv_; bv = bv_; wage_eff = wage_eff_; EV = EV_; 
     bequest_p_1 = bequest_p_1_; bequest_phi_2 = bequest_phi_2_; bequest_phi_3 = bequest_phi_3_; 
-    sigma = sigma_; gamma = gamma_;
+    sigma = sigma_; gamma = gamma_; reciprocal_1sigma = reciprocal_1sigma_;
     if isempty(x), return, end
 end
 
@@ -463,9 +467,9 @@ end
 value_bequest = bequest_p_1 * (1 + k/bequest_phi_2)^(1-bequest_phi_3);
     
 % Calculate utility
-v = (((consumption^gamma)*((1-lab)^(1-gamma)))^(1-sigma))/(1-sigma) ... % flow utility
-    + interp2(kv', bv, EV', k, b, 'linear')                         ... % continuation value of life
-    + value_bequest                                                 ;   % value of bequest
+v = (((consumption^gamma)*((1-lab)^(1-gamma)))^(1-sigma))*reciprocal_1sigma ... % flow utility
+    + interp2(kv', bv, EV', k, b, 'linear')                                 ... % continuation value of life
+    + value_bequest                                                         ;   % value of bequest
  
 % Negate utility for minimization and force to scalar for C code generation
 v = -v(1);
@@ -476,24 +480,24 @@ end
 
 
 % Average earnings calculation function
-function [b] = calculate_b(labinc, age_, bv_ib_, bv_nb_, ssincmin_, ssincmax_, sswageindex_)
+function [b] = calculate_b(labinc, age_, reciprocalage_, bv_ib_, bv_nb_, ssincmin_, ssincmax_, sswageindex_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
 
 % Define parameters as persistent variables
-persistent age bv_ib bv_nb ssincmin ssincmax sswageindex...
+persistent age reciprocalage bv_ib bv_nb ssincmin ssincmax sswageindex...
            initialized
 
 % Initialize parameters for C code generation
 if isempty(initialized)
-    age = 0; bv_ib = 0; bv_nb = 0; ssincmin = 0; ssincmax = 0; sswageindex = 0;
+    age = 0; reciprocalage = 1; bv_ib = 0; bv_nb = 0; ssincmin = 0; ssincmax = 0; sswageindex = 0;
     initialized = true;
 end
 
 % Set parameters if provided
 if (nargin > 1)
-    age = age_; bv_ib = bv_ib_; bv_nb = bv_nb_; ssincmin = ssincmin_; ssincmax = ssincmax_; sswageindex = sswageindex_;
+    age = age_; reciprocalage = reciprocalage_; bv_ib = bv_ib_; bv_nb = bv_nb_; ssincmin = ssincmin_; ssincmax = ssincmax_; sswageindex = sswageindex_;
     if isempty(labinc), return, end
 end
 
@@ -507,7 +511,7 @@ end
 % We choose to believe b < bv(1) = 0 is not a possibility since a negative labinc would
 % cause the code to break before getting here.
 if labinc > (ssincmin + 10*eps)
-    b = (bv_ib*(age-1) + sswageindex*min(labinc, ssincmax))/age - 10*eps;
+    b = (bv_ib*(age-1) + sswageindex*min(labinc, ssincmax))*reciprocalage - 10*eps;
 else
     b = bv_ib;
 end
