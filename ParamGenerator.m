@@ -367,7 +367,10 @@ methods (Static)
         % Year-based policy for benefit rates adjustments
         filename = strcat('BenefitsAdjustment_', policy_id , '.csv' );
         
-        adjrates = read_series( filename, first_year, PathFinder.getSocialSecurityBenefitsInputDir() );      
+        adjrates = read_series_withpad( filename                                            ...
+                                    ,   first_year                                          ...
+                                    ,   PathFinder.getSocialSecurityBenefitsInputDir()      ...
+                                    ,   first_year + T_model );      
     
         % Verify that adj has same number of brackets
         if( size(adjrates, 2) ~= size(brackets, 2) )
@@ -753,9 +756,13 @@ end % read_brackets_rates()
 %%
 % Read a CSV file in format (Index), (Value1), (Value2), ... (ValueN)
 %       first_index     : first index to read (previous part of file is ignored
+%       last_index      : (optional) If given, copy the last available
+%                       value so that series goes from first_index ...
+%                       last_index. If the original series is too long,
+%                       truncate.
 %    For time series, (Index) is (Year), 
 %    For other series (e.g. age_survival_probability, (Index) is (Age)
-function [series] = read_series(filename, first_index, param_dir )
+function [series] = read_series_withpad(filename, first_index, param_dir, last_index )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
@@ -778,7 +785,25 @@ function [series] = read_series(filename, first_index, param_dir )
     
     series      = vals(idx_start:end, : );
 
-end % read_series
+    if( ~isempty(last_index) )
+        % Pad or truncate
+        num_indices     = size(series,1);
+        num_required    = last_index - first_index;
 
+        if( num_required - num_indices <= 0 )
+            series    = series(1:num_required,:);
+        else
+            series    = [series; ...
+                repmat(series(end,:)  , [num_required-num_indices, 1])   ];
+        end
+    end;
+
+end % read_series_withpad
+
+
+%  Easier signature for read_series
+function [series] = read_series(filename, first_index, param_dir )
+    series = read_series_withpad( filename, first_index, param_dir, [] );
+end % read_series
 %%  END FILE
 
