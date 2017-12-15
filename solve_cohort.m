@@ -8,7 +8,7 @@ function [OPT] = solve_cohort(V0, LAB_static, isdynamic, ...
                         nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, ... 
                         zs_idem, transz, kv, bv, beta, gamma, sigma, surv, ...
                         bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
-                        sstaxcredit, ssbenefits, ssincmins, ssincmaxs, ...
+                        sstaxcredit, ssbenefits, ssincmins, ssincmaxs, sswageindexes, ...
                         sstax_brackets, sstax_burdens, sstax_rates, ...
                         pittax_brackets, pittax_burdens, pittax_rates, ... 
                         captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
@@ -48,9 +48,10 @@ assert( isa(bequest_phi_1, 'double' ) && (size(bequest_phi_1, 1) == 1 ) && (size
 assert( isa(bequest_phi_2, 'double' ) && (size(bequest_phi_2, 1) == 1 ) && (size(bequest_phi_2, 2) == 1 ) );
 assert( isa(bequest_phi_3, 'double' ) && (size(bequest_phi_3, 1) == 1 ) && (size(bequest_phi_3, 2) == 1 ) );
 
-assert( isa(sstaxcredit , 'double'  ) && (size(sstaxcredit  , 1) == 1       ) && (size(sstaxcredit  , 2) == 1       ) );
-assert( isa(ssincmins   , 'double'  ) && (size(ssincmins    , 1) <= T_max   ) && (size(ssincmins    , 2) == 1       ) );
-assert( isa(ssincmaxs   , 'double'  ) && (size(ssincmaxs    , 1) <= T_max   ) && (size(ssincmaxs    , 2) == 1       ) );
+assert( isa(sstaxcredit  , 'double'  ) && (size(sstaxcredit  , 1) == 1       ) && (size(sstaxcredit  , 2) == 1       ) );
+assert( isa(ssincmins    , 'double'  ) && (size(ssincmins    , 1) <= T_max   ) && (size(ssincmins    , 2) == 1       ) );
+assert( isa(ssincmaxs    , 'double'  ) && (size(ssincmaxs    , 1) <= T_max   ) && (size(ssincmaxs    , 2) == 1       ) );
+assert( isa(sswageindexes, 'double'  ) && (size(sswageindexes, 1) <= T_max   ) && (size(sswageindexes, 2) == 1       ) );
 
 assert( isa(ssbenefits      , 'double' ) && (size(ssbenefits      , 1) <= T_max ) && (size(ssbenefits      , 2) <= nb_max        ) );
 
@@ -109,15 +110,16 @@ for t = T_active:-1:1
     year = min(t + T_shift, T_model);
     
     % Extract parameters for current year
-    ssincmax   = ssincmaxs    (year);
-    ssincmin   = ssincmins    (year);
-    beq        = beqs         (year);
-    wage       = wages        (year);
-    caprate    = caprates     (year);
-    govrate    = govrates     (year);
-    capshare   = capshares    (year);
-    totrate    = totrates     (year);
-    expsub     = expsubs      (year);
+    ssincmax    = ssincmaxs    (year);
+    ssincmin    = ssincmins    (year);
+    sswageindex = sswageindexes(year);
+    beq         = beqs         (year);
+    wage        = wages        (year);
+    caprate     = caprates     (year);
+    govrate     = govrates     (year);
+    capshare    = capshares    (year);
+    totrate     = totrates     (year);
+    expsub      = expsubs      (year);
     
     ssbenefit       = ssbenefits        (year, :);
     
@@ -211,7 +213,7 @@ for t = T_active:-1:1
                         value_working([], kv, bv, wage_eff, EV, ...
                                 bequest_p_1, bequest_phi_2, bequest_phi_3, ...
                                 sigma, gamma);
-                        calculate_b  ([], age, bv(ib), bv(end), ssincmin, ssincmax);
+                        calculate_b  ([], age, bv(ib), bv(end), ssincmin, ssincmax, sswageindex);
                         
                         % Solve dynamic optimization subproblem
                         lab0 = 0.5;
@@ -474,24 +476,24 @@ end
 
 
 % Average earnings calculation function
-function [b] = calculate_b(labinc, age_, bv_ib_, bv_nb_, ssincmin_, ssincmax_)
+function [b] = calculate_b(labinc, age_, bv_ib_, bv_nb_, ssincmin_, ssincmax_, sswageindex_)
 
 % Enforce function inlining for C code generation
 coder.inline('always');
 
 % Define parameters as persistent variables
-persistent age bv_ib bv_nb ssincmin ssincmax ...
+persistent age bv_ib bv_nb ssincmin ssincmax sswageindex...
            initialized
 
 % Initialize parameters for C code generation
 if isempty(initialized)
-    age = 0; bv_ib = 0; bv_nb = 0; ssincmin = 0; ssincmax = 0;
+    age = 0; bv_ib = 0; bv_nb = 0; ssincmin = 0; ssincmax = 0; sswageindex = 0;
     initialized = true;
 end
 
 % Set parameters if provided
 if (nargin > 1)
-    age = age_; bv_ib = bv_ib_; bv_nb = bv_nb_; ssincmin = ssincmin_; ssincmax = ssincmax_;
+    age = age_; bv_ib = bv_ib_; bv_nb = bv_nb_; ssincmin = ssincmin_; ssincmax = ssincmax_; sswageindex = sswageindex_;
     if isempty(labinc), return, end
 end
 
@@ -505,7 +507,7 @@ end
 % We choose to believe b < bv(1) = 0 is not a possibility since a negative labinc would
 % cause the code to break before getting here.
 if labinc > (ssincmin + 10*eps)
-    b = (bv_ib*(age-1) + min(labinc, ssincmax))/age - 10*eps;
+    b = (bv_ib*(age-1) + sswageindex*min(labinc, ssincmax))/age - 10*eps;
 else
     b = bv_ib;
 end

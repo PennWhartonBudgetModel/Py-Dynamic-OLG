@@ -176,10 +176,10 @@ methods (Static)
             for idem = 1:ndem
                 
                 % Package fixed dynamic optimization arguments into anonymous function
-                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits) solve_cohort(V0, LAB_static, isdynamic, ...
+                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, sswageindexes) solve_cohort(V0, LAB_static, isdynamic, ...
                     nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, Market.kpricescale*kv, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
-                    sstaxcredit, ssbenefits, ssincmins .* Market.wageinflations, ssincmaxs .* Market.wageinflations, ...
+                    sstaxcredit, ssbenefits, ssincmins .* Market.wageinflations, ssincmaxs .* Market.wageinflations, sswageindexes, ...
                     sstax_brackets, sstax_burdens, sstax_rates, ...
                     pittax_brackets, pittax_burdens, pittax_rates, ... 
                     captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
@@ -200,9 +200,13 @@ methods (Static)
                                             ,   Market.wages                                       ...
                                             ,   bv, T_model );
                 
+                    % TBD: Calculate index as (wage at age 60)/(wage at year t) and provide 
+                    % an alternative measure for households who will be 60 after T_model
+                    sswageindexes = ones(T_model, 1);
+                    
                     % Solve dynamic optimization
                     % (Note that active time is set to full lifetime)
-                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits);
+                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits, sswageindexes);
                     
                     % Define series of terminal utility values
                     V0s(:,:,:,1:T_life-1) = OPT.V(:,:,:,2:T_life);
@@ -235,9 +239,12 @@ methods (Static)
                                             ,   Market.wages                                     ...
                                             ,   bv, T_model );
 
+                            % TBD: Calculate index as (wage at age 60)/(wage at year t) and provide 
+                            % an alternative measure for households who will be 60 after T_model
+                            sswageindexes = ones(T_model, 1);
                             
                             % Solve dynamic optimization
-                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits);
+                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, sswageindexes);
                             
                             LABs{i,idem} = OPTs_cohort{i}.LAB;
                             
