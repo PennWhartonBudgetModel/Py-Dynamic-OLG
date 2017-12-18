@@ -355,7 +355,7 @@ methods (Static)
         
         %% Static aggregate generation
         
-        if ~isbase
+        if ~isbase && ~strcmp(economy, 'steady')
             
             baselineScenario = scenario.currentPolicy();
             base_generator = @() ModelSolver.solve(baselineScenario, callingtag);
