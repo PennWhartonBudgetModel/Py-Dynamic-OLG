@@ -200,7 +200,7 @@ methods (Static)
                                             ,   Market.wages                                       ...
                                             ,   bv, T_model );
                 
-                    % TBD: Calculate index as (wage at age 60)/(wage at year t) and provide 
+                    % TBD: Calculate index as (average wage at age 60)/(average current wage) and provide 
                     % an alternative measure for households who will be 60 after T_model
                     sswageindexes = ones(T_model, 1);
                     
@@ -239,7 +239,7 @@ methods (Static)
                                             ,   Market.wages                                     ...
                                             ,   bv, T_model );
 
-                            % TBD: Calculate index as (wage at age 60)/(wage at year t) and provide 
+                            % TBD: Calculate index as (average wage at age 60)/(average current wage) and provide 
                             % an alternative measure for households who will be 60 after T_model
                             sswageindexes = ones(T_model, 1);
                             
