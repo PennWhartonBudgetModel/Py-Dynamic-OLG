@@ -461,6 +461,13 @@ methods (Static)
         deficit_nis_fraction_GDP    = deficit_nis./SIMGDP;                
         debt_percent_GDP            = debt./SIMGDP;                       
         
+        % Calculate CPI index -- normalize to 1 for first year
+        if( strcmp(scenario.economy, 'steady' ) )
+            CBOCPI = 1;
+        else
+            CBOCPI = CBOCPI ./ CBOCPI(1);
+        end
+        
         % Name, transpose, truncate vars to correspond to currently used variables 
         % NOTE: The series must go out to T_model or import will break.
         %       Breaking is good here. (Though gracefully would be better)
@@ -505,6 +512,7 @@ methods (Static)
                 tax_revenue_by_GDP(end)*ones(1, T_model-length(tax_revenue_by_GDP))];
         end
         s.tax_revenue_by_GDP = tax_revenue_by_GDP; 
+        s.CPI = CBOCPI';
         
     end % budget
     

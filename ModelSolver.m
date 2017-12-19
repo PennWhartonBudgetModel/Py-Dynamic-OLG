@@ -117,6 +117,7 @@ methods (Static)
         fedgovtnis       = s.fedgovtnis;            % Gvt net interest surplus (deficit)
         cborates         = s.cborates;              % Interest rates on gvt debt (from CBO)
         cbomeanrate      = s.cbomeanrate;           % Avg of cborates (for steady state)
+        CPI              = s.CPI;                   % Price index for consumption goods
         % Tax revenue targets (for Ttilde), depend on tax plan
         tax_revenue_by_GDP = s.tax_revenue_by_GDP;
         
