@@ -362,7 +362,7 @@ persistent kv resources EV_ib ...
 if isempty(initialized)
     kv = 0; resources = 0; EV_ib = 0; 
     bequest_p_1 = 0; bequest_phi_2 = 0; bequest_phi_3 = 0;
-    sigma = 0; gamma = 0; reciprocal_1sigma = 1;
+    sigma = 0; gamma = 0; reciprocal_1sigma = 0;
     initialized = true;
 end
 
@@ -421,7 +421,7 @@ persistent kv bv wage_eff EV ...
 if isempty(initialized)
     kv = 0; bv = 0; wage_eff = 0; EV = 0; 
     bequest_p_1 = 0; bequest_phi_2 = 0; bequest_phi_3 = 0;
-    sigma = 0; gamma = 0; reciprocal_1sigma = 1;
+    sigma = 0; gamma = 0; reciprocal_1sigma = 0;
     initialized = true;
 end
 
@@ -491,7 +491,7 @@ persistent age reciprocalage bv_ib bv_nb ssincmin ssincmax sswageindex...
 
 % Initialize parameters for C code generation
 if isempty(initialized)
-    age = 0; reciprocalage = 1; bv_ib = 0; bv_nb = 0; ssincmin = 0; ssincmax = 0; sswageindex = 0;
+    age = 0; reciprocalage = 0; bv_ib = 0; bv_nb = 0; ssincmin = 0; ssincmax = 0; sswageindex = 0;
     initialized = true;
 end
 
