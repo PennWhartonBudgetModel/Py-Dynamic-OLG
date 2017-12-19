@@ -173,6 +173,7 @@ methods (Static)
                 DIST_trans = {};
             end
             
+            Market.priceindices = ModelSolver.generate_index(Market.wages, nstartyears, startyears, T_model, T_actives, T_shifts);
             
             for idem = 1:ndem
                 
@@ -180,7 +181,7 @@ methods (Static)
                 solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, sswageindexes) solve_cohort(V0, LAB_static, isdynamic, ...
                     nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, Market.kpricescale*kv, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
-                    sstaxcredit, ssbenefits, ssincmins .* Market.wageinflations, ssincmaxs .* Market.wageinflations, sswageindexes, ...
+                    sstaxcredit, ssbenefits, ssincmins, ssincmaxs, sswageindexes, ...
                     sstax_brackets, sstax_burdens, sstax_rates, ...
                     pittax_brackets, pittax_burdens, pittax_rates, ... 
                     captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
@@ -561,13 +562,12 @@ methods (Static)
                     
             end
             
-            Market.rhos           = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
-            Market.wages          = A*(1-alpha)*(Market.rhos.^alpha);
-            Market.wageinflations = ones(T_model,1); % TBD: Substitute for Market.wages/Market.wages(1);
+            Market.rhos         = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
+            Market.wages        = A*(1-alpha)*(Market.rhos.^alpha);
             
-            Market.kpricescale    = 1 + Market.capshares(1)*(qtobin - qtobin0)/qtobin;
-            Market.qtobin0        = qtobin0;
-            Market.qtobin         = qtobin;
+            Market.kpricescale  = 1 + Market.capshares(1)*(qtobin - qtobin0)/qtobin;
+            Market.qtobin0      = qtobin0;
+            Market.qtobin       = qtobin;
             
             % Generate dynamic aggregates
             [Dynamic, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {});
@@ -707,6 +707,8 @@ methods (Static)
             save(fullfile(save_dir, 'decisions.mat'   ), 'LABs')
         end
         
+        % Delete price indices from Market
+%         Market = rmfield(Market,'priceindices')
         % Save market conditions and dynamic aggregates
         save(fullfile(save_dir, 'market.mat'  ), '-struct', 'Market' )
         save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic')
@@ -827,7 +829,34 @@ methods (Static, Access = private )
         end
         
     end % calculateSSBenefitForCohort
+    
+    %
+    % Create indexes for benefits and taxmax calculations and import CPI index
+    %
+    function index = generate_index(Market_wages, nstartyears, startyears, T_model, T_actives, T_shifts)
 
+        index.wage_inflations = Market_wages./Market_wages(1);         % Time-varying indexes
+        index.cohort_wages    = ones(nstartyears, T_model);            % Time- and cohort-varying indexes
+        index.cpi             = ones(T_model,1);                       % Time-varying CPI indexes from CBO
+
+        % Loop over cohorts
+        for i = 1:nstartyears
+            % Loop over cohorts that get to live past age 60
+            if startyears(i) <= T_model - 40
+                year60 = int8(startyears(i) + 40);
+                % Loop over cohorts that get to be 60 withing T_model
+                if year60 >= 1
+                    % Loop over time
+                    for t = T_actives(i):-1:1
+                        year = min(t + T_shifts(i), T_model);
+                        index.cohort_wages(i,year) = Market_wages(year)./Market_wages(year60);
+                    end
+                end
+            end
+        end
+
+    end
+    
 end % private methods
 
 end
