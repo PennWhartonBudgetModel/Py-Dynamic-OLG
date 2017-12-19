@@ -177,10 +177,10 @@ methods (Static)
             for idem = 1:ndem
                 
                 % Package fixed dynamic optimization arguments into anonymous function
-                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, sswageindexes) solve_cohort(V0, LAB_static, isdynamic, ...
+                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindices) solve_cohort(V0, LAB_static, isdynamic, ...
                     nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, Market.kpricescale*kv, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
-                    sstaxcredit, ssbenefits, ssincmins, ssincmaxs, sswageindexes, ...
+                    sstaxcredit, ssbenefits, ssincmins, ssincmaxs, cohort_wageindices, ...
                     sstax_brackets, sstax_burdens, sstax_rates, ...
                     pittax_brackets, pittax_burdens, pittax_rates, ... 
                     captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
@@ -201,13 +201,9 @@ methods (Static)
                                             ,   Market.wages                                       ...
                                             ,   bv, T_model );
                 
-                    % TBD: Calculate index as (average wage at age 60)/(average current wage) and provide 
-                    % an alternative measure for households who will be 60 after T_model
-                    sswageindexes = ones(T_model, 1);
-                    
                     % Solve dynamic optimization
                     % (Note that active time is set to full lifetime)
-                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits, sswageindexes);
+                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits, Market.priceindices.cohort_wages(end,:)');
                     
                     % Define series of terminal utility values
                     V0s(:,:,:,1:T_life-1) = OPT.V(:,:,:,2:T_life);
@@ -240,12 +236,8 @@ methods (Static)
                                             ,   Market.wages                                     ...
                                             ,   bv, T_model );
 
-                            % TBD: Calculate index as (average wage at age 60)/(average current wage) and provide 
-                            % an alternative measure for households who will be 60 after T_model
-                            sswageindexes = ones(T_model, 1);
-                            
                             % Solve dynamic optimization
-                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, sswageindexes);
+                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, Market.priceindices.cohort_wages(i,:)');
                             
                             LABs{i,idem} = OPTs_cohort{i}.LAB;
                             
@@ -837,12 +829,25 @@ methods (Static, Access = private )
         index.wage_inflations = Market_wages./Market_wages(1);         % Time-varying indexes
         index.cohort_wages    = ones(nstartyears, T_model);            % Time- and cohort-varying indexes
         index.cpi             = ParamGenerator.budget( scenario ).CPI; % Time-varying CPI indexes from CBO
-
+        
+        realage_entry = ParamGenerator.timing(scenario).realage_entry;
+        
         % Loop over cohorts
         for i = 1:nstartyears
             % Loop over cohorts that get to live past age 60
-            if startyears(i) <= T_model - 40
-                year60 = int8(startyears(i) + 40);
+            if startyears(i) <= T_model - (60 - realage_entry) % or T_pasts(i) >= 60 - realage_entry - T_model
+                % Loop over cohorts that get to be 60 withing T_model (i.e., exclude cohorts that enter the model aged 61+)
+                if startyears(i) >= -(60 - realage_entry - 1)  % or T_past(i) <= (60 - realage_entry - 1)
+                    % Loop over time
+                    for t = T_actives(i):-1:1
+                        agev = t + T_past;
+                        year = min(t + T_shifts(i), T_model);
+                        
+                    end
+                
+                
+                
+                year60 = int8(startyears(i) + (60 - realage_entry));
                 % Loop over cohorts that get to be 60 withing T_model
                 if year60 >= 1
                     % Loop over time
@@ -851,6 +856,9 @@ methods (Static, Access = private )
                         index.cohort_wages(i,year) = Market_wages(year)./Market_wages(year60);
                     end
                 end
+            % Fill in with last index for cohorts that get to be 60 past T_model
+            else
+                index.cohort_wages(i,:) = repmat(reshape(index.cohort_wages(i-1,end), [1,1]), [1,T_model]);
             end
         end
 

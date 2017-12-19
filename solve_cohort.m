@@ -115,7 +115,7 @@ for t = T_active:-1:1
     % Extract parameters for current year
     ssincmax    = ssincmaxs    (year);
     ssincmin    = ssincmins    (year);
-    sswageindex = sswageindexes(year);
+    sswageindex = 1; % TBD: substitute by sswageindexes(year);
     beq         = beqs         (year);
     wage        = wages        (year);
     caprate     = caprates     (year);
