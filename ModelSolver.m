@@ -117,7 +117,6 @@ methods (Static)
         fedgovtnis       = s.fedgovtnis;            % Gvt net interest surplus (deficit)
         cborates         = s.cborates;              % Interest rates on gvt debt (from CBO)
         cbomeanrate      = s.cbomeanrate;           % Avg of cborates (for steady state)
-        CPI              = s.CPI;                   % Price index for consumption goods
         % Tax revenue targets (for Ttilde), depend on tax plan
         tax_revenue_by_GDP = s.tax_revenue_by_GDP;
         
@@ -173,7 +172,7 @@ methods (Static)
                 DIST_trans = {};
             end
             
-            Market.priceindices = ModelSolver.generate_index(Market.wages, nstartyears, startyears, T_model, T_actives, T_shifts);
+            Market.priceindices = ModelSolver.generate_index(scenario, Market.wages, nstartyears, startyears, T_model, T_actives, T_shifts);
             
             for idem = 1:ndem
                 
@@ -833,11 +832,11 @@ methods (Static, Access = private )
     %
     % Create indexes for benefits and taxmax calculations and import CPI index
     %
-    function index = generate_index(Market_wages, nstartyears, startyears, T_model, T_actives, T_shifts)
+    function index = generate_index(scenario, Market_wages, nstartyears, startyears, T_model, T_actives, T_shifts)
 
         index.wage_inflations = Market_wages./Market_wages(1);         % Time-varying indexes
         index.cohort_wages    = ones(nstartyears, T_model);            % Time- and cohort-varying indexes
-        index.cpi             = ones(T_model,1);                       % Time-varying CPI indexes from CBO
+        index.cpi             = ParamGenerator.budget( scenario ).CPI; % Time-varying CPI indexes from CBO
 
         % Loop over cohorts
         for i = 1:nstartyears
