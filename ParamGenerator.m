@@ -391,20 +391,15 @@ methods (Static)
         
 
         %  CBO interest rates, expenditures, and debt
-        % Input: CBOInterestRate.csv -- interest rate (as pct) 
-        %           Format is (Year), (PctRate) w/ header row.
-        %           NOTE: Initial year is unused.
+        % Input: InterestRates.csv -- interest rate (as pct) 
+        %           Format is 
+        %           Year	DebtHeldByPublic	EffectiveInterestRateOnDebt	NonInterestDeficit	CPI
         % Input: SIMGDP.csv -- nominal GDP from baseline SIM
         %           Format is (Year), (NominalGDP) w/ header row.
         % Input: SIMRevenues.csv -- nominal tax revenues from baseline SIM
         %           Format is (Year), (Revenues) w/ header row.
         % Input: SIMExpenditures.csv -- nominal non-interest expenditures from baseline SIM
         %           Format is (Year), (Expenditures) w/ header row.
-        % Input: CBOPublicDebt.csv  -- dollar debt of the gvt
-        %           Format is (Year), (Debt) w/ header row.
-        %           NOTE: Only the year corresponding to first_year is
-        %           used. The other debt amounts are calculated from SIM
-        %           series.
         % Input: CBONonInterestSpending.csv -- NIS as pct GDP
         %           Format is (Year), (PctGDP) w/ header row.
         % Input: CBOSocialSecuritySpending.csv -- SS spending as pct GDP
@@ -417,8 +412,6 @@ methods (Static)
         sim_param   = PathFinder.getMicrosimInputDir();
         
         first_year                  = first_transition_year - 1;    % first year from which to read series
-        CBODebt                     = read_series( 'CBOPublicDebt.csv'              , first_year, cbo_param );
-        CBORates                    = read_series( 'CBOInterestRate.csv'            , first_year, cbo_param );
         SIMGDP                      = read_series( 'SIMGDP.csv'                     , first_year, sim_param );
         SIMRevenues                 = read_series( 'SIMRevenues.csv'                , first_year, sim_param );
         SIMExpenditures             = read_series( 'SIMExpenditures.csv'            , first_year, sim_param );
@@ -427,6 +420,11 @@ methods (Static)
         CBOSocialSecuritySpending   = read_series( 'CBOSocialSecuritySpending.csv'  , first_year, cbo_param );
         CBOMedicareSpending         = read_series( 'CBOMedicareSpending.csv'        , first_year, cbo_param );
 
+        cbo_series      = read_series( 'InterestRates.csv', first_year, cbo_param );
+        CBODebt         = cbo_series(:, 1);
+        CBORates        = cbo_series(:, 2);
+        CBOCPI          = cbo_series(2:end, 4);  % rem: CPI is only for transition path
+        
         if( size(SIMGDP) ~= size(SIMRevenues) ...
             | size(SIMGDP) ~= size(SIMExpenditures) ...
             | size(SIMGDP) ~= size(CBORates) ) ...
@@ -460,6 +458,13 @@ methods (Static)
         CBO_rates_growth_adjusted   = ((100.0+CBORates)./growth_deflator)./100.0 - 1.0;    
         deficit_nis_fraction_GDP    = deficit_nis./SIMGDP;                
         debt_percent_GDP            = debt./SIMGDP;                       
+        
+        % Calculate CPI index -- normalize to 1 for first year
+        if( strcmp(scenario.economy, 'steady' ) )
+            CBOCPI = 1;
+        else
+            CBOCPI = CBOCPI ./ CBOCPI(1);
+        end
         
         % Name, transpose, truncate vars to correspond to currently used variables 
         % NOTE: The series must go out to T_model or import will break.
@@ -505,6 +510,7 @@ methods (Static)
                 tax_revenue_by_GDP(end)*ones(1, T_model-length(tax_revenue_by_GDP))];
         end
         s.tax_revenue_by_GDP = tax_revenue_by_GDP; 
+        s.CPI = CBOCPI';
         
     end % budget
     
