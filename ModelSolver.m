@@ -118,7 +118,6 @@ methods (Static)
         fedgovtnis       = s.fedgovtnis;            % Gvt net interest surplus (deficit)
         cborates         = s.cborates;              % Interest rates on gvt debt (from CBO)
         cbomeanrate      = s.cbomeanrate;           % Avg of cborates (for steady state)
-        CPI              = s.CPI;                   % Price index for consumption goods
         % Tax revenue targets (for Ttilde), depend on tax plan
         tax_revenue_by_GDP = s.tax_revenue_by_GDP;
         
@@ -174,14 +173,15 @@ methods (Static)
                 DIST_trans = {};
             end
             
+            Market.priceindices = ModelSolver.generate_index(scenario, Market.wages, nstartyears, startyears, T_model, T_actives, T_pasts, T_shifts);
             
             for idem = 1:ndem
                 
                 % Package fixed dynamic optimization arguments into anonymous function
-                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits) solve_cohort(V0, LAB_static, isdynamic, ...
+                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes) solve_cohort(V0, LAB_static, isdynamic, ...
                     nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, Market.kpricescale*kv, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
-                    sstaxcredit, ssbenefits, ssincmins, ssincmaxs, ...
+                    sstaxcredit, ssbenefits, ssincmins .* Market.priceindices.wage_inflations', ssincmaxs .* Market.priceindices.wage_inflations', cohort_wageindexes, ...
                     sstax_brackets, sstax_burdens, sstax_rates, ...
                     pittax_brackets, pittax_burdens, pittax_rates, ... 
                     captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
@@ -201,10 +201,10 @@ methods (Static)
                                             ,   socialsecurity.benefits_adjustment                 ...
                                             ,   Market.wages                                       ...
                                             ,   bv, T_model );
-                
+
                     % Solve dynamic optimization
                     % (Note that active time is set to full lifetime)
-                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits);
+                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits, Market.priceindices.cohort_wages(:,end));
                     
                     % Define series of terminal utility values
                     V0s(:,:,:,1:T_life-1) = OPT.V(:,:,:,2:T_life);
@@ -237,9 +237,8 @@ methods (Static)
                                             ,   Market.wages                                     ...
                                             ,   bv, T_model );
 
-                            
                             % Solve dynamic optimization
-                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits);
+                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, Market.priceindices.cohort_wages(:,i));
                             
                             LABs{i,idem} = OPTs_cohort{i}.LAB;
                             
@@ -555,8 +554,8 @@ methods (Static)
                     
             end
             
-            Market.rhos  = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
-            Market.wages = A*(1-alpha)*(Market.rhos.^alpha);
+            Market.rhos        = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
+            Market.wages       = A*(1-alpha)*(Market.rhos.^alpha);
             
             Market.kpricescale = 1 + Market.capshares(1)*(qtobin - qtobin0)/qtobin;
             Market.qtobin0     = qtobin0;
@@ -820,7 +819,7 @@ methods (Static, Access = private )
         end
         
     end % calculateSSBenefitForCohort
-
+    
     
     %% Calculate SS tax brackets using required indexing
     %    If brackets overlap because of indexing, reorder the brackets 
@@ -845,6 +844,43 @@ methods (Static, Access = private )
         
     end % calculateSSTaxBrackets
     
+
+    %%
+    % Create indexes for benefits and taxmax calculations and import CPI index
+    %
+    function index = generate_index(scenario, Market_wages, nstartyears, startyears, T_model, T_actives, T_pasts, T_shifts)
+
+        index.wage_inflations = Market_wages./Market_wages(1);            % Time-varying indexes
+        index.cohort_wages    = ones(T_model, nstartyears);               % Time- and cohort-varying indexes
+        index.nominals        = 1./ParamGenerator.budget( scenario ).CPI; % Time-varying reciprocal CPI indexes from CBO
+        index.reals           = ones(size(Market_wages));                 % Vector to 'index' real variables
+        
+        realage_entry = ParamGenerator.timing(scenario).realage_entry;
+        
+        % Loop over cohorts
+        for i = 1:nstartyears
+            % Loop over cohorts that get to live past age 60
+            if startyears(i) <= T_model - (60 - realage_entry) % or T_pasts(i) >= 60 - realage_entry - T_model
+                % Loop over cohorts that get to be 60 withing T_model (i.e., exclude cohorts that enter the model aged 61+)
+                if startyears(i) >= -(60 - realage_entry - 1)  % or T_past(i) <= (60 - realage_entry - 1)
+                    % Loop over time to find year in which cohort turns 60
+                    year60 = 0;
+                    for t = T_actives(i):-1:1
+                        age = t + T_pasts(i);
+                        if age == (60 - realage_entry)
+                          year60 = min(t + T_shifts(i), T_model);
+                        end
+                    end
+                    index.cohort_wages(:,i) = Market_wages(:)./Market_wages(year60);
+                end
+            end
+        end
+        
+        % TBD: Erase these couple lines when the time comes to implement the policies above
+        index.wage_inflations = ones(size(Market_wages));              % Time-varying indexes
+        index.cohort_wages    = ones(T_model, nstartyears);            % Time- and cohort-varying indexes
+    
+    end
     
 end % private methods
 

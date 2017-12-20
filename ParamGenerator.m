@@ -160,10 +160,8 @@ methods (Static)
         end
         ssincmax = 1.185e5;                                                  % 118,500 is the maximum annual labor income for Social Security tax purposes
         nb =  5; bv = f(   0, ssincmax*scenario.modelunit_dollar, nb  , 2);  % average earnings vector --- Upper bound of average earnings defined as maximum possible Social Security benefit
-        if ~(scenario.HasLimitedBenefits)
-            bv = [bv; 2*ssincmax*scenario.modelunit_dollar];                 % max point arbitrarily set to twice the second largest one
-            nb = nb + 1;
-        end
+        bv = [bv; 15*bv(end)];                                               % max point arbitrarily set to 15x the second largest one
+        nb = nb + 1;
 
         s.ndem     = ndem;
         s.g        = g;
@@ -347,8 +345,8 @@ methods (Static)
         [brackets, rates, burdens] = read_brackets_rates  ( bracketsfile, first_year, T_model );                               ...
         [indices]                  = read_brackets_indices( indexingfile );
         
-        if( size(indices,1) ~= size(brackets,1) )
-            throw(MException('ParamGenerator.social_security:TAXBRACKETS','SSTaxBrackets and BracketsIndexes must have same number of brackets.'));
+        if( size(indices,2) ~= size(brackets,2) )
+            throw(MException('social_security:TAXBRACKETS','SSTaxBrackets and BracketsIndexes must have same number of brackets.'));
         end    
     
         s.taxburdens    = burdens  .*scenario.modelunit_dollar;     % Cumulative tax burden
@@ -356,6 +354,11 @@ methods (Static)
         s.taxrates      = rates                               ;     % Rate for above each bracket threshold
         s.taxindices    = indices                             ;     % Type of index to use for the bracket change
         
+        %  OLD STUFF: TBD Revisit and revise
+        s.taxcredit     = 0.15;     % Benefit tax credit percentage
+        s.ssincmaxs     = repmat(1.185e5*scenario.modelunit_dollar, [T_model, 1]); % Maximum income subject to benefit calculation
+        s.ssincmins     = zeros(T_model, 1);                                       % Minimum income subject to benefit calculation
+
         % Fetch initial benefits for each cohort 
         %   REM: Benefits are per month in US dollars 
         %        in year = first_transition_year - 1
