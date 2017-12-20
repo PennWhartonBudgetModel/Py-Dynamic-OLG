@@ -117,7 +117,6 @@ methods (Static)
         fedgovtnis       = s.fedgovtnis;            % Gvt net interest surplus (deficit)
         cborates         = s.cborates;              % Interest rates on gvt debt (from CBO)
         cbomeanrate      = s.cbomeanrate;           % Avg of cborates (for steady state)
-        CPI              = s.CPI;                   % Price index for consumption goods
         % Tax revenue targets (for Ttilde), depend on tax plan
         tax_revenue_by_GDP = s.tax_revenue_by_GDP;
         
@@ -173,6 +172,7 @@ methods (Static)
                 DIST_trans = {};
             end
             
+            Market.priceindices = ModelSolver.generate_index(scenario, Market.wages, nstartyears, startyears, T_model, T_actives, T_pasts, T_shifts);
             
             for idem = 1:ndem
                 
@@ -827,7 +827,39 @@ methods (Static, Access = private )
         end
         
     end % calculateSSBenefitForCohort
+    
+    %
+    % Create indexes for benefits and taxmax calculations and import CPI index
+    %
+    function index = generate_index(scenario, Market_wages, nstartyears, startyears, T_model, T_actives, T_pasts, T_shifts)
 
+        index.wage_inflations = Market_wages./Market_wages(1);         % Time-varying indexes
+        index.cohort_wages    = ones(T_model, nstartyears);            % Time- and cohort-varying indexes
+        index.cpi             = ParamGenerator.budget( scenario ).CPI; % Time-varying CPI indexes from CBO
+        
+        realage_entry = ParamGenerator.timing(scenario).realage_entry;
+        
+        % Loop over cohorts
+        for i = 1:nstartyears
+            % Loop over cohorts that get to live past age 60
+            if startyears(i) <= T_model - (60 - realage_entry) % or T_pasts(i) >= 60 - realage_entry - T_model
+                % Loop over cohorts that get to be 60 withing T_model (i.e., exclude cohorts that enter the model aged 61+)
+                if startyears(i) >= -(60 - realage_entry - 1)  % or T_past(i) <= (60 - realage_entry - 1)
+                    % Loop over time to find year in which cohort turns 60
+                    year60 = 0;
+                    for t = T_actives(i):-1:1
+                        age = t + T_pasts(i);
+                        if age == (60 - realage_entry)
+                          year60 = min(t + T_shifts(i), T_model);
+                        end
+                    end
+                    index.cohort_wages(:,i) = Market_wages(:)./Market_wages(year60);
+                end
+            end
+        end
+        
+    end
+    
 end % private methods
 
 end
