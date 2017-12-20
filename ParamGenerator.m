@@ -307,14 +307,17 @@ methods (Static)
         nstartyears             = length(timing.startyears);
         realage_entry           = timing.realage_entry;
         
-        % Input file for T_works (retirement ages)
+        %  OLD STUFF: TBD Revisit and revise
+        s.taxcredit     = 0.15;     % Benefit tax credit percentage
+        s.ssincmaxs     = repmat(1.185e5*scenario.modelunit_dollar, [1,T_model]); % Maximum income subject to benefit calculation
+        s.ssincmins     = zeros(1,T_model);                                       % Minimum income subject to benefit calculation
+
+        % Get T_works (retirement ages)
         nrafile     = strcat(   'NRA_'                                                                          ...
                             ,   find_policy_id( scenario                                                        ...
                                        ,   {'SSNRAPolicy'}                                                      ...
                                        ,   fullfile( PathFinder.getSocialSecurityNRAInputDir(), 'Map.csv' ) )   ...                    ...
                             ,   '.csv' );
-
-        
         switch scenario.economy
             case 'steady'
                 first_year   = first_transition_year - 1;
@@ -327,29 +330,32 @@ methods (Static)
                 T_works      = read_series(nrafile, first_transition_year - (T_life + realage_entry), PathFinder.getSocialSecurityNRAInputDir());
                 T_works      = T_works(1:nstartyears) - realage_entry;
         end
-        
         s.T_works           = T_works;
         
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long
         %   Calculate cumulative liability to speed up calculation 
+        %   Convert from US dollars to modelunit dollars
         matchparams     = {'SSTaxPolicy'};
         mapfile         = fullfile( PathFinder.getSocialSecurityTaxInputDir(), 'Map.csv' );
-        bracketsfile    = strcat('PayrollTax_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
-        bracketsfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir(), bracketsfile );      
+        sstaxid         = find_policy_id( scenario, matchparams, mapfile );
+        bracketsfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir()      ...
+                                ,   strcat('PayrollTax_'    , sstaxid, '.csv' ) );
+        indexingfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir()      ...
+                                ,   strcat('BracketsIndex_' , sstaxid, '.csv' ) );
 
-        [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_year, T_model );                               ...
+        [brackets, rates, burdens] = read_brackets_rates  ( bracketsfile, first_year, T_model );                               ...
+        [indices]                  = read_brackets_indices( indexingfile );
         
-        % Convert from US dollars to modelunit dollars
-        s.burdens       = burdens  .*scenario.modelunit_dollar;     % Cumulative tax burden
-        s.brackets      = brackets .*scenario.modelunit_dollar;     % Payroll tax brackets, rem: first one is zero
-        s.rates         = rates;                                    % Rate for above each bracket threshold
+        if( size(indices,1) ~= size(brackets,1) )
+            throw(MException('ParamGenerator.social_security:TAXBRACKETS','SSTaxBrackets and BracketsIndexes must have same number of brackets.'));
+        end    
+    
+        s.taxburdens    = burdens  .*scenario.modelunit_dollar;     % Cumulative tax burden
+        s.taxbrackets   = brackets .*scenario.modelunit_dollar;     % Payroll tax brackets, rem: first one is zero
+        s.taxrates      = rates                               ;     % Rate for above each bracket threshold
+        s.taxindices    = indices                             ;     % Type of index to use for the bracket change
         
-        %  OLD STUFF: TBD Revisit and revise
-        s.taxcredit     = 0.15;     % Benefit tax credit percentage
-        s.ssincmaxs     = repmat(1.185e5*scenario.modelunit_dollar, [1,T_model]); % Maximum income subject to benefit calculation
-        s.ssincmins     = zeros(1,T_model);                                       % Minimum income subject to benefit calculation
-
         % Fetch initial benefits for each cohort 
         %   REM: Benefits are per month in US dollars 
         %        in year = first_transition_year - 1
@@ -688,7 +694,6 @@ function [tax_vars] = read_tax_vars( filename )
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
     
-    % Check if file exists 
     filepath = fullfile(PathFinder.getTaxPlanInputDir(), filename);
     if ~exist(filepath, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
@@ -716,7 +721,6 @@ function [brackets, rates, burdens] = read_brackets_rates( ...
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
 
-    % Check if file exists and generate if necessary
     if ~exist(filename, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
         throw(MException('read_brackets_rates:FILENAME', err_msg ));
@@ -759,6 +763,25 @@ function [brackets, rates, burdens] = read_brackets_rates( ...
     burdens         = cumsum(diff(brackets, 1, 2).*rates(:, 1:end-1), 2); 
     burdens         = [zeros(size(brackets, 1), 1), burdens];  % rem: first burden is zero
 end % read_brackets_rates()
+
+
+%%
+% Read a CSV file in format (Bracket1Index),...(BracketNIndex)
+%    This file defines the indexing methodology to use for the brackets.
+function [indices] = read_brackets_indices( filename )
+
+    warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
+    warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
+
+    if ~exist(filename, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
+        throw(MException('read_brackets_indices:FILENAME', err_msg ));
+    end;
+        
+    T       = readtable(filename);
+    indices = table2array(T(1, :));
+    
+end % read_brackets_indices
 
 
 %%
@@ -813,5 +836,10 @@ end % read_series_withpad
 function [series] = read_series(filename, first_index, param_dir )
     series = read_series_withpad( filename, first_index, param_dir, [] );
 end % read_series
+
+
+
+
+
 %%  END FILE
 

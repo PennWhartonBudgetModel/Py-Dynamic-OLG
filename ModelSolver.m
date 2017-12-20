@@ -99,9 +99,10 @@ methods (Static)
         %   rem: all USdollars have been converted to modelunit dollars
         socialsecurity  = ParamGenerator.social_security( scenario );
         T_works         = socialsecurity.T_works     ;    % Total working years
-        sstax_brackets  = socialsecurity.brackets    ;    % Payroll tax brackets (currentlaw is 0 to taxmax)
-        sstax_rates     = socialsecurity.rates       ;    % Payroll tax rates (currentlaw is 12.4%)
-        sstax_burdens   = socialsecurity.burdens     ;    % Cumulative tax liability at each bracket
+        sstax_brackets  = socialsecurity.taxbrackets ;    % Payroll tax brackets (currentlaw is 0 to taxmax)
+        sstax_rates     = socialsecurity.taxrates    ;    % Payroll tax rates (currentlaw is 12.4%)
+        sstax_burdens   = socialsecurity.taxburdens  ;    % Cumulative tax liability at each bracket
+        sstax_indices   = socialsecurity.taxindices  ;    % Type of index to use on tax bracket
         sstaxcredit     = socialsecurity.taxcredit   ;    % Benefit tax credit percentage
         ssincmaxs       = socialsecurity.ssincmaxs   ;    % Maximum wage allowed for benefit calculation
         ssincmins       = socialsecurity.ssincmins   ;    % Minimum wage allowed for benefit calculation
