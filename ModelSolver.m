@@ -821,6 +821,31 @@ methods (Static, Access = private )
         
     end % calculateSSBenefitForCohort
 
+    
+    %% Calculate SS tax brackets using required indexing
+    %    If brackets overlap because of indexing, reorder the brackets 
+    %   Inputs:
+    %       brackets        = bracket cutoffs in nominal $, 
+    %                       (rem: first bracket cutoff is zero)
+    %       rates           = rates for brackets
+    %       bracketindices  = index to use for cutoff: (e.g. 'reals',
+    %                       'nominals', 'wage_inflations', but not 'cohort_wages' ) 
+    %       priceindices    = struct with indices
+    function [ssbrackets, ssrates] = calculateSSTaxBrackets( brackets, bracketindices, rates  ...
+                                                            , priceindices ) 
+        if( any(strcmp(bracketindices, 'cohort_wages')) )
+            throw MException('calculateSSTaxBrackets:INDEX', 'Cannot use index type <cohort_wages>.' );
+        end
+        
+        ssbrackets = brackets .* priceindices.(bracketindices);
+
+        % Sort brackets and rates just in case of overlap
+        [ssbrackets, sortindex] = sort(ssbrackets);
+        ssrates = rates(sortindex);
+        
+    end % calculateSSTaxBrackets
+    
+    
 end % private methods
 
 end
