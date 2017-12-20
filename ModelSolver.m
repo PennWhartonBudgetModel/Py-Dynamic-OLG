@@ -827,6 +827,7 @@ methods (Static, Access = private )
         index.wage_inflations = Market_wages./Market_wages(1);         % Time-varying indexes
         index.cohort_wages    = ones(T_model, nstartyears);            % Time- and cohort-varying indexes
         index.cpi             = ParamGenerator.budget( scenario ).CPI; % Time-varying CPI indexes from CBO
+        index.reals           = ones(size(Market_wages));                 % Vector to 'index' real variables
         
         realage_entry = ParamGenerator.timing(scenario).realage_entry;
         
