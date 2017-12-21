@@ -177,12 +177,19 @@ methods (Static)
             
             for idem = 1:ndem
                 
+                % Calculate indexed policy variables
+                [sstax_brackets_indexed, sstax_rates_indexed, sstax_burdens_indexed] ...
+                        = ModelSolver.indexSSTax( sstax_brackets         ...
+                                                , sstax_indices          ...
+                                                , sstax_rates            ...
+                                                , Market.priceindices );
+                
                 % Package fixed dynamic optimization arguments into anonymous function
                 solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes) solve_cohort(V0, LAB_static, isdynamic, ...
                     nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, Market.kpricescale*kv, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                     sstaxcredit, ssbenefits, ssincmins .* Market.priceindices.wage_inflations', ssincmaxs .* Market.priceindices.wage_inflations', cohort_wageindexes, ...
-                    sstax_brackets, sstax_burdens, sstax_rates, ...
+                    sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
                     pittax_brackets, pittax_burdens, pittax_rates, ... 
                     captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
                     Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);
@@ -830,19 +837,33 @@ methods (Static, Access = private )
     %       bracketindices  = index to use for cutoff: (e.g. 'reals',
     %                       'nominals', 'wage_inflations', but not 'cohort_wages' ) 
     %       priceindices    = struct with indices
-    function [ssbrackets, ssrates] = calculateSSTaxBrackets( brackets, bracketindices, rates  ...
-                                                            , priceindices ) 
+    function [ssbrackets, ssrates, ssburdens] = indexSSTax(     brackets        ...
+                                                            ,   bracketindices  ...
+                                                            ,   rates           ...
+                                                            ,   priceindices ) 
         if( any(strcmp(bracketindices, 'cohort_wages')) )
             throw MException('calculateSSTaxBrackets:INDEX', 'Cannot use index type <cohort_wages>.' );
         end
         
-        ssbrackets = brackets .* priceindices.(bracketindices);
+        indices    = zeros(size(brackets));
+        for i = 1:size(indices, 2)
+            indices(:,i) = priceindices.(bracketindices{i});
+        end
+        ssbrackets = brackets .* indices;
 
         % Sort brackets and rates just in case of overlap
-        [ssbrackets, sortindex] = sort(ssbrackets);
-        ssrates = rates(sortindex);
+        [ssbrackets, sortindex] = sort(ssbrackets, 2);
         
-    end % calculateSSTaxBrackets
+        ssrates = zeros(size(rates));
+        for r = 1:size(sortindex, 1)
+            ssrates(r, :) = rates(r, sortindex(r, :) );
+        end
+
+        % Calculate tax burdens
+        ssburdens = cumsum(diff(ssbrackets, 1, 2).*ssrates(:, 1:end-1), 2); 
+        ssburdens = [zeros(size(ssbrackets, 1), 1), ssburdens];  % rem: first burden is zero
+
+    end % indexSSTax
     
 
     %%
