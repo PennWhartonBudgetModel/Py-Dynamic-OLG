@@ -173,7 +173,7 @@ methods (Static)
                 DIST_trans = {};
             end
             
-            Market.priceindices = ModelSolver.generate_index(scenario, Market.wages, nstartyears, startyears, T_model);
+            Market.priceindices = ModelSolver.generate_index(scenario, Market.wages, nstartyears, T_model, T_life);
             ssincmins_indexed   = ssincmins .* Market.priceindices.wage_inflations';
             ssincmaxs_indexed   = ssincmaxs .* Market.priceindices.wage_inflations';
             
@@ -877,7 +877,7 @@ methods (Static, Access = private )
     %       nstartyears  = number of cohorts, 
     %       startyears   = period of birth of a cohort (first period of transition is t = 0), 
     %       T_model      = number of periods, 
-    function index = generate_index(scenario, Market_wages, nstartyears, startyears, T_model)
+    function index = generate_index(scenario, Market_wages, nstartyears, T_model, T_life)
 
         index.wage_inflations = Market_wages./Market_wages(1);            % Time-varying indexes
         index.cohort_wages    = ones(T_model, nstartyears);               % Time- and cohort-varying indexes
@@ -885,20 +885,15 @@ methods (Static, Access = private )
         index.reals           = ones(size(Market_wages));                 % Vector to 'index' real variables
         
         realage_entry = ParamGenerator.timing(scenario).realage_entry;
+        % Indexes for the boundary cohorts
+        cohortage60_at_1      = T_life + 1 - (60 - realage_entry);
+        cohortage60_at_Tmodel = cohortage60_at_1 + T_model - 1;
         
-        % Loop over cohorts
-        for i = 1:nstartyears
-            % Find cohorts that turn 60 withing the model run
-            %  (i.e., exclude cohorts that end the model aged 59- or that enter the model aged 61+)
-            if (startyears(i) <= T_model - (60 - realage_entry)) && ...   % or T_pasts(i) >= 60 - realage_entry - T_model
-               (startyears(i) >= -(60 - realage_entry - 1))               % AND T_past(i) <= (60 - realage_entry - 1)
-
-                year60 = startyears(i) + 60 - realage_entry;
-                index.cohort_wages(:,i) = Market_wages(:)./Market_wages(min(year60, T_model));
-                
-            end
+        for i = cohortage60_at_1:cohortage60_at_Tmodel
+            year_turn60 = i - (60 - realage_entry);
+            index.cohort_wages(:,i) = Market_wages(year_turn60)./Market_wages(:);
         end
-        
+
         % TBD: Erase these couple lines when the time comes to implement the policies above
         index.wage_inflations = ones(size(Market_wages));              % Time-varying indexes
         index.cohort_wages    = ones(T_model, nstartyears);            % Time- and cohort-varying indexes
