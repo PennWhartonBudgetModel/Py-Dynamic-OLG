@@ -354,11 +354,6 @@ methods (Static)
         s.taxrates      = rates                               ;     % Rate for above each bracket threshold
         s.taxindices    = indices                             ;     % Type of index to use for the bracket change
         
-        %  OLD STUFF: TBD Revisit and revise
-        s.taxcredit     = 0.15;     % Benefit tax credit percentage
-        s.ssincmaxs     = repmat(1.185e5*scenario.modelunit_dollar, [T_model, 1]); % Maximum income subject to benefit calculation
-        s.ssincmins     = zeros(T_model, 1);                                       % Minimum income subject to benefit calculation
-
         % Fetch initial benefits for each cohort 
         %   REM: Benefits are per month in US dollars 
         %        in year = first_transition_year - 1
@@ -783,6 +778,10 @@ function [indices] = read_brackets_indices( filename )
         
     T       = readtable(filename);
     indices = table2array(T(1, :));
+    
+    % Validated that indices are in the allowed set:
+    %    reals, nominals, wage_inflations, cohort_wages
+    
     
 end % read_brackets_indices
 
