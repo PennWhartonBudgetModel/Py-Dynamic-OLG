@@ -306,9 +306,7 @@ methods (Static)
         realage_entry           = timing.realage_entry;
         
         %  OLD STUFF: TBD Revisit and revise
-        s.taxcredit     = 0.15;     % Benefit tax credit percentage
-        s.ssincmaxs     = repmat(1.185e5*scenario.modelunit_dollar, [1,T_model]); % Maximum income subject to benefit calculation
-        s.ssincmins     = zeros(1,T_model);                                       % Minimum income subject to benefit calculation
+        s.taxcredit = 0.15;     % Benefit tax credit percentage
 
         % Get T_works (retirement ages)
         nrafile     = strcat(   'NRA_'                                                                          ...
@@ -329,6 +327,8 @@ methods (Static)
                 T_works      = T_works(1:nstartyears) - realage_entry;
         end
         s.T_works           = T_works;
+        
+        %  TAXATION
         
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long
@@ -354,13 +354,21 @@ methods (Static)
         s.taxrates      = rates                               ;     % Rate for above each bracket threshold
         s.taxindices    = indices                             ;     % Type of index to use for the bracket change
         
+        % BENEFITS
+        matchparams     = {'SSBenefitsPolicy', 'SSBenefitsAccrualPolicy' };
+        mapfile         = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), 'Map.csv' );
+        policy_id       = find_policy_id( scenario, matchparams, mapfile );
+      
+        % Get range of income which is credited toward benefit calculation
+        minmaxfile  = strcat('MinMaxRange_', policy_id , '.csv' );   
+        minmaxinput = read_series_withpad(minmaxfile, first_year, PathFinder.getSocialSecurityBenefitsInputDir(), first_year + T_model );
+        s.ssincmins = (minmaxinput(:,1) * scenario.modelunit_dollar)';
+        s.ssincmaxs = (minmaxinput(:,2) * scenario.modelunit_dollar)';
+        
         % Fetch initial benefits for each cohort 
         %   REM: Benefits are per month in US dollars 
         %        in year = first_transition_year - 1
         first_birthyear = first_year - (T_life + realage_entry);
-        matchparams     = {'SSBenefitsPolicy'};
-        mapfile         = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), 'Map.csv' );
-        policy_id       = find_policy_id( scenario, matchparams, mapfile );
         
         bracketsfile    = fullfile( PathFinder.getSocialSecurityBenefitsInputDir() ...
                                 ,   strcat('InitialBenefits_', policy_id , '.csv' ) );      
