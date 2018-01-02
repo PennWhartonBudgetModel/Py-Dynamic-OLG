@@ -327,6 +327,11 @@ methods (Static)
                 T_works      = T_works(1:nstartyears) - realage_entry;
         end
         s.T_works           = T_works;
+        retire_years        = zeros(nstartyears, 1);
+        for i = 1:nstartyears
+            retire_years(i)  =  (i - T_life) + T_works(i);
+        end
+        s.retire_years      = retire_years;
         
         %  TAXATION
         
