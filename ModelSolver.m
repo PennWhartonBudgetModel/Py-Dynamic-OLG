@@ -101,7 +101,6 @@ methods (Static)
         T_works         = socialsecurity.T_works     ;    % Total working years
         sstax_brackets  = socialsecurity.taxbrackets ;    % Payroll tax brackets (currentlaw is 0 to taxmax)
         sstax_rates     = socialsecurity.taxrates    ;    % Payroll tax rates (currentlaw is 12.4%)
-        sstax_burdens   = socialsecurity.taxburdens  ;    % Cumulative tax liability at each bracket
         sstax_indices   = socialsecurity.taxindices  ;    % Type of index to use on tax bracket
         sstaxcredit     = socialsecurity.taxcredit   ;    % Benefit tax credit percentage
         ssincmaxs       = socialsecurity.ssincmaxs   ;    % Maximum wage allowed for benefit calculation
@@ -210,7 +209,8 @@ methods (Static)
                                                 socialsecurity.startyear_benefitbrackets(end, :)   ...
                                             ,   socialsecurity.startyear_benefitrates   (end, :)   ...
                                             ,   socialsecurity.benefits_adjustment                 ...
-                                            ,   Market.wages                                       ...
+                                            ,   Market.priceindices                                ...
+                                            ,   T_model   ... % TBD: Fix retire_year
                                             ,   bv, T_model );
 
                     % Solve dynamic optimization
@@ -245,7 +245,8 @@ methods (Static)
                                                 socialsecurity.startyear_benefitbrackets(i, :)   ...
                                             ,   socialsecurity.startyear_benefitrates   (i, :)   ...
                                             ,   socialsecurity.benefits_adjustment               ...
-                                            ,   Market.wages                                     ...
+                                            ,   Market.priceindices                              ...  
+                                            ,   T_model ... % TBD: Fix retire_year
                                             ,   bv, T_model );
 
                             % Solve dynamic optimization
@@ -806,21 +807,55 @@ end % methods
 
 methods (Static, Access = private ) 
     
-    % TBD: Add description
-    function ssbenefits = calculateSSBenefitForCohort( brackets, rates, adjustments, wages, bv, T_model ) %#ok<INUSD>
+    % Calculate SS benefits for a cohort
+    % Inputs:   
+    %       brackets: Initial year bracket thresholds. These 
+    %                 grow by wage_inflations index until cohort retires
+    %                 and then freeze.
+    %       rates   : Initial year replacement rates for each cohort. These
+    %                 grow by given policy adjustments (which can include
+    %                 any net adjustments due to COLA (REM: No adjustment
+    %                 implies a COLA = CPI growth.)
+    %       adjustments     : Adjustments (as ratio) to the rates.
+    %       priceindices    : Price index structure with <wage_inflations> index
+    %                       used to grow the brackets.
+    %       retire_year     : Model year of first year of retirement for this
+    %                       cohort.
+    %       bv, T_model     : Benefits discretized grid, and time to end of
+    %                       model run.
+    function ssbenefits = calculateSSBenefitForCohort(  brackets                    ...
+                                                     ,  rates                       ...
+                                                     ,  adjustments                 ...
+                                                     ,  priceindices                  ...
+                                                     ,  retire_year                 ...
+                                                     ,  bv, T_model ) %#ok<INUSD>
         
+        % Fetch index used to grow brackets
+        wage_index = priceindices.wage_inflations;
+                                                 
         % Cohort based benefits by year
-        ssbenefits  = zeros(T_model, size(bv,1));
+        %   REM: Every household is at a grid point, so can 
+        %        calculate benefits directly here (outside of
+        %        solve_cohort).
+        %    NOTE: We set ssbenefits to -Inf otherwise -- it should not be
+        %    used in solve_cohort (this will blow it up just in case)
+        ssbenefits  = ones(T_model, size(bv,1)) .* -Inf;
         
-        % Build indexed bracket cutoffs. 
-        %    TBD: Can this be done more efficiently?
+        % Build indexed bracket cutoffs for each year (for the cohort)
+        bracket_idx = [ wage_index(1:retire_year), ones(1,T_model - retire_year - 1) ]';
         adjbrackets = repmat(brackets, [T_model, 1])            ... 
-                        .* repmat( wages/wages, [1, size(brackets,1)] );
+                        .* repmat( bracket_idx, [1, size(brackets,1)] );
+        
+        % Build benefit replacement rates adjusted by policy
         adjrates    = repmat(rates, [T_model, 1] )              ...
                         .* adjustments;
+       
+        % Build cumulative benefits matrix to aid benefit calculation
         adjtotben   = cumsum(diff(adjbrackets, 1, 2).*adjrates(:, 1:end-1), 2); 
         adjtotben   = [zeros(size(adjbrackets, 1), 1), adjtotben];  % rem: first column is zero
-                   
+        
+        % Calculate benefits for each year of retirement.
+        %  TBD: Replace 1 start with retire_year
         for t = 1:T_model
             for ib = 1:size(bv,1)
                 thebracket       = find(adjbrackets <= bv(ib), 1, 'last');
