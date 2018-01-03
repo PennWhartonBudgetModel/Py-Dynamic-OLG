@@ -354,7 +354,6 @@ methods (Static)
             throw(MException('social_security:TAXBRACKETS','SSTaxBrackets and BracketsIndexes must have same number of brackets.'));
         end    
     
-        s.taxburdens    = burdens  .*scenario.modelunit_dollar;     % Cumulative tax burden
         s.taxbrackets   = brackets .*scenario.modelunit_dollar;     % Payroll tax brackets, rem: first one is zero
         s.taxrates      = rates                               ;     % Rate for above each bracket threshold
         s.taxindices    = indices                             ;     % Type of index to use for the bracket change
