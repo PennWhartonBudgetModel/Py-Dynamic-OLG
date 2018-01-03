@@ -211,8 +211,8 @@ methods (Static)
         %  following structure:
         %      <Tax variable> as header, <Value> under that header
         %  The tax variable names are defined below.
-        filename = strcat('CIT_', taxplanid, '.csv');
-        tax_vars = read_tax_vars( filename );
+        filename = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', taxplanid, '.csv'));
+        tax_vars = read_vars( filename );
         % Calculate combined tax rate and share for Capital
         s.captaxshare           = tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred; 
         s.taucap                = (   tax_vars.rateCorporate * tax_vars.shareCapitalCorporate   ...
@@ -699,24 +699,20 @@ end %find_policy_id
 %%
 %  Helper function to read CSV file with format:
 %     Header has variable names, then one row of values
-function [tax_vars] = read_tax_vars( filename )
+function [vars] = read_vars( filename )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
     
-    filepath = fullfile(PathFinder.getTaxPlanInputDir(), filename);
-    if ~exist(filepath, 'file')
-        err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
-        throw(MException('read_tax_vars:FILENAME', err_msg ));
+    if ~exist(filename, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
+        throw(MException('read_vars:FILENAME', err_msg ));
     end;
         
-    % Expected format is
-    %    rateCorporate	ratePreferred	rateOrdinary	expensingShare	shareCapitalCorporate	shareCapitalPreferred	shareCapitalOrdinary	shareLaborCorporate	shareLaborPreferred	shareLaborOrdinary
+    T           = readtable( filename );
+    vars        = table2struct(T);
 
-    T           = readtable( filepath );
-    tax_vars    = table2struct(T);
-
-end % read_tax_vars()
+end % read_vars()
 
 
 %%
