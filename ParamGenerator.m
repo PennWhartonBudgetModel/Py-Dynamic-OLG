@@ -367,8 +367,9 @@ methods (Static)
         policy_id       = find_policy_id( scenario, matchparams, mapfile );
       
         % Get range of income which is credited toward benefit calculation
-        minmaxfile  = strcat('MinMaxRange_', policy_id , '.csv' );   
-        minmaxinput = read_series_withpad(minmaxfile, first_year, PathFinder.getSocialSecurityBenefitsInputDir(), first_year + T_model );
+        minmaxfile  = fullfile(     PathFinder.getSocialSecurityBenefitsInputDir()  ...
+                                ,   strcat('MinMaxRange_', policy_id , '.csv' )); 
+        minmaxinput = read_series_withpad(minmaxfile, first_year, first_year + T_model );
         s.ssincmins = (minmaxinput(:,1) * scenario.modelunit_dollar)';
         s.ssincmaxs = (minmaxinput(:,2) * scenario.modelunit_dollar)';
         
@@ -386,11 +387,11 @@ methods (Static)
         s.startyear_benefitrates      = rates;
         
         % Year-based policy for benefit rates adjustments
-        filename = strcat('BenefitsAdjustment_', policy_id , '.csv' );
+        filename = fullfile(    PathFinder.getSocialSecurityBenefitsInputDir()    ...
+                            ,   strcat('BenefitsAdjustment_', policy_id , '.csv' ));
         
         adjrates = read_series_withpad( filename                                            ...
                                     ,   first_year                                          ...
-                                    ,   PathFinder.getSocialSecurityBenefitsInputDir()      ...
                                     ,   first_year + T_model );      
     
         % Verify that adj has same number of brackets
@@ -806,19 +807,18 @@ end % read_brackets_indices
 %                       truncate.
 %    For time series, (Index) is (Year), 
 %    For other series (e.g. age_survival_probability, (Index) is (Age)
-function [series] = read_series_withpad(filename, first_index, param_dir, last_index )
+function [series] = read_series_withpad(filename, first_index, last_index )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
  
     % Check if file exists 
-    filepath    = fullfile(param_dir, filename);
-    if ~exist(filepath, 'file')
-        err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
+    if ~exist(filename, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
         throw(MException('read_series:FILENAME', err_msg ));
     end;
         
-    T           = readtable(filepath);
+    T           = readtable(filename);
     indices     = table2array(T(:,1));
     vals        = table2array(T(:,2:end));
     
@@ -847,7 +847,8 @@ end % read_series_withpad
 
 %  Easier signature for read_series
 function [series] = read_series(filename, first_index, param_dir )
-    series = read_series_withpad( filename, first_index, param_dir, [] );
+    filepath = fullfile( param_dir, filename );
+    series = read_series_withpad( filepath, first_index, [] );
 end % read_series
 
 
