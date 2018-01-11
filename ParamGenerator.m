@@ -211,8 +211,8 @@ methods (Static)
         %  following structure:
         %      <Tax variable> as header, <Value> under that header
         %  The tax variable names are defined below.
-        filename = strcat('CIT_', taxplanid, '.csv');
-        tax_vars = read_tax_vars( filename );
+        filename = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', taxplanid, '.csv'));
+        tax_vars = read_vars( filename );
         % Calculate combined tax rate and share for Capital
         s.captaxshare           = tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred; 
         s.taucap                = (   tax_vars.rateCorporate * tax_vars.shareCapitalCorporate   ...
@@ -284,11 +284,14 @@ methods (Static)
     %        , capital share
     function s = production( scenario )
         
-        s.A             = 1;                    % Total factor productivity
-        s.alpha         = 0.34;                 % Capital share of output
-        s.d             = 0.056;                % Actual depreciation rate
+        filename    = fullfile( PathFinder.getDefaultsMacroDir(), 'Macro.csv');
+        params      = read_vars( filename );
+        
+        s.A         = 1;                    % Total factor productivity
+        s.alpha     = params.Alpha;         % Capital share of output
+        s.d         = params.Depreciation;  % Actual depreciation rate
         if( scenario.is_low_return )
-            s.d = 0.08;                         % "Depreciation rate" to generate r=risk-free rate         
+            s.d = 0.08;                     % "Depreciation rate" to generate r=risk-free rate         
         end
 
     end % production
@@ -305,14 +308,15 @@ methods (Static)
         nstartyears             = length(timing.startyears);
         realage_entry           = timing.realage_entry;
         
-        % Input file for T_works (retirement ages)
+        %  OLD STUFF: TBD Revisit and revise
+        s.taxcredit = 0.15;     % Benefit tax credit percentage
+
+        % Get T_works (retirement ages)
         nrafile     = strcat(   'NRA_'                                                                          ...
                             ,   find_policy_id( scenario                                                        ...
                                        ,   {'SSNRAPolicy'}                                                      ...
                                        ,   fullfile( PathFinder.getSocialSecurityNRAInputDir(), 'Map.csv' ) )   ...                    ...
                             ,   '.csv' );
-
-        
         switch scenario.economy
             case 'steady'
                 first_year   = first_transition_year - 1;
@@ -325,36 +329,54 @@ methods (Static)
                 T_works      = read_series(nrafile, first_transition_year - (T_life + realage_entry), PathFinder.getSocialSecurityNRAInputDir());
                 T_works      = T_works(1:nstartyears) - realage_entry;
         end
-        
         s.T_works           = T_works;
+        retire_years        = zeros(nstartyears, 1);
+        for i = 1:nstartyears
+            retire_years(i)  =  (i - T_life) + T_works(i);
+        end
+        s.retire_years      = retire_years;
+        
+        %  TAXATION
         
         % Read tax brackets and rates on payroll 
         %   Pad if file years do not go to T_model, truncate if too long
         %   Calculate cumulative liability to speed up calculation 
+        %   Convert from US dollars to modelunit dollars
         matchparams     = {'SSTaxPolicy'};
         mapfile         = fullfile( PathFinder.getSocialSecurityTaxInputDir(), 'Map.csv' );
-        bracketsfile    = strcat('PayrollTax_', find_policy_id( scenario, matchparams, mapfile ), '.csv' );
-        bracketsfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir(), bracketsfile );      
+        sstaxid         = find_policy_id( scenario, matchparams, mapfile );
+        bracketsfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir()      ...
+                                ,   strcat('PayrollTax_'    , sstaxid, '.csv' ) );
+        indexingfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir()      ...
+                                ,   strcat('BracketsIndex_' , sstaxid, '.csv' ) );
 
-        [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_year, T_model );                               ...
+        [brackets, rates, burdens] = read_brackets_rates  ( bracketsfile, first_year, T_model );                               ...
+        [indices]                  = read_brackets_indices( indexingfile );
         
-        % Convert from US dollars to modelunit dollars
-        s.burdens       = burdens  .*scenario.modelunit_dollar;     % Cumulative tax burden
-        s.brackets      = brackets .*scenario.modelunit_dollar;     % Payroll tax brackets, rem: first one is zero
-        s.rates         = rates;                                    % Rate for above each bracket threshold
+        if( size(indices,2) ~= size(brackets,2) )
+            throw(MException('social_security:TAXBRACKETS','SSTaxBrackets and BracketsIndexes must have same number of brackets.'));
+        end    
+    
+        s.taxbrackets   = brackets .*scenario.modelunit_dollar;     % Payroll tax brackets, rem: first one is zero
+        s.taxrates      = rates                               ;     % Rate for above each bracket threshold
+        s.taxindices    = indices                             ;     % Type of index to use for the bracket change
         
-        %  OLD STUFF: TBD Revisit and revise
-        s.taxcredit     = 0.15;     % Benefit tax credit percentage
-        s.ssincmaxs     = repmat(1.185e5*scenario.modelunit_dollar, [T_model, 1]); % Maximum income subject to benefit calculation
-        s.ssincmins     = zeros(T_model, 1);                                       % Minimum income subject to benefit calculation
-
+        % BENEFITS
+        matchparams     = {'SSBenefitsPolicy', 'SSBenefitsAccrualPolicy' };
+        mapfile         = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), 'Map.csv' );
+        policy_id       = find_policy_id( scenario, matchparams, mapfile );
+      
+        % Get range of income which is credited toward benefit calculation
+        minmaxfile  = fullfile(     PathFinder.getSocialSecurityBenefitsInputDir()  ...
+                                ,   strcat('MinMaxRange_', policy_id , '.csv' )); 
+        minmaxinput = read_series_withpad(minmaxfile, first_year, first_year + T_model );
+        s.ssincmins = (minmaxinput(:,1) * scenario.modelunit_dollar)';
+        s.ssincmaxs = (minmaxinput(:,2) * scenario.modelunit_dollar)';
+        
         % Fetch initial benefits for each cohort 
         %   REM: Benefits are per month in US dollars 
         %        in year = first_transition_year - 1
         first_birthyear = first_year - (T_life + realage_entry);
-        matchparams     = {'SSBenefitsPolicy'};
-        mapfile         = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), 'Map.csv' );
-        policy_id       = find_policy_id( scenario, matchparams, mapfile );
         
         bracketsfile    = fullfile( PathFinder.getSocialSecurityBenefitsInputDir() ...
                                 ,   strcat('InitialBenefits_', policy_id , '.csv' ) );      
@@ -365,11 +387,11 @@ methods (Static)
         s.startyear_benefitrates      = rates;
         
         % Year-based policy for benefit rates adjustments
-        filename = strcat('BenefitsAdjustment_', policy_id , '.csv' );
+        filename = fullfile(    PathFinder.getSocialSecurityBenefitsInputDir()    ...
+                            ,   strcat('BenefitsAdjustment_', policy_id , '.csv' ));
         
         adjrates = read_series_withpad( filename                                            ...
                                     ,   first_year                                          ...
-                                    ,   PathFinder.getSocialSecurityBenefitsInputDir()      ...
                                     ,   first_year + T_model );      
     
         % Verify that adj has same number of brackets
@@ -681,25 +703,20 @@ end %find_policy_id
 %%
 %  Helper function to read CSV file with format:
 %     Header has variable names, then one row of values
-function [tax_vars] = read_tax_vars( filename )
+function [vars] = read_vars( filename )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
     
-    % Check if file exists 
-    filepath = fullfile(PathFinder.getTaxPlanInputDir(), filename);
-    if ~exist(filepath, 'file')
-        err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
-        throw(MException('read_tax_vars:FILENAME', err_msg ));
+    if ~exist(filename, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
+        throw(MException('read_vars:FILENAME', err_msg ));
     end;
         
-    % Expected format is
-    %    rateCorporate	ratePreferred	rateOrdinary	expensingShare	shareCapitalCorporate	shareCapitalPreferred	shareCapitalOrdinary	shareLaborCorporate	shareLaborPreferred	shareLaborOrdinary
+    T           = readtable( filename );
+    vars        = table2struct(T);
 
-    T           = readtable( filepath );
-    tax_vars    = table2struct(T);
-
-end % read_tax_vars()
+end % read_vars()
 
 
 %%
@@ -714,7 +731,6 @@ function [brackets, rates, burdens] = read_brackets_rates( ...
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
 
-    % Check if file exists and generate if necessary
     if ~exist(filename, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
         throw(MException('read_brackets_rates:FILENAME', err_msg ));
@@ -760,6 +776,29 @@ end % read_brackets_rates()
 
 
 %%
+% Read a CSV file in format (Bracket1Index),...(BracketNIndex)
+%    This file defines the indexing methodology to use for the brackets.
+function [indices] = read_brackets_indices( filename )
+
+    warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
+    warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
+
+    if ~exist(filename, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
+        throw(MException('read_brackets_indices:FILENAME', err_msg ));
+    end;
+        
+    T       = readtable(filename);
+    indices = table2array(T(1, :));
+    
+    % Validated that indices are in the allowed set:
+    %    reals, nominals, wage_inflations, cohort_wages
+    
+    
+end % read_brackets_indices
+
+
+%%
 % Read a CSV file in format (Index), (Value1), (Value2), ... (ValueN)
 %       first_index     : first index to read (previous part of file is ignored
 %       last_index      : (optional) If given, copy the last available
@@ -768,19 +807,18 @@ end % read_brackets_rates()
 %                       truncate.
 %    For time series, (Index) is (Year), 
 %    For other series (e.g. age_survival_probability, (Index) is (Age)
-function [series] = read_series_withpad(filename, first_index, param_dir, last_index )
+function [series] = read_series_withpad(filename, first_index, last_index )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
  
     % Check if file exists 
-    filepath    = fullfile(param_dir, filename);
-    if ~exist(filepath, 'file')
-        err_msg = strcat('Cannot find file = ', strrep(filepath, '\', '\\'));
+    if ~exist(filename, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
         throw(MException('read_series:FILENAME', err_msg ));
     end;
         
-    T           = readtable(filepath);
+    T           = readtable(filename);
     indices     = table2array(T(:,1));
     vals        = table2array(T(:,2:end));
     
@@ -809,7 +847,13 @@ end % read_series_withpad
 
 %  Easier signature for read_series
 function [series] = read_series(filename, first_index, param_dir )
-    series = read_series_withpad( filename, first_index, param_dir, [] );
+    filepath = fullfile( param_dir, filename );
+    series = read_series_withpad( filepath, first_index, [] );
 end % read_series
+
+
+
+
+
 %%  END FILE
 

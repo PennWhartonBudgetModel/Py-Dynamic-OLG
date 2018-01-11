@@ -109,6 +109,15 @@ methods (Static)
                 end
             end
             
+            % Add Scenario fields from columns
+            scenarioFields = fieldnames(Scenario(params))';
+            for o = scenarioFields
+                colname = o{1};
+                if (isfield(row, colname) && ~isempty(row.(colname)) && ~any(isnan(row.(colname))))
+                    params.(colname) = row.(colname);
+                end
+            end
+            
             % Construct scenario from parameter structure and store in cell array
             scenarios{i} = Scenario(params);
             
