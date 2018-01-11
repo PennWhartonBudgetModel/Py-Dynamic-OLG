@@ -11,7 +11,7 @@ function [OPT] = solve_cohort(V0, LAB_static, isdynamic, ...
                         sstaxcredit, ssbenefits, ssincmins, ssincmaxs, sswageindexes, ...
                         sstax_brackets, sstax_burdens, sstax_rates, ...
                         pittax_brackets, pittax_burdens, pittax_rates, ... 
-                        captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                        captaxshares, taucaps, taucapgains, qtobin, qtobin0, ...
                         beqs, wages, capshares, caprates, govrates, totrates, expsubs) %#codegen
 
 
@@ -63,9 +63,9 @@ assert( isa(pittax_brackets  , 'double' ) && (size(pittax_brackets  , 1) <= T_ma
 assert( isa(pittax_burdens   , 'double' ) && (size(pittax_burdens   , 1) <= T_max ) && (size(pittax_burdens   , 2) <= nbrackets_max ) );
 assert( isa(pittax_rates     , 'double' ) && (size(pittax_rates     , 1) <= T_max ) && (size(pittax_rates     , 2) <= nbrackets_max ) );
 
-assert( isa(captaxshare , 'double'  ) && (size(captaxshare  , 1) == 1       ) && (size(captaxshare  , 2) == 1       ) );
-assert( isa(taucap      , 'double'  ) && (size(taucap       , 1) == 1       ) && (size(taucap       , 2) == 1       ) );
-assert( isa(taucapgain  , 'double'  ) && (size(taucapgain   , 1) == 1       ) && (size(taucapgain   , 2) == 1       ) );
+assert( isa(captaxshares, 'double'  ) && (size(captaxshares , 1) <= T_max   ) && (size(captaxshares , 2) == 1       ) );
+assert( isa(taucaps     , 'double'  ) && (size(taucaps      , 1) <= T_max   ) && (size(taucaps      , 2) == 1       ) );
+assert( isa(taucapgains , 'double'  ) && (size(taucapgains  , 1) <= T_max   ) && (size(taucapgains  , 2) == 1       ) );
 assert( isa(qtobin      , 'double'  ) && (size(qtobin       , 1) == 1       ) && (size(qtobin       , 2) == 1       ) );
 assert( isa(qtobin0     , 'double'  ) && (size(qtobin0      , 1) == 1       ) && (size(qtobin0      , 2) == 1       ) );
 
@@ -123,6 +123,9 @@ for t = T_active:-1:1
     capshare    = capshares    (year);
     totrate     = totrates     (year);
     expsub      = expsubs      (year);
+    captaxshare = captaxshares (year);
+    taucap      = taucaps      (year);
+    taucapgain  = taucapgains  (year);
     
     ssbenefit       = ssbenefits        (year, :);
     
@@ -133,7 +136,7 @@ for t = T_active:-1:1
     pit_brackets    = pittax_brackets   (year, :);
     pit_burdens     = pittax_burdens    (year, :);
     pit_rates       = pittax_rates      (year, :);
-    
+        
     % Pre-calculate for speed and conciseness
     bequest_p_1   = beta * (1-surv(age))* bequest_phi_1;
     reciprocalage = 1/age;

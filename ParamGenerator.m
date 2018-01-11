@@ -214,29 +214,35 @@ methods (Static)
         filename = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', taxplanid, '.csv'));
         tax_vars = read_vars( filename );
         % Calculate combined tax rate and share for Capital
-        s.captaxshare           = tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred; 
-        s.taucap                = (   tax_vars.rateCorporate * tax_vars.shareCapitalCorporate   ...
+        s.captaxshares          = tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred; 
+        s.taucaps               = (   tax_vars.rateCorporate * tax_vars.shareCapitalCorporate   ...
                                     + tax_vars.ratePreferred * tax_vars.shareCapitalPreferred   ...
                                   ) ...
                                   / (tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred );
-        s.taucapgain            = 0;
+        s.taucapgains           = 0;
         
         % Pass along all parameters as well
         for f = fieldnames(tax_vars)'
             s.(f{1}) = tax_vars.(f{1});
         end
         
+        % TEMPORARY - TBD: import time-varying variables from external file
+        s.captaxshares           = repmat(s.captaxshares          ,[T_model, 1]);
+        s.shareCapitalExpensings = repmat(s.shareCapitalExpensing ,[T_model, 1]);
+        s.taucaps                = repmat(s.taucaps               ,[T_model, 1]);
+        s.taucapgains            = repmat(s.taucapgains           ,[T_model, 1]);
+        
         % Warn if parameters are outside expectations
-        if( (s.captaxshare < 0) || (s.captaxshare > 1) )
+        if( (min(s.captaxshares) < 0) || (max(s.captaxshares) > 1) )
             fprintf( 'WARNING! captaxshare=%f outside expecations.\n', s.captaxshare );
         end
-        if( (s.shareCapitalExpensing < 0) || (s.shareCapitalExpensing > 1) )
+        if( (min(s.shareCapitalExpensings) < 0) || (max(s.shareCapitalExpensings) > 1) )
             fprintf( 'WARNING! shareCapitalExpensing=%f outside expectations.\n', s.shareCapitalExpensing );
         end
-        if( (s.taucap < 0) || (s.taucap > 1) )
+        if( (min(s.taucaps) < 0) || (max(s.taucaps) > 1) )
             fprintf( 'WARNING! taucap=%f outside expectations.\n', s.taucap );
         end        
-        if( (s.taucapgain < 0) || (s.taucapgain > 1) )
+        if( (min(s.taucapgains) < 0) || (max(s.taucapgains) > 1) )
             fprintf( 'WARNING! taucapgain=%f outside expectations.\n', s.taucapgain );
         end  
         
