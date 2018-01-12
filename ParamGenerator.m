@@ -192,8 +192,10 @@ methods (Static)
         switch scenario.economy
             case 'steady'
                 first_year      = timing.first_transition_year - 1;
+                last_year       = first_year;
             otherwise
                 first_year      = timing.first_transition_year;
+                last_year       = first_year + T_model;
         end    
         
         bracketsfile    = strcat('PIT_', taxplanid, '.csv' );
@@ -206,20 +208,18 @@ methods (Static)
         s.brackets      = brackets .*scenario.modelunit_dollar;   % PIT tax brackets, rem: first one is zero
         s.rates         = rates;                                  % Rate for above each bracket threshold
 
-        % Get the capital and tax treatment allocation params and store them.
-        %  Input files CIT_<taxplanid>.CSV expected to have the
-        %  following structure:
-        %      <Tax variable> as header, <Value> under that header
-        %  The tax variable names are defined below.
+        % Get the capital and tax treatment allocation params. 
+        %    Rem: These are time-varying, so read results are vectors.
         filename = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', taxplanid, '.csv'));
-        tax_vars = read_vars( filename );
+        tax_vars = read_namedseries_withpad( filename, 'Year', first_year, last_year );
+        
         % Calculate combined tax rate and share for Capital
         s.captaxshare           = tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred; 
-        s.taucap                = (   tax_vars.rateCorporate * tax_vars.shareCapitalCorporate   ...
-                                    + tax_vars.ratePreferred * tax_vars.shareCapitalPreferred   ...
+        s.taucap                = (   tax_vars.rateCorporate .* tax_vars.shareCapitalCorporate   ...
+                                    + tax_vars.ratePreferred .* tax_vars.shareCapitalPreferred   ...
                                   ) ...
-                                  / (tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred );
-        s.taucapgain            = 0;
+                                  ./ (tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred );
+        s.taucapgain            = zeros(T_model,1);
         
         % Pass along all parameters as well
         for f = fieldnames(tax_vars)'
@@ -227,27 +227,27 @@ methods (Static)
         end
         
         % Warn if parameters are outside expectations
-        if( (s.captaxshare < 0) || (s.captaxshare > 1) )
-            fprintf( 'WARNING! captaxshare=%f outside expecations.\n', s.captaxshare );
+        if( any(s.captaxshare < 0) || any(s.captaxshare > 1) )
+            fprintf( 'WARNING! captaxshare outside expecations.\n', s.captaxshare );
         end
-        if( (s.shareCapitalExpensing < 0) || (s.shareCapitalExpensing > 1) )
+        if( any(s.shareCapitalExpensing < 0) || any(s.shareCapitalExpensing > 1) )
             fprintf( 'WARNING! shareCapitalExpensing=%f outside expectations.\n', s.shareCapitalExpensing );
         end
-        if( (s.taucap < 0) || (s.taucap > 1) )
+        if( any(s.taucap < 0) || any(s.taucap > 1) )
             fprintf( 'WARNING! taucap=%f outside expectations.\n', s.taucap );
         end        
-        if( (s.taucapgain < 0) || (s.taucapgain > 1) )
+        if( any(s.taucapgain < 0) || any(s.taucapgain > 1) )
             fprintf( 'WARNING! taucapgain=%f outside expectations.\n', s.taucapgain );
         end  
         
         % Catch fatal errors
-        if( (s.shareCapitalOrdinary + s.shareCapitalPreferred + s.shareCapitalCorporate) ~= 1 ) 
+        if( any(s.shareCapitalOrdinary + s.shareCapitalPreferred + s.shareCapitalCorporate) ~= 1 ) 
             error( 'Capital tax shares must sum to 1.' );
         end
-        if( (s.shareLaborOrdinary + s.shareLaborPreferred + s.shareLaborCorporate) ~= 1 )
+        if( any(s.shareLaborOrdinary + s.shareLaborPreferred + s.shareLaborCorporate) ~= 1 )
             error( 'Labor tax shares must sum to 1.' );
         end
-        if( s.shareLaborOrdinary ~= 1 )
+        if( any(s.shareLaborOrdinary ~= 1) )
             error( 'Current model does not handle allocating taxable labor income outside Ordinary rates.' );
         end
     end  % tax()
@@ -852,6 +852,56 @@ function [series] = read_series(filename, first_index, param_dir )
 end % read_series
 
 
+%%
+% Read a CSV file in format
+%    header: IndexName, VarName1, VarName2, ... VarNameN
+%    data  : (Index)  , (Value1), (Value2), ... (ValueN)
+%       index_name      : string name of index variable -- i.e. IndexName
+%       first_index     : first index to read (previous part of file is ignored
+%       last_index      : (optional) If given, copy the last available
+%                       value so that series goes from first_index ...
+%                       last_index. If the original series is too long,
+%                       truncate.
+%    For time series, (Index) is (Year), 
+function [series] = read_namedseries_withpad(filename, index_name, first_index, last_index )
+
+    warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
+    warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
+ 
+    % Check if file exists 
+    if ~exist(filename, 'file')
+        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
+        throw(MException('read_namedseries_withpad:FILENAME', err_msg ));
+    end;
+        
+    T           = readtable(filename);
+    
+    idx_drop    = ( T.(index_name) < first_index );
+    if( all(idx_drop) )
+        throw(MException('read_namedseries_withpad:FIRSTINDEX','Cannot find first index in file.'));
+    end;
+    
+    % Remove unused table rows
+    T( idx_drop, : ) = [];
+    
+    if( ~isempty(last_index) )
+        % Truncate if needed
+        idx_drop = ( T.(index_name) >= last_index );
+        T( idx_drop, : ) = [];
+        
+        % Pad if needed 
+        num_add  = (last_index - T.(index_name)(end) - 1);
+        if( num_add > 0 )
+            T    = [T; repmat(T(end,:), [num_add, 1])];
+        end
+    end;
+    
+    series = table2struct( T, 'ToScalar', true );
+    
+    % Do not return index column
+    series = rmfield( series, index_name );
+ 
+end % read_namedseries_withpad
 
 
 
