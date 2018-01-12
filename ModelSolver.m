@@ -128,14 +128,14 @@ methods (Static)
         pittax_burdens      = s.burdens;    % Tax burden (cumulative tax) at thresholds
         pittax_rates        = s.rates;      % Effective marginal tax rate between thresholds
         
-        captaxshares        = s.captaxshares;            % Portion of capital income taxed at preferred rates
-        expshares           = s.shareCapitalExpensings;  % Portion of investment which can be expensed
-        taucaps             = s.taucaps;                 % Capital tax rate
-        taucapgains         = s.taucapgains;             % Capital gains tax rate
+        captaxshares        = s.captaxshare;             % Portion of capital income taxed at preferred rates
+        expshares           = s.shareCapitalExpensing;   % Portion of investment which can be expensed
+        taucaps             = s.taucap;                  % Capital tax rate
+        taucapgains         = s.taucapgain;              % Capital gains tax rate
         
         s_base = ParamGenerator.tax( scenario.currentPolicy );
-        expshares_base = s_base.shareCapitalExpensings;  % expshare for baseline
-        taucaps_base   = s_base.taucaps;                 % taucap for baseline
+        expshares_base = s_base.shareCapitalExpensing;   % expshare for baseline
+        taucaps_base   = s_base.taucap;                  % taucap for baseline
         
         qtobin0 = 1 - expshares_base(1)*taucaps_base(1);
         qtobin  = 1 - expshares(1)     *taucaps(1)    ;
