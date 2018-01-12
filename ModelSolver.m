@@ -138,7 +138,7 @@ methods (Static)
         taucaps_base   = s_base.taucap;                  % taucap for baseline
         
         qtobin0 = 1 - expshares_base(1)*taucaps_base(1);
-        qtobin  = 1 - expshares(1)     *taucaps(1)    ;
+        qtobin  = 1 - expshares(1)     *taucaps(1)     ;
 
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
@@ -194,7 +194,7 @@ methods (Static)
                     sstaxcredit, ssbenefits, ssincmins_indexed, ssincmaxs_indexed, cohort_wageindexes, ...
                     sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
                     pittax_brackets, pittax_burdens, pittax_rates, ... 
-                    captaxshares, taucaps, taucapgains, qtobin, qtobin0, ...
+                    captaxshares, taucaps, ...
                     Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);
                 
                 
