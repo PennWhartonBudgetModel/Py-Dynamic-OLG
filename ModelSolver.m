@@ -128,17 +128,17 @@ methods (Static)
         pittax_burdens      = s.burdens;    % Tax burden (cumulative tax) at thresholds
         pittax_rates        = s.rates;      % Effective marginal tax rate between thresholds
         
-        captaxshare         = s.captaxshare;            % Portion of capital income taxed at preferred rates
-        expshare            = s.shareCapitalExpensing;  % Portion of investment which can be expensed
-        taucap              = s.taucap;                 % Capital tax rate
-        taucapgain          = s.taucapgain;             % Capital gains tax rate
+        captaxshares        = s.captaxshare;             % Portion of capital income taxed at preferred rates
+        expshares           = s.shareCapitalExpensing;   % Portion of investment which can be expensed
+        taucaps             = s.taucap;                  % Capital tax rate
+        taucapgains         = s.taucapgain;              % Capital gains tax rate
         
         s_base = ParamGenerator.tax( scenario.currentPolicy );
-        expshare_base = s_base.shareCapitalExpensing;   % expshare for baseline
-        taucap_base   = s_base.taucap;                  % taucap for baseline
+        expshares_base = s_base.shareCapitalExpensing;   % expshare for baseline
+        taucaps_base   = s_base.taucap;                  % taucap for baseline
         
-        qtobin0 = 1 - expshare_base*taucap_base;
-        qtobin  = 1 - expshare     *taucap     ;
+        qtobin0 = 1 - expshares_base(1)*taucaps_base(1);
+        qtobin  = 1 - expshares(1)     *taucaps(1)    ;
 
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
@@ -194,7 +194,7 @@ methods (Static)
                     sstaxcredit, ssbenefits, ssincmins_indexed, ssincmaxs_indexed, cohort_wageindexes, ...
                     sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
                     pittax_brackets, pittax_burdens, pittax_rates, ... 
-                    captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                    captaxshares, taucaps, taucapgains, qtobin, qtobin0, ...
                     Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);
                 
                 
@@ -398,7 +398,7 @@ methods (Static)
 
             % Calculate static budgetary aggregate variables
             Static.cits_domestic = Static.cits;
-            Static.cits_foreign  = taucap * Market.caprates * captaxshare .* (qtobin*Static.caps_foreign);
+            Static.cits_foreign  = taucaps' .* Market.caprates .* captaxshares' .* (qtobin*Static.caps_foreign);
             Static.cits          = Static.cits_domestic + Static.cits_foreign;
             Static.revs          = Static.pits + Static.ssts + Static.cits - Static.bens;            
             Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
@@ -533,7 +533,7 @@ methods (Static)
                 Market.expsubs   = zeros(1,T_model);
             else
                 Market.beqs      = beqs;
-                Market.expsubs   = [expshare * max(diff(Dynamic.caps), 0), 0] ./ Dynamic.caps;
+                Market.expsubs   = expshares' .* [max(diff(Dynamic.caps), 0), 0] ./ Dynamic.caps;
             end
             
             switch economy
@@ -558,7 +558,7 @@ methods (Static)
                 case 'open'
                     
                     if isinitial
-                        Market.caprates  = Market0.caprates*ones(1,T_model)*(1-taucap_base)/(1-taucap);
+                        Market.caprates  = Market0.caprates*ones(1,T_model).*(1-taucaps_base')./(1-taucaps');
                         Market.govrates  = Market0.govrates*ones(1,T_model);
                         Market.totrates  = Market0.totrates*ones(1,T_model);
                     end
@@ -616,7 +616,7 @@ methods (Static)
                     
                     % Calculate debt
                     Dynamic.cits_domestic = Dynamic.cits;
-                    Dynamic.cits_foreign  = taucap * Market.caprates * captaxshare .* (qtobin*Dynamic.caps_foreign);
+                    Dynamic.cits_foreign  = taucaps' .* Market.caprates .* captaxshares' .* (qtobin*Dynamic.caps_foreign);
                     Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
                     
                     if isbase
@@ -710,6 +710,8 @@ methods (Static)
             save(fullfile(save_dir, 'decisions.mat'   ), 'LABs')
         end
         
+        % Delete price indices from Market
+%         Market = rmfield(Market,'priceindices')
         % Save market conditions and dynamic aggregates
         save(fullfile(save_dir, 'market.mat'  ), '-struct', 'Market' )
         save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic')
@@ -937,6 +939,7 @@ methods (Static, Access = private )
         index.cohort_wages    = ones(T_model, nstartyears);            % Time- and cohort-varying indexes
     
     end % generate_index
+
     
 end % private methods
 

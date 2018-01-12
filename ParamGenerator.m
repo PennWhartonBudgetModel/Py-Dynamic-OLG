@@ -225,7 +225,7 @@ methods (Static)
         for f = fieldnames(tax_vars)'
             s.(f{1}) = tax_vars.(f{1});
         end
-        
+                
         % Warn if parameters are outside expectations
         if( any(s.captaxshare < 0) || any(s.captaxshare > 1) )
             fprintf( 'WARNING! captaxshare outside expecations.\n', s.captaxshare );
@@ -886,7 +886,7 @@ function [series] = read_namedseries_withpad(filename, index_name, first_index, 
     
     if( ~isempty(last_index) )
         % Truncate if needed
-        idx_drop = ( T.(index_name) >= last_index );
+        idx_drop = ( T.(index_name) > last_index );
         T( idx_drop, : ) = [];
         
         % Pad if needed 
