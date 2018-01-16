@@ -139,6 +139,7 @@ methods (Static)
         
         qtobin0 = 1 - expshares_base(1)*taucaps_base(1);
         qtobin  = 1 - expshares(1)     *taucaps(1)     ;
+        qtobin  = ones(1, T_model)    .* qtobin;
 
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
@@ -398,7 +399,7 @@ methods (Static)
 
             % Calculate static budgetary aggregate variables
             Static.cits_domestic = Static.cits;
-            Static.cits_foreign  = taucaps' .* Market.caprates .* captaxshares' .* (qtobin*Static.caps_foreign);
+            Static.cits_foreign  = taucaps' .* Market.caprates .* captaxshares' .* (qtobin .* Static.caps_foreign);
             Static.cits          = Static.cits_domestic + Static.cits_foreign;
             Static.revs          = Static.pits + Static.ssts + Static.cits - Static.bens;            
             Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
@@ -568,7 +569,7 @@ methods (Static)
             Market.rhos        = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
             Market.wages       = A*(1-alpha)*(Market.rhos.^alpha);
             
-            Market.kpricescale = 1 + Market.capshares(1)*(qtobin - qtobin0)/qtobin;
+            Market.kpricescale = 1 + Market.capshares(1)*(qtobin(1) - qtobin0)/qtobin(1);
             Market.qtobin0     = qtobin0;
             Market.qtobin      = qtobin;
             
@@ -585,7 +586,7 @@ methods (Static)
                     % Calculate debt, capital, and output
                     % (Numerical solver used due to absence of closed form solution)
                     f_debts = @(outs ) debttoout*outs;
-                    f_caps  = @(debts) (Dynamic.assets - debts)/qtobin;
+                    f_caps  = @(debts) (Dynamic.assets - debts)./qtobin;
                     f_outs  = @(caps ) A*(max(caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     x_ = fsolve(@(x) x - [f_debts(x(3)); f_caps(x(1)); f_outs(x(2))], zeros(3,1), optimoptions('fsolve', 'Display', 'none'));
                     Dynamic.debts = x_(1);
@@ -600,7 +601,7 @@ methods (Static)
                     % Calculate income - THIS SHOULD BE OUTSIDE THE CASE
                     % ECONOMY LOOP!
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = qtobin * Market.caprates .* Dynamic.caps;
+                    Dynamic.capincs = qtobin .* Market.caprates .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
@@ -611,12 +612,12 @@ methods (Static)
                     Dynamic.caps = Market.rhos .* Dynamic.labeffs;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
-                    Dynamic.caps_domestic = (Market.capshares .* [Dynamic0.assets, Dynamic.assets(1:T_model-1)])/qtobin;
+                    Dynamic.caps_domestic = (Market.capshares .* [Dynamic0.assets, Dynamic.assets(1:T_model-1)]) ./ qtobin;
                     Dynamic.caps_foreign  = Dynamic.caps - Dynamic.caps_domestic;
                     
                     % Calculate debt
                     Dynamic.cits_domestic = Dynamic.cits;
-                    Dynamic.cits_foreign  = taucaps' .* Market.caprates .* captaxshares' .* (qtobin*Dynamic.caps_foreign);
+                    Dynamic.cits_foreign  = taucaps' .* Market.caprates .* captaxshares' .* (qtobin .* Dynamic.caps_foreign);
                     Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
                     
                     if isbase
@@ -637,7 +638,7 @@ methods (Static)
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = qtobin * Market.caprates .* Dynamic.caps;
+                    Dynamic.capincs = qtobin .* Market.caprates .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
@@ -665,7 +666,7 @@ methods (Static)
                     Dynamic.debts_foreign  = zeros(1,T_model);
                     
                     % Calculate capital and output
-                    Dynamic.caps = ([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts)/qtobin;
+                    Dynamic.caps = ([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts) ./ qtobin;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     Dynamic.caps_domestic = Dynamic.caps;
@@ -673,13 +674,13 @@ methods (Static)
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = qtobin * Market.caprates .* Dynamic.caps;
+                    Dynamic.capincs = qtobin .* Market.caprates .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate market clearing series
-                    rhos = (max([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
+                    rhos = (max([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
                     beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1) ./ Dynamic.pops(2:T_model)];
                     clearing = Market.rhos - rhos;
                     
