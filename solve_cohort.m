@@ -123,7 +123,8 @@ for t = T_active:-1:1
     captaxshare = captaxshares (year);
     taucap      = taucaps      (year);
     
-    kv      = kvs(year    , :);
+    kv      = kvs(    year              , :);
+    kv_next = kvs(min(year + 1, T_model), :);
     
     ssbenefit       = ssbenefits        (year, :);
     
@@ -161,7 +162,7 @@ for t = T_active:-1:1
                     EV = surv(age)*beta*reshape(V_step(1,:,:), [nk,nb]);
                     
                     % Call retirement age value function to set parameters
-                    value_retirement([], kv, resources, EV(:,ib), ... 
+                    value_retirement([], kv_next, resources, EV(:,ib), ... 
                                 bequest_p_1, bequest_phi_2, bequest_phi_3, ...
                                 sigma, gamma, reciprocal_1sigma);
                     
@@ -170,7 +171,7 @@ for t = T_active:-1:1
                     
                     % Checks -> only work in the absence of mex file!
                     assert( ~isinf(v)   , 'v is inf')
-                    assert( k <= kv(end), 'k is too big!')
+                    assert( k <= kv_next(end), 'k (k_next) is too big!')
 
                     % Record utility and optimal decision values
                     OPT.V(:,ik,ib,t) = -v;
@@ -178,7 +179,7 @@ for t = T_active:-1:1
                     
                 else
                     
-                    k = kv(ik);
+                    k = kv_next(ik);
                     
                 end
                 
@@ -215,14 +216,14 @@ for t = T_active:-1:1
                         EV = surv(age)*beta*reshape(sum(repmat(transz(iz,:)', [1,nk,nb]) .* V_step, 1), [nk,nb]);
                         
                         % Call working age value function and average earnings calculation function to set parameters
-                        value_working([], kv, bv, wage_eff, EV, ...
+                        value_working([], kv_next, bv, wage_eff, EV, ...
                                 bequest_p_1, bequest_phi_2, bequest_phi_3, ...
                                 sigma, gamma, reciprocal_1sigma);
                         calculate_b  ([], age, reciprocalage, bv(ib), bv(end), ssincmin, ssincmax, sswageindex);
                         
                         % Solve dynamic optimization subproblem
                         lab0 = 0.5;
-                        k0   = max(kv(ik), min(kv(end), 0.1 * wage_eff * lab0));   % Assumes taxation will not exceed 90% of labor income and at the same time forces k to be in the grid
+                        k0   = max(kv_next(ik), min(kv_next(end), 0.1 * wage_eff * lab0));   % Assumes taxation will not exceed 90% of labor income and at the same time forces k to be in the grid
                         
                         [x, v] = fminsearch(@value_working, [k0, lab0], optim_options);
 
@@ -231,14 +232,14 @@ for t = T_active:-1:1
                         
                         % Checks -> only work in the absence of mex file!
                         assert( ~isinf(v)   , 'v is inf')
-                        assert( k <= kv(end), 'k is too big!')
+                        assert( k <= kv_next(end), 'k (k_next) is too big!')
                         
                         % Record utility and optimal decision values
                         OPT.V(iz,ik,ib,t) = -v;
                         OPT.K(iz,ik,ib,t) = k ;
                         
                     else
-                        k = kv(ik);
+                        k = kv_next(ik);
                         lab = LAB_static(iz,ik,ib,t);
                     end
                     
