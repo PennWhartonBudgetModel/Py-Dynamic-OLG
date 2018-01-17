@@ -186,11 +186,13 @@ methods (Static)
                                             , sstax_rates            ...
                                             , Market.priceindices );            
             
+            kvs = (Market.kpricescale .* kv)';
+                                        
             for idem = 1:ndem
     
                 % Package fixed dynamic optimization arguments into anonymous function
                 solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes) solve_cohort(V0, LAB_static, isdynamic, ...
-                    nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, Market.kpricescale .* kv, bv, beta, gamma, sigma, surv, ...
+                    nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, kvs, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                     sstaxcredit, ssbenefits, ssincmins_indexed, ssincmaxs_indexed, cohort_wageindexes, ...
                     sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
@@ -299,6 +301,9 @@ methods (Static)
                         K = OPTs.K(:,:,:,:,min(year, T_model),idem);
                         B = OPTs.B(:,:,:,:,min(year, T_model),idem);
                         
+                        % Find re-scaled asset grid
+                        kv_dist = kvs(min(year, T_model),:)';
+                        
                         % Define population growth distribution
                         DIST_grow = zeros(nz,nk,nb,T_life,ng);
                         P = sum(DIST_year(:));
@@ -308,7 +313,7 @@ methods (Static)
                         DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz(:,:,g.illegal), [nz,1,1,T_life,1]) * P * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
                         
                         % Generate population distribution for next year
-                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, Market.kpricescale(year)*kv, bv, surv);
+                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kv_dist, bv, surv);
                         assert(all(DIST_next(:)>=0), 'Negative mass of people at DIST_next.')
                         
                         % Increase legal immigrant population for amnesty, maintaining distributions over productivity
@@ -328,7 +333,6 @@ methods (Static)
                         
                         switch economy, case 'steady'
                             DIST_trans(:,:,:,:,:,1,idem) = DIST_next;
-                            year = 1;
                         end
                         
                     end

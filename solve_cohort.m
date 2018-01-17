@@ -37,7 +37,7 @@ assert( isa(T_work      , 'double'  ) && (size(T_work       , 1) == 1       ) &&
 assert( isa(T_model     , 'double'  ) && (size(T_model      , 1) == 1       ) && (size(T_model      , 2) == 1       ) );
 assert( isa(zs_idem     , 'double'  ) && (size(zs_idem      , 1) <= nz_max  ) && (size(zs_idem      , 2) <= T_max   ) );
 assert( isa(transz      , 'double'  ) && (size(transz       , 1) <= nz_max  ) && (size(transz       , 2) <= nz_max  ) );
-assert( isa(kvs         , 'double'  ) && (size(kvs          , 1) <= nk_max  ) && (size(kvs          , 2) <= T_max   ) );
+assert( isa(kvs         , 'double'  ) && (size(kvs          , 1) <= T_max   ) && (size(kvs          , 2) <= nk_max  ) );
 assert( isa(bv          , 'double'  ) && (size(bv           , 1) <= nb_max  ) && (size(bv           , 2) == 1       ) );
 assert( isa(beta        , 'double'  ) && (size(beta         , 1) == 1       ) && (size(beta         , 2) == 1       ) );
 assert( isa(gamma       , 'double'  ) && (size(gamma        , 1) == 1       ) && (size(gamma        , 2) == 1       ) );
@@ -122,7 +122,8 @@ for t = T_active:-1:1
     expsub      = expsubs      (year);
     captaxshare = captaxshares (year);
     taucap      = taucaps      (year);
-    kv          = kvs       (:, year);
+    
+    kv      = kvs(year    , :);
     
     ssbenefit       = ssbenefits        (year, :);
     
