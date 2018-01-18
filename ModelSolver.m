@@ -133,13 +133,9 @@ methods (Static)
         taucaps             = s.taucap;                  % Capital tax rate
         taucapgains         = s.taucapgain;              % Capital gains tax rate
         
-        s_base = ParamGenerator.tax( scenario.currentPolicy );
-        expshares_base = s_base.shareCapitalExpensing;   % expshare for baseline
-        taucaps_base   = s_base.taucap;                  % taucap for baseline
-        
-        qtobin0 = 1 - expshares_base(1)*taucaps_base(1);
-        qtobin  = 1 - expshares(1)     *taucaps(1)     ;
-        qtobin  = ones(1, T_model)    .* qtobin;
+        qtobin0     = s.qtobin0;
+        qtobin      = s.qtobin';
+        taucap_ss   = s.sstaucap;  % Used for open economy
 
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
@@ -565,7 +561,10 @@ methods (Static)
                 case 'open'
                     
                     if isinitial
-                        Market.caprates  = Market0.caprates*ones(1,T_model).*(1-taucaps_base')./(1-taucaps');
+                        % Rem: Returns are fixed to match steady-state in
+                        % open economy. That is, after-tax returns for
+                        % capital are fixed.
+                        Market.caprates  = Market0.caprates*ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
                         Market.govrates  = Market0.govrates*ones(1,T_model);
                         Market.totrates  = Market0.totrates*ones(1,T_model);
                     end

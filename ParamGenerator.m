@@ -214,18 +214,43 @@ methods (Static)
         tax_vars = read_namedseries_withpad( filename, 'Year', first_year, last_year );
         
         % Calculate combined tax rate and share for Capital
-        s.captaxshare           = tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred; 
-        s.taucap                = (   tax_vars.rateCorporate .* tax_vars.shareCapitalCorporate   ...
-                                    + tax_vars.ratePreferred .* tax_vars.shareCapitalPreferred   ...
+        %    Do this as function to reuse for Q-Tobin calculation
+        function [captaxshare, taucap] = calculate_captaxes( vars )
+            captaxshare         = vars.shareCapitalCorporate + vars.shareCapitalPreferred; 
+            taucap              = (   vars.rateCorporate .* vars.shareCapitalCorporate   ...
+                                    + vars.ratePreferred .* vars.shareCapitalPreferred   ...
                                   ) ...
-                                  ./ (tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred );
-        s.taucapgain            = zeros(T_model,1);
+                                  ./ (vars.shareCapitalCorporate + vars.shareCapitalPreferred );
+        end %calculate_captaxes
         
-        % Pass along all parameters as well
+        [s.captaxshare, s.taucap]   = calculate_captaxes( tax_vars );
+        s.taucapgain                = zeros(T_model,1);
+        
+        % Pass along all CIT parameters as well
         for f = fieldnames(tax_vars)'
             s.(f{1}) = tax_vars.(f{1});
         end
+        
+        % Calculate Q-Tobin
+        switch scenario.economy
+            case 'steady'
+                s.qtobin0   = 1 - tax_vars.shareCapitalExpensing(1) * s.taucap(1);
+                s.qtobin    = s.qtobin0;
+                s.sstaucap  = s.taucap(1);
+            otherwise
+                % Read tax params from steady-state, current-policy to make t=0 values
+                sstaxplanid = find_taxplanid(scenario.steady().currentPolicy());
+                filename    = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', sstaxplanid, '.csv'));
+                sstax_vars  = read_namedseries_withpad( filename, 'Year', first_year - 1, first_year - 1 );
+
+                [~, sstaucap] = calculate_captaxes( sstax_vars );
                 
+                s.qtobin0   = 1 - sstax_vars.shareCapitalExpensing(1) * sstaucap(1);
+                s.qtobin    = 1 - tax_vars.shareCapitalExpensing .* s.taucap;
+                s.sstaucap  = sstaucap;
+        end  
+               
+        
         % Warn if parameters are outside expectations
         if( any(s.captaxshare < 0) || any(s.captaxshare > 1) )
             fprintf( 'WARNING! captaxshare outside expecations.\n', s.captaxshare );
