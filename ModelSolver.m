@@ -201,13 +201,14 @@ methods (Static)
                 % Solve steady state / post-transition path cohort
                 if isdynamic
                     
-                    % TBD: FIX: Calculate representative cohort policy
+                    % Note: retire_year = 1 so that ssbenefits is
+                    % calculated for T_model = 1
                     ssbenefits = ModelSolver.calculateSSBenefitForCohort(   ...
                                                 socialsecurity.startyear_benefitbrackets(end, :)   ...
                                             ,   socialsecurity.startyear_benefitrates   (end, :)   ...
                                             ,   socialsecurity.benefits_adjustment                 ...
                                             ,   Market.priceindices                                ...
-                                            ,   socialsecurity.retire_years(end)                   ...
+                                            ,   1                                                  ...
                                             ,   bv, T_model );
 
                     % Solve dynamic optimization
@@ -857,9 +858,8 @@ methods (Static, Access = private )
         adjtotben   = cumsum(diff(adjbrackets, 1, 2).*adjrates(:, 1:end-1), 2); 
         adjtotben   = [zeros(size(adjbrackets, 1), 1), adjtotben];  % rem: first column is zero
         
-        % Calculate benefits for each year of retirement.
-        %  TBD: Replace 1 start with retire_year
-        for t = 1:T_model
+        % Calculate benefits for each year of retirement until end of time.
+        for t = max(retire_year,1):T_model
             for ib = 1:size(bv,1)
                 thebracket       = find(adjbrackets(t,:) <= bv(ib), 1, 'last');
                 ssbenefits(t,ib) = adjtotben(t,thebracket)            ...
