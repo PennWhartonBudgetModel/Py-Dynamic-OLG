@@ -99,9 +99,9 @@ methods (Static)
         %   rem: all USdollars have been converted to modelunit dollars
         socialsecurity  = ParamGenerator.social_security( scenario );
         T_works         = socialsecurity.T_works     ;    % Total working years
-        sstax_brackets  = socialsecurity.brackets    ;    % Payroll tax brackets (currentlaw is 0 to taxmax)
-        sstax_rates     = socialsecurity.rates       ;    % Payroll tax rates (currentlaw is 12.4%)
-        sstax_burdens   = socialsecurity.burdens     ;    % Cumulative tax liability at each bracket
+        sstax_brackets  = socialsecurity.taxbrackets ;    % Payroll tax brackets (currentlaw is 0 to taxmax)
+        sstax_rates     = socialsecurity.taxrates    ;    % Payroll tax rates (currentlaw is 12.4%)
+        sstax_indices   = socialsecurity.taxindices  ;    % Type of index to use on tax bracket
         sstaxcredit     = socialsecurity.taxcredit   ;    % Benefit tax credit percentage
         ssincmaxs       = socialsecurity.ssincmaxs   ;    % Maximum wage allowed for benefit calculation
         ssincmins       = socialsecurity.ssincmins   ;    % Minimum wage allowed for benefit calculation
@@ -128,17 +128,18 @@ methods (Static)
         pittax_burdens      = s.burdens;    % Tax burden (cumulative tax) at thresholds
         pittax_rates        = s.rates;      % Effective marginal tax rate between thresholds
         
-        captaxshare         = s.captaxshare;            % Portion of capital income taxed at preferred rates
-        expshare            = s.shareCapitalExpensing;  % Portion of investment which can be expensed
-        taucap              = s.taucap;                 % Capital tax rate
-        taucapgain          = s.taucapgain;             % Capital gains tax rate
+        captaxshares        = s.captaxshare;             % Portion of capital income taxed at preferred rates
+        expshares           = s.shareCapitalExpensing;   % Portion of investment which can be expensed
+        taucaps             = s.taucap;                  % Capital tax rate
+        taucapgains         = s.taucapgain;              % Capital gains tax rate
         
         s_base = ParamGenerator.tax( scenario.currentPolicy );
-        expshare_base = s_base.shareCapitalExpensing;   % expshare for baseline
-        taucap_base   = s_base.taucap;                  % taucap for baseline
+        expshares_base = s_base.shareCapitalExpensing;   % expshare for baseline
+        taucaps_base   = s_base.taucap;                  % taucap for baseline
         
-        qtobin0 = 1 - expshare_base*taucap_base;
-        qtobin  = 1 - expshare     *taucap     ;
+        qtobin0 = 1 - expshares_base(1)*taucaps_base(1);
+        qtobin  = 1 - expshares(1)     *taucaps(1)     ;
+        qtobin  = ones(1, T_model)    .* qtobin;
 
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
@@ -172,18 +173,29 @@ methods (Static)
                 DIST_trans = {};
             end
             
-            Market.priceindices = ModelSolver.generate_index(scenario, Market.wages, nstartyears, startyears, T_model, T_actives, T_shifts);
+            % Calculate indexing vectors
+            Market.priceindices = ModelSolver.generate_index(scenario, Market.wages, nstartyears, T_model, T_life);
             
-            for idem = 1:ndem
+            % Calculate indexed policy variables
+            ssincmins_indexed   = (ssincmins .* Market.priceindices.wage_inflations)';
+            ssincmaxs_indexed   = (ssincmaxs .* Market.priceindices.wage_inflations)';
                 
+            [sstax_brackets_indexed, sstax_rates_indexed, sstax_burdens_indexed] ...
+                    = ModelSolver.indexSSTax( sstax_brackets         ...
+                                            , sstax_indices          ...
+                                            , sstax_rates            ...
+                                            , Market.priceindices );            
+                                                    
+            for idem = 1:ndem
+    
                 % Package fixed dynamic optimization arguments into anonymous function
-                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindices) solve_cohort(V0, LAB_static, isdynamic, ...
-                    nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, Market.kpricescale*kv, bv, beta, gamma, sigma, surv, ...
+                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes) solve_cohort(V0, LAB_static, isdynamic, ...
+                    nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, kv, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
-                    sstaxcredit, ssbenefits, ssincmins, ssincmaxs, cohort_wageindices, ...
-                    sstax_brackets, sstax_burdens, sstax_rates, ...
+                    sstaxcredit, ssbenefits, ssincmins_indexed, ssincmaxs_indexed, cohort_wageindexes, ...
+                    sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
                     pittax_brackets, pittax_burdens, pittax_rates, ... 
-                    captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                    captaxshares, taucaps, Market.capgains .* taucapgains, Market.capgains .* Market.capshares', ...
                     Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);
                 
                 
@@ -198,12 +210,13 @@ methods (Static)
                                                 socialsecurity.startyear_benefitbrackets(end, :)   ...
                                             ,   socialsecurity.startyear_benefitrates   (end, :)   ...
                                             ,   socialsecurity.benefits_adjustment                 ...
-                                            ,   Market.wages                                       ...
+                                            ,   Market.priceindices                                ...
+                                            ,   socialsecurity.retire_years(end)                   ...
                                             ,   bv, T_model );
-                
+
                     % Solve dynamic optimization
                     % (Note that active time is set to full lifetime)
-                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits, Market.priceindices.cohort_wages(end,:)');
+                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits, Market.priceindices.cohort_wages(:,end));
                     
                     % Define series of terminal utility values
                     V0s(:,:,:,1:T_life-1) = OPT.V(:,:,:,2:T_life);
@@ -230,14 +243,15 @@ methods (Static)
                             
                             % Calculate cohort-based year-varying benefits policy
                             ssbenefits = ModelSolver.calculateSSBenefitForCohort(   ...
-                                                socialsecurity.startyear_benefitbrackets(i, :)   ...
-                                            ,   socialsecurity.startyear_benefitrates   (i, :)   ...
-                                            ,   socialsecurity.benefits_adjustment               ...
-                                            ,   Market.wages                                     ...
+                                                socialsecurity.startyear_benefitbrackets(i, :)  ...
+                                            ,   socialsecurity.startyear_benefitrates   (i, :)  ...
+                                            ,   socialsecurity.benefits_adjustment              ...
+                                            ,   Market.priceindices                             ...  
+                                            ,   socialsecurity.retire_years(i)                  ...
                                             ,   bv, T_model );
 
                             % Solve dynamic optimization
-                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, Market.priceindices.cohort_wages(i,:)');
+                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, Market.priceindices.cohort_wages(:,i));
                             
                             LABs{i,idem} = OPTs_cohort{i}.LAB;
                             
@@ -294,7 +308,7 @@ methods (Static)
                         DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz(:,:,g.illegal), [nz,1,1,T_life,1]) * P * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
                         
                         % Generate population distribution for next year
-                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, Market.kpricescale*kv, bv, surv);
+                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kv, bv, surv);
                         assert(all(DIST_next(:)>=0), 'Negative mass of people at DIST_next.')
                         
                         % Increase legal immigrant population for amnesty, maintaining distributions over productivity
@@ -337,7 +351,6 @@ methods (Static)
             f = @(F) sum(sum(reshape(DIST_gs .* F, [], T_model, ndem), 1), 3);
             
             Aggregate.pops     = f(1);                                                                                   % Population
-            Aggregate.assets   = f(repmat(reshape(Market.kpricescale*kv, [1,nk,1,1,1,1]), [nz,1,nb,T_life,T_model,ndem])); % Assets
             Aggregate.bequests = f(OPTs.K .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));    % Bequests
             Aggregate.labs     = f(OPTs.LAB);                                                                            % Labor
             Aggregate.labeffs  = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));      % Effective labor
@@ -348,6 +361,7 @@ methods (Static)
             Aggregate.cits     = f(OPTs.CIT);                                                                            % Capital income tax
             Aggregate.bens     = f(OPTs.BEN);                                                                            % Social Security benefits
             Aggregate.cons     = f(OPTs.CON);                                                                            % Consumption
+            Aggregate.assets   = f(repmat(reshape(kv, [1,nk,1,1,1,1]), [nz, 1,nb,T_life,T_model,ndem]));                 % Assets
             
         end
         
@@ -385,7 +399,7 @@ methods (Static)
 
             % Calculate static budgetary aggregate variables
             Static.cits_domestic = Static.cits;
-            Static.cits_foreign  = taucap * Market.caprates * captaxshare .* (qtobin*Static.caps_foreign);
+            Static.cits_foreign  = taucaps' .* Market.caprates .* captaxshares' .* (qtobin .* Static.caps_foreign);
             Static.cits          = Static.cits_domestic + Static.cits_foreign;
             Static.revs          = Static.pits + Static.ssts + Static.cits - Static.bens;            
             Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
@@ -495,12 +509,11 @@ methods (Static)
         end
         fprintf(']\n')
         fprintf( 'Started at: %s \n', datetime );
-        for label = { {'Beta'          , beta              } , ...
-                      {'Gamma'         , gamma             } , ...
-                      {'Sigma'         , sigma             } , ...
-                      {'phi_1'         , bequest_phi_1     } , ...
-                      {'depreciation'  , d                 } , ...
-                      {'Model$'        , modelunit_dollar  }   ...
+        for label = { {'Beta'          , scenario.beta                      } , ...
+                      {'Gamma'         , scenario.gamma                     } , ...
+                      {'Sigma'         , scenario.sigma                     } , ...
+                      {'IsLowReturn'   , scenario.is_low_return             } , ...
+                      {'Model$'        , scenario.modelunit_dollar          }   ...
                     };
             fprintf('\t%-25s= % 7.8f\n', label{1}{:})
         end
@@ -521,7 +534,7 @@ methods (Static)
                 Market.expsubs   = zeros(1,T_model);
             else
                 Market.beqs      = beqs;
-                Market.expsubs   = [expshare * max(diff(Dynamic.caps), 0), 0] ./ Dynamic.caps;
+                Market.expsubs   = expshares' .* [max(diff(Dynamic.caps), 0), 0] ./ Dynamic.caps;
             end
             
             switch economy
@@ -546,19 +559,22 @@ methods (Static)
                 case 'open'
                     
                     if isinitial
-                        Market.caprates  = Market0.caprates*ones(1,T_model)*(1-taucap_base)/(1-taucap);
+                        Market.caprates  = Market0.caprates*ones(1,T_model).*(1-taucaps_base')./(1-taucaps');
                         Market.govrates  = Market0.govrates*ones(1,T_model);
                         Market.totrates  = Market0.totrates*ones(1,T_model);
                     end
                     
             end
             
-            Market.rhos         = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
-            Market.wages        = A*(1-alpha)*(Market.rhos.^alpha);
+            Market.rhos        = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
+            Market.wages       = A*(1-alpha)*(Market.rhos.^alpha);
             
-            Market.kpricescale  = 1 + Market.capshares(1)*(qtobin - qtobin0)/qtobin;
-            Market.qtobin0      = qtobin0;
-            Market.qtobin       = qtobin;
+            Market.qtobin0     = qtobin0;
+            Market.qtobin      = qtobin;
+            Market.capgains(1,1) = (qtobin(1) - qtobin0)/qtobin(1);
+            for t = 2:T_model
+               Market.capgains(t,1) = (qtobin(t) - qtobin(t-1))/qtobin(t);
+            end
             
             % Generate dynamic aggregates
             [Dynamic, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {});
@@ -573,7 +589,7 @@ methods (Static)
                     % Calculate debt, capital, and output
                     % (Numerical solver used due to absence of closed form solution)
                     f_debts = @(outs ) debttoout*outs;
-                    f_caps  = @(debts) (Dynamic.assets - debts)/qtobin;
+                    f_caps  = @(debts) (Dynamic.assets - debts)./qtobin;
                     f_outs  = @(caps ) A*(max(caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     x_ = fsolve(@(x) x - [f_debts(x(3)); f_caps(x(1)); f_outs(x(2))], zeros(3,1), optimoptions('fsolve', 'Display', 'none'));
                     Dynamic.debts = x_(1);
@@ -588,7 +604,7 @@ methods (Static)
                     % Calculate income - THIS SHOULD BE OUTSIDE THE CASE
                     % ECONOMY LOOP!
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = qtobin * Market.caprates .* Dynamic.caps;
+                    Dynamic.capincs = qtobin .* Market.caprates .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
@@ -599,12 +615,12 @@ methods (Static)
                     Dynamic.caps = Market.rhos .* Dynamic.labeffs;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
-                    Dynamic.caps_domestic = (Market.capshares .* [Dynamic0.assets, Dynamic.assets(1:T_model-1)])/qtobin;
+                    Dynamic.caps_domestic = (Market.capshares .* [Dynamic0.assets, Dynamic.assets(1:T_model-1)]) ./ qtobin;
                     Dynamic.caps_foreign  = Dynamic.caps - Dynamic.caps_domestic;
                     
                     % Calculate debt
                     Dynamic.cits_domestic = Dynamic.cits;
-                    Dynamic.cits_foreign  = taucap * Market.caprates * captaxshare .* (qtobin*Dynamic.caps_foreign);
+                    Dynamic.cits_foreign  = taucaps' .* Market.caprates .* captaxshares' .* (qtobin .* Dynamic.caps_foreign);
                     Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
                     
                     if isbase
@@ -625,7 +641,7 @@ methods (Static)
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = qtobin * Market.caprates .* Dynamic.caps;
+                    Dynamic.capincs = qtobin .* Market.caprates .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
@@ -653,7 +669,7 @@ methods (Static)
                     Dynamic.debts_foreign  = zeros(1,T_model);
                     
                     % Calculate capital and output
-                    Dynamic.caps = ([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts)/qtobin;
+                    Dynamic.caps = ([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts) ./ qtobin;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     Dynamic.caps_domestic = Dynamic.caps;
@@ -661,13 +677,13 @@ methods (Static)
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = qtobin * Market.caprates .* Dynamic.caps;
+                    Dynamic.capincs = qtobin .* Market.caprates .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate market clearing series
-                    rhos = (max([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts, 0)/qtobin) ./ Dynamic.labeffs;
+                    rhos = (max([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
                     beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1) ./ Dynamic.pops(2:T_model)];
                     clearing = Market.rhos - rhos;
                     
@@ -796,73 +812,138 @@ end % methods
 
 methods (Static, Access = private ) 
     
-    % TBD: Add description
-    function ssbenefits = calculateSSBenefitForCohort( brackets, rates, adjustments, wages, bv, T_model ) %#ok<INUSD>
+    % Calculate SS benefits for a cohort
+    % Inputs:   
+    %       brackets: Initial year bracket thresholds. These 
+    %                 grow by wage_inflations index until cohort retires
+    %                 and then freeze.
+    %       rates   : Initial year replacement rates for each cohort. These
+    %                 grow by given policy adjustments (which can include
+    %                 any net adjustments due to COLA (REM: No adjustment
+    %                 implies a COLA = CPI growth.)
+    %       adjustments     : Adjustments (as ratio) to the rates.
+    %       priceindices    : Price index structure with <wage_inflations> index
+    %                       used to grow the brackets.
+    %       retire_year     : Model year of first year of retirement for this
+    %                       cohort.
+    %       bv, T_model     : Benefits discretized grid, and time to end of
+    %                       model run.
+    function ssbenefits = calculateSSBenefitForCohort(  brackets                    ...
+                                                     ,  rates                       ...
+                                                     ,  adjustments                 ...
+                                                     ,  priceindices                  ...
+                                                     ,  retire_year                 ...
+                                                     ,  bv, T_model ) %#ok<INUSD>
         
+        % Fetch index used to grow brackets
+        wage_index = priceindices.wage_inflations;
+                                                 
         % Cohort based benefits by year
-        ssbenefits  = zeros(T_model, size(bv,1));
+        %   REM: Every household is at a grid point, so can 
+        %        calculate benefits directly here (outside of
+        %        solve_cohort).
+        %    NOTE: We set ssbenefits to -Inf otherwise -- it should not be
+        %    used in solve_cohort (this will blow it up just in case)
+        ssbenefits  = ones(T_model, size(bv,1)) .* -Inf;
         
-        % Build indexed bracket cutoffs. 
-        %    TBD: Can this be done more efficiently?
-        adjbrackets = repmat(brackets, [T_model, 1])            ... 
-                        .* repmat( wages/wages, [1, size(brackets,1)] );
+        % Build indexed bracket cutoffs for each year (for the cohort)
+        bracket_idx = [     wage_index( 1:min(retire_year, T_model) )                           ...
+                        ,   ones(1, T_model - retire_year) ];
+        bracket_idx = bracket_idx(1:min(end,T_model))';
+        adjbrackets = repmat(brackets, [T_model, 1])                            ... 
+                        .* repmat( bracket_idx, [1, size(brackets,1)] );
+        
+        % Build benefit replacement rates adjusted by policy
         adjrates    = repmat(rates, [T_model, 1] )              ...
                         .* adjustments;
+       
+        % Build cumulative benefits matrix to aid benefit calculation
         adjtotben   = cumsum(diff(adjbrackets, 1, 2).*adjrates(:, 1:end-1), 2); 
         adjtotben   = [zeros(size(adjbrackets, 1), 1), adjtotben];  % rem: first column is zero
-                   
+        
+        % Calculate benefits for each year of retirement.
+        %  TBD: Replace 1 start with retire_year
         for t = 1:T_model
             for ib = 1:size(bv,1)
-                thebracket       = find(adjbrackets <= bv(ib), 1, 'last');
-                ssbenefits(t,ib) = adjtotben(thebracket)            ...
-                                    + adjrates(thebracket)*(bv(ib) - adjbrackets(thebracket));
+                thebracket       = find(adjbrackets(t,:) <= bv(ib), 1, 'last');
+                ssbenefits(t,ib) = adjtotben(t,thebracket)            ...
+                                    + adjrates(t,thebracket)*(bv(ib) - adjbrackets(t,thebracket));
             end
         end
         
     end % calculateSSBenefitForCohort
     
-    %
-    % Create indexes for benefits and taxmax calculations and import CPI index
-    %
-    function index = generate_index(scenario, Market_wages, nstartyears, startyears, T_model, T_actives, T_shifts)
+    
+    %% Calculate SS tax brackets using required indexing
+    %    If brackets overlap because of indexing, reorder the brackets 
+    %   Inputs:
+    %       brackets        = bracket cutoffs in nominal $, 
+    %                       (rem: first bracket cutoff is zero)
+    %       rates           = rates for brackets
+    %       bracketindices  = index to use for cutoff: (e.g. 'reals',
+    %                       'nominals', 'wage_inflations', but not 'cohort_wages' ) 
+    %       priceindices    = struct with indices
+    function [ssbrackets, ssrates, ssburdens] = indexSSTax(     brackets        ...
+                                                            ,   bracketindices  ...
+                                                            ,   rates           ...
+                                                            ,   priceindices ) 
+        if( any(strcmp(bracketindices, 'cohort_wages')) )
+            throw MException('calculateSSTaxBrackets:INDEX', 'Cannot use index type <cohort_wages>.' );
+        end
+        
+        indices    = zeros(size(brackets));
+        for i = 1:size(indices, 2)
+            indices(:,i) = priceindices.(bracketindices{i});
+        end
+        ssbrackets = brackets .* indices;
 
-        index.wage_inflations = Market_wages./Market_wages(1);         % Time-varying indexes
-        index.cohort_wages    = ones(nstartyears, T_model);            % Time- and cohort-varying indexes
-        index.cpi             = ParamGenerator.budget( scenario ).CPI; % Time-varying CPI indexes from CBO
+        % Sort brackets and rates just in case of overlap
+        [ssbrackets, sortindex] = sort(ssbrackets, 2);
         
-        realage_entry = ParamGenerator.timing(scenario).realage_entry;
-        
-        % Loop over cohorts
-        for i = 1:nstartyears
-            % Loop over cohorts that get to live past age 60
-            if startyears(i) <= T_model - (60 - realage_entry) % or T_pasts(i) >= 60 - realage_entry - T_model
-                % Loop over cohorts that get to be 60 withing T_model (i.e., exclude cohorts that enter the model aged 61+)
-                if startyears(i) >= -(60 - realage_entry - 1)  % or T_past(i) <= (60 - realage_entry - 1)
-                    % Loop over time
-                    for t = T_actives(i):-1:1
-                        agev = t + T_past;
-                        year = min(t + T_shifts(i), T_model);
-                        
-                    end
-                
-                
-                
-                year60 = int8(startyears(i) + (60 - realage_entry));
-                % Loop over cohorts that get to be 60 withing T_model
-                if year60 >= 1
-                    % Loop over time
-                    for t = T_actives(i):-1:1
-                        year = min(t + T_shifts(i), T_model);
-                        index.cohort_wages(i,year) = Market_wages(year)./Market_wages(year60);
-                    end
-                end
-            % Fill in with last index for cohorts that get to be 60 past T_model
-            else
-                index.cohort_wages(i,:) = repmat(reshape(index.cohort_wages(i-1,end), [1,1]), [1,T_model]);
-            end
+        ssrates = zeros(size(rates));
+        for r = 1:size(sortindex, 1)
+            ssrates(r, :) = rates(r, sortindex(r, :) );
         end
 
-    end
+        % Calculate tax burdens
+        ssburdens = cumsum(diff(ssbrackets, 1, 2).*ssrates(:, 1:end-1), 2); 
+        ssburdens = [zeros(size(ssbrackets, 1), 1), ssburdens];  % rem: first burden is zero
+
+    end % indexSSTax
+    
+
+    %%
+    % Create indexes for benefits and taxmax calculations and import CPI index
+    %
+    %   Inputs:
+    %       scenario     = used to import a couple of variables, 
+    %       Market_wages = T_model-dimension vector, 
+    %       nstartyears  = number of cohorts, 
+    %       startyears   = period of birth of a cohort (first period of transition is t = 0), 
+    %       T_model      = number of periods, 
+    function index = generate_index(scenario, Market_wages, nstartyears, T_model, T_life)
+
+        index.wage_inflations = Market_wages./Market_wages(1);            % Time-varying indexes
+        index.cohort_wages    = ones(T_model, nstartyears);               % Time- and cohort-varying indexes
+        index.nominals        = 1./ParamGenerator.budget( scenario ).CPI; % Time-varying reciprocal CPI indexes from CBO
+        index.reals           = ones(size(Market_wages));                 % Vector to 'index' real variables
+        
+        realage_entry = ParamGenerator.timing(scenario).realage_entry;
+        % Indexes for the boundary cohorts
+        cohortage60_at_1      = T_life + 1 - (60 - realage_entry);
+        cohortage60_at_Tmodel = cohortage60_at_1 + T_model - 1;
+        
+        for i = cohortage60_at_1:cohortage60_at_Tmodel
+            year_turn60 = i - (60 - realage_entry);
+            index.cohort_wages(:,i) = Market_wages(year_turn60)./Market_wages(:);
+        end
+
+        % TBD: Erase these couple lines when the time comes to implement the policies above
+        index.wage_inflations = ones(size(Market_wages));              % Time-varying indexes
+        index.cohort_wages    = ones(T_model, nstartyears);            % Time- and cohort-varying indexes
+    
+    end % generate_index
+
     
 end % private methods
 

@@ -11,7 +11,7 @@ function [OPT] = solve_cohort(V0, LAB_static, isdynamic, ...
                         sstaxcredit, ssbenefits, ssincmins, ssincmaxs, sswageindexes, ...
                         sstax_brackets, sstax_burdens, sstax_rates, ...
                         pittax_brackets, pittax_burdens, pittax_rates, ... 
-                        captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                        captaxshares, taucaps, capgain_taxrates, capgain_shares, ...
                         beqs, wages, capshares, caprates, govrates, totrates, expsubs) %#codegen
 
 
@@ -63,11 +63,10 @@ assert( isa(pittax_brackets  , 'double' ) && (size(pittax_brackets  , 1) <= T_ma
 assert( isa(pittax_burdens   , 'double' ) && (size(pittax_burdens   , 1) <= T_max ) && (size(pittax_burdens   , 2) <= nbrackets_max ) );
 assert( isa(pittax_rates     , 'double' ) && (size(pittax_rates     , 1) <= T_max ) && (size(pittax_rates     , 2) <= nbrackets_max ) );
 
-assert( isa(captaxshare , 'double'  ) && (size(captaxshare  , 1) == 1       ) && (size(captaxshare  , 2) == 1       ) );
-assert( isa(taucap      , 'double'  ) && (size(taucap       , 1) == 1       ) && (size(taucap       , 2) == 1       ) );
-assert( isa(taucapgain  , 'double'  ) && (size(taucapgain   , 1) == 1       ) && (size(taucapgain   , 2) == 1       ) );
-assert( isa(qtobin      , 'double'  ) && (size(qtobin       , 1) == 1       ) && (size(qtobin       , 2) == 1       ) );
-assert( isa(qtobin0     , 'double'  ) && (size(qtobin0      , 1) == 1       ) && (size(qtobin0      , 2) == 1       ) );
+assert( isa(captaxshares    , 'double'  ) && (size(captaxshares    , 1) <= T_max   ) && (size(captaxshares    , 2) == 1       ) );
+assert( isa(taucaps         , 'double'  ) && (size(taucaps         , 1) <= T_max   ) && (size(taucaps         , 2) == 1       ) );
+assert( isa(capgain_taxrates, 'double'  ) && (size(capgain_taxrates, 1) <= T_max   ) && (size(capgain_taxrates, 2) == 1       ) );
+assert( isa(capgain_shares  , 'double'  ) && (size(capgain_shares  , 1) <= T_max   ) && (size(capgain_shares  , 2) == 1       ) );
 
 assert( isa(beqs        , 'double'  ) && (size(beqs         , 1) == 1       ) && (size(beqs         , 2) <= T_max   ) );
 assert( isa(wages       , 'double'  ) && (size(wages        , 1) == 1       ) && (size(wages        , 2) <= T_max   ) );
@@ -123,6 +122,10 @@ for t = T_active:-1:1
     capshare    = capshares    (year);
     totrate     = totrates     (year);
     expsub      = expsubs      (year);
+    captaxshare = captaxshares (year);
+    taucap      = taucaps      (year);
+    capgain_taxrate = capgain_taxrates(year);
+    capgain_share   = capgain_shares  (year);
     
     ssbenefit       = ssbenefits        (year, :);
     
@@ -133,7 +136,7 @@ for t = T_active:-1:1
     pit_brackets    = pittax_brackets   (year, :);
     pit_burdens     = pittax_burdens    (year, :);
     pit_rates       = pittax_rates      (year, :);
-    
+        
     % Pre-calculate for speed and conciseness
     bequest_p_1   = beta * (1-surv(age))* bequest_phi_1;
     reciprocalage = 1/age;
@@ -149,7 +152,7 @@ for t = T_active:-1:1
                     ssinc, sstaxcredit, ...
                     sst_brackets, sst_burdens, sst_rates, ...
                     pit_brackets, pit_burdens, pit_rates, ... 
-                    captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                    captaxshare, taucap, capgain_taxrate, capgain_share, ...
                     beq, capshare, caprate, govrate, totrate, expsub);
                 
                 if isdynamic
@@ -169,7 +172,7 @@ for t = T_active:-1:1
                     
                     % Checks -> only work in the absence of mex file!
                     assert( ~isinf(v)   , 'v is inf')
-                    assert( k <= kv(end), 'k is too big!')
+                    assert( k <= kv(end), 'k (k_next) is too big!')
 
                     % Record utility and optimal decision values
                     OPT.V(:,ik,ib,t) = -v;
@@ -203,7 +206,7 @@ for t = T_active:-1:1
                         0, 0, ...
                         sst_brackets, sst_burdens, sst_rates, ...
                         pit_brackets, pit_burdens, pit_rates, ... 
-                        captaxshare, taucap, taucapgain, qtobin, qtobin0, ...
+                        captaxshare, taucap, capgain_taxrate, capgain_share, ...
                         beq, capshare, caprate, govrate, totrate, expsub);
                     
                     if isdynamic
@@ -230,7 +233,7 @@ for t = T_active:-1:1
                         
                         % Checks -> only work in the absence of mex file!
                         assert( ~isinf(v)   , 'v is inf')
-                        assert( k <= kv(end), 'k is too big!')
+                        assert( k <= kv(end), 'k (k_next) is too big!')
                         
                         % Record utility and optimal decision values
                         OPT.V(iz,ik,ib,t) = -v;
@@ -278,7 +281,7 @@ function [resources, inc, pit, sst, cit] = calculate_resources(labinc, ...
              ssinc_, sstaxcredit_, ...
              sst_brackets_, sst_burdens_, sst_rates_, ...
              pit_brackets_, pit_burdens_, pit_rates_, ... 
-             captaxshare_, taucap_, taucapgain_, qtobin_, qtobin0_, ...
+             captaxshare_, taucap_, capgain_taxrate_, capgain_share_, ...
              beq_, capshare_, caprate_, govrate_, totrate_, expsub_) %#codegen
 
 % Enforce function inlining for C code generation
@@ -289,9 +292,8 @@ persistent kv_ik year ...
            ssinc sstaxcredit ...
            sst_brackets sst_burdens sst_rates ...
            pit_brackets pit_burdens pit_rates ... 
-           captaxshare taucap taucapgain qtobin qtobin0 ...
+           captaxshare taucap capgain_taxrate capgain_share ...
            beq capshare caprate govrate totrate expsub ...
-           capgain ...
            initialized
 
 % Initialize parameters for C code generation
@@ -300,9 +302,8 @@ if isempty(initialized)
     ssinc = 0; sstaxcredit = 0; 
     sst_brackets = 0; sst_burdens = 0; sst_rates = 0;
     pit_brackets = 0; pit_burdens = 0; pit_rates = 0;
-    captaxshare = 0; taucap = 0; taucapgain = 0; qtobin = 0; qtobin0 = 0;
+    captaxshare = 0; taucap = 0; capgain_taxrate = 0; capgain_share = 0;
     beq = 0; capshare = 0; caprate = 0; govrate = 0; totrate = 0; expsub = 0;
-    capgain = 0;
     initialized = true;
 end
 
@@ -312,12 +313,9 @@ if (nargin > 1)
     ssinc = ssinc_; sstaxcredit = sstaxcredit_; 
     sst_brackets = sst_brackets_; sst_burdens = sst_burdens_; sst_rates = sst_rates_;
     pit_brackets = pit_brackets_; pit_burdens = pit_burdens_; pit_rates = pit_rates_;
-    captaxshare = captaxshare_; taucap = taucap_; taucapgain = taucapgain_; qtobin = qtobin_; qtobin0 = qtobin0_;
+    captaxshare = captaxshare_; taucap = taucap_; capgain_taxrate = capgain_taxrate_; capgain_share = capgain_share_;
     beq = beq_; capshare = capshare_; caprate = caprate_; govrate = govrate_; totrate = totrate_; expsub = expsub_;
-    
-    % Pre-calculate the percent cap gain (adjusted for realization)
-    capgain = 0*(year == 1)*(qtobin - qtobin0)/qtobin; 
-    
+        
     if isempty(labinc), return, end
 end
 
@@ -334,10 +332,10 @@ pit = find_tax_liability( inc, pit_brackets, pit_burdens, pit_rates );
 sst = find_tax_liability( labinc, sst_brackets, sst_burdens, sst_rates );
 
 % Calculate corporate income tax
-cit = capshare*kv_ik*(taucap*(caprate - expsub)*captaxshare + taucapgain*capgain);
+cit = capshare*kv_ik*(taucap*(caprate - expsub)*captaxshare + capgain_taxrate);
 
 % Calculate available resources
-resources = (1 + totrate)*kv_ik + labinc + ssinc - (pit + sst + cit) + beq + kv_ik*capshare*capgain;
+resources = (1 + totrate)*kv_ik + labinc + ssinc - (pit + sst + cit) + beq + kv_ik*capgain_share;
 
 end
 
