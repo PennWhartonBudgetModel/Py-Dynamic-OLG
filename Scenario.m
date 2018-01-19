@@ -6,6 +6,8 @@ classdef Scenario
     
     properties (GetAccess = public, SetAccess = immutable)
         
+        %% REQUIRED parameters
+        
         % Economy ('steady', 'open', or 'closed')
         economy;
         
@@ -18,6 +20,12 @@ classdef Scenario
         % Core economy parameters
         is_low_return;
         modelunit_dollar;
+        
+        % OPTIONAL parameters -- will have default values
+        
+        % Timing
+        TransitionFirstYear;
+        TransitionLastYear;
         
         % Government expenditure shift
         expenditure_shift;
@@ -69,6 +77,8 @@ classdef Scenario
         
         % Specify default values for optional parameters
         def_params = struct(...
+            'TransitionFirstYear'           , 2018              , ...
+            'TransitionLastYear'            , (2018+25)         , ...
             'expenditure_shift'             , 0.0               , ...
             'legal_scale'                   , 1.0               , ...
             'prem_legal'                    , 1.0               , ...

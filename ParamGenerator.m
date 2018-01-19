@@ -12,16 +12,19 @@ methods (Static)
     function s = timing(scenario)
         
         s.realage_entry         = 20    ;   % Real age of model age=0   
-        s.first_transition_year = 2018  ;   % TBD: This will come from Scenario
         s.T_life                = 80    ;   % Death year
         s.Tmax_work             = 52    ;   % Last possible year of working age     
+        
+        % Time range for transition path
+        s.TransitionFirstYear = scenario.TransitionFirstYear;
+        s.TransitionLastYear  = scenario.TransitionLastYear;
         
         switch scenario.economy
             case 'steady'
                 s.T_model    = 1;                           % Steady state total modeling years
                 s.startyears = 0;                           % Steady state cohort start year
             case {'open', 'closed'}
-                s.T_model    = 25;                          % Transition path total modeling years
+                s.T_model    = s.TransitionLastYear - s.TransitionFirstYear;
                 s.startyears = (-s.T_life+1):(s.T_model-1); % Transition path cohort start years
         end
         
@@ -191,11 +194,11 @@ methods (Static)
         T_model                 = timing.T_model;
         switch scenario.economy
             case 'steady'
-                first_year      = timing.first_transition_year - 1;
+                first_year      = timing.TransitionFirstYear - 1;
                 last_year       = first_year;
             otherwise
-                first_year      = timing.first_transition_year;
-                last_year       = first_year + T_model;
+                first_year      = timing.TransitionFirstYear;
+                last_year       = timing.TransitionLastYear;
         end    
         
         bracketsfile    = strcat('PIT_', taxplanid, '.csv' );
@@ -329,7 +332,7 @@ methods (Static)
         timing                  = ParamGenerator.timing(scenario);
         T_model                 = timing.T_model;
         T_life                  = timing.T_life;
-        first_transition_year   = timing.first_transition_year;
+        first_transition_year   = timing.TransitionFirstYear;
         nstartyears             = length(timing.startyears);
         realage_entry           = timing.realage_entry;
         
@@ -433,7 +436,7 @@ methods (Static)
     function s = budget( scenario )
         
         s = ParamGenerator.timing( scenario );
-        first_transition_year   = s.first_transition_year;
+        first_transition_year   = s.TransitionFirstYear;
         T_model                 = s.T_model;
         
 

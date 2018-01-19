@@ -50,7 +50,7 @@ methods (Static)
         
         % Define time constants
         s = ParamGenerator.timing(scenario);
-        first_transition_year   = s.first_transition_year;  % map model inputs (or outputs) to actual years
+        first_transition_year   = s.TransitionFirstYear;    % map model inputs (or outputs) to actual years
         T_life                  = s.T_life;                 % Total life years
         T_model                 = s.T_model;                % Transition path model years
         startyears              = s.startyears;             % Cohort start years as offsets to year 1
