@@ -74,7 +74,7 @@ methods (Static, Access = private)
         if ~isempty(regexp(getenv('HOSTNAME'), '^(hpcc|aws)', 'once'))
             d = fullfile(filesep, 'home', 'wcit', 'data', 'projects');
         else
-            d = fullfile([filesep, filesep], 'hpcc.wharton.upenn.edu');
+            d = fullfile([filesep, filesep], 'hpcc-ppi.wharton.upenn.edu');
         end
         hpccrootdir = fullfile(d, 'ppi');
     end
