@@ -20,12 +20,13 @@ classdef Scenario
         % Core economy parameters
         is_low_return;
         modelunit_dollar;
-        
-        % OPTIONAL parameters -- will have default values
-        
+
         % Timing
         TransitionFirstYear;
         TransitionLastYear;
+        
+
+        % OPTIONAL policy parameters
         
         % Government expenditure shift
         expenditure_shift;
@@ -66,19 +67,19 @@ classdef Scenario
     
         % Define list of required parameters
         req_params = {...
-            'economy'           ;
-            'beta'              ;
-            'gamma'             ;
-            'sigma'             ;
-            'bequest_phi_1'     ;
-            'is_low_return'     ;
-            'modelunit_dollar'  ;
+            'economy'               ;
+            'beta'                  ;
+            'gamma'                 ;
+            'sigma'                 ;
+            'bequest_phi_1'         ;
+            'is_low_return'         ;
+            'modelunit_dollar'      ;
+            'TransitionFirstYear'   ;
+            'TransitionLastYear'    ;   
             };
         
         % Specify default values for optional parameters
         def_params = struct(...
-            'TransitionFirstYear'           , 2018              , ...
-            'TransitionLastYear'            , (2018+25)         , ...
             'expenditure_shift'             , 0.0               , ...
             'legal_scale'                   , 1.0               , ...
             'prem_legal'                    , 1.0               , ...
