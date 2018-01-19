@@ -182,18 +182,16 @@ methods (Static)
                                             , sstax_rates            ...
                                             , Market.priceindices );            
             
-            kvs = (Market.kpricescale .* kv)';
-                                        
             for idem = 1:ndem
     
                 % Package fixed dynamic optimization arguments into anonymous function
                 solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes) solve_cohort(V0, LAB_static, isdynamic, ...
-                    nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, kvs, bv, beta, gamma, sigma, surv, ...
+                    nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, kv, bv, beta, gamma, sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                     sstaxcredit, ssbenefits, ssincmins_indexed, ssincmaxs_indexed, cohort_wageindexes, ...
                     sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
                     pittax_brackets, pittax_burdens, pittax_rates, ... 
-                    captaxshares, taucaps, ...
+                    captaxshares, taucaps, Market.capgains .* taucapgains, Market.capgains .* Market.capshares', ...
                     Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);
                 
                 
@@ -297,9 +295,6 @@ methods (Static)
                         K = OPTs.K(:,:,:,:,min(year, T_model),idem);
                         B = OPTs.B(:,:,:,:,min(year, T_model),idem);
                         
-                        % Find re-scaled asset grid
-                        kv_dist = kvs(min(year, T_model),:)';
-                        
                         % Define population growth distribution
                         DIST_grow = zeros(nz,nk,nb,T_life,ng);
                         P = sum(DIST_year(:));
@@ -309,7 +304,7 @@ methods (Static)
                         DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz(:,:,g.illegal), [nz,1,1,T_life,1]) * P * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
                         
                         % Generate population distribution for next year
-                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kv_dist, bv, surv);
+                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kv, bv, surv);
                         assert(all(DIST_next(:)>=0), 'Negative mass of people at DIST_next.')
                         
                         % Increase legal immigrant population for amnesty, maintaining distributions over productivity
@@ -362,8 +357,7 @@ methods (Static)
             Aggregate.cits     = f(OPTs.CIT);                                                                            % Capital income tax
             Aggregate.bens     = f(OPTs.BEN);                                                                            % Social Security benefits
             Aggregate.cons     = f(OPTs.CON);                                                                            % Consumption
-            Aggregate.assets   = f(repmat(reshape(Market.kpricescale, [1,1,1,1,T_model,1]), [nz,nk,nb,T_life,      1,ndem]) .* ...
-                                   repmat(reshape(kv,                 [1,nk,1,1,1,1])     , [nz, 1,nb,T_life,T_model,ndem])); % Assets
+            Aggregate.assets   = f(repmat(reshape(kv, [1,nk,1,1,1,1]), [nz, 1,nb,T_life,T_model,ndem]));                 % Assets
             
         end
         
@@ -571,15 +565,15 @@ methods (Static)
                     
             end
             
-            Market.rhos        = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
-            Market.wages       = A*(1-alpha)*(Market.rhos.^alpha);
-            
-            Market.kpricescale(1) = 1 + Market.capshares(1)*(qtobin(1) - qtobin0)/qtobin(1);
+            % Compute prices
+            Market.rhos          = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
+            Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
+            Market.qtobin0       = qtobin0;
+            Market.qtobin        = qtobin;
+            Market.capgains(1,1) = (qtobin(1) - qtobin0)/qtobin(1);
             for t = 2:T_model
-               Market.kpricescale(t) = (1 + Market.capshares(t)*(qtobin(t) - qtobin(t-1))/qtobin(t))*Market.kpricescale(t-1);
+               Market.capgains(t,1) = (qtobin(t) - qtobin(t-1))/qtobin(t);
             end
-            Market.qtobin0     = qtobin0;
-            Market.qtobin      = qtobin;
             
             % Generate dynamic aggregates
             [Dynamic, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {});
