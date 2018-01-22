@@ -27,7 +27,7 @@ methods (Static)
         isbase = scenario.isCurrentPolicy();
         
         % Unpack parameters from filled counterfactual definition
-        expenditure_shift   = scenario.expenditure_shift;
+        expenditure_shift   = scenario.ExpenditureShift;
         legal_scale         = scenario.legal_scale      ;
         prem_legal          = scenario.prem_legal       ;
         amnesty             = scenario.amnesty          ;
@@ -50,7 +50,7 @@ methods (Static)
         
         % Define time constants
         s = ParamGenerator.timing(scenario);
-        first_transition_year   = s.first_transition_year;  % map model inputs (or outputs) to actual years
+        first_transition_year   = s.TransitionFirstYear;    % map model inputs (or outputs) to actual years
         T_life                  = s.T_life;                 % Total life years
         T_model                 = s.T_model;                % Transition path model years
         startyears              = s.startyears;             % Cohort start years as offsets to year 1
@@ -133,13 +133,9 @@ methods (Static)
         taucaps             = s.taucap;                  % Capital tax rate
         taucapgains         = s.taucapgain;              % Capital gains tax rate
         
-        s_base = ParamGenerator.tax( scenario.currentPolicy );
-        expshares_base = s_base.shareCapitalExpensing;   % expshare for baseline
-        taucaps_base   = s_base.taucap;                  % taucap for baseline
-        
-        qtobin0 = 1 - expshares_base(1)*taucaps_base(1);
-        qtobin  = 1 - expshares(1)     *taucaps(1)     ;
-        qtobin  = ones(1, T_model)    .* qtobin;
+        qtobin0     = s.qtobin0;
+        qtobin      = s.qtobin';
+        taucap_ss   = s.sstaucap;  % Used for open economy
 
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
@@ -185,7 +181,9 @@ methods (Static)
                                             , sstax_indices          ...
                                             , sstax_rates            ...
                                             , Market.priceindices );            
-                                                    
+
+            
+
             for idem = 1:ndem
     
                 % Package fixed dynamic optimization arguments into anonymous function
@@ -205,13 +203,14 @@ methods (Static)
                 % Solve steady state / post-transition path cohort
                 if isdynamic
                     
-                    % TBD: FIX: Calculate representative cohort policy
+                    % Note: retire_year = 1 so that ssbenefits is
+                    % calculated for T_model = 1
                     ssbenefits = ModelSolver.calculateSSBenefitForCohort(   ...
                                                 socialsecurity.startyear_benefitbrackets(end, :)   ...
                                             ,   socialsecurity.startyear_benefitrates   (end, :)   ...
                                             ,   socialsecurity.benefits_adjustment                 ...
                                             ,   Market.priceindices                                ...
-                                            ,   socialsecurity.retire_years(end)                   ...
+                                            ,   1                                                  ...
                                             ,   bv, T_model );
 
                     % Solve dynamic optimization
@@ -426,7 +425,7 @@ methods (Static)
             case 'steady'
                 
                 % Load initial conditions
-                Market0 = struct('beqs',0.0927,'capshares',3/(3+debttoout),'rhos',6.2885);
+                Market0 = struct('beqs',0.0927,'capshares',3/(3+debttoout),'rhos',6.2);
                     % Initial guesses set as follows:
                     % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
                     % beqs and rhos are guesses from previous code.
@@ -509,10 +508,11 @@ methods (Static)
         end
         fprintf(']\n')
         fprintf( 'Started at: %s \n', datetime );
-        for label = { {'Beta'          , scenario.beta                      } , ...
+        for label = { {'T_model'       , T_model                            } , ...
+                      {'Beta'          , scenario.beta                      } , ...
                       {'Gamma'         , scenario.gamma                     } , ...
                       {'Sigma'         , scenario.sigma                     } , ...
-                      {'IsLowReturn'   , scenario.is_low_return             } , ...
+                      {'IsLowReturn'   , scenario.IsLowReturn               } , ...
                       {'Model$'        , scenario.modelunit_dollar          }   ...
                     };
             fprintf('\t%-25s= % 7.8f\n', label{1}{:})
@@ -553,24 +553,27 @@ methods (Static)
                         Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
                     end
                     
-                    Market.caprates = max((A*alpha*(Market.rhos.^(alpha-1)) - d), 0);
+                    Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
                     Market.totrates = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
                     
                 case 'open'
                     
                     if isinitial
-                        Market.caprates  = Market0.caprates*ones(1,T_model).*(1-taucaps_base')./(1-taucaps');
+                        % Rem: Returns are fixed to match steady-state in
+                        % open economy. That is, after-tax returns for
+                        % capital are fixed.
+                        Market.caprates  = Market0.caprates*ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
                         Market.govrates  = Market0.govrates*ones(1,T_model);
                         Market.totrates  = Market0.totrates*ones(1,T_model);
                     end
                     
             end
             
-            Market.rhos        = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
-            Market.wages       = A*(1-alpha)*(Market.rhos.^alpha);
-            
-            Market.qtobin0     = qtobin0;
-            Market.qtobin      = qtobin;
+            % Compute prices
+            Market.rhos          = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
+            Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
+            Market.qtobin0       = qtobin0;
+            Market.qtobin        = qtobin;
             Market.capgains(1,1) = (qtobin(1) - qtobin0)/qtobin(1);
             for t = 2:T_model
                Market.capgains(t,1) = (qtobin(t) - qtobin(t-1))/qtobin(t);
@@ -714,8 +717,6 @@ methods (Static)
             save(fullfile(save_dir, 'decisions.mat'   ), 'LABs')
         end
         
-        % Delete price indices from Market
-%         Market = rmfield(Market,'priceindices')
         % Save market conditions and dynamic aggregates
         save(fullfile(save_dir, 'market.mat'  ), '-struct', 'Market' )
         save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic')
@@ -861,9 +862,8 @@ methods (Static, Access = private )
         adjtotben   = cumsum(diff(adjbrackets, 1, 2).*adjrates(:, 1:end-1), 2); 
         adjtotben   = [zeros(size(adjbrackets, 1), 1), adjtotben];  % rem: first column is zero
         
-        % Calculate benefits for each year of retirement.
-        %  TBD: Replace 1 start with retire_year
-        for t = 1:T_model
+        % Calculate benefits for each year of retirement until end of time.
+        for t = max(retire_year,1):T_model
             for ib = 1:size(bv,1)
                 thebracket       = find(adjbrackets(t,:) <= bv(ib), 1, 'last');
                 ssbenefits(t,ib) = adjtotben(t,thebracket)            ...

@@ -124,8 +124,9 @@ for t = T_active:-1:1
     expsub      = expsubs      (year);
     captaxshare = captaxshares (year);
     taucap      = taucaps      (year);
-    capgain_taxrate = capgain_taxrates(year);
-    capgain_share   = capgain_shares  (year);
+    
+    capgain_taxrate = capgain_taxrates  (year   );
+    capgain_share   = capgain_shares    (year   );
     
     ssbenefit       = ssbenefits        (year, :);
     
@@ -332,7 +333,7 @@ pit = find_tax_liability( inc, pit_brackets, pit_burdens, pit_rates );
 sst = find_tax_liability( labinc, sst_brackets, sst_burdens, sst_rates );
 
 % Calculate corporate income tax
-cit = capshare*kv_ik*(taucap*(caprate - expsub)*captaxshare + capgain_taxrate);
+cit = (capshare + capgain_share)*kv_ik*(taucap*(caprate - expsub)*captaxshare);
 
 % Calculate available resources
 resources = (1 + totrate)*kv_ik + labinc + ssinc - (pit + sst + cit) + beq + kv_ik*capgain_share;

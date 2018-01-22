@@ -12,16 +12,19 @@ methods (Static)
     function s = timing(scenario)
         
         s.realage_entry         = 20    ;   % Real age of model age=0   
-        s.first_transition_year = 2018  ;   % TBD: This will come from Scenario
         s.T_life                = 80    ;   % Death year
         s.Tmax_work             = 52    ;   % Last possible year of working age     
+        
+        % Time range for transition path
+        s.TransitionFirstYear = scenario.TransitionFirstYear;
+        s.TransitionLastYear  = scenario.TransitionLastYear;
         
         switch scenario.economy
             case 'steady'
                 s.T_model    = 1;                           % Steady state total modeling years
                 s.startyears = 0;                           % Steady state cohort start year
             case {'open', 'closed'}
-                s.T_model    = 25;                          % Transition path total modeling years
+                s.T_model    = s.TransitionLastYear - s.TransitionFirstYear;
                 s.startyears = (-s.T_life+1):(s.T_model-1); % Transition path cohort start years
         end
         
@@ -191,11 +194,11 @@ methods (Static)
         T_model                 = timing.T_model;
         switch scenario.economy
             case 'steady'
-                first_year      = timing.first_transition_year - 1;
+                first_year      = timing.TransitionFirstYear - 1;
                 last_year       = first_year;
             otherwise
-                first_year      = timing.first_transition_year;
-                last_year       = first_year + T_model;
+                first_year      = timing.TransitionFirstYear;
+                last_year       = timing.TransitionLastYear;
         end    
         
         bracketsfile    = strcat('PIT_', taxplanid, '.csv' );
@@ -214,18 +217,43 @@ methods (Static)
         tax_vars = read_namedseries_withpad( filename, 'Year', first_year, last_year );
         
         % Calculate combined tax rate and share for Capital
-        s.captaxshare           = tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred; 
-        s.taucap                = (   tax_vars.rateCorporate .* tax_vars.shareCapitalCorporate   ...
-                                    + tax_vars.ratePreferred .* tax_vars.shareCapitalPreferred   ...
+        %    Do this as function to reuse for Q-Tobin calculation
+        function [captaxshare, taucap] = calculate_captaxes( vars )
+            captaxshare         = vars.shareCapitalCorporate + vars.shareCapitalPreferred; 
+            taucap              = (   vars.rateCorporate .* vars.shareCapitalCorporate   ...
+                                    + vars.ratePreferred .* vars.shareCapitalPreferred   ...
                                   ) ...
-                                  ./ (tax_vars.shareCapitalCorporate + tax_vars.shareCapitalPreferred );
-        s.taucapgain            = zeros(T_model,1);
+                                  ./ (vars.shareCapitalCorporate + vars.shareCapitalPreferred );
+        end %calculate_captaxes
         
-        % Pass along all parameters as well
+        [s.captaxshare, s.taucap]   = calculate_captaxes( tax_vars );
+        s.taucapgain                = zeros(T_model,1);
+        
+        % Pass along all CIT parameters as well
         for f = fieldnames(tax_vars)'
             s.(f{1}) = tax_vars.(f{1});
         end
+        
+        % Calculate Q-Tobin
+        switch scenario.economy
+            case 'steady'
+                s.qtobin0   = 1 - tax_vars.shareCapitalExpensing(1) * s.taucap(1);
+                s.qtobin    = s.qtobin0;
+                s.sstaucap  = s.taucap(1);
+            otherwise
+                % Read tax params from steady-state, current-policy to make t=0 values
+                sstaxplanid = find_taxplanid(scenario.steady().currentPolicy());
+                filename    = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', sstaxplanid, '.csv'));
+                sstax_vars  = read_namedseries_withpad( filename, 'Year', first_year - 1, first_year - 1 );
+
+                [~, sstaucap] = calculate_captaxes( sstax_vars );
                 
+                s.qtobin0   = 1 - sstax_vars.shareCapitalExpensing(1) * sstaucap(1);
+                s.qtobin    = 1 - tax_vars.shareCapitalExpensing .* s.taucap;
+                s.sstaucap  = sstaucap;
+        end  
+               
+        
         % Warn if parameters are outside expectations
         if( any(s.captaxshare < 0) || any(s.captaxshare > 1) )
             fprintf( 'WARNING! captaxshare outside expecations.\n', s.captaxshare );
@@ -290,7 +318,7 @@ methods (Static)
         s.A         = 1;                    % Total factor productivity
         s.alpha     = params.Alpha;         % Capital share of output
         s.d         = params.Depreciation;  % Actual depreciation rate
-        if( scenario.is_low_return )
+        if( scenario.IsLowReturn )
             s.d = 0.08;                     % "Depreciation rate" to generate r=risk-free rate         
         end
 
@@ -304,7 +332,7 @@ methods (Static)
         timing                  = ParamGenerator.timing(scenario);
         T_model                 = timing.T_model;
         T_life                  = timing.T_life;
-        first_transition_year   = timing.first_transition_year;
+        first_transition_year   = timing.TransitionFirstYear;
         nstartyears             = length(timing.startyears);
         realage_entry           = timing.realage_entry;
         
@@ -408,7 +436,7 @@ methods (Static)
     function s = budget( scenario )
         
         s = ParamGenerator.timing( scenario );
-        first_transition_year   = s.first_transition_year;
+        first_transition_year   = s.TransitionFirstYear;
         T_model                 = s.T_model;
         
 
@@ -638,26 +666,26 @@ function [taxplanid] = find_taxplanid( scenario )
     % Load tax plan ID map from tax plan input directory
     taxplanidmap = table2struct(readtable(fullfile(PathFinder.getTaxPlanInputDir(), 'Map.csv')));
     
-    % Define mapping from dynamic model tax parameter names to tax plan parameter names
-    parammap = struct(...
-        'base_brackets'                 , 'BaseBrackets'                , ...
-        'has_buffet_rule'               , 'HasBuffetRule'               , ...
-        'has_double_standard_deduction' , 'HasDoubleStandardDeduction'  , ...
-        'has_limit_deductions'          , 'HasLimitDeductions'          , ...
-        'has_expand_child_credit'       , 'HasExpandChildCredit'        , ...
-        'no_aca_income_tax'             , 'NoACAIncomeTax'              , ...
-        'corporate_tax_rate'            , 'CorporateTaxRate'            , ...
-        'has_special_pass_through_rate' , 'HasSpecialPassThroughRate'   , ...
-        'has_immediate_expensing'       , 'HasImmediateExpensing'       , ...
-        'has_repeal_corporate_expensing', 'HasRepealCorporateExpensing' );
-    
+    matchparams = { ...
+                'BaseBrackets'                      ...
+            ,   'HasBuffetRule'                     ...
+            ,   'HasDoubleStandardDeduction'        ...
+            ,   'HasLimitDeductions'                ...
+            ,   'HasExpandChildCredit'              ...
+            ,   'NoACAIncomeTax'                    ...
+            ,   'CorporateTaxRate'                  ...
+            ,   'HasSpecialPassThroughRate'         ...
+            ,   'HasImmediateExpensing'             ...
+        	,   'HasRepealCorporateExpensing'       ...
+            };
+
     % Identify tax plans with parameter values matching scenario tax parameter values
     %   Default values specified for tax plan parameters not represented in dynamic model
     match = arrayfun(@(row) ...
         row.('HasAGISurcharge_5m'         ) == false && ...
         row.('HasPITRateOnCarriedInterest') == false && ...
         all(cellfun(@(param) ...
-            isequal(scenario.(param), row.(parammap.(param))), fieldnames(parammap) ...
+            isequal(scenario.(param), row.(param)), matchparams ...
         )), ...
         taxplanidmap ...
     );
