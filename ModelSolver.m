@@ -423,7 +423,7 @@ methods (Static)
             case 'steady'
                 
                 % Load initial conditions
-                Market0 = struct('beqs',0.0927,'capshares',3/(3+debttoout),'rhos',6.2885);
+                Market0 = struct('beqs',0.0927,'capshares',3/(3+debttoout),'rhos',6.2);
                     % Initial guesses set as follows:
                     % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
                     % beqs and rhos are guesses from previous code.
@@ -551,7 +551,7 @@ methods (Static)
                         Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
                     end
                     
-                    Market.caprates = max((A*alpha*(Market.rhos.^(alpha-1)) - d), 0);
+                    Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
                     Market.totrates = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
                     
                 case 'open'
@@ -568,7 +568,7 @@ methods (Static)
             end
             
             % Compute prices
-            Market.rhos          = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
+            Market.rhos          = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
             Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
             Market.qtobin0       = qtobin0;
             Market.qtobin        = qtobin;
@@ -715,8 +715,6 @@ methods (Static)
             save(fullfile(save_dir, 'decisions.mat'   ), 'LABs')
         end
         
-        % Delete price indices from Market
-%         Market = rmfield(Market,'priceindices')
         % Save market conditions and dynamic aggregates
         save(fullfile(save_dir, 'market.mat'  ), '-struct', 'Market' )
         save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic')
