@@ -49,21 +49,21 @@ d_steady = load(fullfile(steady_dir  , 'dynamics.mat'), ...
             'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens' );
 d_steady.cits_domestic = d_steady.cits;
 d_open   = load(fullfile(open_dir  , 'dynamics.mat'), ... 
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens' );
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens' );
 d_closed = load(fullfile(closed_dir, 'dynamics.mat'), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens' );
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens' );
 
 % Import variables in **baseline** dynamics file
 b_open   = load(fullfile(bopen_dir  , 'dynamics.mat'), ... 
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens' );
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens' );
 b_closed = load(fullfile(bclosed_dir, 'dynamics.mat'), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens' );
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens' );
 
 % Import variables in statics file
 s_open   = load(fullfile(open_dir  , 'statics.mat' ), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens');
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens');
 s_closed = load(fullfile(closed_dir, 'statics.mat' ), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens');
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens');
 
 % Import variables in market file
 m_steady  = load(fullfile(steady_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'govrates', 'totrates', 'qtobin');
@@ -74,7 +74,7 @@ mb_closed = load(fullfile(bclosed_dir, 'market.mat' ), 'caprates', 'wages', 'rho
 
 % Include steady state year in all series
 include_ss = @(x, xss) [xss x];
-os = {'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'cons', 'pops', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens'};
+os = {'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'cons', 'pops', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens'};
 for o = os
     d_open.(o{1})   = include_ss(d_open.(o{1})  , d_steady.(o{1}));
     s_open.(o{1})   = include_ss(s_open.(o{1})  , d_steady.(o{1}));
@@ -125,10 +125,10 @@ writetable(res_open, 'res_open.csv')
 writetable(res_closed, 'res_closed.csv')
            
 % Deltas report
-header = {'year', 'output', 'debt', 'revenue', 'capital', 'labor', 'labor_efficient', 'labpits', 'caprevs', 'assets', 'consumption', 'pits', 'tax', 'totinc', 'totincwss'};
+header = {'year', 'output', 'debt', 'revenue', 'capital', 'labor', 'labor_efficient', 'labpits', 'caprevs', 'assets', 'consumption', 'cits', 'pits', 'tax', 'totinc', 'totincwss'};
 f = @( d, s ) table(yearsv', (d.outs ./ s.outs)', (d.debts ./ s.debts)', (d.revs ./ s.revs)',   ...
          (d.caps ./ s.caps)', (d.labs ./ s.labs)', (d.labeffs ./ s.labeffs)' , (d.labpits ./ s.labpits)' ,   ...
-         (d.caprevs ./ s.caprevs)', (d.assets ./ s.assets)', (d.cons ./ s.cons)', (d.pits ./ s.pits)',...
+         (d.caprevs ./ s.caprevs)', (d.assets ./ s.assets)', (d.cons ./ s.cons)', (d.cits ./ s.cits)', (d.pits ./ s.pits)',...
          (d.tax ./ s.tax)', (d.totinc ./ s.totinc)', (d.totincwss ./ s.totincwss)', 'VariableNames', header);
     
 delta_closed  = f(d_closed, s_closed);
