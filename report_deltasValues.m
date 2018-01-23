@@ -16,13 +16,16 @@ params.beta =  1.003341000000000;
 params.gamma = 0.680000000000000;
 params.sigma = 1.500000000000000;
 params.modelunit_dollar = 4.135682750000000e-05;
+params.TransitionFirstYear = 2018;
+params.TransitionLastYear  = 2018+5;
 
 %% Scenarios and directories
 
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
                              'sigma', params.sigma, 'modelunit_dollar', params.modelunit_dollar, ...
-                             'is_low_return', true, 'bequest_phi_1', 0, 'base_brackets', 'SenCMA'));
+                             'IsLowReturn', true, 'bequest_phi_1', 0, 'BaseBrackets', 'Conf', ...
+                             'TransitionFirstYear', params.TransitionFirstYear, 'TransitionLastYear', params.TransitionLastYear));
 
 sc_steady   = scenario.currentPolicy.steady;
 sc_open     = scenario.open();
@@ -63,15 +66,11 @@ s_closed = load(fullfile(closed_dir, 'statics.mat' ), ...
             'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits_domestic', 'pits', 'ssts', 'bens');
 
 % Import variables in market file
-m_steady  = load(fullfile(steady_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
-m_open    = load(fullfile(open_dir  , 'market.mat'  ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
-mb_open   = load(fullfile(bopen_dir  , 'market.mat' ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
-m_closed  = load(fullfile(closed_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
-mb_closed = load(fullfile(bclosed_dir, 'market.mat' ), 'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin');
-
-% Reshape qtobin
-m_open.qtobin   = repmat(m_open.qtobin  , [size(m_open.rhos  )]);
-m_closed.qtobin = repmat(m_closed.qtobin, [size(m_closed.rhos)]);
+m_steady  = load(fullfile(steady_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'govrates', 'totrates', 'qtobin');
+m_open    = load(fullfile(open_dir  , 'market.mat'  ), 'caprates', 'wages', 'rhos', 'govrates', 'totrates', 'qtobin');
+mb_open   = load(fullfile(bopen_dir  , 'market.mat' ), 'caprates', 'wages', 'rhos', 'govrates', 'totrates', 'qtobin');
+m_closed  = load(fullfile(closed_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'govrates', 'totrates', 'qtobin');
+mb_closed = load(fullfile(bclosed_dir, 'market.mat' ), 'caprates', 'wages', 'rhos', 'govrates', 'totrates', 'qtobin');
 
 % Include steady state year in all series
 include_ss = @(x, xss) [xss x];
@@ -84,7 +83,7 @@ for o = os
     s_closed.(o{1}) = include_ss(s_closed.(o{1}), d_steady.(o{1}));
     b_closed.(o{1}) = include_ss(b_closed.(o{1}), d_steady.(o{1}));
 end
-os = {'caprates', 'wages', 'rhos', 'kpricescale', 'govrates', 'totrates', 'qtobin'};
+os = {'caprates', 'wages', 'rhos', 'govrates', 'totrates', 'qtobin'};
 for o = os
     m_open.(o{1})    = include_ss(m_open.(o{1})  , m_steady.(o{1}));
     mb_open.(o{1})   = include_ss(mb_open.(o{1})  , m_steady.(o{1}));
@@ -103,8 +102,7 @@ end
 %% Tables
 
 % Years vector
-s = ParamGenerator.timing(sc_closed);
-yearsv = [(s.first_transition_year - 1):1:(s.first_transition_year -1 + s.T_model)];
+yearsv = [(params.TransitionFirstYear - 1):1:(params.TransitionLastYear-1)];
 
 % Raw values reports
 header      = {'year', 'MPK_netDep', 'gov_interest_rate', 'total_interest_rate', 'qtobin', 'wages', 'K_L_ratio', ...
@@ -152,7 +150,7 @@ f = @( d, s, m ) table(yearsv', m.caprates', m.govrates', m.totrates', m.qtobin'
 TPC_closed  = f(d_closed, s_closed, m_closed);
 TPC_open    = f(d_open  , s_open  , m_open  );
 
-if (scenario.is_low_return)
+if (scenario.IsLowReturn)
     filename = 'TPC_report_lo_return.xlsx';
 else
     filename = 'TPC_report_hi_return.xlsx';
