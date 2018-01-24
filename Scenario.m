@@ -150,7 +150,7 @@ classdef Scenario
             
             
             % Generate identifier tags for baseline and counterfactual definitions
-            this.basedeftag = '';
+            this.basedeftag = ''; this.counterdeftag = '';
             for o = Scenario.req_params'
                 if( ~strcmp( o{1}, 'economy' ) )
                     this.basedeftag = strcat( this.basedeftag, '_', num2str(this.(o{1})) );

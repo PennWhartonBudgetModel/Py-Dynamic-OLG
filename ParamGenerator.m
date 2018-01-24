@@ -440,8 +440,8 @@ methods (Static)
         T_model                 = s.T_model;
         
 
-        %  CBO interest rates, expenditures, and debt
-        % Input: InterestRates.csv -- interest rate (as pct) 
+        % Interest rates, expenditures, and debt
+        % Input: InterestRates.csv -- CBO rates and debt
         %           Format is 
         %           Year	DebtHeldByPublic	EffectiveInterestRateOnDebt	NonInterestDeficit	CPI
         % Input: SIMGDP.csv -- nominal GDP from baseline SIM
@@ -450,15 +450,11 @@ methods (Static)
         %           Format is (Year), (Revenues) w/ header row.
         % Input: SIMExpenditures.csv -- nominal non-interest expenditures from baseline SIM
         %           Format is (Year), (Expenditures) w/ header row.
-        % Input: CBONonInterestSpending.csv -- NIS as pct GDP
-        %           Format is (Year), (PctGDP) w/ header row.
-        % Input: CBOSocialSecuritySpending.csv -- SS spending as pct GDP
-        %           Format is (Year), (PctGDP) w/ header row.
-        % Input: CBOMedicareSpending.csv -- Medicare spending as pct GDP
-        %           Format is (Year), (PctGDP) w/ header row.
+        % Input: SpendingPercentGDP.csv -- Spending as pct GDP
+        %           Format is: 
+        %           FiscalYear, SocialSecuritySpending, NonInterestSpending, MedicareSpending 
         % Output: 
         %       debttoout, fedgovtnis, cborates, GEXP_by_GDP
-        cbo_param   = PathFinder.getCboInputDir     ();
         sim_param   = PathFinder.getMicrosimInputDir();
         
         first_year                  = first_transition_year - 1;    % first year from which to read series
@@ -466,24 +462,25 @@ methods (Static)
         SIMRevenues                 = read_series( 'SIMRevenues.csv'                , first_year, sim_param );
         SIMExpenditures             = read_series( 'SIMExpenditures.csv'            , first_year, sim_param );
         SIMGDPPriceIndex            = read_series( 'SIMGDPPriceIndex.csv'           , first_year, sim_param );
-        CBONonInterestSpending      = read_series( 'CBONonInterestSpending.csv'     , first_year, cbo_param );
-        CBOSocialSecuritySpending   = read_series( 'CBOSocialSecuritySpending.csv'  , first_year, cbo_param );
-        CBOMedicareSpending         = read_series( 'CBOMedicareSpending.csv'        , first_year, cbo_param );
+        
+        % Spending
+        filename                    = fullfile( PathFinder.getCboInputDir(), 'SpendingPercentGDP.csv' );
+        cbo_series                  = read_namedseries_withpad( filename, 'FiscalYear', first_year, [] ); 
+        CBONonInterestSpending      = cbo_series.NonInterestSpending;
+        CBOSocialSecuritySpending   = cbo_series.SocialSecuritySpending;
+        CBOMedicareSpending         = cbo_series.MedicareSpending;
 
-        cbo_series      = read_series( 'InterestRates.csv', first_year, cbo_param );
-        CBODebt         = cbo_series(:, 1);
-        CBORates        = cbo_series(:, 2);
-        CBOCPI          = cbo_series(2:end, 4);  % rem: CPI is only for transition path
+        % Rates
+        filename        = fullfile( PathFinder.getCboInputDir(), 'InterestRates.csv' );
+        cbo_series      = read_namedseries_withpad( filename, 'Year', first_year, [] ); 
+        CBODebt         = cbo_series.DebtHeldByPublic;
+        CBORates        = cbo_series.EffectiveInterestRateOnDebt;
+        CBOCPI          = cbo_series.CPI;
         
         if( size(SIMGDP) ~= size(SIMRevenues) ...
             | size(SIMGDP) ~= size(SIMExpenditures) ...
             | size(SIMGDP) ~= size(CBORates) ) ...
             throw(MException('read_cbo_parameters:SIZE','Inputs are different sizes.'));
-        end;
-        if( size(CBONonInterestSpending) ~= size(CBOSocialSecuritySpending) ...
-            | size(CBONonInterestSpending) ~= size(CBOMedicareSpending) ...
-           )
-            throw(MException('read_cbo_spending:SIZE','Inputs are different sizes.'));
         end;
         
         GEXP_by_GDP     = CBONonInterestSpending./100 ...
