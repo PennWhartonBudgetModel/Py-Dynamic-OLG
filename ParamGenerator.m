@@ -438,7 +438,8 @@ methods (Static)
         s = ParamGenerator.timing( scenario );
         first_transition_year   = s.TransitionFirstYear;
         T_model                 = s.T_model;
-        
+        first_year              = first_transition_year - 1;    % first year from which to read series
+        last_year               = first_year + T_model;
 
         % Interest rates, expenditures, and debt
         % Input: InterestRates.csv -- CBO rates and debt
@@ -457,7 +458,6 @@ methods (Static)
         %       debttoout, fedgovtnis, cborates, GEXP_by_GDP
         sim_param   = PathFinder.getMicrosimInputDir();
         
-        first_year                  = first_transition_year - 1;    % first year from which to read series
         SIMGDP                      = read_series( 'SIMGDP.csv'                     , first_year, sim_param );
         SIMRevenues                 = read_series( 'SIMRevenues.csv'                , first_year, sim_param );
         SIMExpenditures             = read_series( 'SIMExpenditures.csv'            , first_year, sim_param );
@@ -545,19 +545,13 @@ methods (Static)
         % Input: Revenues_<taxplanid>.csv -- Estimate of tax
         %           revenues as percent GDP
         %           Format is (Year), (PctRevenues) w/ header row.
-        taxplaninputdir = PathFinder.getTaxPlanInputDir();
-        taxplanid = find_taxplanid( scenario );
-        filename = strcat('Revenues_', taxplanid, '.csv');
-        tax_revenue_by_GDP = read_series(filename, first_transition_year, taxplaninputdir );
-        tax_revenue_by_GDP = tax_revenue_by_GDP'; 
-        if( T_model - length(tax_revenue_by_GDP) < 0 )
-            tax_revenue_by_GDP = tax_revenue_by_GDP(1:T_model);
-        else
-            tax_revenue_by_GDP  = [tax_revenue_by_GDP, ...
-                tax_revenue_by_GDP(end)*ones(1, T_model-length(tax_revenue_by_GDP))];
-        end
-        s.tax_revenue_by_GDP = tax_revenue_by_GDP; 
-        s.CPI = CBOCPI';
+        taxplanid   = find_taxplanid( scenario );
+        filename    = fullfile( PathFinder.getTaxPlanInputDir(), strcat('Revenues_', taxplanid, '.csv') );
+        tax_revenue = read_namedseries_withpad(filename, 'year', first_transition_year, last_year );
+        
+        tax_revenue_by_GDP      = tax_revenue.revenuesShareGDP'; 
+        s.tax_revenue_by_GDP    = tax_revenue_by_GDP; 
+        s.CPI                   = CBOCPI';
         
     end % budget
     
