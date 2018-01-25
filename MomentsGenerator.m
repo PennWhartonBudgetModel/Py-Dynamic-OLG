@@ -36,7 +36,6 @@ classdef MomentsGenerator
             T_life      = timing.T_life;        % Total life years
             T_model     = timing.T_model;       % Transition path model years
             Tmax_work   = timing.Tmax_work;     % Largest retirement age
-            ndem        = grids.ndem;           % demographic types
             ng          = grids.ng;             % num groups
             nz          = grids.nz;             % num labor productivity shocks
             zs          = grids.zs;             % shocks grid (by demographic type and age)
@@ -45,7 +44,7 @@ classdef MomentsGenerator
             
             % Useful later for a couple of functions
             this.kv     = grids.kv;
-            this.karray = repmat(reshape(grids.kv, [1,nk,1,1,1,1,1]),[nz,1,nb,T_life,ng,T_model,ndem])  ;
+            this.karray = repmat(reshape(grids.kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,ng,T_model])  ;
             this.T_work = Tmax_work;
             this.T_life = T_life;
 
@@ -57,11 +56,11 @@ classdef MomentsGenerator
                 DIST = s.DIST;
             end
             dist = DIST(:);
-            dist_l(1:nz,1:nk,1:nb,1:Tmax_work,1:ng,1:T_model,1:ndem) = DIST(1:nz,1:nk,1:nb,1:Tmax_work,1:ng,1:T_model,1:ndem); % Working age population
-            dist_l(1:nz,1:nk,1:nb,Tmax_work:T_life,1:ng,1:T_model,1:ndem) = 0; % Retired population
+            dist_l(1:nz,1:nk,1:nb,1:Tmax_work,1:ng,1:T_model) = DIST(1:nz,1:nk,1:nb,1:Tmax_work,1:ng,1:T_model); % Working age population
+            dist_l(1:nz,1:nk,1:nb,Tmax_work:T_life,1:ng,1:T_model) = 0; % Retired population
             dist_l = dist_l(:)/sum(dist_l(:));
             % Useful later for a couple of functions
-            this.DIST   = DIST;
+            this.DIST = DIST;
 
             % Import market variables
             if ~exist('Market','var') || isempty(Market)
@@ -72,16 +71,16 @@ classdef MomentsGenerator
             end
             
             % Import policy functions
-            f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model,ndem]), [1,1,1,1,ng,1,1]);
+            f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model]), [1,1,1,1,ng,1]);
             if ~exist('OPTs','var') || isempty(OPTs)
                 s        = load( fullfile(save_dir, 'all_decisions.mat' ) );
-                labinc   = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wages;
+                labinc   = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1]),[1,nk,nb,1,ng,T_model]) * wages;
                 k        = f(s.K);
                 this.ben = f(s.BEN);
                 this.lab = f(s.LAB);
                 this.con = f(s.CON);
             else
-                labinc   = f(OPTs.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1,ndem]),[1,nk,nb,1,ng,T_model,1]) * wages;
+                labinc   = f(OPTs.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1]),[1,nk,nb,1,ng,T_model]) * wages;
                 k        = f(OPTs.K);
                 this.ben = f(OPTs.BEN);
                 this.lab = f(OPTs.LAB);

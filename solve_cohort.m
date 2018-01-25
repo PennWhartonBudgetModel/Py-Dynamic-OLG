@@ -6,7 +6,7 @@
 
 function [OPT] = solve_cohort(V0, LAB_static, isdynamic, ...
                         nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, ... 
-                        zs_idem, transz, kv, bv, beta, gamma, sigma, surv, ...
+                        zs, transz, kv, bv, beta, gamma, sigma, surv, ...
                         bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                         sstaxcredit, ssbenefits, ssincmins, ssincmaxs, sswageindexes, ...
                         sstax_brackets, sstax_burdens, sstax_rates, ...
@@ -35,7 +35,7 @@ assert( isa(T_shift     , 'double'  ) && (size(T_shift      , 1) == 1       ) &&
 assert( isa(T_active    , 'double'  ) && (size(T_active     , 1) == 1       ) && (size(T_active     , 2) == 1       ) );
 assert( isa(T_work      , 'double'  ) && (size(T_work       , 1) == 1       ) && (size(T_work       , 2) == 1       ) );
 assert( isa(T_model     , 'double'  ) && (size(T_model      , 1) == 1       ) && (size(T_model      , 2) == 1       ) );
-assert( isa(zs_idem     , 'double'  ) && (size(zs_idem      , 1) <= nz_max  ) && (size(zs_idem      , 2) <= T_max   ) );
+assert( isa(zs          , 'double'  ) && (size(zs           , 1) <= nz_max  ) && (size(zs           , 2) <= T_max   ) );
 assert( isa(transz      , 'double'  ) && (size(transz       , 1) <= nz_max  ) && (size(transz       , 2) <= nz_max  ) && (size(transz        , 3) <= T_max  ) );
 assert( isa(kv          , 'double'  ) && (size(kv           , 1) <= nk_max  ) && (size(kv           , 2) == 1       ) );
 assert( isa(bv          , 'double'  ) && (size(bv           , 1) <= nb_max  ) && (size(bv           , 2) == 1       ) );
@@ -200,7 +200,7 @@ for t = T_active:-1:1
                 for iz = 1:nz
                     
                     % Calculate effective wage
-                    wage_eff = wage * zs_idem(iz,age);
+                    wage_eff = wage * zs(iz,age);
                     
                     % Call resource calculation function to set parameters
                     calculate_resources([], kv(ik), year, ...

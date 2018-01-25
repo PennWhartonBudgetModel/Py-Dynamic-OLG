@@ -68,7 +68,6 @@ methods (Static)
         %           'legal', 'illegal'
         %   NOTE: DISTz and zs are indexed by g
         s = ParamGenerator.grids( scenario );
-        ndem   = s.ndem;      % demographic types
         g      = s.g;         % groups: citizen, legal, illegal 
         ng     = s.ng;        % num groups
         nz     = s.nz;        % num labor productivity shocks
@@ -152,19 +151,19 @@ methods (Static)
             isdynamic = isempty(LABs_static) || isempty(DIST_static);
             
             % Set static optimal decision values to empty values for dynamic aggregate generation
-            if isdynamic, LABs_static = cell(nstartyears, ndem); end
+            if isdynamic, LABs_static = cell(nstartyears); end
             
             % Initialize optimal decision value arrays
             os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN', 'CON', 'V'};
-            for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model,ndem); end
+            for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model); end
             
             % Initialize array of cohort optimal labor values
-            LABs = cell(nstartyears, ndem);
+            LABs = cell(nstartyears);
             
             % Initialize population distribution array
-            DIST = zeros(nz,nk,nb,T_life,ng,T_model,ndem);
+            DIST = zeros(nz,nk,nb,T_life,ng,T_model);
             if (strcmp(scenario.economy, 'steady'))
-                DIST_trans = zeros(nz,nk,nb,T_life,ng,T_model,ndem);
+                DIST_trans = zeros(nz,nk,nb,T_life,ng,T_model);
             else
                 DIST_trans = {};
             end
@@ -183,158 +182,155 @@ methods (Static)
                                             , Market.priceindices );            
 
             
-
-            for idem = 1:ndem
     
-                % Package fixed dynamic optimization arguments into anonymous function
-                solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes) solve_cohort(V0, LAB_static, isdynamic, ...
-                    nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs(:,:,idem), transz, kv, bv, beta, gamma, sigma, surv, ...
-                    bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
-                    sstaxcredit, ssbenefits, ssincmins_indexed, ssincmaxs_indexed, cohort_wageindexes, ...
-                    sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
-                    pittax_brackets, pittax_burdens, pittax_rates, ... 
-                    captaxshares, taucaps, Market.capgains .* taucapgains, Market.capgains .* Market.capshares', ...
-                    Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);
-                
-                
-                % Initialize series of terminal utility values
-                V0s = zeros(nz,nk,nb,T_life);
-                
-                % Solve steady state / post-transition path cohort
-                if isdynamic
-                    
-                    % Note: retire_year = 1 so that ssbenefits is
-                    % calculated for T_model = 1
-                    ssbenefits = ModelSolver.calculateSSBenefitForCohort(   ...
-                                                socialsecurity.startyear_benefitbrackets(end, :)   ...
-                                            ,   socialsecurity.startyear_benefitrates   (end, :)   ...
-                                            ,   socialsecurity.benefits_adjustment                 ...
-                                            ,   Market.priceindices                                ...
-                                            ,   1                                                  ...
-                                            ,   bv, T_model );
+            % Package fixed dynamic optimization arguments into anonymous function
+            solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes) solve_cohort(V0, LAB_static, isdynamic, ...
+                nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, zs, transz, kv, bv, beta, gamma, sigma, surv, ...
+                bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
+                sstaxcredit, ssbenefits, ssincmins_indexed, ssincmaxs_indexed, cohort_wageindexes, ...
+                sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
+                pittax_brackets, pittax_burdens, pittax_rates, ... 
+                captaxshares, taucaps, Market.capgains .* taucapgains, Market.capgains .* Market.capshares', ...
+                Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);
 
-                    % Solve dynamic optimization
-                    % (Note that active time is set to full lifetime)
-                    OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits, Market.priceindices.cohort_wages(:,end));
-                    
-                    % Define series of terminal utility values
-                    V0s(:,:,:,1:T_life-1) = OPT.V(:,:,:,2:T_life);
-                    
-                end
-                
-                
+
+            % Initialize series of terminal utility values
+            V0s = zeros(nz,nk,nb,T_life);
+
+            % Solve steady state / post-transition path cohort
+            if isdynamic
+
+                % Note: retire_year = 1 so that ssbenefits is
+                % calculated for T_model = 1
+                ssbenefits = ModelSolver.calculateSSBenefitForCohort(   ...
+                                            socialsecurity.startyear_benefitbrackets(end, :)   ...
+                                        ,   socialsecurity.startyear_benefitrates   (end, :)   ...
+                                        ,   socialsecurity.benefits_adjustment                 ...
+                                        ,   Market.priceindices                                ...
+                                        ,   1                                                  ...
+                                        ,   bv, T_model );
+
+                % Solve dynamic optimization
+                % (Note that active time is set to full lifetime)
+                OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits, Market.priceindices.cohort_wages(:,end));
+
+                % Define series of terminal utility values
+                V0s(:,:,:,1:T_life-1) = OPT.V(:,:,:,2:T_life);
+
+            end
+
+
+            switch economy
+
+                case 'steady'
+
+                    % Store optimal decision values
+                    for o = os, OPTs.(o{1})(:,:,:,:,1) = OPT.(o{1}); end
+                    LABs{1} = OPT.LAB;
+
+                case {'open', 'closed'}
+
+                    % Solve transition path cohorts
+                    OPTs_cohort = cell(1,nstartyears);
+                    parfor i = 1:nstartyears
+
+                        % Extract terminal utility values
+                        V0 = V0s(:,:,:,T_ends(i)); %#ok<PFBNS>
+
+                        % Calculate cohort-based year-varying benefits policy
+                        ssbenefits = ModelSolver.calculateSSBenefitForCohort(   ...
+                                            socialsecurity.startyear_benefitbrackets(i, :)  ...
+                                        ,   socialsecurity.startyear_benefitrates   (i, :)  ...
+                                        ,   socialsecurity.benefits_adjustment              ...
+                                        ,   Market.priceindices                             ...  
+                                        ,   socialsecurity.retire_years(i)                  ...
+                                        ,   bv, T_model );
+
+                        % Solve dynamic optimization
+                        OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, Market.priceindices.cohort_wages(:,i));
+
+                        LABs{i} = OPTs_cohort{i}.LAB;
+
+                    end
+
+                    % Construct optimal decision value arrays
+                    for i = 1:nstartyears
+                        for t = 1:T_actives(i)
+                            age  = t + T_pasts (i);
+                            year = t + T_shifts(i);
+                            for o = os, OPTs.(o{1})(:,:,:,age,year) = OPTs_cohort{i}.(o{1})(:,:,:,t); end
+                        end
+                    end
+
+            end
+
+
+            if isdynamic
+
+                % Define initial population distribution and distribution generation termination conditions
                 switch economy
-                    
-                    case 'steady'
-                        
-                        % Store optimal decision values
-                        for o = os, OPTs.(o{1})(:,:,:,:,1,idem) = OPT.(o{1}); end
-                        LABs{1,idem} = OPT.LAB;
-                        
-                    case {'open', 'closed'}
-                        
-                        % Solve transition path cohorts
-                        OPTs_cohort = cell(1,nstartyears);
-                        parfor i = 1:nstartyears
-                            
-                            % Extract terminal utility values
-                            V0 = V0s(:,:,:,T_ends(i)); %#ok<PFBNS>
-                            
-                            % Calculate cohort-based year-varying benefits policy
-                            ssbenefits = ModelSolver.calculateSSBenefitForCohort(   ...
-                                                socialsecurity.startyear_benefitbrackets(i, :)  ...
-                                            ,   socialsecurity.startyear_benefitrates   (i, :)  ...
-                                            ,   socialsecurity.benefits_adjustment              ...
-                                            ,   Market.priceindices                             ...  
-                                            ,   socialsecurity.retire_years(i)                  ...
-                                            ,   bv, T_model );
 
-                            % Solve dynamic optimization
-                            OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i,idem}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, Market.priceindices.cohort_wages(:,i));
-                            
-                            LABs{i,idem} = OPTs_cohort{i}.LAB;
-                            
-                        end
-                        
-                        % Construct optimal decision value arrays
-                        for i = 1:nstartyears
-                            for t = 1:T_actives(i)
-                                age  = t + T_pasts (i);
-                                year = t + T_shifts(i);
-                                for o = os, OPTs.(o{1})(:,:,:,age,year,idem) = OPTs_cohort{i}.(o{1})(:,:,:,t); end
-                            end
-                        end
-                        
+                    case 'steady'
+                        DIST_next = ones(nz,nk,nb,T_life,ng) / (nz*nk*nb*T_life*ng);
+                        lastyear = Inf;
+                        disttol = 1e-6;
+
+                    case {'open', 'closed'}
+                        DIST_next = DIST_steady(:,:,:,:,:,1);
+                        lastyear = T_model;
+                        disttol = -Inf;
+
                 end
-                
-                
-                if isdynamic
-                    
-                    % Define initial population distribution and distribution generation termination conditions
-                    switch economy
-                        
-                        case 'steady'
-                            DIST_next = ones(nz,nk,nb,T_life,ng) / (nz*nk*nb*T_life*ng*ndem);
-                            lastyear = Inf;
-                            disttol = 1e-6;
-                            
-                        case {'open', 'closed'}
-                            DIST_next = DIST_steady(:,:,:,:,:,1,idem);
-                            lastyear = T_model;
-                            disttol = -Inf;
-                            
+
+                year = 1;
+                disteps = Inf;
+
+                while (disteps > disttol && year <= lastyear)
+
+                    % Store population distribution for current year
+                    DIST_year = DIST_next;
+                    DIST(:,:,:,:,:,min(year, T_model)) = DIST_year;
+
+                    % Extract optimal decision values for current year
+                    K = OPTs.K(:,:,:,:,min(year, T_model));
+                    B = OPTs.B(:,:,:,:,min(year, T_model));
+
+                    % Define population growth distribution
+                    DIST_grow = zeros(nz,nk,nb,T_life,ng);
+                    P = sum(DIST_year(:));
+
+                    % Notice we should divide P by 2 in order to mimic the previous assumption of 50% of population in each demographic type
+                    DIST_grow(:,1,1,1,g.citizen) = reshape(DISTz(:,1,g.citizen), [nz,1,1,1     ,1]) * (P/2) * birth_rate   ;
+                    DIST_grow(:,1,1,:,g.legal  ) = reshape(DISTz(:,:,g.legal  ), [nz,1,1,T_life,1]) * (P/2) * legal_rate   .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
+                    DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz(:,:,g.illegal), [nz,1,1,T_life,1]) * (P/2) * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
+
+                    % Generate population distribution for next year
+                    DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kv, bv, surv);
+                    assert(all(DIST_next(:)>=0), 'Negative mass of people at DIST_next.')
+
+                    % Increase legal immigrant population for amnesty, maintaining distributions over productivity
+                    DISTz_legal = DIST_next(:,:,:,:,g.legal) ./ repmat(sum(DIST_next(:,:,:,:,g.legal), 1), [nz,1,1,1,1]);
+                    DISTz_legal(isnan(DISTz_legal)) = 1/nz;
+
+                    DIST_next(:,:,:,:,g.legal) = DIST_next(:,:,:,:,g.legal) + repmat(sum(amnesty*DIST_next(:,:,:,:,g.illegal), 1), [nz,1,1,1,1]).*DISTz_legal;
+
+                    % Reduce illegal immigrant population for amnesty and deportation
+                    DIST_next(:,:,:,:,g.illegal) = (1-amnesty-deportation)*DIST_next(:,:,:,:,g.illegal);
+
+                    % Calculate age distribution convergence error
+                    f = @(D) sum(sum(reshape(D, [], T_life, ng), 1), 3) / sum(D(:));
+                    disteps = max(abs(f(DIST_next) - f(DIST_year)));
+
+                    year = year + 1;
+
+                    switch economy, case 'steady'
+                        DIST_trans(:,:,:,:,:,1) = DIST_next;
                     end
-                    
-                    year = 1;
-                    disteps = Inf;
-                    
-                    while (disteps > disttol && year <= lastyear)
-                        
-                        % Store population distribution for current year
-                        DIST_year = DIST_next;
-                        DIST(:,:,:,:,:,min(year, T_model),idem) = DIST_year;
-                        
-                        % Extract optimal decision values for current year
-                        K = OPTs.K(:,:,:,:,min(year, T_model),idem);
-                        B = OPTs.B(:,:,:,:,min(year, T_model),idem);
-                        
-                        % Define population growth distribution
-                        DIST_grow = zeros(nz,nk,nb,T_life,ng);
-                        P = sum(DIST_year(:));
-                        
-                        DIST_grow(:,1,1,1,g.citizen) = reshape(DISTz(:,1,g.citizen), [nz,1,1,1     ,1]) * P * birth_rate   ;
-                        DIST_grow(:,1,1,:,g.legal  ) = reshape(DISTz(:,:,g.legal  ), [nz,1,1,T_life,1]) * P * legal_rate   .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
-                        DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz(:,:,g.illegal), [nz,1,1,T_life,1]) * P * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
-                        
-                        % Generate population distribution for next year
-                        DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kv, bv, surv);
-                        assert(all(DIST_next(:)>=0), 'Negative mass of people at DIST_next.')
-                        
-                        % Increase legal immigrant population for amnesty, maintaining distributions over productivity
-                        DISTz_legal = DIST_next(:,:,:,:,g.legal) ./ repmat(sum(DIST_next(:,:,:,:,g.legal), 1), [nz,1,1,1,1]);
-                        DISTz_legal(isnan(DISTz_legal)) = 1/nz;
-                        
-                        DIST_next(:,:,:,:,g.legal) = DIST_next(:,:,:,:,g.legal) + repmat(sum(amnesty*DIST_next(:,:,:,:,g.illegal), 1), [nz,1,1,1,1]).*DISTz_legal;
-                        
-                        % Reduce illegal immigrant population for amnesty and deportation
-                        DIST_next(:,:,:,:,g.illegal) = (1-amnesty-deportation)*DIST_next(:,:,:,:,g.illegal);
-                        
-                        % Calculate age distribution convergence error
-                        f = @(D) sum(sum(reshape(D, [], T_life, ng), 1), 3) / sum(D(:));
-                        disteps = max(abs(f(DIST_next) - f(DIST_year)));
-                        
-                        year = year + 1;
-                        
-                        switch economy, case 'steady'
-                            DIST_trans(:,:,:,:,:,1,idem) = DIST_next;
-                        end
-                        
-                    end
-                    
-                else
-                    DIST = DIST_static;
+
                 end
-                
+
+            else
+                DIST = DIST_static;
             end
             
             
@@ -346,13 +342,13 @@ methods (Static)
             
             % Generate aggregates
             assert(all(DIST(:)>=0),'WARNING! Negative mass of people at DIST.')
-            DIST_gs = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model,ndem]);
-            f = @(F) sum(sum(reshape(DIST_gs .* F, [], T_model, ndem), 1), 3);
+            DIST_gs = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
+            f = @(F) sum(sum(reshape(DIST_gs .* F, [], T_model), 1), 3);
             
             Aggregate.pops     = f(1);                                                                                   % Population
-            Aggregate.bequests = f(OPTs.K .* repmat(reshape(1-surv, [1,1,1,T_life,1,1]), [nz,nk,nb,1,T_model,ndem]));    % Bequests
+            Aggregate.bequests = f(OPTs.K .* repmat(reshape(1-surv, [1,1,1,T_life,1]), [nz,nk,nb,1,T_model]));           % Bequests
             Aggregate.labs     = f(OPTs.LAB);                                                                            % Labor
-            Aggregate.labeffs  = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1,ndem]), [1,nk,nb,1,T_model,1]));      % Effective labor
+            Aggregate.labeffs  = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]));             % Effective labor
             Aggregate.lfprs    = f(OPTs.LAB > 0.01) ./ f(1);                                                             % Labor force participation rate
             Aggregate.incs     = f(OPTs.INC);                                                                            % Income
             Aggregate.pits     = f(OPTs.PIT);                                                                            % Personal income tax
@@ -360,7 +356,7 @@ methods (Static)
             Aggregate.cits     = f(OPTs.CIT);                                                                            % Capital income tax
             Aggregate.bens     = f(OPTs.BEN);                                                                            % Social Security benefits
             Aggregate.cons     = f(OPTs.CON);                                                                            % Consumption
-            Aggregate.assets   = f(repmat(reshape(kv, [1,nk,1,1,1,1]), [nz, 1,nb,T_life,T_model,ndem]));                 % Assets
+            Aggregate.assets   = f(repmat(reshape(kv, [1,nk,1,1,1]), [nz, 1,nb,T_life,T_model]));                        % Assets
             
         end
         
@@ -743,17 +739,13 @@ methods (Static)
                 workmass = 0;
                 frisch   = 0;
                 
-                for idem = 1:ndem
-                    
-                    LAB_idem  = LABs{1,idem};
-                    DIST_idem = sum(DIST.DIST(:,:,:,:,:,1,idem), 5);
-                    
-                    workind = (LAB_idem > 0.01);
-                    
-                    workmass = workmass + sum(DIST_idem(workind));
-                    frisch   = frisch   + sum(DIST_idem(workind) .* (1 - LAB_idem(workind)) ./ LAB_idem(workind)) * (1 - gamma*(1-sigma))/sigma;
-                    
-                end
+                LAB_  = LABs{1};
+                DIST_ = sum(DIST.DIST(:,:,:,:,:,1), 5);
+
+                workind = (LAB_ > 0.01);
+
+                workmass = workmass + sum(DIST_(workind));
+                frisch   = frisch   + sum(DIST_(workind) .* (1 - LAB_(workind)) ./ LAB_(workind)) * (1 - gamma*(1-sigma))/sigma;
                 
                 labelas = frisch / workmass;
                 
