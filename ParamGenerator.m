@@ -456,12 +456,13 @@ methods (Static)
         %           FiscalYear, SocialSecuritySpending, NonInterestSpending, MedicareSpending 
         % Output: 
         %       debttoout, fedgovtnis, cborates, GEXP_by_GDP
-        sim_param   = PathFinder.getMicrosimInputDir();
+        filename                    = fullfile( PathFinder.getMicrosimInputDir(), 'GDPandBudget.csv' );
+        sim_series                  = read_namedseries_withpad( filename, 'Year', first_year, [] ); 
         
-        SIMGDP                      = read_series( 'SIMGDP.csv'                     , first_year, sim_param );
-        SIMRevenues                 = read_series( 'SIMRevenues.csv'                , first_year, sim_param );
-        SIMExpenditures             = read_series( 'SIMExpenditures.csv'            , first_year, sim_param );
-        SIMGDPPriceIndex            = read_series( 'SIMGDPPriceIndex.csv'           , first_year, sim_param );
+        SIMGDP                      = sim_series.GDP;
+        SIMRevenues                 = sim_series.Revenues;
+        SIMExpenditures             = sim_series.NonInterestSpending;
+        SIMGDPPriceIndex            = sim_series.GDPPriceIndex;
         
         % Spending
         filename                    = fullfile( PathFinder.getCboInputDir(), 'SpendingPercentGDP.csv' );
