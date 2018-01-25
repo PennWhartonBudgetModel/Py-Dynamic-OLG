@@ -75,7 +75,7 @@ methods (Static)
         
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
         filename  = fullfile(PathFinder.getMicrosimInputDir(), 'ConesaEtAl_WageAgeProfile.csv' );
-        series    = read_namedseries_withpad(filename, 'Age', 1 + timing.realage_entry, []);
+        series    = read_series(filename, 'Age', 1 + timing.realage_entry, []);
         zage      = series.Wage;
         
         % Calculate total productivity
@@ -222,7 +222,7 @@ methods (Static)
         % Get the capital and tax treatment allocation params. 
         %    Rem: These are time-varying, so read results are vectors.
         filename = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', taxplanid, '.csv'));
-        tax_vars = read_namedseries_withpad( filename, 'Year', first_year, last_year );
+        tax_vars = read_series( filename, 'Year', first_year, last_year );
         
         % Calculate combined tax rate and share for Capital
         %    Do this as function to reuse for Q-Tobin calculation
@@ -252,7 +252,7 @@ methods (Static)
                 % Read tax params from steady-state, current-policy to make t=0 values
                 sstaxplanid = find_taxplanid(scenario.steady().currentPolicy());
                 filename    = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', sstaxplanid, '.csv'));
-                sstax_vars  = read_namedseries_withpad( filename, 'Year', first_year - 1, first_year - 1 );
+                sstax_vars  = read_series( filename, 'Year', first_year - 1, first_year - 1 );
 
                 [~, sstaucap] = calculate_captaxes( sstax_vars );
                 
@@ -301,14 +301,14 @@ methods (Static)
         timing    = ParamGenerator.timing( scenario );
         
         filename  = fullfile( PathFinder.getMicrosimInputDir(), 'SurvivalProbability.csv' );
-        series    = read_namedseries_withpad( filename, 'Age', 1 + timing.realage_entry, [] );
+        series    = read_series( filename, 'Age', 1 + timing.realage_entry, [] );
         survival  = series.SurvivalProbability;
         if( length(survival) ~= timing.T_life )
             throw(MException('timing:survival','Survival probabilities must exist for every age.'));
         end
         
         filename  = fullfile( PathFinder.getMicrosimInputDir(), 'ImmigrantAgeDistribution.csv' );
-        series    = read_namedseries_withpad( filename, 'Age', 1 + timing.realage_entry, [] );
+        series    = read_series( filename, 'Age', 1 + timing.realage_entry, [] );
         imm_age   = series.ImmigrantAgeDistribution;
         if( length(imm_age) ~= timing.T_life )
             throw(MException('timing:imm_age','Immigrant age distributions must exist for every age.'));
@@ -370,13 +370,13 @@ methods (Static)
             case 'steady'
                 first_year   = first_transition_year - 1;
                 survivalprob = ParamGenerator.demographics(scenario).surv;
-                series       = read_namedseries_withpad( nrafile, 'BirthYear', first_year - (T_life + realage_entry), [] );
+                series       = read_series( nrafile, 'BirthYear', first_year - (T_life + realage_entry), [] );
                 T_works      = series.RetirementAge;
                 mass         = ones(T_life,1); for i = 2:T_life; mass(i) = mass(i-1)*survivalprob(i-1); end;
                 T_works      = round(sum((mass.*T_works(1:T_life))/sum(mass))) - realage_entry;
             case {'open', 'closed'}
                 first_year   = first_transition_year;
-                series       = read_namedseries_withpad( nrafile, 'BirthYear', first_year - (T_life + realage_entry), [] );
+                series       = read_series( nrafile, 'BirthYear', first_year - (T_life + realage_entry), [] );
                 T_works      = series.RetirementAge;
                 T_works      = T_works(1:nstartyears) - realage_entry;
         end
@@ -420,7 +420,7 @@ methods (Static)
         % Get range of income which is credited toward benefit calculation
         minmaxfile  = fullfile(     PathFinder.getSocialSecurityBenefitsInputDir()  ...
                                 ,   strcat('MinMaxRange_', policy_id , '.csv' )); 
-        minmaxinput = read_namedseries_withpad(minmaxfile, 'Year', first_year, first_year + T_model - 1);
+        minmaxinput = read_series(minmaxfile, 'Year', first_year, first_year + T_model - 1);
         s.ssincmins = (minmaxinput.Bracket1 * scenario.modelunit_dollar)';
         s.ssincmaxs = (minmaxinput.Bracket2 * scenario.modelunit_dollar)';
         
@@ -478,7 +478,7 @@ methods (Static)
         % Output: 
         %       debttoout, fedgovtnis, cborates, GEXP_by_GDP
         filename                    = fullfile( PathFinder.getMicrosimInputDir(), 'GDPandBudget.csv' );
-        sim_series                  = read_namedseries_withpad( filename, 'Year', first_year, [] ); 
+        sim_series                  = read_series( filename, 'Year', first_year, [] ); 
         
         SIMGDP                      = sim_series.GDP;
         SIMRevenues                 = sim_series.Revenues;
@@ -487,14 +487,14 @@ methods (Static)
         
         % Spending
         filename                    = fullfile( PathFinder.getCboInputDir(), 'SpendingPercentGDP.csv' );
-        cbo_series                  = read_namedseries_withpad( filename, 'FiscalYear', first_year, [] ); 
+        cbo_series                  = read_series( filename, 'FiscalYear', first_year, [] ); 
         CBONonInterestSpending      = cbo_series.NonInterestSpending;
         CBOSocialSecuritySpending   = cbo_series.SocialSecuritySpending;
         CBOMedicareSpending         = cbo_series.MedicareSpending;
 
         % Rates
         filename        = fullfile( PathFinder.getCboInputDir(), 'InterestRates.csv' );
-        cbo_series      = read_namedseries_withpad( filename, 'Year', first_year, [] ); 
+        cbo_series      = read_series( filename, 'Year', first_year, [] ); 
         CBODebt         = cbo_series.DebtHeldByPublic;
         CBORates        = cbo_series.EffectiveInterestRateOnDebt;
         CBOCPI          = cbo_series.CPI;
@@ -563,7 +563,7 @@ methods (Static)
         %           Format is (Year), (PctRevenues) w/ header row.
         taxplanid   = find_taxplanid( scenario );
         filename    = fullfile( PathFinder.getTaxPlanInputDir(), strcat('Revenues_', taxplanid, '.csv') );
-        tax_revenue = read_namedseries_withpad(filename, 'year', first_transition_year, last_year );
+        tax_revenue = read_series(filename, 'year', first_transition_year, last_year );
         
         tax_revenue_by_GDP      = tax_revenue.revenuesShareGDP'; 
         s.tax_revenue_by_GDP    = tax_revenue_by_GDP; 
@@ -845,7 +845,7 @@ end % read_brackets_indices
 %                       last_index. If the original series is too long,
 %                       truncate.
 %    For time series, (Index) is (Year), 
-function [series] = read_namedseries_withpad(filename, index_name, first_index, last_index )
+function [series] = read_series(filename, index_name, first_index, last_index )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
