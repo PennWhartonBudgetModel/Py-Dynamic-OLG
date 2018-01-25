@@ -175,14 +175,18 @@ methods (Static)
         
         % Make the larger sized transz grid and replicate the current transz grid.
         transitions = repmat(transz, [1, 1, T_life]);
-        
+        % Intermediate step
+        transz      = [transz, zeros(nz); zeros(nz), transz];
+        shocks      = [zs(:,:,1); zs(:,:,2)];
+        initDISTz   = [DISTz; DISTz];
+                
         s.ndem     = ndem;
         s.g        = g;
         s.ng       = ng;
-        s.nz       = nz;
+        s.nz       = nz;     % change to ndem*nz when ready
         s.transz   = transitions;
-        s.DISTz    = DISTz;
-        s.zs       = zs;
+        s.DISTz    = DISTz;  % change to initDISTz when ready
+        s.zs       = zs;     % change to shocks when ready
         s.nk       = nk;
         s.kv       = kv;
         s.nb       = nb;
