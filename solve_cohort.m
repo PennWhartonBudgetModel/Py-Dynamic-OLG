@@ -42,7 +42,7 @@ assert( isa(bv          , 'double'  ) && (size(bv           , 1) <= nb_max  ) &&
 assert( isa(beta        , 'double'  ) && (size(beta         , 1) == 1       ) && (size(beta         , 2) == 1       ) );
 assert( isa(gamma       , 'double'  ) && (size(gamma        , 1) == 1       ) && (size(gamma        , 2) == 1       ) );
 assert( isa(sigma       , 'double'  ) && (size(sigma        , 1) == 1       ) && (size(sigma        , 2) == 1       ) );
-assert( isa(surv        , 'double'  ) && (size(surv         , 1) == 1       ) && (size(surv         , 2) <= T_max   ) );
+assert( isa(surv        , 'double'  ) && (size(surv         , 1) <= nz_max  ) && (size(surv         , 2) <= T_max   ) );
 
 assert( isa(bequest_phi_1, 'double' ) && (size(bequest_phi_1, 1) == 1 ) && (size(bequest_phi_1, 2) == 1 ) );
 assert( isa(bequest_phi_2, 'double' ) && (size(bequest_phi_2, 1) == 1 ) && (size(bequest_phi_2, 2) == 1 ) );
@@ -137,10 +137,13 @@ for t = T_active:-1:1
     pit_brackets    = pittax_brackets   (year, :);
     pit_burdens     = pittax_burdens    (year, :);
     pit_rates       = pittax_rates      (year, :);
-        
+
     % Pre-calculate for speed and conciseness
-    bequest_p_1   = beta * (1-surv(age))* bequest_phi_1;
     reciprocalage = 1/age;
+
+    for iz = 1:nz
+
+    bequest_p_1   = beta * (1-surv(iz,age))* bequest_phi_1;
     
     for ib = 1:nb
         for ik = 1:nk
@@ -161,7 +164,7 @@ for t = T_active:-1:1
                     % Calculate expected value conditional on living using forward-looking 
                     %   utility values. Pre-multiply by prob. survival and
                     %   beta to save on computation.
-                    EV = surv(age)*beta*reshape(V_step(1,:,:), [nk,nb]);
+                    EV = surv(iz,age)*beta*reshape(sum(repmat(transz(iz,:,age)', [1,nk,nb]) .* V_step, 1), [nk,nb]);
                     
                     % Call retirement age value function to set parameters
                     value_retirement([], kv, resources, EV(:,ib), ... 
@@ -176,8 +179,8 @@ for t = T_active:-1:1
                     assert( k <= kv(end), 'k (k_next) is too big!')
 
                     % Record utility and optimal decision values
-                    OPT.V(:,ik,ib,t) = -v;
-                    OPT.K(:,ik,ib,t) = k ;
+                    OPT.V(iz,ik,ib,t) = -v;
+                    OPT.K(iz,ik,ib,t) = k ;
                     
                 else
                     
@@ -185,19 +188,18 @@ for t = T_active:-1:1
                     
                 end
                 
-                OPT.LAB(:,ik,ib,t) = 0     ;
-                OPT.B  (:,ik,ib,t) = bv(ib);
+                OPT.LAB(iz,ik,ib,t) = 0     ;
+                OPT.B  (iz,ik,ib,t) = bv(ib);
                 
-                OPT.INC(:,ik,ib,t) = inc   ;
-                OPT.PIT(:,ik,ib,t) = pit   ;
-                OPT.SST(:,ik,ib,t) = 0     ;
-                OPT.CIT(:,ik,ib,t) = cit   ;
-                OPT.BEN(:,ik,ib,t) = ssinc ;
-                OPT.CON(:,ik,ib,t) = resources - k;
+                OPT.INC(iz,ik,ib,t) = inc   ;
+                OPT.PIT(iz,ik,ib,t) = pit   ;
+                OPT.SST(iz,ik,ib,t) = 0     ;
+                OPT.CIT(iz,ik,ib,t) = cit   ;
+                OPT.BEN(iz,ik,ib,t) = ssinc ;
+                OPT.CON(iz,ik,ib,t) = resources - k;
                 
             else
                 
-                for iz = 1:nz
                     
                     % Calculate effective wage
                     wage_eff = wage * zs(iz,age);
@@ -215,7 +217,7 @@ for t = T_active:-1:1
                         % Calculate expected value conditional on living using forward-looking 
                         %   utility values. Pre-multiply by prob. survival and
                         %   beta to save on computation.
-                        EV = surv(age)*beta*reshape(sum(repmat(transz(iz,:,age)', [1,nk,nb]) .* V_step, 1), [nk,nb]);
+                        EV = surv(iz,age)*beta*reshape(sum(repmat(transz(iz,:,age)', [1,nk,nb]) .* V_step, 1), [nk,nb]);
                         
                         % Call working age value function and average earnings calculation function to set parameters
                         value_working([], kv, bv, wage_eff, EV, ...

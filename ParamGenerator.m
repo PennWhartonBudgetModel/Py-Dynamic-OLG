@@ -304,11 +304,12 @@ methods (Static)
     function s = demographics( scenario ) 
         
         timing    = ParamGenerator.timing( scenario );
+        grids     = ParamGenerator.grids ( scenario );
         
         param_dir = PathFinder.getMicrosimInputDir();
         survival  = read_series('SIMSurvivalProbability.csv'        , 1 + timing.realage_entry, param_dir);
         imm_age   = read_series('SIMImmigrantAgeDistribution.csv'   , 1 + timing.realage_entry, param_dir);
-        s.surv    = survival';
+        s.surv    = repmat(reshape(survival', [1,timing.T_life]),[grids.nz,1]);
         s.imm_age = imm_age';
 
         s.birth_rate   = 0.018923919;    % Annual birth rate
