@@ -25,7 +25,7 @@ assert( isa(nk          , 'double'  ) && (size(nk           , 1) == 1       ) &&
 assert( isa(nb          , 'double'  ) && (size(nb           , 1) == 1       ) && (size(nb           , 2) == 1       ) );
 assert( isa(T_life      , 'double'  ) && (size(T_life       , 1) == 1       ) && (size(T_life       , 2) == 1       ) );
 assert( isa(ng          , 'double'  ) && (size(ng           , 1) == 1       ) && (size(ng           , 2) == 1       ) );
-assert( isa(transz      , 'double'  ) && (size(transz       , 1) <= nz_max  ) && (size(transz       , 2) <= nz_max  ) );
+assert( isa(transz      , 'double'  ) && (size(transz       , 1) <= nz_max  ) && (size(transz       , 2) <= nz_max  ) && (size(transz      , 3) <= T_max   ) );
 assert( isa(kv          , 'double'  ) && (size(kv           , 1) <= nk_max  ) && (size(kv           , 2) == 1       ) );
 assert( isa(bv          , 'double'  ) && (size(bv           , 1) <= nb_max  ) && (size(bv           , 2) == 1       ) );
 assert( isa(surv        , 'double'  ) && (size(surv         , 1) == 1       ) && (size(surv         , 2) <= T_max   ) );
@@ -69,7 +69,7 @@ for age = 2:T_life
     for jz = 1:nz
         
         % Apply survival and productivity transformations to population distribution for current year
-        DIST_transz = DIST_year(:,:,:,age-1,:) * surv(age-1) .* repmat(reshape(transz(:,jz), [nz,1,1,1,1]), [1,nk,nb,1,ng]);
+        DIST_transz = DIST_year(:,:,:,age-1,:) * surv(age-1) .* repmat(reshape(transz(:,jz,age), [nz,1,1,1,1]), [1,nk,nb,1,ng]);
         assert(all(DIST_transz(:)>=0), 'Negative mass of people at DIST_transz.')
         
         % Redistribute population distribution from current year to next year according to target indices and weights

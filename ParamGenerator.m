@@ -166,11 +166,21 @@ methods (Static)
         bv = [bv; 15*bv(end)];                                               % max point arbitrarily set to 15x the second largest one
         nb = nb + 1;
 
+        %
+        % TODO: We are working toward replacing the shock generation with
+        %       a calibrated (from PWBMsim data) transition.
+        %       As an incremental step, we move to a larger grid structure
+        %       and copy the current transz for all years/types.
+        %
+        
+        % Make the larger sized transz grid and replicate the current transz grid.
+        transitions = repmat(transz, [1, 1, T_life]);
+        
         s.ndem     = ndem;
         s.g        = g;
         s.ng       = ng;
         s.nz       = nz;
-        s.transz   = transz;
+        s.transz   = transitions;
         s.DISTz    = DISTz;
         s.zs       = zs;
         s.nk       = nk;

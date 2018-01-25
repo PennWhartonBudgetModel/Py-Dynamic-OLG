@@ -36,7 +36,7 @@ assert( isa(T_active    , 'double'  ) && (size(T_active     , 1) == 1       ) &&
 assert( isa(T_work      , 'double'  ) && (size(T_work       , 1) == 1       ) && (size(T_work       , 2) == 1       ) );
 assert( isa(T_model     , 'double'  ) && (size(T_model      , 1) == 1       ) && (size(T_model      , 2) == 1       ) );
 assert( isa(zs_idem     , 'double'  ) && (size(zs_idem      , 1) <= nz_max  ) && (size(zs_idem      , 2) <= T_max   ) );
-assert( isa(transz      , 'double'  ) && (size(transz       , 1) <= nz_max  ) && (size(transz       , 2) <= nz_max  ) );
+assert( isa(transz      , 'double'  ) && (size(transz       , 1) <= nz_max  ) && (size(transz       , 2) <= nz_max  ) && (size(transz        , 3) <= T_max  ) );
 assert( isa(kv          , 'double'  ) && (size(kv           , 1) <= nk_max  ) && (size(kv           , 2) == 1       ) );
 assert( isa(bv          , 'double'  ) && (size(bv           , 1) <= nb_max  ) && (size(bv           , 2) == 1       ) );
 assert( isa(beta        , 'double'  ) && (size(beta         , 1) == 1       ) && (size(beta         , 2) == 1       ) );
@@ -215,7 +215,7 @@ for t = T_active:-1:1
                         % Calculate expected value conditional on living using forward-looking 
                         %   utility values. Pre-multiply by prob. survival and
                         %   beta to save on computation.
-                        EV = surv(age)*beta*reshape(sum(repmat(transz(iz,:)', [1,nk,nb]) .* V_step, 1), [nk,nb]);
+                        EV = surv(age)*beta*reshape(sum(repmat(transz(iz,:,age)', [1,nk,nb]) .* V_step, 1), [nk,nb]);
                         
                         % Call working age value function and average earnings calculation function to set parameters
                         value_working([], kv, bv, wage_eff, EV, ...
