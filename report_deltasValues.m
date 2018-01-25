@@ -10,14 +10,14 @@ wipe;
 % params.gamma = 0.75000000;
 % params.sigma = 1.24000000;
 % params.modelunit_dollar = 4.359874681178362e-05;
-% params.IsLowReturn = 'false';
+% params.IsLowReturn = false;
 
 %% Params for K/Y=3 with d=0.08
 params.beta =  1.003341000000000;
 params.gamma = 0.680000000000000;
 params.sigma = 1.500000000000000;
 params.modelunit_dollar = 4.135682750000000e-05;
-params.IsLowReturn = 'true';
+params.IsLowReturn = true;
 
 params.TransitionFirstYear = 2018;
 params.TransitionLastYear  = 2018+5;
@@ -177,24 +177,24 @@ function x = build_var(x_name, dynamic_struct, market_struct, scenario, static)
         T_life = s.T_life; T_model = s.T_model;
         % Define assets grid and dimensions
         s = ParamGenerator.grids( scenario );
-        ndem = s.ndem; nz = s.nz; nk = s.nk; nb = s.nb;
-        karray = repmat(reshape(s.kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model+1,ndem]);
+        nz = s.nz; nk = s.nk; nb = s.nb;
+        karray = repmat(reshape(s.kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,T_model+1]);
         % Define tax
         s = ParamGenerator.tax( scenario );
         shareCapitalCorporate = s.shareCapitalCorporate;
-        DIST = zeros(nz,nk,nb,T_life,T_model+1,ndem);
+        DIST = zeros(nz,nk,nb,T_life,T_model+1);
         s = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy.steady), 'distribution.mat'), 'DIST');
-        DIST(:,:,:,:,1,:) = reshape(sum(s.DIST, 5), [nz,nk,nb,T_life,1,ndem]);
+        DIST(:,:,:,:,1,:) = reshape(sum(s.DIST, 5), [nz,nk,nb,T_life,1]);
 
         if static
             s = load(fullfile(PathFinder.getWorkingDir(scenario), 'Static_distribution.mat'), 'Static_DIST');
-            DIST(:,:,:,:,2:end,:) = reshape(sum(s.Static_DIST, 5), [nz,nk,nb,T_life,T_model,ndem]);
+            DIST(:,:,:,:,2:end,:) = reshape(sum(s.Static_DIST, 5), [nz,nk,nb,T_life,T_model]);
         else
             s = load(fullfile(PathFinder.getWorkingDir(scenario), 'distribution.mat'), 'DIST');
-            DIST(:,:,:,:,2:end,:) = reshape(sum(s.DIST, 5), [nz,nk,nb,T_life,T_model,ndem]);
+            DIST(:,:,:,:,2:end,:) = reshape(sum(s.DIST, 5), [nz,nk,nb,T_life,T_model]);
         end
         
-        f = @(F) sum(sum(reshape(DIST .* F, [], T_model+1, ndem), 1), 3);
+        f = @(F) sum(sum(reshape(DIST .* F, [], T_model+1), 1), 3);
         x = dynamic_struct.labincs + (1 - shareCapitalCorporate) * market_struct.totrates .* f(karray);
         
     elseif strcmp(x_name, 'totincwss')
