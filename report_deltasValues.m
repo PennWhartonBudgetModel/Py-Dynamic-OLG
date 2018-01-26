@@ -182,6 +182,8 @@ function x = build_var(x_name, dynamic_struct, market_struct, scenario, static)
         % Define tax
         s = ParamGenerator.tax( scenario );
         shareCapitalCorporate = s.shareCapitalCorporate;
+        s = ParamGenerator.tax( scenario.currentPolicy.steady );
+        shareCapitalCorporate = [s.shareCapitalCorporate shareCapitalCorporate'];
         DIST = zeros(nz,nk,nb,T_life,T_model+1);
         s = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy.steady), 'distribution.mat'), 'DIST');
         DIST(:,:,:,:,1,:) = reshape(sum(s.DIST, 5), [nz,nk,nb,T_life,1]);
@@ -195,7 +197,7 @@ function x = build_var(x_name, dynamic_struct, market_struct, scenario, static)
         end
         
         f = @(F) sum(sum(reshape(DIST .* F, [], T_model+1), 1), 3);
-        x = dynamic_struct.labincs + (1 - shareCapitalCorporate) * market_struct.totrates .* f(karray);
+        x = dynamic_struct.labincs + f(karray) .* (1 - shareCapitalCorporate) .* market_struct.totrates;
         
     elseif strcmp(x_name, 'totincwss')
         
