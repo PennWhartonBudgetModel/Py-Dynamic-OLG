@@ -113,7 +113,7 @@ methods (Static)
         GEXP_by_GDP      = s.GEXP_by_GDP;           % Gvt expenditures as pct GDP
         debttoout        = s.debttoout;             % Debt/gdp 
         fedgovtnis       = s.fedgovtnis;            % Gvt net interest surplus (deficit)
-        cborates         = s.cborates;              % Interest rates on gvt debt (from CBO)
+        cborates         = s.debtrates;             % Interest rates on gvt debt 
         % Tax revenue targets (for Ttilde), depend on tax plan
         tax_revenue_by_GDP = s.tax_revenue_by_GDP;
         

@@ -474,7 +474,7 @@ methods (Static)
         %       MicroSIM\GDPandBudget.csv 
         %       CBO\HistoricalDebt.csv
         % Output: 
-        %       debttoout, fedgovtnis, cborates, GEXP_by_GDP
+        %       debttoout, fedgovtnis, debtrates, GEXP_by_GDP
         seriesfilename  = fullfile( PathFinder.getMicrosimInputDir(), 'GDPandBudget.csv'   );
         debtfilename    = fullfile( PathFinder.getCboInputDir()     , 'HistoricalDebt.csv' );
         
@@ -503,24 +503,14 @@ methods (Static)
         %    For interest rate in steady-state, we use avg. rate across all data
         if( strcmp(scenario.economy, 'steady') )
             fullseries      = read_series( seriesfilename, 'Year', first_year, [] ); 
-            gdpPriceIndex   = fullseries.GDPPriceIndex;
             interest_rate   = fullseries.EffectiveInterestRateOnDebt / 100;
         else
-            gdpPriceIndex   = series.GDPPriceIndex;
             interest_rate   = series.EffectiveInterestRateOnDebt / 100;
         end
-
-        growth_deflator      = zeros(size(gdpPriceIndex));
-        growth_deflator(1)   = 1.0;
-        for i = 2:size(growth_deflator)
-            growth_deflator(i) = gdpPriceIndex(i)/gdpPriceIndex(i-1);
-        end;
-        rates_growth_adjusted  = ((1 + interest_rate)./growth_deflator) - 1.0;    
-        
         if( strcmp(scenario.economy, 'steady') )
-            s.cborates  = nanmean( rates_growth_adjusted );
+            s.debtrates = nanmean( interest_rate );
         else
-            s.cborates  = rates_growth_adjusted';
+            s.debtrates = interest_rate';
         end
        
         % Consumption good price index
@@ -547,8 +537,8 @@ methods (Static)
         
         
         % WARNINGS if parameters are outside expectations
-        if( any( abs(s.cborates) > 0.05 ) )
-            fprintf( 'WARNING! cborates=%f outside expectations.\n' );
+        if( any( abs(s.debtrates) > 0.05 ) )
+            fprintf( 'WARNING! debtrates outside expectations.\n' );
         end
         if( (s.debttoout < 0.6) || (s.debttoout > 1.0) )
             fprintf( 'WARNING! debttoout=%f ouside expectations.\n', debttoout );
