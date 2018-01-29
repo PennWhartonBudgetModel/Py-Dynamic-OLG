@@ -456,118 +456,109 @@ methods (Static)
     %
     function s = budget( scenario )
         
-        s = ParamGenerator.timing( scenario );
-        first_transition_year   = s.TransitionFirstYear;
-        T_model                 = s.T_model;
-        first_year              = first_transition_year - 1;    % first year from which to read series
-        last_year               = first_year + T_model;
+        timing                  = ParamGenerator.timing( scenario );
+        first_transition_year   = timing.TransitionFirstYear;
+        T_model                 = timing.T_model;
+        
+        switch scenario.economy
+            case 'steady'
+                first_year  = first_transition_year - 1;    
+                last_year   = first_year;
+            otherwise
+                first_year  = first_transition_year;
+                last_year   = first_year + T_model - 1;
+        end
 
         % Interest rates, expenditures, and debt
-        % Input: InterestRates.csv -- CBO rates and debt
-        %           Format is 
-        %           Year	DebtHeldByPublic	EffectiveInterestRateOnDebt	NonInterestDeficit	CPI
-        % Input: SIMGDP.csv -- nominal GDP from baseline SIM
-        %           Format is (Year), (NominalGDP) w/ header row.
-        % Input: SIMRevenues.csv -- nominal tax revenues from baseline SIM
-        %           Format is (Year), (Revenues) w/ header row.
-        % Input: SIMExpenditures.csv -- nominal non-interest expenditures from baseline SIM
-        %           Format is (Year), (Expenditures) w/ header row.
-        % Input: SpendingPercentGDP.csv -- Spending as pct GDP
-        %           Format is: 
-        %           FiscalYear, SocialSecuritySpending, NonInterestSpending, MedicareSpending 
+        % Input: 
+        %       MicroSIM\GDPandBudget.csv 
+        %       CBO\HistoricalDebt.csv
         % Output: 
         %       debttoout, fedgovtnis, cborates, GEXP_by_GDP
-        filename                    = fullfile( PathFinder.getMicrosimInputDir(), 'GDPandBudget.csv' );
-        sim_series                  = read_series( filename, 'Year', first_year, [] ); 
+        seriesfilename  = fullfile( PathFinder.getMicrosimInputDir(), 'GDPandBudget.csv'   );
+        debtfilename    = fullfile( PathFinder.getCboInputDir()     , 'HistoricalDebt.csv' );
         
-        SIMGDP                      = sim_series.GDP;
-        SIMRevenues                 = sim_series.Revenues;
-        SIMExpenditures             = sim_series.NonInterestSpending;
-        SIMGDPPriceIndex            = sim_series.GDPPriceIndex;
+        series          = read_series( seriesfilename, 'Year', first_year, last_year ); 
+        % IMPORTANT:  Note that we pad out to last_year. If data does not
+        % exist to that year, we must be OK with padding.
         
-        % Spending
-        filename                    = fullfile( PathFinder.getCboInputDir(), 'SpendingPercentGDP.csv' );
-        cbo_series                  = read_series( filename, 'FiscalYear', first_year, [] ); 
-        CBONonInterestSpending      = cbo_series.NonInterestSpending;
-        CBOSocialSecuritySpending   = cbo_series.SocialSecuritySpending;
-        CBOMedicareSpending         = cbo_series.MedicareSpending;
-
-        % Rates
-        filename        = fullfile( PathFinder.getCboInputDir(), 'InterestRates.csv' );
-        cbo_series      = read_series( filename, 'Year', first_year, [] ); 
-        CBODebt         = cbo_series.DebtHeldByPublic;
-        CBORates        = cbo_series.EffectiveInterestRateOnDebt;
-        CBOCPI          = cbo_series.CPI;
-        
-        GEXP_by_GDP     = CBONonInterestSpending./100 ...
-                        - CBOSocialSecuritySpending./100 ...
-                        - CBOMedicareSpending./100 ...
-                    ;
-        GEXP_by_GDP     = GEXP_by_GDP';
-                    
-        deficit_nis     = SIMRevenues - SIMExpenditures;
+        % Fetch historical debt, revenues, expenditures
+        debt_series     = read_series( debtfilename  , 'Year', first_transition_year - 1, first_transition_year - 1 ); 
+        past_series     = read_series( seriesfilename, 'Year', first_transition_year - 1, first_year ); 
+                       
+        % Calculate debt to get DEBT/GDP for first_year
+        deficit_nis     = past_series.Revenues - past_series.NonInterestSpending;
         debt            = zeros(size(deficit_nis));
-        debt(1)         = CBODebt(1);
+        debt(1)         = debt_series.DebtHeldByPublic(1);
         for i = 2:size(deficit_nis)
-            debt(i) = debt(i-1)*(1+CBORates(i)/100.0) - deficit_nis(i);
+            debt(i) = debt(i-1)*(1+past_series.EffectiveInterestRateOnDebt(i)/100.0) - deficit_nis(i);
         end;
+        s.debttoout     = debt(end) / series.GDP(1);
         
-        growth_deflator      = zeros(size(SIMGDPPriceIndex), 'double');
+        % Calculate deficit/GDP for time of model
+        s.fedgovtnis    = (series.Revenues - series.NonInterestSpending) ./ series.GDP;
+        s.fedgovtnis    = s.fedgovtnis';
+        
+        % Rates
+        %    For interest rate in steady-state, we use avg. rate across all data
+        if( strcmp(scenario.economy, 'steady') )
+            fullseries      = read_series( seriesfilename, 'Year', first_year, [] ); 
+            gdpPriceIndex   = fullseries.GDPPriceIndex;
+            interest_rate   = fullseries.EffectiveInterestRateOnDebt / 100;
+        else
+            gdpPriceIndex   = series.GDPPriceIndex;
+            interest_rate   = series.EffectiveInterestRateOnDebt / 100;
+        end
+
+        growth_deflator      = zeros(size(gdpPriceIndex));
         growth_deflator(1)   = 1.0;
         for i = 2:size(growth_deflator)
-            growth_deflator(i) = SIMGDPPriceIndex(i)/SIMGDPPriceIndex(i-1);
+            growth_deflator(i) = gdpPriceIndex(i)/gdpPriceIndex(i-1);
         end;
+        rates_growth_adjusted  = ((1 + interest_rate)./growth_deflator) - 1.0;    
         
-        CBO_rates_growth_adjusted   = ((100.0+CBORates)./growth_deflator)./100.0 - 1.0;    
-        deficit_nis_fraction_GDP    = deficit_nis./SIMGDP;                
-        debt_percent_GDP            = debt./SIMGDP;                       
-        
-        % Calculate CPI index -- normalize to 1 for first year
-        if( strcmp(scenario.economy, 'steady' ) )
-            CBOCPI = 1;
+        if( strcmp(scenario.economy, 'steady') )
+            s.cborates  = nanmean( rates_growth_adjusted );
         else
-            CBOCPI = CBOCPI ./ CBOCPI(1);
+            s.cborates  = rates_growth_adjusted';
         end
-        
-        % Name, transpose, truncate vars to correspond to currently used variables 
-        % NOTE: The series must go out to T_model or import will break.
-        %       Breaking is good here. (Though gracefully would be better)
-        s.GEXP_by_GDP       = GEXP_by_GDP;                                % Expenditures as pct gdp
-        s.debt              = debt;                                       % Debt as pct gdp
-        s.debttoout         = debt_percent_GDP(1);                        % Debt-to-output ratio of initial year
-        s.debttoout_trans1  = debt_percent_GDP(2);                        % Debt-to-output ratio of first transition year
-        s.fedgovtnis        = deficit_nis_fraction_GDP(2:T_model + 1)';   % starts from first transition path year
-        s.cborates          = CBO_rates_growth_adjusted(2:T_model + 1)';  % starts from first transition path year
-        s.cbomeanrate       = nanmean(CBO_rates_growth_adjusted(2:end));  % Mean growth-adjusted interest rate over modeling period
-        
-        % Warn if parameters are outside expectations
-        if( (s.cbomeanrate < -0.03) || (s.cbomeanrate > 0.08) )
-            fprintf( 'WARNING! cbomeanrate=%f outside expecations.\n', cbomeanrate );
-        end
-        if( (s.debttoout < 0.5) || (s.debttoout > 1.5) )
-            fprintf( 'WARNING! debttoout=%f ouside expecations.\n', debttoout );
-        end
-        if( max(abs(s.cborates)) > 0.08 )
-            fprintf( 'WARNING! cborates outside expectations.\n' );
-        end
-        if( max(abs(s.fedgovtnis)) > 0.1 )
-            fprintf( 'WARNING! fedgovtnis outside expectations.\n' );
-        end
+       
+        % Consumption good price index
+        s.CPI               = (series.CPI / series.CPI(1))';                           % normalize to 1 for first_year
 
-        % TAX REVENUE TARGETS (if given)                 
+        % Unmodeled g'vt spending as percent GDP (for expenditure shifting)
+        GEXP_by_GDP     = series.NonInterestSpending   ./100    ...
+                        - series.SocialSecuritySpending./100    ...
+                        - series.MedicareSpending      ./100    ...
+                    ;
+        s.GEXP_by_GDP   = GEXP_by_GDP';
+
+        % TAX REVENUE TARGETS                  
         % Tax revenues as fraction of GDP are loaded from
         % single-series CSV files which contain data by
         % tax plan.
         % Input: Revenues_<taxplanid>.csv -- Estimate of tax
         %           revenues as percent GDP
-        %           Format is (Year), (PctRevenues) w/ header row.
         taxplanid   = find_taxplanid( scenario );
         filename    = fullfile( PathFinder.getTaxPlanInputDir(), strcat('Revenues_', taxplanid, '.csv') );
-        tax_revenue = read_series(filename, 'year', first_transition_year, last_year );
+        tax_revenue = read_series(filename, 'year', first_year, last_year );
         
-        tax_revenue_by_GDP      = tax_revenue.revenuesShareGDP'; 
-        s.tax_revenue_by_GDP    = tax_revenue_by_GDP; 
-        s.CPI                   = CBOCPI';
+        s.tax_revenue_by_GDP    = tax_revenue.revenuesShareGDP'; 
+        
+        
+        % WARNINGS if parameters are outside expectations
+        if( any( abs(s.cborates) > 0.05 ) )
+            fprintf( 'WARNING! cborates=%f outside expectations.\n' );
+        end
+        if( (s.debttoout < 0.6) || (s.debttoout > 1.0) )
+            fprintf( 'WARNING! debttoout=%f ouside expectations.\n', debttoout );
+        end
+        if( any(abs(s.fedgovtnis) > 0.1 ) )
+            fprintf( 'WARNING! fedgovtnis outside expectations.\n' );
+        end
+        if( any(abs(s.CPI - 1) > 0.1 ) )
+            fprintf( 'WARNING! cpi outside expectations. \n' );
+        end
         
     end % budget
     
@@ -853,14 +844,14 @@ function [series] = read_series(filename, index_name, first_index, last_index )
     % Check if file exists 
     if ~exist(filename, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
-        throw(MException('read_namedseries_withpad:FILENAME', err_msg ));
+        throw(MException('read_series:FILENAME', err_msg ));
     end;
         
     T           = readtable(filename);
     
     idx_drop    = ( T.(index_name) < first_index );
     if( all(idx_drop) )
-        throw(MException('read_namedseries_withpad:FIRSTINDEX','Cannot find first index in file.'));
+        throw(MException('read_series:FIRSTINDEX','Cannot find first index in file.'));
     end;
     
     % Remove unused table rows
@@ -883,7 +874,7 @@ function [series] = read_series(filename, index_name, first_index, last_index )
     % Do not return index column
     series = rmfield( series, index_name );
  
-end % read_namedseries_withpad
+end % read_series
 
 
 
