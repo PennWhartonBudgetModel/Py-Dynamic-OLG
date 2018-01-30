@@ -501,16 +501,28 @@ methods (Static)
         
         % Rates
         %    For interest rate in steady-state, we use avg. rate across all data
+        %    NOTE: EffectiveInterestRateOnDebt is in NOMINAL terms and we
+        %    deflate by GDPPriceIndex
         if( strcmp(scenario.economy, 'steady') )
             fullseries      = read_series( seriesfilename, 'Year', first_year, [] ); 
+            gdpPriceIndex   = fullseries.GDPPriceIndex;
             interest_rate   = fullseries.EffectiveInterestRateOnDebt / 100;
         else
+            gdpPriceIndex   = series.GDPPriceIndex;
             interest_rate   = series.EffectiveInterestRateOnDebt / 100;
         end
+        
+        deflator        = zeros(size(gdpPriceIndex));
+        deflator(1)     = 1.0;
+        for i = 2:size(deflator)
+            deflator(i) = gdpPriceIndex(i)/gdpPriceIndex(i-1);
+        end;
+        rates_adjusted  = ((1 + interest_rate)./deflator) - 1.0;    
+        
         if( strcmp(scenario.economy, 'steady') )
-            s.debtrates = nanmean( interest_rate );
+            s.debtrates = nanmean( rates_adjusted );
         else
-            s.debtrates = interest_rate';
+            s.debtrates = rates_adjusted';
         end
        
         % Consumption good price index
