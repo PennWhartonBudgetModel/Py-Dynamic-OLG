@@ -72,8 +72,11 @@ methods (Static)
         timing    = ParamGenerator.timing(scenario);
         T_life    = timing.T_life;
         T_workMax = timing.Tmax_work;
+        
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
-        zage      = read_series('ConesaEtAl_WageAgeProfile.csv', 1 + timing.realage_entry, PathFinder.getMicrosimInputDir());
+        filename  = fullfile(PathFinder.getMicrosimInputDir(), 'ConesaEtAl_WageAgeProfile.csv' );
+        series    = read_series(filename, 'Age', 1 + timing.realage_entry, []);
+        zage      = series.Wage;
         
         % Calculate total productivity
         ndem = nperm; nz = ntrans*npers;
@@ -217,7 +220,12 @@ methods (Static)
         bracketsfile    = strcat('PIT_', taxplanid, '.csv' );
         bracketsfile    = fullfile( PathFinder.getTaxPlanInputDir(), bracketsfile );      
 
-        [brackets, rates, burdens] = read_brackets_rates( bracketsfile, first_year, T_model );                               ...
+        [brackets, rates] = read_brackets_rates( bracketsfile, first_year, T_model );                               ...
+        
+        % TBD: This should be done in ModelSolver as for SocialSecurity
+        % Calculate cumulative tax burdens along brackets dimension
+        burdens         = cumsum(diff(brackets, 1, 2).*rates(:, 1:end-1), 2); 
+        burdens         = [zeros(size(brackets, 1), 1), burdens];  % rem: first burden is zero
         
         % Convert US dollar amounts into modelunit_dollars
         s.burdens       = burdens  .*scenario.modelunit_dollar;   % Cumulative tax burden
@@ -227,7 +235,7 @@ methods (Static)
         % Get the capital and tax treatment allocation params. 
         %    Rem: These are time-varying, so read results are vectors.
         filename = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', taxplanid, '.csv'));
-        tax_vars = read_namedseries_withpad( filename, 'Year', first_year, last_year );
+        tax_vars = read_series( filename, 'Year', first_year, last_year );
         
         % Calculate combined tax rate and share for Capital
         %    Do this as function to reuse for Q-Tobin calculation
@@ -257,7 +265,7 @@ methods (Static)
                 % Read tax params from steady-state, current-policy to make t=0 values
                 sstaxplanid = find_taxplanid(scenario.steady().currentPolicy());
                 filename    = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', sstaxplanid, '.csv'));
-                sstax_vars  = read_namedseries_withpad( filename, 'Year', first_year - 1, first_year - 1 );
+                sstax_vars  = read_series( filename, 'Year', first_year - 1, first_year - 1 );
 
                 [~, sstaucap] = calculate_captaxes( sstax_vars );
                 
@@ -305,9 +313,20 @@ methods (Static)
         
         timing    = ParamGenerator.timing( scenario );
         
-        param_dir = PathFinder.getMicrosimInputDir();
-        survival  = read_series('SIMSurvivalProbability.csv'        , 1 + timing.realage_entry, param_dir);
-        imm_age   = read_series('SIMImmigrantAgeDistribution.csv'   , 1 + timing.realage_entry, param_dir);
+        filename  = fullfile( PathFinder.getMicrosimInputDir(), 'SurvivalProbability.csv' );
+        series    = read_series( filename, 'Age', 1 + timing.realage_entry, [] );
+        survival  = series.SurvivalProbability;
+        if( length(survival) ~= timing.T_life )
+            throw(MException('timing:survival','Survival probabilities must exist for every age.'));
+        end
+        
+        filename  = fullfile( PathFinder.getMicrosimInputDir(), 'ImmigrantAgeDistribution.csv' );
+        series    = read_series( filename, 'Age', 1 + timing.realage_entry, [] );
+        imm_age   = series.ImmigrantAgeDistribution;
+        if( length(imm_age) ~= timing.T_life )
+            throw(MException('timing:imm_age','Immigrant age distributions must exist for every age.'));
+        end
+        
         s.surv    = survival';
         s.imm_age = imm_age';
 
@@ -353,21 +372,25 @@ methods (Static)
         s.taxcredit = 0.15;     % Benefit tax credit percentage
 
         % Get T_works (retirement ages)
-        nrafile     = strcat(   'NRA_'                                                                          ...
-                            ,   find_policy_id( scenario                                                        ...
+        nrafile     = fullfile( PathFinder.getSocialSecurityNRAInputDir()                                       ...
+                            ,   strcat(   'NRA_'                                                                ...
+                                ,   find_policy_id( scenario                                                    ...
                                        ,   {'SSNRAPolicy'}                                                      ...
                                        ,   fullfile( PathFinder.getSocialSecurityNRAInputDir(), 'Map.csv' ) )   ...                    ...
-                            ,   '.csv' );
+                                ,   '.csv' ) ...
+                      );
         switch scenario.economy
             case 'steady'
                 first_year   = first_transition_year - 1;
                 survivalprob = ParamGenerator.demographics(scenario).surv;
-                T_works      = read_series(nrafile, first_transition_year - (T_life + realage_entry + 1), PathFinder.getSocialSecurityNRAInputDir());
+                series       = read_series( nrafile, 'BirthYear', first_year - (T_life + realage_entry), [] );
+                T_works      = series.RetirementAge;
                 mass         = ones(T_life,1); for i = 2:T_life; mass(i) = mass(i-1)*survivalprob(i-1); end;
                 T_works      = round(sum((mass.*T_works(1:T_life))/sum(mass))) - realage_entry;
             case {'open', 'closed'}
                 first_year   = first_transition_year;
-                T_works      = read_series(nrafile, first_transition_year - (T_life + realage_entry), PathFinder.getSocialSecurityNRAInputDir());
+                series       = read_series( nrafile, 'BirthYear', first_year - (T_life + realage_entry), [] );
+                T_works      = series.RetirementAge;
                 T_works      = T_works(1:nstartyears) - realage_entry;
         end
         s.T_works           = T_works;
@@ -391,8 +414,8 @@ methods (Static)
         indexingfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir()      ...
                                 ,   strcat('BracketsIndex_' , sstaxid, '.csv' ) );
 
-        [brackets, rates, burdens] = read_brackets_rates  ( bracketsfile, first_year, T_model );                               ...
-        [indices]                  = read_brackets_indices( indexingfile );
+        [brackets, rates]   = read_brackets_rates  ( bracketsfile, first_year, T_model );                               ...
+        [indices]           = read_brackets_indices( indexingfile );
         
         if( size(indices,2) ~= size(brackets,2) )
             throw(MException('social_security:TAXBRACKETS','SSTaxBrackets and BracketsIndexes must have same number of brackets.'));
@@ -410,9 +433,9 @@ methods (Static)
         % Get range of income which is credited toward benefit calculation
         minmaxfile  = fullfile(     PathFinder.getSocialSecurityBenefitsInputDir()  ...
                                 ,   strcat('MinMaxRange_', policy_id , '.csv' )); 
-        minmaxinput = read_series_withpad(minmaxfile, first_year, first_year + T_model );
-        s.ssincmins = (minmaxinput(:,1) * scenario.modelunit_dollar)';
-        s.ssincmaxs = (minmaxinput(:,2) * scenario.modelunit_dollar)';
+        minmaxinput = read_series(minmaxfile, 'Year', first_year, first_year + T_model - 1);
+        s.ssincmins = (minmaxinput.Bracket1 * scenario.modelunit_dollar)';
+        s.ssincmaxs = (minmaxinput.Bracket2 * scenario.modelunit_dollar)';
         
         % Fetch initial benefits for each cohort 
         %   REM: Benefits are per month in US dollars 
@@ -422,7 +445,7 @@ methods (Static)
         bracketsfile    = fullfile( PathFinder.getSocialSecurityBenefitsInputDir() ...
                                 ,   strcat('InitialBenefits_', policy_id , '.csv' ) );      
         
-        [brackets, rates, ~]    = read_brackets_rates( bracketsfile, first_birthyear, nstartyears );                               ...
+        [brackets, rates]   = read_brackets_rates( bracketsfile, first_birthyear, nstartyears );                               ...
         
         s.startyear_benefitbrackets   = 12*scenario.modelunit_dollar*brackets;    
         s.startyear_benefitrates      = rates;
@@ -431,9 +454,7 @@ methods (Static)
         filename = fullfile(    PathFinder.getSocialSecurityBenefitsInputDir()    ...
                             ,   strcat('BenefitsAdjustment_', policy_id , '.csv' ));
         
-        adjrates = read_series_withpad( filename                                            ...
-                                    ,   first_year                                          ...
-                                    ,   first_year + T_model );      
+        [~, adjrates] = read_brackets_rates( filename, first_year, T_model );
     
         % Verify that adj has same number of brackets
         if( size(adjrates, 2) ~= size(brackets, 2) )
@@ -448,132 +469,111 @@ methods (Static)
     %
     function s = budget( scenario )
         
-        s = ParamGenerator.timing( scenario );
-        first_transition_year   = s.TransitionFirstYear;
-        T_model                 = s.T_model;
+        timing                  = ParamGenerator.timing( scenario );
+        first_transition_year   = timing.TransitionFirstYear;
+        T_model                 = timing.T_model;
         
+        switch scenario.economy
+            case 'steady'
+                first_year  = first_transition_year - 1;    
+                last_year   = first_year;
+            otherwise
+                first_year  = first_transition_year;
+                last_year   = first_year + T_model - 1;
+        end
 
-        %  CBO interest rates, expenditures, and debt
-        % Input: InterestRates.csv -- interest rate (as pct) 
-        %           Format is 
-        %           Year	DebtHeldByPublic	EffectiveInterestRateOnDebt	NonInterestDeficit	CPI
-        % Input: SIMGDP.csv -- nominal GDP from baseline SIM
-        %           Format is (Year), (NominalGDP) w/ header row.
-        % Input: SIMRevenues.csv -- nominal tax revenues from baseline SIM
-        %           Format is (Year), (Revenues) w/ header row.
-        % Input: SIMExpenditures.csv -- nominal non-interest expenditures from baseline SIM
-        %           Format is (Year), (Expenditures) w/ header row.
-        % Input: CBONonInterestSpending.csv -- NIS as pct GDP
-        %           Format is (Year), (PctGDP) w/ header row.
-        % Input: CBOSocialSecuritySpending.csv -- SS spending as pct GDP
-        %           Format is (Year), (PctGDP) w/ header row.
-        % Input: CBOMedicareSpending.csv -- Medicare spending as pct GDP
-        %           Format is (Year), (PctGDP) w/ header row.
+        % Interest rates, expenditures, and debt
+        % Input: 
+        %       MicroSIM\GDPandBudget.csv 
+        %       CBO\HistoricalDebt.csv
         % Output: 
-        %       debttoout, fedgovtnis, cborates, GEXP_by_GDP
-        cbo_param   = PathFinder.getCboInputDir     ();
-        sim_param   = PathFinder.getMicrosimInputDir();
+        %       debttoout, fedgovtnis, debtrates, GEXP_by_GDP
+        seriesfilename  = fullfile( PathFinder.getMicrosimInputDir(), 'GDPandBudget.csv'   );
+        debtfilename    = fullfile( PathFinder.getCboInputDir()     , 'HistoricalDebt.csv' );
         
-        first_year                  = first_transition_year - 1;    % first year from which to read series
-        SIMGDP                      = read_series( 'SIMGDP.csv'                     , first_year, sim_param );
-        SIMRevenues                 = read_series( 'SIMRevenues.csv'                , first_year, sim_param );
-        SIMExpenditures             = read_series( 'SIMExpenditures.csv'            , first_year, sim_param );
-        SIMGDPPriceIndex            = read_series( 'SIMGDPPriceIndex.csv'           , first_year, sim_param );
-        CBONonInterestSpending      = read_series( 'CBONonInterestSpending.csv'     , first_year, cbo_param );
-        CBOSocialSecuritySpending   = read_series( 'CBOSocialSecuritySpending.csv'  , first_year, cbo_param );
-        CBOMedicareSpending         = read_series( 'CBOMedicareSpending.csv'        , first_year, cbo_param );
-
-        cbo_series      = read_series( 'InterestRates.csv', first_year, cbo_param );
-        CBODebt         = cbo_series(:, 1);
-        CBORates        = cbo_series(:, 2);
-        CBOCPI          = cbo_series(2:end, 4);  % rem: CPI is only for transition path
+        series          = read_series( seriesfilename, 'Year', first_year, last_year ); 
+        % IMPORTANT:  Note that we pad out to last_year. If data does not
+        % exist to that year, we must be OK with padding.
         
-        if( size(SIMGDP) ~= size(SIMRevenues) ...
-            | size(SIMGDP) ~= size(SIMExpenditures) ...
-            | size(SIMGDP) ~= size(CBORates) ) ...
-            throw(MException('read_cbo_parameters:SIZE','Inputs are different sizes.'));
-        end;
-        if( size(CBONonInterestSpending) ~= size(CBOSocialSecuritySpending) ...
-            | size(CBONonInterestSpending) ~= size(CBOMedicareSpending) ...
-           )
-            throw(MException('read_cbo_spending:SIZE','Inputs are different sizes.'));
-        end;
-        
-        GEXP_by_GDP     = CBONonInterestSpending./100 ...
-                        - CBOSocialSecuritySpending./100 ...
-                        - CBOMedicareSpending./100 ...
-                    ;
-        GEXP_by_GDP     = GEXP_by_GDP';
-                    
-        deficit_nis     = SIMRevenues - SIMExpenditures;
+        % Fetch historical debt, revenues, expenditures
+        debt_series     = read_series( debtfilename  , 'Year', first_transition_year - 1, first_transition_year - 1 ); 
+        past_series     = read_series( seriesfilename, 'Year', first_transition_year - 1, first_year ); 
+                       
+        % Calculate debt to get DEBT/GDP for first_year
+        deficit_nis     = past_series.Revenues - past_series.NonInterestSpending;
         debt            = zeros(size(deficit_nis));
-        debt(1)         = CBODebt(1);
+        debt(1)         = debt_series.DebtHeldByPublic(1);
         for i = 2:size(deficit_nis)
-            debt(i) = debt(i-1)*(1+CBORates(i)/100.0) - deficit_nis(i);
+            debt(i) = debt(i-1)*(1+past_series.EffectiveInterestRateOnDebt(i)/100.0) - deficit_nis(i);
         end;
+        s.debttoout     = debt(end) / series.GDP(1);
         
-        growth_deflator      = zeros(size(SIMGDPPriceIndex), 'double');
-        growth_deflator(1)   = 1.0;
-        for i = 2:size(growth_deflator)
-            growth_deflator(i) = SIMGDPPriceIndex(i)/SIMGDPPriceIndex(i-1);
-        end;
+        % Calculate deficit/GDP for time of model
+        s.fedgovtnis    = (series.Revenues - series.NonInterestSpending) ./ series.GDP;
+        s.fedgovtnis    = s.fedgovtnis';
         
-        CBO_rates_growth_adjusted   = ((100.0+CBORates)./growth_deflator)./100.0 - 1.0;    
-        deficit_nis_fraction_GDP    = deficit_nis./SIMGDP;                
-        debt_percent_GDP            = debt./SIMGDP;                       
-        
-        % Calculate CPI index -- normalize to 1 for first year
-        if( strcmp(scenario.economy, 'steady' ) )
-            CBOCPI = 1;
+        % Rates
+        %    For interest rate in steady-state, we use avg. rate across all data
+        %    NOTE: EffectiveInterestRateOnDebt is in NOMINAL terms and we
+        %    deflate by GDPPriceIndex
+        if( strcmp(scenario.economy, 'steady') )
+            fullseries      = read_series( seriesfilename, 'Year', first_year, [] ); 
+            gdpPriceIndex   = fullseries.GDPPriceIndex;
+            interest_rate   = fullseries.EffectiveInterestRateOnDebt / 100;
         else
-            CBOCPI = CBOCPI ./ CBOCPI(1);
+            gdpPriceIndex   = series.GDPPriceIndex;
+            interest_rate   = series.EffectiveInterestRateOnDebt / 100;
         end
         
-        % Name, transpose, truncate vars to correspond to currently used variables 
-        % NOTE: The series must go out to T_model or import will break.
-        %       Breaking is good here. (Though gracefully would be better)
-        s.GEXP_by_GDP       = GEXP_by_GDP;                                % Expenditures as pct gdp
-        s.debt              = debt;                                       % Debt as pct gdp
-        s.debttoout         = debt_percent_GDP(1);                        % Debt-to-output ratio of initial year
-        s.debttoout_trans1  = debt_percent_GDP(2);                        % Debt-to-output ratio of first transition year
-        s.fedgovtnis        = deficit_nis_fraction_GDP(2:T_model + 1)';   % starts from first transition path year
-        s.cborates          = CBO_rates_growth_adjusted(2:T_model + 1)';  % starts from first transition path year
-        s.cbomeanrate       = nanmean(CBO_rates_growth_adjusted(2:end));  % Mean growth-adjusted interest rate over modeling period
+        deflator        = zeros(size(gdpPriceIndex));
+        deflator(1)     = 1.0;
+        for i = 2:size(deflator)
+            deflator(i) = gdpPriceIndex(i)/gdpPriceIndex(i-1);
+        end;
+        rates_adjusted  = ((1 + interest_rate)./deflator) - 1.0;    
         
-        % Warn if parameters are outside expectations
-        if( (s.cbomeanrate < -0.03) || (s.cbomeanrate > 0.08) )
-            fprintf( 'WARNING! cbomeanrate=%f outside expecations.\n', cbomeanrate );
+        if( strcmp(scenario.economy, 'steady') )
+            s.debtrates = nanmean( rates_adjusted );
+        else
+            s.debtrates = rates_adjusted';
         end
-        if( (s.debttoout < 0.5) || (s.debttoout > 1.5) )
-            fprintf( 'WARNING! debttoout=%f ouside expecations.\n', debttoout );
-        end
-        if( max(abs(s.cborates)) > 0.08 )
-            fprintf( 'WARNING! cborates outside expectations.\n' );
-        end
-        if( max(abs(s.fedgovtnis)) > 0.1 )
-            fprintf( 'WARNING! fedgovtnis outside expectations.\n' );
-        end
+       
+        % Consumption good price index
+        s.CPI               = (series.CPI / series.CPI(1))';                           % normalize to 1 for first_year
 
-        % TAX REVENUE TARGETS (if given)                 
+        % Unmodeled g'vt spending as percent GDP (for expenditure shifting)
+        GEXP_by_GDP     = series.NonInterestSpending   ./100    ...
+                        - series.SocialSecuritySpending./100    ...
+                        - series.MedicareSpending      ./100    ...
+                    ;
+        s.GEXP_by_GDP   = GEXP_by_GDP';
+
+        % TAX REVENUE TARGETS                  
         % Tax revenues as fraction of GDP are loaded from
         % single-series CSV files which contain data by
         % tax plan.
         % Input: Revenues_<taxplanid>.csv -- Estimate of tax
         %           revenues as percent GDP
-        %           Format is (Year), (PctRevenues) w/ header row.
-        taxplaninputdir = PathFinder.getTaxPlanInputDir();
-        taxplanid = find_taxplanid( scenario );
-        filename = strcat('Revenues_', taxplanid, '.csv');
-        tax_revenue_by_GDP = read_series(filename, first_transition_year, taxplaninputdir );
-        tax_revenue_by_GDP = tax_revenue_by_GDP'; 
-        if( T_model - length(tax_revenue_by_GDP) < 0 )
-            tax_revenue_by_GDP = tax_revenue_by_GDP(1:T_model);
-        else
-            tax_revenue_by_GDP  = [tax_revenue_by_GDP, ...
-                tax_revenue_by_GDP(end)*ones(1, T_model-length(tax_revenue_by_GDP))];
+        taxplanid   = find_taxplanid( scenario );
+        filename    = fullfile( PathFinder.getTaxPlanInputDir(), strcat('Revenues_', taxplanid, '.csv') );
+        tax_revenue = read_series(filename, 'year', first_year, last_year );
+        
+        s.tax_revenue_by_GDP    = tax_revenue.revenuesShareGDP'; 
+        
+        
+        % WARNINGS if parameters are outside expectations
+        if( any( abs(s.debtrates) > 0.05 ) )
+            fprintf( 'WARNING! debtrates outside expectations.\n' );
         end
-        s.tax_revenue_by_GDP = tax_revenue_by_GDP; 
-        s.CPI = CBOCPI';
+        if( (s.debttoout < 0.6) || (s.debttoout > 1.0) )
+            fprintf( 'WARNING! debttoout=%f ouside expectations.\n', debttoout );
+        end
+        if( any(abs(s.fedgovtnis) > 0.1 ) )
+            fprintf( 'WARNING! fedgovtnis outside expectations.\n' );
+        end
+        if( any(abs(s.CPI - 1) > 0.1 ) )
+            fprintf( 'WARNING! cpi outside expectations. \n' );
+        end
         
     end % budget
     
@@ -766,7 +766,7 @@ end % read_vars()
 %    filename     : fullfile of CSV to read
 %    first_year   : don't read years before this param
 %    T_years      : read this many years 
-function [brackets, rates, burdens] = read_brackets_rates( ...
+function [brackets, rates] = read_brackets_rates( ...
                                         filename, first_year, T_years )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
@@ -787,17 +787,20 @@ function [brackets, rates, burdens] = read_brackets_rates( ...
         throw(MException('read_brackets_rates:FIRSTINDEX','Cannot find first index in file.'));
     end    
     
-    % Find all brackets
-    % Enforce that first bracket must be zero.
+    % Find all brackets & rates
     brackets    = T_arr(year_start:end,  contains(T.Properties.VariableNames, 'Bracket' ) );
+    rates       = T_arr(year_start:end,  contains(T.Properties.VariableNames, 'Rate' ) );
+    
+    % Enforce that first bracket must be zero.
+    % If there are no brackets, make all zeros brackets
+    if( isempty(brackets) )
+        brackets = zeros(size(rates));
+    end
     if( all(brackets(:,1)) > 0 )
         err_msg = strcat('First bracket must be 0 in file ', strrep(filepath, '\', '\\'));
         throw(MException('read_brackets_rates:BRACKET0', err_msg ));
-    end 
+    end
     
-    % Find all rates
-    rates       = T_arr(year_start:end,  contains(T.Properties.VariableNames, 'Rate' ) );
-
     % Pad brackets and rates if not long enough, truncate if too long
     num_years = size(brackets,1);
     if( T_years - num_years <= 0 )
@@ -810,9 +813,6 @@ function [brackets, rates, burdens] = read_brackets_rates( ...
             repmat(rates(end,:)     , [T_years-num_years, 1])   ];
     end
     
-    % Calculate cumulative tax burdens along brackets dimension
-    burdens         = cumsum(diff(brackets, 1, 2).*rates(:, 1:end-1), 2); 
-    burdens         = [zeros(size(brackets, 1), 1), burdens];  % rem: first burden is zero
 end % read_brackets_rates()
 
 
@@ -832,65 +832,12 @@ function [indices] = read_brackets_indices( filename )
     T       = readtable(filename);
     indices = table2array(T(1, :));
     
-    % Validated that indices are in the allowed set:
+    % Validate that indices are in the allowed set:
     %    reals, nominals, wage_inflations, cohort_wages
     
     
 end % read_brackets_indices
 
-
-%%
-% Read a CSV file in format (Index), (Value1), (Value2), ... (ValueN)
-%       first_index     : first index to read (previous part of file is ignored
-%       last_index      : (optional) If given, copy the last available
-%                       value so that series goes from first_index ...
-%                       last_index. If the original series is too long,
-%                       truncate.
-%    For time series, (Index) is (Year), 
-%    For other series (e.g. age_survival_probability, (Index) is (Age)
-function [series] = read_series_withpad(filename, first_index, last_index )
-
-    warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
-    warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
- 
-    % Check if file exists 
-    if ~exist(filename, 'file')
-        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
-        throw(MException('read_series:FILENAME', err_msg ));
-    end;
-        
-    T           = readtable(filename);
-    indices     = table2array(T(:,1));
-    vals        = table2array(T(:,2:end));
-    
-    idx_start   = find( indices == first_index, 1);
-    if( isempty(idx_start) )
-        throw(MException('read_series:FIRSTINDEX','Cannot find first index in file.'));
-    end;
-    
-    series      = vals(idx_start:end, : );
-
-    if( ~isempty(last_index) )
-        % Pad or truncate
-        num_indices     = size(series,1);
-        num_required    = last_index - first_index;
-
-        if( num_required - num_indices <= 0 )
-            series    = series(1:num_required,:);
-        else
-            series    = [series; ...
-                repmat(series(end,:)  , [num_required-num_indices, 1])   ];
-        end
-    end;
-
-end % read_series_withpad
-
-
-%  Easier signature for read_series
-function [series] = read_series(filename, first_index, param_dir )
-    filepath = fullfile( param_dir, filename );
-    series = read_series_withpad( filepath, first_index, [] );
-end % read_series
 
 
 %%
@@ -904,7 +851,7 @@ end % read_series
 %                       last_index. If the original series is too long,
 %                       truncate.
 %    For time series, (Index) is (Year), 
-function [series] = read_namedseries_withpad(filename, index_name, first_index, last_index )
+function [series] = read_series(filename, index_name, first_index, last_index )
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
@@ -912,14 +859,14 @@ function [series] = read_namedseries_withpad(filename, index_name, first_index, 
     % Check if file exists 
     if ~exist(filename, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
-        throw(MException('read_namedseries_withpad:FILENAME', err_msg ));
+        throw(MException('read_series:FILENAME', err_msg ));
     end;
         
     T           = readtable(filename);
     
     idx_drop    = ( T.(index_name) < first_index );
     if( all(idx_drop) )
-        throw(MException('read_namedseries_withpad:FIRSTINDEX','Cannot find first index in file.'));
+        throw(MException('read_series:FIRSTINDEX','Cannot find first index in file.'));
     end;
     
     % Remove unused table rows
@@ -942,7 +889,7 @@ function [series] = read_namedseries_withpad(filename, index_name, first_index, 
     % Do not return index column
     series = rmfield( series, index_name );
  
-end % read_namedseries_withpad
+end % read_series
 
 
 
