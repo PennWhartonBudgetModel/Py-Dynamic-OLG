@@ -214,7 +214,7 @@ methods (Static)
                 last_year       = first_year;
             otherwise
                 first_year      = timing.TransitionFirstYear;
-                last_year       = timing.TransitionLastYear;
+                last_year       = timing.TransitionLastYear - 1;
         end    
         
         bracketsfile    = strcat('PIT_', taxplanid, '.csv' );
@@ -235,7 +235,7 @@ methods (Static)
         % Get the capital and tax treatment allocation params. 
         %    Rem: These are time-varying, so read results are vectors.
         filename = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', taxplanid, '.csv'));
-        tax_vars = read_series( filename, 'Year', first_year, last_year );
+        tax_vars = read_series( filename, 'year', first_year, last_year );
         
         % Calculate combined tax rate and share for Capital
         %    Do this as function to reuse for Q-Tobin calculation
@@ -265,7 +265,7 @@ methods (Static)
                 % Read tax params from steady-state, current-policy to make t=0 values
                 sstaxplanid = find_taxplanid(scenario.steady().currentPolicy());
                 filename    = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', sstaxplanid, '.csv'));
-                sstax_vars  = read_series( filename, 'Year', first_year - 1, first_year - 1 );
+                sstax_vars  = read_series( filename, 'year', first_year - 1, first_year - 1 );
 
                 [~, sstaucap] = calculate_captaxes( sstax_vars );
                 
@@ -784,7 +784,7 @@ function [brackets, rates] = read_brackets_rates( ...
     years       = T_arr(:,1);
     year_start  = find( years == first_year, 1);
     if( isempty(year_start) )
-        throw(MException('read_brackets_rates:FIRSTINDEX','Cannot find first index in file.'));
+        throw(MException('read_brackets_rates:FIRSTINDEX','Cannot find first index (%u) in file (%s).', first_year, filename));
     end    
     
     % Find all brackets & rates
@@ -878,7 +878,7 @@ function [series] = read_series(filename, index_name, first_index, last_index )
         T( idx_drop, : ) = [];
         
         % Pad if needed 
-        num_add  = (last_index - T.(index_name)(end) - 1);
+        num_add  = last_index - T.(index_name)(end);
         if( num_add > 0 )
             T    = [T; repmat(T(end,:), [num_add, 1])];
         end
