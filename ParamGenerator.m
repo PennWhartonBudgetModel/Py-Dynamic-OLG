@@ -571,10 +571,11 @@ methods (Static)
         if( any(abs(s.fedgovtnis) > 0.1 ) )
             fprintf( 'WARNING! fedgovtnis outside expectations.\n' );
         end
-        if( any(abs(s.CPI - 1) > 0.1 ) )
-            fprintf( 'WARNING! cpi outside expectations. \n' );
+        for t = 2:T_model
+            if( abs((s.CPI(t)/s.CPI(t-1))-1 > 0.05 ) )
+                fprintf( 'WARNING! cpi outside expectations. \n' );
+            end
         end
-        
     end % budget
     
     
