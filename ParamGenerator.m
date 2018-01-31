@@ -566,7 +566,7 @@ methods (Static)
             fprintf( 'WARNING! debtrates outside expectations.\n' );
         end
         if( (s.debttoout < 0.6) || (s.debttoout > 1.0) )
-            fprintf( 'WARNING! debttoout=%f ouside expectations.\n', debttoout );
+            fprintf( 'WARNING! debttoout=%f outside expectations.\n', debttoout );
         end
         if( any(abs(s.fedgovtnis) > 0.1 ) )
             fprintf( 'WARNING! fedgovtnis outside expectations.\n' );

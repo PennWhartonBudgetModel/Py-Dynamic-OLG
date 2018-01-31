@@ -321,18 +321,19 @@ methods (Static)
                 end
                 
                 % Specify data series years
-                first_year = 2016;
-                last_year  = 2089;
-                years = (first_year : last_year)';
+                first_year  = 2017;
+                last_year   = 2090;
+                years       = (first_year : last_year)';
+                timing      = ParamGenerator.timing( scenario );
                 
-                % Determine number of years to shift variable values
-                nshift  = ParamGenerator.timing(scenario).first_transition_year - first_year;
+                % Determine number of years to pre-pad variable values
+                nprepad     = timing.TransitionFirstYear - first_year;
                 
-                % Determine number of variable values to be trimmed or padded
-                T_model = ParamGenerator.timing(scenario).T_model;
-                nextra  = nshift + T_model - length(years);
-                ntrim   = +max(nextra, 0);
-                npad    = -min(nextra, 0);
+                % Determine number of variable values to be trimmed or post-padded
+                T_model     = timing.T_model;
+                nextra      = nprepad + T_model - length(years);
+                ntrim       = +max(nextra, 0);
+                npostpad    = -min(nextra, 0);
                 
                 % Write data series output files
                 writeFiles(rows(i).WithoutDynamicBaseline_Tag);
@@ -393,8 +394,8 @@ methods (Static)
                 
                 
                 % Consolidate, shift, trim, and pad dynamic and static variable values to form data series
-                dataseries = [ ones(1, nshift), v_Dynamic(1:end-ntrim), ones(1, npad) ;
-                               ones(1, nshift), v_Static( 1:end-ntrim), ones(1, npad) ]';
+                dataseries = [ ones(1, nprepad), v_Dynamic(1:end-ntrim), ones(1, npostpad) ;
+                               ones(1, nprepad), v_Static( 1:end-ntrim), ones(1, npostpad) ]';
                 
                 % Write data series to csv files
                 for id = dataseriesmap.(name)
