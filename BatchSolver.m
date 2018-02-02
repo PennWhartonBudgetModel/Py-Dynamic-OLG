@@ -371,12 +371,17 @@ methods (Static)
         fid         = fopen( mapfileName, 'w' );
         
         % Write header, skip _Tag fields
-        fprintf( fid, 'ID' );
+        mapfileFields = {};
         for o = fieldnames( rows(1) )'
             if( ~ ( endsWith( o{1} , '_Tag', 'IgnoreCase', true ) ...
                     || strcmp( o{1}, 'BatchID' ) ) )             
-                fprintf( fid, ',%s', o{1});
+                mapfileFields = [ mapfileFields, o{1} ];
             end
+        end
+        
+        fprintf( fid, 'ScenarioID' );
+        for o = mapfileFields
+            fprintf( fid, ',%s', o{1} );
         end
         fprintf( fid, '\n' );
         
@@ -394,22 +399,22 @@ methods (Static)
             fprintf( fid, '%u', row_id );
             
             % Write the map fields
-            for o = fieldnames( rows(i) )'
-                if( ~ ( endsWith( o{1} , '_Tag', 'IgnoreCase', true ) ...
-                        || strcmp( o{1}, 'BatchID' ) ) )  
-                    
-                    val = rows(i).(o{1});
-                    if( isnumeric(val) )
-                        if ( floor(val) == val )
-                            fmt = ',%u';
-                        else
-                            fmt = ',%f';
-                        end
-                    else
-                        fmt = ',%s';
-                    end
-                    fprintf( fid, fmt, val );
+            for o = mapfileFields
+                val = rows(i).(o{1});
+                if( isnan(val) | isempty(val) )
+                    fprintf( fid, ',' );
+                    continue;
                 end
+                if( isnumeric(val) )
+                    if ( floor(val) == val )
+                        fmt = ',%u';
+                    else
+                        fmt = ',%f';
+                    end
+                else
+                    fmt = ',%s';
+                end
+                fprintf( fid, fmt, val );
             end
             fprintf( fid, '\n' );
             
