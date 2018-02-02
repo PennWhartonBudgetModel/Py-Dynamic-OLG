@@ -360,14 +360,64 @@ methods (Static)
         depfileName = fullfile( PathFinder.getDataSeriesOutputDir(), 'InterfaceDependences.csv');  
         fid         = fopen( depfileName, 'w' ); 
         
-        fprintf  (fid, 'Component,Interface,Version\n'); 
+        fprintf( fid, 'Component,Interface,Version\n' ); 
         for r = PathFinder.getInputSet()
             fprintf( fid, '%s,%s,%s\n', r{1}{1}, r{1}{2}, r{1}{3});
         end
-        fclose   (fid);
+        fclose ( fid );
+        
+        % Generate Map file
+        mapfileName = fullfile( PathFinder.getDataSeriesOutputDir(), 'Map.csv' );
+        fid         = fopen( mapfileName, 'w' );
+        
+        % Write header, skip _Tag fields
+        fprintf( fid, 'ID' );
+        for o = fieldnames( rows(1) )'
+            if( ~ ( endsWith( o{1} , '_Tag', 'IgnoreCase', true ) ...
+                    || strcmp( o{1}, 'BatchID' ) ) )             
+                fprintf( fid, ',%s', o{1});
+            end
+        end
+        fprintf( fid, '\n' );
+        
+        % Write the mappings
+        for i = 1:length(rows)
+            
+            scenario = scenarios{i};
+            if isempty(scenario), continue, end
+            
+            if( rows(i).UseDynamicBaseline )
+                row_id = rows(i).WithDynamicBaseline_Tag;
+            else
+                row_id = rows(i).WithoutDynamicBaseline_Tag;
+            end
+            fprintf( fid, '%u', row_id );
+            
+            % Write the map fields
+            for o = fieldnames( rows(i) )'
+                if( ~ ( endsWith( o{1} , '_Tag', 'IgnoreCase', true ) ...
+                        || strcmp( o{1}, 'BatchID' ) ) )  
+                    
+                    val = rows(i).(o{1});
+                    if( isnumeric(val) )
+                        if ( floor(val) == val )
+                            fmt = ',%u';
+                        else
+                            fmt = ',%f';
+                        end
+                    else
+                        fmt = ',%s';
+                    end
+                    fprintf( fid, fmt, val );
+                end
+            end
+            fprintf( fid, '\n' );
+            
+        end % for loop on rows
+        fclose( fid );
         
         
-        
+        %% Helper function to output a single scenario
         function [] = writeFiles(tag, Dynamic_currentPolicyOpen, Dynamic_currentPolicyClosed)
             
             for name_ = fieldnames(dataseriesmap)'
