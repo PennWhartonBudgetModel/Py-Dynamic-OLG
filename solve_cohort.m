@@ -126,11 +126,6 @@ for t = T_active:-1:1
     % Calculate total rate of return
     totrate     = capshare.*caprate + (1-capshare).*govrate;
     
-    %% DEBUG
-    if( (age - year) == 1 )
-        fprintf( 'solve_cohort rate(%.0f)=%.15f\n', year, totrate);
-    end
-    
     capgain_taxrate = capgain_taxrates  (year   );
     capgain_share   = capgain_shares    (year   );
     

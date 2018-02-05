@@ -548,7 +548,6 @@ methods (Static)
                     capreturns   = MPKs - tax.rateCorporate .* (MPKs - Market.expsubs) - d;
                     
                     Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
-                    Market.totrates = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
 
                 case 'open'
                     
@@ -558,16 +557,13 @@ methods (Static)
                         % capital are fixed.
                         Market.caprates  = Market0.caprates*ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
                         Market.govrates  = Market0.govrates*ones(1,T_model);
-                        Market.totrates  = Market0.totrates*ones(1,T_model);
-                    end
-                                        
-                    %% DEBUG 
-                    for i=1:T_model
-                        fprintf( 'ModelSolver rate(%d)=%.15f \n', i, Market.totrates(i) );
                     end
                     
             end
             
+            % Report total returns to households
+            Market.totrates = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
+
             % Compute prices
             Market.rhos          = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
             Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
@@ -696,7 +692,7 @@ methods (Static)
             % Calculate maximum error in market clearing series
             eps = max(abs(clearing));
             
-            fprintf('Error term = %7.4f\n', eps)
+            fprintf('Error term = %7.6f\n', eps)
             fprintf(iterlog, '%u,%0.4f\n', iter, eps);
             
             
