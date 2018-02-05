@@ -118,20 +118,21 @@ methods (Static)
         
         %% Tax parameters
         %    rem: all US dollars have been converted to modelunit_dollars
-        s = ParamGenerator.tax( scenario );
+        tax = ParamGenerator.tax( scenario );
+        
         %  The following brackets, burdens, rates vary by year
-        pittax_brackets     = s.brackets;   % Tax func is linearized, these are income thresholds 
-        pittax_burdens      = s.burdens;    % Tax burden (cumulative tax) at thresholds
-        pittax_rates        = s.rates;      % Effective marginal tax rate between thresholds
+        pit.brackets    = tax.brackets;   % Tax func is linearized, these are income thresholds 
+        pit.burdens     = tax.burdens;    % Tax burden (cumulative tax) at thresholds
+        pit.rates       = tax.rates;      % Effective marginal tax rate between thresholds
         
-        captaxshares        = s.captaxshare;             % Portion of capital income taxed at preferred rates
-        expshares           = s.shareCapitalExpensing;   % Portion of investment which can be expensed
-        taucaps             = s.taucap;                  % Capital tax rate
-        taucapgains         = s.taucapgain;              % Capital gains tax rate
+        captaxshares        = tax.captaxshare;             % Portion of capital income taxed at preferred rates
+        expshares           = tax.shareCapitalExpensing;   % Portion of investment which can be expensed
+        taucaps             = tax.taucap;                  % Capital tax rate
+        taucapgains         = tax.taucapgain;              % Capital gains tax rate
         
-        qtobin0     = s.qtobin0;
-        qtobin      = s.qtobin';
-        taucap_ss   = s.sstaucap;  % Used for open economy
+        qtobin0     = tax.qtobin0;
+        qtobin      = tax.qtobin';
+        taucap_ss   = tax.sstaucap;  % Used for open economy
 
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
@@ -186,9 +187,9 @@ methods (Static)
                 bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                 sstaxcredit, ssbenefits, ssincmins_indexed, ssincmaxs_indexed, cohort_wageindexes, ...
                 sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
-                pittax_brackets, pittax_burdens, pittax_rates, ... 
+                pit.brackets, pit.burdens, pit.rates, ... 
                 captaxshares, taucaps, Market.capgains .* taucapgains, Market.capgains .* Market.capshares', ...
-                Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);
+                Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.expsubs);
 
 
             % Initialize series of terminal utility values
@@ -543,9 +544,12 @@ methods (Static)
                         Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
                     end
                     
+                    MPKs         = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
+                    capreturns   = MPKs - tax.rateCorporate .* (MPKs - Market.expsubs) - d;
+                    
                     Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
                     Market.totrates = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
-                    
+
                 case 'open'
                     
                     if isinitial
@@ -555,6 +559,11 @@ methods (Static)
                         Market.caprates  = Market0.caprates*ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
                         Market.govrates  = Market0.govrates*ones(1,T_model);
                         Market.totrates  = Market0.totrates*ones(1,T_model);
+                    end
+                                        
+                    %% DEBUG 
+                    for i=1:T_model
+                        fprintf( 'ModelSolver rate(%d)=%.15f \n', i, Market.totrates(i) );
                     end
                     
             end
