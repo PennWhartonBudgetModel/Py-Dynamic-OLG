@@ -730,16 +730,13 @@ methods (Static)
                 
                 
                 % Calculate labor elasticity
-                workmass = 0;
-                frisch   = 0;
-                
                 LAB_  = LABs{1};
                 DIST_ = sum(DIST.DIST(:,:,:,:,:,1), 5);
 
                 workind = (LAB_ > 0.01);
 
-                workmass = workmass + sum(DIST_(workind));
-                frisch   = frisch   + sum(DIST_(workind) .* (1 - LAB_(workind)) ./ LAB_(workind)) * (1 - gamma*(1-sigma))/sigma;
+                workmass = sum(DIST_(workind));
+                frisch   = sum(DIST_(workind) .* (1 - LAB_(workind)) ./ LAB_(workind)) * (1 - gamma*(1-sigma))/sigma;
                 
                 labelas = frisch / workmass;
                 
