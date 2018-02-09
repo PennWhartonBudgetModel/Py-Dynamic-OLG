@@ -198,6 +198,12 @@ for t = T_active:-1:1
                 
             else
                 
+                % Create local instance of average earnings calculation function with fixed parameters
+                calculate_b_ = @(labinc) calculate_b( ...
+                    labinc, age, reciprocalage, bv(ib), bv(end), ...
+                    ssincmin, ssincmax, sswageindex ...
+                );
+                
                 for iz = 1:nz
                     
                     % Calculate effective wage
@@ -218,9 +224,6 @@ for t = T_active:-1:1
                         %   beta to save on computation.
                         EV = surv(age)*beta*reshape(sum(repmat(transz(iz,:,age)', [1,nk,nb]) .* V_step, 1), [nk,nb]);
                         
-                        % Call average earnings calculation function to set parameters
-                        calculate_b([], age, reciprocalage, bv(ib), bv(end), ssincmin, ssincmax, sswageindex);
-                        
                         % Solve dynamic optimization subproblem
                         lab0 = 0.5;
                         k0   = max(kv(ik), min(kv(end), 0.1 * wage_eff * lab0));   % Assumes taxation will not exceed 90% of labor income and at the same time forces k to be in the grid
@@ -229,10 +232,11 @@ for t = T_active:-1:1
                             @(x) value_working( ...
                                 x, kv, bv, wage_eff, EV, ...
                                 bequest_p_1, bequest_phi_2, bequest_phi_3, ...
-                                sigma, gamma, reciprocal_1sigma ...
+                                sigma, gamma, reciprocal_1sigma, ...
+                                calculate_b_ ...
                             ), [k0, lab0], optim_options ...
                         );
-
+                        
                         k   = x(1);
                         lab = x(2);       
                         
@@ -253,7 +257,7 @@ for t = T_active:-1:1
                     [resources, inc, pit, sst, cit] = calculate_resources(labinc);
                     
                     OPT.LAB(iz,ik,ib,t) = lab;
-                    OPT.B  (iz,ik,ib,t) = calculate_b(labinc);
+                    OPT.B  (iz,ik,ib,t) = calculate_b_(labinc);
                     
                     OPT.INC(iz,ik,ib,t) = inc;
                     OPT.PIT(iz,ik,ib,t) = pit;
@@ -389,7 +393,8 @@ end
 function v  = value_working( ...
                 x, kv, bv, wage_eff, EV, ...
                 bequest_p_1, bequest_phi_2, bequest_phi_3, ...
-                sigma, gamma, reciprocal_1sigma ...
+                sigma, gamma, reciprocal_1sigma, ...
+                calculate_b_ ...
             )
 
 % Enforce function inlining for C code generation
@@ -409,7 +414,7 @@ if ~((0 <= lab) && (lab <= 1) ...
     
 end
 
-b = calculate_b(labinc);
+b = calculate_b_(labinc);
 
 % Calculate available resources
 resources = calculate_resources(labinc);
@@ -441,27 +446,13 @@ end
 
 
 % Average earnings calculation function
-function [b] = calculate_b(labinc, age_, reciprocalage_, bv_ib_, bv_nb_, ssincmin_, ssincmax_, sswageindex_)
+function b  = calculate_b( ...
+                labinc, age, reciprocalage, bv_ib, bv_nb, ...
+                ssincmin, ssincmax, sswageindex ...
+            )
 
 % Enforce function inlining for C code generation
 coder.inline('always');
-
-% Define parameters as persistent variables
-persistent age reciprocalage bv_ib bv_nb ssincmin ssincmax sswageindex...
-           initialized
-
-% Initialize parameters for C code generation
-if isempty(initialized)
-    age = 0; reciprocalage = 0; bv_ib = 0; bv_nb = 0; ssincmin = 0; ssincmax = 0; sswageindex = 0;
-    initialized = true;
-end
-
-% Set parameters if provided
-if (nargin > 1)
-    age = age_; reciprocalage = reciprocalage_; bv_ib = bv_ib_; bv_nb = bv_nb_; ssincmin = ssincmin_; ssincmax = ssincmax_; sswageindex = sswageindex_;
-    if isempty(labinc), return, end
-end
-
 
 % Calculate average earnings, cap them to a policy ceiling, and check if they are larger
 % than a policy floor (if not, earnings do not count for pension purposes).
@@ -478,6 +469,8 @@ else
 end
 
 end
+
+
 
 
 %%
