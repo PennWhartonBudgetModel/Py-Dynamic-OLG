@@ -354,7 +354,10 @@ methods (Static)
             Aggregate.cits     = f(OPTs.CIT);                                                                            % Capital income tax
             Aggregate.bens     = f(OPTs.BEN);                                                                            % Social Security benefits
             Aggregate.cons     = f(OPTs.CON);                                                                            % Consumption
-            Aggregate.assets   = f(repmat(reshape(kv, [1,nk,1,1,1]), [nz, 1,nb,T_life,T_model]));                        % Assets
+            Aggregate.assets   = f(repmat(reshape(kv, [1,nk,1,1,1]), [nz, 1,nb,T_life,T_model])) .* ...
+                                  (ones(1,T_model) + Market.capshares.*Market.capgains');                                % Assets
+            % Note: This definition of assets corresponds to beginning of period assets at
+            %       new policy prices, that is, accounting for eventual capital gains.
             
         end
         
