@@ -74,23 +74,10 @@ for age = 2:T_life
         
         % Redistribute population distribution from current year to next year according to target indices and weights
         for ib = 1:nb, for ik = 1:nk, for iz = 1:nz %#ok<ALIGN>
-            
-            a1 = DIST_next(jz, jk_lt(iz,ik,ib), jb_lt(iz,ik,ib), age, :);
-            a2 = wk_lt(iz,ik,ib)*wb_lt(iz,ik,ib)*DIST_transz(iz,ik,ib,1,:);
-            DIST_next(jz, jk_lt(iz,ik,ib), jb_lt(iz,ik,ib), age, :) = a1 + a2;
-            
-            b1 = DIST_next(jz, jk_gt(iz,ik,ib), jb_lt(iz,ik,ib), age, :);
-            b2 = wk_gt(iz,ik,ib)*wb_lt(iz,ik,ib)*DIST_transz(iz,ik,ib,1,:);
-            DIST_next(jz, jk_gt(iz,ik,ib), jb_lt(iz,ik,ib), age, :) = b1 + b2;
-            
-            c1 = DIST_next(jz, jk_lt(iz,ik,ib), jb_gt(iz,ik,ib), age, :);
-            c2 = wk_lt(iz,ik,ib)*wb_gt(iz,ik,ib)*DIST_transz(iz,ik,ib,1,:);
-            DIST_next(jz, jk_lt(iz,ik,ib), jb_gt(iz,ik,ib), age, :) = c1 + c2;
-            
-            d1 = DIST_next(jz, jk_gt(iz,ik,ib), jb_gt(iz,ik,ib), age, :);
-            d2 = wk_gt(iz,ik,ib)*wb_gt(iz,ik,ib)*DIST_transz(iz,ik,ib,1,:);
-            DIST_next(jz, jk_gt(iz,ik,ib), jb_gt(iz,ik,ib), age, :) = d1 + d2;
-            
+            DIST_next(jz, jk_lt(iz,ik,ib), jb_lt(iz,ik,ib), age, :) = DIST_next(jz, jk_lt(iz,ik,ib), jb_lt(iz,ik,ib), age, :) + wk_lt(iz,ik,ib)*wb_lt(iz,ik,ib)*DIST_transz(iz,ik,ib,1,:);
+            DIST_next(jz, jk_gt(iz,ik,ib), jb_lt(iz,ik,ib), age, :) = DIST_next(jz, jk_gt(iz,ik,ib), jb_lt(iz,ik,ib), age, :) + wk_gt(iz,ik,ib)*wb_lt(iz,ik,ib)*DIST_transz(iz,ik,ib,1,:);
+            DIST_next(jz, jk_lt(iz,ik,ib), jb_gt(iz,ik,ib), age, :) = DIST_next(jz, jk_lt(iz,ik,ib), jb_gt(iz,ik,ib), age, :) + wk_lt(iz,ik,ib)*wb_gt(iz,ik,ib)*DIST_transz(iz,ik,ib,1,:);
+            DIST_next(jz, jk_gt(iz,ik,ib), jb_gt(iz,ik,ib), age, :) = DIST_next(jz, jk_gt(iz,ik,ib), jb_gt(iz,ik,ib), age, :) + wk_gt(iz,ik,ib)*wb_gt(iz,ik,ib)*DIST_transz(iz,ik,ib,1,:);
         end, end, end
 
 
