@@ -302,7 +302,7 @@ methods (Static)
                     DIST_grow(:,1,1,:,g.illegal) = reshape(DISTz(:,:,g.illegal), [nz,1,1,T_life,1]) * (P/2) * illegal_rate .* repmat(reshape(imm_age, [1,1,1,T_life,1]), [nz,1,1,1,1]);
 
                     % Generate population distribution for next year
-                    DIST_next = generate_distribution_all(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kv, bv, surv);
+                    DIST_next = generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kv, bv, surv);
                     assert(all(DIST_next(:)>=0), 'Negative mass of people at DIST_next.')
 
                     % Increase legal immigrant population for amnesty, maintaining distributions over productivity
