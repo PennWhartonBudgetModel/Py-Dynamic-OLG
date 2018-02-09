@@ -649,7 +649,13 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate market clearing series
-                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1)] ./ Dynamic.pops;
+                    % Note: Bequests should be priced according to the new policy because it
+                    %       corresponds to yesterday's assets that were collected and sold by the
+                    %       government yesterday after some people died, but redistributed today
+                    %       after the new policy took place.
+                    beqs = [Market0.beqs * (1 + Market0.capshares * Market0.capgains), ...
+                            Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(1:T_model-1)') ...
+                            ] ./ Dynamic.pops;
                     clearing = Market.beqs - beqs;
                     
                 case 'closed'
@@ -687,8 +693,11 @@ methods (Static)
                     
                     % Calculate market clearing series
                     % Note: Dynamic.assets represents current assets at new prices.
+                    %       Bequests should also be priced according to the new policy.
                     rhos = (max(Dynamic.assets - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
-                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1)] ./ Dynamic.pops;
+                    beqs = [Market0.beqs * (1 + Market0.capshares * Market0.capgains), ...
+                            Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(1:T_model-1)') ...
+                            ] ./ Dynamic.pops;
                     clearing = Market.rhos - rhos;
                     
             end
