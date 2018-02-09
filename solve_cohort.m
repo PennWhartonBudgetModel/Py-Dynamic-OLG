@@ -80,7 +80,6 @@ assert( isa(totrates    , 'double'  ) && (size(totrates     , 1) == 1       ) &&
 assert( isa(expsubs     , 'double'  ) && (size(expsubs      , 1) == 1       ) && (size(expsubs      , 2) <= T_max   ) );
 
 
-
 %% Dynamic optimization
 
 % Initialize utility and optimal decision value arrays
@@ -291,45 +290,6 @@ end
 end
 
 
-
-
-% Resource and tax calculation function
-function [resources, inc, pit, sst, cit] ...
-    = calculate_resources( ...
-        labinc, ...
-        kv_ik, ...
-        ssinc, sstaxcredit, ...
-        sst_brackets, sst_burdens, sst_rates, ...
-        pit_brackets, pit_burdens, pit_rates, ... 
-        captaxshare, taucap, capgain_share, ...
-        beq, capshare, caprate, govrate, totrate, expsub ...
-    )
-
-    % Enforce function inlining for C code generation
-    coder.inline('always');
-
-    % Calculate taxable income
-    %   We do not allow negative incomes
-    inc = max( 0,...
-          capshare*caprate*kv_ik*(1-captaxshare) + (1-capshare)*govrate*kv_ik ...
-          + (1-sstaxcredit)*ssinc + labinc...
-          );
-    pit = find_tax_liability( inc, pit_brackets, pit_burdens, pit_rates );
-
-    % Calculate Social Security tax from wage income
-    sst = find_tax_liability( labinc, sst_brackets, sst_burdens, sst_rates );
-
-    % Calculate corporate income tax
-    cit = (capshare + capgain_share)*kv_ik*(taucap*(caprate - expsub)*captaxshare);
-
-    % Calculate available resources
-    resources = (1 + totrate)*kv_ik + labinc + ssinc - (pit + sst + cit) + beq + kv_ik*capgain_share;
-
-end
-
-
-
-
 % Retirement age value function
 function [v] ...
     = value_retirement( ...
@@ -365,8 +325,6 @@ function [v] ...
     end
 
 end
-
-
 
 
 % Working age value function
@@ -424,8 +382,6 @@ function [v] ...
 end
 
 
-
-
 % Average earnings calculation function
 function [b] ...
     = calculate_b( ...
@@ -453,6 +409,39 @@ function [b] ...
 end
 
 
+% Resource and tax calculation function
+function [resources, inc, pit, sst, cit] ...
+    = calculate_resources( ...
+        labinc, ...
+        kv_ik, ...
+        ssinc, sstaxcredit, ...
+        sst_brackets, sst_burdens, sst_rates, ...
+        pit_brackets, pit_burdens, pit_rates, ... 
+        captaxshare, taucap, capgain_share, ...
+        beq, capshare, caprate, govrate, totrate, expsub ...
+    )
+
+    % Enforce function inlining for C code generation
+    coder.inline('always');
+
+    % Calculate taxable income
+    %   We do not allow negative incomes
+    inc = max( 0,...
+          capshare*caprate*kv_ik*(1-captaxshare) + (1-capshare)*govrate*kv_ik ...
+          + (1-sstaxcredit)*ssinc + labinc...
+          );
+    pit = find_tax_liability( inc, pit_brackets, pit_burdens, pit_rates );
+
+    % Calculate Social Security tax from wage income
+    sst = find_tax_liability( labinc, sst_brackets, sst_burdens, sst_rates );
+
+    % Calculate corporate income tax
+    cit = (capshare + capgain_share)*kv_ik*(taucap*(caprate - expsub)*captaxshare);
+
+    % Calculate available resources
+    resources = (1 + totrate)*kv_ik + labinc + ssinc - (pit + sst + cit) + beq + kv_ik*capgain_share;
+
+end
 
 
 %%
@@ -472,6 +461,4 @@ function [tax] = find_tax_liability( income, brackets, burdens, rates )
     tax         = burdens(thebracket) + rates(thebracket)*(income - brackets(thebracket));
 
 end % find_tax_liability
-
-
 
