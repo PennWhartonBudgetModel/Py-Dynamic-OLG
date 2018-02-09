@@ -649,7 +649,7 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate market clearing series
-                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1) ./ Dynamic.pops(2:T_model)];
+                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1)] ./ Dynamic.pops;
                     clearing = Market.beqs - beqs;
                     
                 case 'closed'
@@ -688,7 +688,7 @@ methods (Static)
                     % Calculate market clearing series
                     % Note: Dynamic.assets represents current assets at new prices.
                     rhos = (max(Dynamic.assets - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
-                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1) ./ Dynamic.pops(2:T_model)];
+                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1)] ./ Dynamic.pops;
                     clearing = Market.rhos - rhos;
                     
             end
