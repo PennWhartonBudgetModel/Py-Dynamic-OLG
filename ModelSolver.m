@@ -616,8 +616,9 @@ methods (Static)
                     Dynamic.caps = Market.rhos .* Dynamic.labeffs;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
-                    Dynamic.caps_domestic = (Market.capshares .* [Dynamic0.assets, Dynamic.assets(1:T_model-1)]) ./ qtobin;
+                    Dynamic.caps_domestic = (Market.capshares .* Dynamic.assets) ./ qtobin;
                     Dynamic.caps_foreign  = Dynamic.caps - Dynamic.caps_domestic;
+                    % Note: Dynamic.assets represents current assets at new prices.
                     
                     % Calculate debt
                     Dynamic.cits_domestic = Dynamic.cits;
@@ -670,7 +671,8 @@ methods (Static)
                     Dynamic.debts_foreign  = zeros(1,T_model);
                     
                     % Calculate capital and output
-                    Dynamic.caps = ([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts) ./ qtobin;
+                    % Note: Dynamic.assets represents current assets at new prices.
+                    Dynamic.caps = (Dynamic.assets - Dynamic.debts) ./ qtobin;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     Dynamic.caps_domestic = Dynamic.caps;
@@ -684,7 +686,8 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate market clearing series
-                    rhos = (max([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
+                    % Note: Dynamic.assets represents current assets at new prices.
+                    rhos = (max(Dynamic.assets - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
                     beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1) ./ Dynamic.pops(2:T_model)];
                     clearing = Market.rhos - rhos;
                     
