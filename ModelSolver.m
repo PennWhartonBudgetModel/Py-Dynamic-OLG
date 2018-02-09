@@ -599,13 +599,13 @@ methods (Static)
                     beqs = Dynamic.bequests / (sum(DIST_trans(:))/sum(DIST(:)));
                     clearing = Market.rhos - rhos;
                     
-                    % Calculate income - THIS SHOULD BE OUTSIDE THE CASE
-                    % ECONOMY LOOP!
+                    % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = qtobin .* Market.caprates .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
+                    Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;            
 
                 case 'open'
                     
@@ -686,8 +686,6 @@ methods (Static)
                     clearing = Market.rhos - rhos;
                     
             end
-            
-            Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
             
             % Calculate maximum error in market clearing series
             eps = max(abs(clearing));
