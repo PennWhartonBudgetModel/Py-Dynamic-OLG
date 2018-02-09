@@ -163,13 +163,14 @@ for t = T_active:-1:1
                     %   beta to save on computation.
                     EV = surv(age)*beta*reshape(V_step(1,:,:), [nk,nb]);
                     
-                    % Call retirement age value function to set parameters
-                    value_retirement([], kv, resources, EV(:,ib), ... 
-                                bequest_p_1, bequest_phi_2, bequest_phi_3, ...
-                                sigma, gamma, reciprocal_1sigma);
-                    
                     % Solve dynamic optimization subproblem
-                    [k, v] = fminsearch(@value_retirement, kv(ik), optim_options);
+                    [k, v] = fminsearch( ...
+                        @(k) value_retirement( ...
+                            k, kv, resources, EV(:,ib), ... 
+                            bequest_p_1, bequest_phi_2, bequest_phi_3, ...
+                            sigma, gamma, reciprocal_1sigma ...
+                        ), kv(ik), optim_options ...
+                    );
                     
                     % Checks -> only work in the absence of mex file!
                     assert( ~isinf(v)   , 'v is inf')
@@ -344,35 +345,14 @@ end
 
 
 % Retirement age value function
-function v = value_retirement(k, kv_, resources_, EV_ib_,... 
-                    bequest_p_1_, bequest_phi_2_, bequest_phi_3_, ...
-                    sigma_, gamma_, reciprocal_1sigma_)
+function v  = value_retirement( ...
+                k, kv, resources, EV_ib, ... 
+                bequest_p_1, bequest_phi_2, bequest_phi_3, ...
+                sigma, gamma, reciprocal_1sigma ...
+            )
 
 % Enforce function inlining for C code generation
 coder.inline('always');
-
-% Define parameters as persistent variables
-persistent kv resources EV_ib ...
-            bequest_p_1 bequest_phi_2 bequest_phi_3 ...
-            sigma gamma reciprocal_1sigma ...
-            initialized
-
-% Initialize parameters for C code generation
-if isempty(initialized)
-    kv = 0; resources = 0; EV_ib = 0; 
-    bequest_p_1 = 0; bequest_phi_2 = 0; bequest_phi_3 = 0;
-    sigma = 0; gamma = 0; reciprocal_1sigma = 0;
-    initialized = true;
-end
-
-% Set parameters if provided
-if (nargin > 1)
-    kv = kv_; resources = resources_; EV_ib = EV_ib_; 
-    bequest_p_1 = bequest_p_1_; bequest_phi_2 = bequest_phi_2_; bequest_phi_3 = bequest_phi_3_; 
-    sigma = sigma_; gamma = gamma_; reciprocal_1sigma = reciprocal_1sigma_;
-    if isempty(k), return, end
-end
-
 
 % Calculate consumption
 consumption = resources - k;
