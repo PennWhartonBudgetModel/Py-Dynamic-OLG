@@ -21,7 +21,7 @@ nz_max          = 50;
 nk_max          = 50;
 nb_max          = 50;
 T_max           = 100;
-nbrackets_max = 20;
+nbrackets_max   = 20;
 
 assert( isa(V0          , 'double'  ) && (size(V0           , 1) <= nz_max  ) && (size(V0           , 2) <= nk_max  ) && (size(V0           , 3) <= nb_max  ) );
 assert( isa(LAB_static  , 'double'  ) && (size(LAB_static   , 1) <= nz_max  ) && (size(LAB_static   , 2) <= nk_max  ) && (size(LAB_static   , 3) <= nb_max  ) && (size(LAB_static   , 4) <= T_max   ) );
