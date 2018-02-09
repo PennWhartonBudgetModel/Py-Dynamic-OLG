@@ -218,17 +218,20 @@ for t = T_active:-1:1
                         %   beta to save on computation.
                         EV = surv(age)*beta*reshape(sum(repmat(transz(iz,:,age)', [1,nk,nb]) .* V_step, 1), [nk,nb]);
                         
-                        % Call working age value function and average earnings calculation function to set parameters
-                        value_working([], kv, bv, wage_eff, EV, ...
-                                bequest_p_1, bequest_phi_2, bequest_phi_3, ...
-                                sigma, gamma, reciprocal_1sigma);
-                        calculate_b  ([], age, reciprocalage, bv(ib), bv(end), ssincmin, ssincmax, sswageindex);
+                        % Call average earnings calculation function to set parameters
+                        calculate_b([], age, reciprocalage, bv(ib), bv(end), ssincmin, ssincmax, sswageindex);
                         
                         % Solve dynamic optimization subproblem
                         lab0 = 0.5;
                         k0   = max(kv(ik), min(kv(end), 0.1 * wage_eff * lab0));   % Assumes taxation will not exceed 90% of labor income and at the same time forces k to be in the grid
                         
-                        [x, v] = fminsearch(@value_working, [k0, lab0], optim_options);
+                        [x, v] = fminsearch( ...
+                            @(x) value_working( ...
+                                x, kv, bv, wage_eff, EV, ...
+                                bequest_p_1, bequest_phi_2, bequest_phi_3, ...
+                                sigma, gamma, reciprocal_1sigma ...
+                            ), [k0, lab0], optim_options ...
+                        );
 
                         k   = x(1);
                         lab = x(2);       
@@ -383,35 +386,14 @@ end
 
 
 % Working age value function
-function v = value_working(x, kv_, bv_, wage_eff_, EV_, ...
-                    bequest_p_1_, bequest_phi_2_, bequest_phi_3_, ...
-                    sigma_, gamma_, reciprocal_1sigma_)
+function v  = value_working( ...
+                x, kv, bv, wage_eff, EV, ...
+                bequest_p_1, bequest_phi_2, bequest_phi_3, ...
+                sigma, gamma, reciprocal_1sigma ...
+            )
 
 % Enforce function inlining for C code generation
 coder.inline('always');
-
-% Define parameters as persistent variables
-persistent kv bv wage_eff EV ...
-            bequest_p_1 bequest_phi_2 bequest_phi_3 ...
-            sigma gamma reciprocal_1sigma...
-            initialized
-
-% Initialize parameters for C code generation
-if isempty(initialized)
-    kv = 0; bv = 0; wage_eff = 0; EV = 0; 
-    bequest_p_1 = 0; bequest_phi_2 = 0; bequest_phi_3 = 0;
-    sigma = 0; gamma = 0; reciprocal_1sigma = 0;
-    initialized = true;
-end
-
-% Set parameters if provided
-if (nargin > 1)
-    kv = kv_; bv = bv_; wage_eff = wage_eff_; EV = EV_; 
-    bequest_p_1 = bequest_p_1_; bequest_phi_2 = bequest_phi_2_; bequest_phi_3 = bequest_phi_3_; 
-    sigma = sigma_; gamma = gamma_; reciprocal_1sigma = reciprocal_1sigma_;
-    if isempty(x), return, end
-end
-
 
 % Define decision variables and perform bound checks
 k   = x(1);
