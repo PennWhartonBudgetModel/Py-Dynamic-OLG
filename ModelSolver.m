@@ -418,10 +418,11 @@ methods (Static)
             case 'steady'
                 
                 % Load initial conditions
-                Market0 = struct('beqs',0.0927,'capshares',3/(3+debttoout),'rhos',6.2);
-                    % Initial guesses set as follows:
-                    % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                    % beqs and rhos are guesses from previous code.
+                Market0 = struct( ...
+                    'beqs'      , 0.147535945161347, ...
+                    'capshares' , 0.810445542763002, ...
+                    'rhos'      , 7.210125989686703  ...
+                );
                 
                 DIST_steady = {};
                 
