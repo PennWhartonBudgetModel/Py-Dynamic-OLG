@@ -569,9 +569,9 @@ methods (Static)
             Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
             Market.qtobin0       = qtobin0;
             Market.qtobin        = qtobin;
-            Market.capgains(1,1) = (qtobin(1) - qtobin0)/qtobin(1);
+            Market.capgains(1,1) = (qtobin(1) - qtobin0)/qtobin0;
             for t = 2:T_model
-               Market.capgains(t,1) = (qtobin(t) - qtobin(t-1))/qtobin(t);
+               Market.capgains(t,1) = (qtobin(t) - qtobin(t-1))/qtobin(t-1);
             end
             
             % Generate dynamic aggregates
