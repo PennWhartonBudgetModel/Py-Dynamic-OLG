@@ -305,25 +305,25 @@ function [resources, inc, pit, sst, cit] ...
         beq, capshare, caprate, govrate, totrate, expsub ...
     )
 
-% Enforce function inlining for C code generation
-coder.inline('always');
+    % Enforce function inlining for C code generation
+    coder.inline('always');
 
-% Calculate taxable income
-%   We do not allow negative incomes
-inc = max( 0,...
-      capshare*caprate*kv_ik*(1-captaxshare) + (1-capshare)*govrate*kv_ik ...
-      + (1-sstaxcredit)*ssinc + labinc...
-      );
-pit = find_tax_liability( inc, pit_brackets, pit_burdens, pit_rates );
+    % Calculate taxable income
+    %   We do not allow negative incomes
+    inc = max( 0,...
+          capshare*caprate*kv_ik*(1-captaxshare) + (1-capshare)*govrate*kv_ik ...
+          + (1-sstaxcredit)*ssinc + labinc...
+          );
+    pit = find_tax_liability( inc, pit_brackets, pit_burdens, pit_rates );
 
-% Calculate Social Security tax from wage income
-sst = find_tax_liability( labinc, sst_brackets, sst_burdens, sst_rates );
+    % Calculate Social Security tax from wage income
+    sst = find_tax_liability( labinc, sst_brackets, sst_burdens, sst_rates );
 
-% Calculate corporate income tax
-cit = (capshare + capgain_share)*kv_ik*(taucap*(caprate - expsub)*captaxshare);
+    % Calculate corporate income tax
+    cit = (capshare + capgain_share)*kv_ik*(taucap*(caprate - expsub)*captaxshare);
 
-% Calculate available resources
-resources = (1 + totrate)*kv_ik + labinc + ssinc - (pit + sst + cit) + beq + kv_ik*capgain_share;
+    % Calculate available resources
+    resources = (1 + totrate)*kv_ik + labinc + ssinc - (pit + sst + cit) + beq + kv_ik*capgain_share;
 
 end
 
@@ -338,31 +338,31 @@ function [v] ...
         sigma, gamma, reciprocal_1sigma ...
     )
 
-% Enforce function inlining for C code generation
-coder.inline('always');
+    % Enforce function inlining for C code generation
+    coder.inline('always');
 
-% Calculate consumption
-consumption = resources - k;
+    % Calculate consumption
+    consumption = resources - k;
 
-% Perform bound checks
-if (kv(1) <= k) && (k <= kv(end)) && (0 <= consumption)
-    
-    % Residual value of bequest.
-    % NOTE: (1) bequest is assets chosen for next period,
-    %       (2) bequest_p_1 is beta*prob_death*bequest_phi_1
-    value_bequest = bequest_p_1 * (1 + k/bequest_phi_2)^(1-bequest_phi_3);
-    
-    % Calculate utility
-    v = (consumption^(gamma*(1-sigma)))*reciprocal_1sigma ... % flow utility
-        + interp1(kv, EV_ib, k, 'linear')                 ... % continuation value of life
-        + value_bequest                                   ;   % value of bequest
-    
-    % Negate utility for minimization and force to scalar for C code generation
-    v = -v(1);
-    
-else
-    v = Inf;
-end
+    % Perform bound checks
+    if (kv(1) <= k) && (k <= kv(end)) && (0 <= consumption)
+
+        % Residual value of bequest.
+        % NOTE: (1) bequest is assets chosen for next period,
+        %       (2) bequest_p_1 is beta*prob_death*bequest_phi_1
+        value_bequest = bequest_p_1 * (1 + k/bequest_phi_2)^(1-bequest_phi_3);
+
+        % Calculate utility
+        v = (consumption^(gamma*(1-sigma)))*reciprocal_1sigma ... % flow utility
+            + interp1(kv, EV_ib, k, 'linear')                 ... % continuation value of life
+            + value_bequest                                   ;   % value of bequest
+
+        % Negate utility for minimization and force to scalar for C code generation
+        v = -v(1);
+
+    else
+        v = Inf;
+    end
 
 end
 
@@ -378,48 +378,48 @@ function [v] ...
         calculate_b_, calculate_resources_ ...
     )
 
-% Enforce function inlining for C code generation
-coder.inline('always');
+    % Enforce function inlining for C code generation
+    coder.inline('always');
 
-% Define decision variables and perform bound checks
-k   = x(1);
-lab = x(2);
+    % Define decision variables and perform bound checks
+    k   = x(1);
+    lab = x(2);
 
-labinc = wage_eff * lab;
+    labinc = wage_eff * lab;
 
-if ~((0 <= lab) && (lab <= 1) ...
-     && (kv(1) <= k) && (k <= kv(end)))
-    
-    v = Inf;
-    return
-    
-end
+    if ~((0 <= lab) && (lab <= 1) ...
+         && (kv(1) <= k) && (k <= kv(end)))
 
-b = calculate_b_(labinc);
+        v = Inf;
+        return
 
-% Calculate available resources
-resources = calculate_resources_(labinc);
+    end
 
-% Calculate consumption and perform bound check
-consumption = resources - k;
+    b = calculate_b_(labinc);
 
-if ~(0 <= consumption)
-    v = Inf;
-    return
-end
+    % Calculate available resources
+    resources = calculate_resources_(labinc);
 
-% Residual value of bequest.
-% NOTE: (1) bequest is assets chosen for next period,
-%       (2) bequest_p_1 is beta*prob_death*bequest_phi_1
-value_bequest = bequest_p_1 * (1 + k/bequest_phi_2)^(1-bequest_phi_3);
-    
-% Calculate utility
-v = (((consumption^gamma)*((1-lab)^(1-gamma)))^(1-sigma))*reciprocal_1sigma ... % flow utility
-    + interp2(kv', bv, EV', k, b, 'linear')                                 ... % continuation value of life
-    + value_bequest                                                         ;   % value of bequest
- 
-% Negate utility for minimization and force to scalar for C code generation
-v = -v(1);
+    % Calculate consumption and perform bound check
+    consumption = resources - k;
+
+    if ~(0 <= consumption)
+        v = Inf;
+        return
+    end
+
+    % Residual value of bequest.
+    % NOTE: (1) bequest is assets chosen for next period,
+    %       (2) bequest_p_1 is beta*prob_death*bequest_phi_1
+    value_bequest = bequest_p_1 * (1 + k/bequest_phi_2)^(1-bequest_phi_3);
+
+    % Calculate utility
+    v = (((consumption^gamma)*((1-lab)^(1-gamma)))^(1-sigma))*reciprocal_1sigma ... % flow utility
+        + interp2(kv', bv, EV', k, b, 'linear')                                 ... % continuation value of life
+        + value_bequest                                                         ;   % value of bequest
+
+    % Negate utility for minimization and force to scalar for C code generation
+    v = -v(1);
 
 end
 
@@ -433,22 +433,22 @@ function [b] ...
         ssincmin, ssincmax, sswageindex ...
     )
 
-% Enforce function inlining for C code generation
-coder.inline('always');
+    % Enforce function inlining for C code generation
+    coder.inline('always');
 
-% Calculate average earnings, cap them to a policy ceiling, and check if they are larger
-% than a policy floor (if not, earnings do not count for pension purposes).
-%   Since bv(end) = ssincmax, one would expect the min operation below to handle off-grid points at the top.
-%   However, due to rounding errors of an order of magnitude of 1e-15, b > bv_nb might occur.
-%   If that's the case, interp2 in value_working returns NaN, compromising results.
-%   To correct for the rounding error, we introduce a discounting term '10*eps'.
-% We choose to believe b < bv(1) = 0 is not a possibility since a negative labinc would
-% cause the code to break before getting here.
-if labinc > (ssincmin + 10*eps)
-    b = (bv_ib*(age-1) + sswageindex*min(labinc, ssincmax))*reciprocalage - 10*eps;
-else
-    b = bv_ib;
-end
+    % Calculate average earnings, cap them to a policy ceiling, and check if they are larger
+    % than a policy floor (if not, earnings do not count for pension purposes).
+    %   Since bv(end) = ssincmax, one would expect the min operation below to handle off-grid points at the top.
+    %   However, due to rounding errors of an order of magnitude of 1e-15, b > bv_nb might occur.
+    %   If that's the case, interp2 in value_working returns NaN, compromising results.
+    %   To correct for the rounding error, we introduce a discounting term '10*eps'.
+    % We choose to believe b < bv(1) = 0 is not a possibility since a negative labinc would
+    % cause the code to break before getting here.
+    if labinc > (ssincmin + 10*eps)
+        b = (bv_ib*(age-1) + sswageindex*min(labinc, ssincmax))*reciprocalage - 10*eps;
+    else
+        b = bv_ib;
+    end
 
 end
 
