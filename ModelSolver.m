@@ -596,11 +596,12 @@ methods (Static)
                     Dynamic.debts = x_(1);
                     Dynamic.caps  = x_(2);
                     Dynamic.outs  = x_(3);
-                    
-                    % Calculate market clearing series
-                    rhos = max(Dynamic.caps, 0) / Dynamic.labeffs;
-                    beqs = Dynamic.bequests / (sum(DIST_trans(:))/sum(DIST(:)));
-                    clearing = Market.rhos - rhos;
+
+                    Dynamic.caps_domestic  = Dynamic.caps;
+                    Dynamic.caps_foreign   = zeros(1,T_model);
+                    Dynamic.cits_domestic  = Dynamic.caps;
+                    Dynamic.cits_foreign   = zeros(1,T_model);
+                    Dynamic.tot_assets     = Dynamic.assets;
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
@@ -608,8 +609,13 @@ methods (Static)
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
-                    Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;            
-
+                    Dynamic.revs    = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;            
+                    
+                    % Calculate market clearing series
+                    rhos = max(Dynamic.caps, 0) / Dynamic.labeffs;
+                    beqs = Dynamic.bequests / (sum(DIST_trans(:))/sum(DIST(:)));
+                    clearing = Market.rhos - rhos;
+                    
                 case 'open'
                     
                     % Calculate capital and output
@@ -640,6 +646,7 @@ methods (Static)
                     
                     Dynamic.debts_domestic = (1 - Market.capshares) .* Dynamic.assets;
                     Dynamic.debts_foreign  = Dynamic.debts - Dynamic.debts_domestic;
+                    Dynamic.tot_assets     = qtobin .* Dynamic.caps + Dynamic.debts;
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
@@ -681,8 +688,9 @@ methods (Static)
                     Dynamic.caps = (Dynamic.assets - Dynamic.debts) ./ qtobin;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
-                    Dynamic.caps_domestic = Dynamic.caps;
-                    Dynamic.caps_foreign  = zeros(1,T_model);
+                    Dynamic.caps_domestic  = Dynamic.caps;
+                    Dynamic.caps_foreign   = zeros(1,T_model);
+                    Dynamic.tot_assets     = Dynamic.assets;
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
