@@ -63,16 +63,10 @@ end % methods
 methods (Static, Access = private )
     
     function [] = runTest( scenario, testset_names )
-        
-        % Start parallel pool if JVM enabled and pool does not already exist
-        %   Obviates issue with parallel pool workers operating in different execution modes
-        if usejava('jvm'), gcp; end
-        
         PathFinder.setToTestingMode();
         save_dir = ModelSolver.solve(scenario);
         test_output(save_dir, testset_names);
         PathFinder.setToDevelopmentMode();
-        
     end
 end
 

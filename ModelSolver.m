@@ -14,9 +14,6 @@ methods (Static)
         
         %% Initialization
         
-        % Start parallel pool if JVM enabled and pool does not already exist
-        if usejava('jvm'), gcp; end
-        
         % Unpack parameters from baseline definition
         beta                = scenario.beta ;
         gamma               = scenario.gamma;
