@@ -60,7 +60,7 @@ classdef Scenario
         SSTaxPolicy;
         SSBenefitsPolicy;
         SSBenefitsAccrualPolicy;
-        
+
     end
     
     
@@ -150,18 +150,23 @@ classdef Scenario
             
             
             % Generate identifier tags for baseline and counterfactual definitions
-            this.basedeftag = ''; this.counterdeftag = '';
+            %   1. Make string of concatenated params
+            %   2. Hash the string down to 120 chars
+            tag = ''; 
             for o = Scenario.req_params'
                 if( ~strcmp( o{1}, 'economy' ) )
-                    this.basedeftag = strcat( this.basedeftag, '_', num2str(this.(o{1})) );
+                    tag = strcat( tag, '_', num2str(this.(o{1})) );
                 end
             end
+            this.basedeftag = Scenario.compactifyTag( tag );
             if this.isCurrentPolicy()
                 this.counterdeftag = 'currentpolicy';
             else
+                tag = '';
                 for o = fieldnames(Scenario.def_params)'
-                    this.counterdeftag = strcat( this.counterdeftag, '_', num2str(this.(o{1})) );
+                    tag = strcat( tag, '_', num2str(this.(o{1})) );
                 end
+                this.counterdeftag = Scenario.compactifyTag( tag );
             end
             
         end % Scenario constructor
@@ -205,6 +210,18 @@ classdef Scenario
         function [flag] = isClosed(this)
             flag = strcmp(this.economy, 'closed');
         end
+        
+        
+        % Check if the Scenario has been solved and stored to files
+        function [flag] = isSolved(this)
+            work_dir = PathFinder.getWorkingDir(this);
+            % TBD
+            %  1. have paramTargets.mat hold solved info
+            %  2. read it and see that it matches this scenario and is
+            %  solved
+            
+        end % isSolved
+        
         
         
         % Get all scenario parameters
@@ -251,10 +268,30 @@ classdef Scenario
         
         
     end
-
     
     
-    methods (Access = private)
+    
+    methods (Static, Access = private)
+        
+        function [newtag] = compactifyTag( tag )
+            
+            TAG_SIZE    = 120;
+            % Allow chars ASCII 65-90 and 97-122 only
+            % Remap ones that fall between into numbers (0-6)
+            MIN_CHAR1   = 65;   MAX_CHAR1   = 90;
+            MIN_CHAR2   = 97;   MAX_CHAR2   = 122;
+            CHAR0       = 48; 
+            newtag      = tag( 1:min(length(tag), TAG_SIZE) );
+            for i=TAG_SIZE+1:length(tag)
+                d = mod(i, TAG_SIZE) + 1;
+                c = mod(newtag(d) + tag(i), MAX_CHAR2 - MIN_CHAR1) + MIN_CHAR1;
+                if ( (c > MAX_CHAR1) && (c < MIN_CHAR2) )
+                    c = c - (MAX_CHAR1 - CHAR0);
+                end
+                newtag(d) = c;
+            end
+            
+        end % compactifyTag
         
     end
 
