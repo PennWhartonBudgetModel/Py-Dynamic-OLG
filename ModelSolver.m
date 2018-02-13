@@ -613,7 +613,8 @@ methods (Static)
                     
                     % Calculate market clearing series
                     rhos = max(Dynamic.caps, 0) / Dynamic.labeffs;
-                    beqs = Dynamic.bequests / (sum(DIST_trans(:))/sum(DIST(:)));
+                    % Note: capgains is zero in steady state, so bequests don't need to be changed
+                    beqs = Dynamic.bequests / sum(DIST_trans(:));
                     clearing = Market.rhos - rhos;
                     
                 case 'open'
