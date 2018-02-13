@@ -262,20 +262,32 @@ methods (Static)
 
             if isdynamic
 
-                % Define initial population distribution and distribution generation termination conditions
                 switch economy
 
                     case 'steady'
-                        DIST_next = ones(nz,nk,nb,T_life,ng) / (nz*nk*nb*T_life*ng);
-                        lastyear = 153;
+                        
+                        % Determine steady state age distribution without immigration
+                        [v, ~] = eigs([birth_rate*ones(1,T_life); [diag(surv(1:T_life-1)), zeros(T_life-1,1)]], 1, 'largestreal');
+                        DISTage0 = v / sum(v);
+                        
+                        % Define initial population distribution using steady state distributions over age and productivity without immigration
+                        DIST_next = zeros(nz,nk,nb,T_life,ng);
+                        DIST_next(:,:,:,:,g.citizen) = repmat(reshape(repmat(reshape(DISTage0, [1,T_life]), [nz,1]) .* DISTz(:,:,g.citizen), [nz,1,1,T_life]), [1,nk,nb,1]) / (nk*nb);
+                        
+                        % Specify number of distribution generation years as number of years required to achieve steady state
+                        nyears = 153;
 
                     case {'open', 'closed'}
+                        
+                        % Define initial population distribution as steady state distribution
                         DIST_next = DIST_steady(:,:,:,:,:,1);
-                        lastyear = T_model;
+                        
+                        % Specify number of distribution generation years as number of model years
+                        nyears = T_model;
 
                 end
 
-                for year = 1:lastyear
+                for year = 1:nyears
 
                     % Store population distribution for current year
                     DIST_year = DIST_next;
