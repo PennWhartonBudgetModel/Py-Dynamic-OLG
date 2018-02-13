@@ -168,7 +168,7 @@ methods (Static)
         nb =  5; bv = f(   0, ssincmax*scenario.modelunit_dollar, nb  , 2);  % average earnings vector --- Upper bound of average earnings defined as maximum possible Social Security benefit
         bv = [bv; 15*bv(end)];                                               % max point arbitrarily set to 15x the second largest one
         nb = nb + 1;
-
+        
         %
         % TODO: We are working toward replacing the shock generation with
         %       a calibrated (from PWBMsim data) transition.
@@ -181,7 +181,7 @@ methods (Static)
         transitions = repmat(transz, [1, 1, T_life]);
         zs          = [zs(:,:,1); zs(:,:,2)];
         DISTz       = [DISTz; DISTz];
-                
+        
         s.ndem     = ndem;
         s.g        = g;
         s.ng       = ng;
