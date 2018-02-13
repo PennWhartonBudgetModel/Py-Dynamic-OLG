@@ -400,11 +400,25 @@ methods (Static)
             Static.revs          = Static.pits + Static.ssts + Static.cits - Static.bens;            
             Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
             Static.caprevs       = Static.cits + Static.pits - Static.labpits;
+            
+            % In general, we have:
+            % Static.debts = Static.debts_domestic + Static.debts_foreign;
+            % But this is not true in the static economies.
+            % Since static decisions are fixed at the baseline, domestic and
+            % foreign debts do not change. But total debt changes due to new
+            % tax policy, which implies the equality above no longer holds.
+            % Notice that debts is a combination of the actual static debts and
+            % the residual mismatch from markets not clearing
 
             Static.debts = [Dynamic_base.debts(1), zeros(1,T_model-1)];
             for year = 1:T_model-1
                 Static.debts(year+1) = Static.Gtilde(year) - Static.Ttilde(year) - Static.revs(year) + Static.debts(year)*(1 + debtrates(year));
             end
+
+            % Total assets
+            % Note: tot_assets is a sum of choice variables, those are constant at baseline values
+            Static.tot_assets = qtobin .* Static.caps + ...
+                                Static.debts_domestic + Static.debts_foreign;
                         
             % Save static aggregates
             save(fullfile(save_dir, 'statics.mat'), '-struct', 'Static')
