@@ -14,7 +14,7 @@ function [OPT] ...
         sstax_brackets, sstax_burdens, sstax_rates, ...
         pittax_brackets, pittax_burdens, pittax_rates, ... 
         captaxshares, taucaps, capgain_taxrates, capgain_shares, ...
-        beqs, wages, capshares, caprates, govrates, totrates, expsubs ...
+        beqs, wages, capshares, caprates, govrates, expsubs ...
     ) %#codegen
 
 
@@ -76,7 +76,6 @@ assert( isa(wages       , 'double'  ) && (size(wages        , 1) == 1       ) &&
 assert( isa(capshares   , 'double'  ) && (size(capshares    , 1) == 1       ) && (size(capshares    , 2) <= T_max   ) );
 assert( isa(caprates    , 'double'  ) && (size(caprates     , 1) == 1       ) && (size(caprates     , 2) <= T_max   ) );
 assert( isa(govrates    , 'double'  ) && (size(govrates     , 1) == 1       ) && (size(govrates     , 2) <= T_max   ) );
-assert( isa(totrates    , 'double'  ) && (size(totrates     , 1) == 1       ) && (size(totrates     , 2) <= T_max   ) );
 assert( isa(expsubs     , 'double'  ) && (size(expsubs      , 1) == 1       ) && (size(expsubs      , 2) <= T_max   ) );
 
 
@@ -122,10 +121,12 @@ for t = T_active:-1:1
     caprate     = caprates     (year);
     govrate     = govrates     (year);
     capshare    = capshares    (year);
-    totrate     = totrates     (year);
     expsub      = expsubs      (year);
     captaxshare = captaxshares (year);
     taucap      = taucaps      (year);
+    
+    % Calculate total rate of return
+    totrate     = capshare.*caprate + (1-capshare).*govrate;
     
     capgain_taxrate = capgain_taxrates  (year   );
     capgain_share   = capgain_shares    (year   );
@@ -151,6 +152,7 @@ for t = T_active:-1:1
                 
                 % Calculate available resources and tax terms
                 ssinc = ssbenefit(ib);
+                
                 [resources, inc, pit, ~, cit] = calculate_resources( ...
                     0, ...
                     kv(ik), ...

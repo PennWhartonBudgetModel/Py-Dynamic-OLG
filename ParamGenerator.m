@@ -489,7 +489,7 @@ methods (Static)
         % Output: 
         %       debttoout, fedgovtnis, debtrates, GEXP_by_GDP
         seriesfilename  = fullfile( PathFinder.getMicrosimInputDir(), 'GDPandBudget.csv'   );
-        debtfilename    = fullfile( PathFinder.getCboInputDir()     , 'HistoricalDebt.csv' );
+        debtfilename    = fullfile( PathFinder.getMicrosimInputDir(), 'HistoricalDebt.csv' );
         
         series          = read_series( seriesfilename, 'Year', first_year, last_year ); 
         % IMPORTANT:  Note that we pad out to last_year. If data does not

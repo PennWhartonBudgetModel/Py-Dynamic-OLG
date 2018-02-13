@@ -115,20 +115,21 @@ methods (Static)
         
         %% Tax parameters
         %    rem: all US dollars have been converted to modelunit_dollars
-        s = ParamGenerator.tax( scenario );
+        tax = ParamGenerator.tax( scenario );
+        
         %  The following brackets, burdens, rates vary by year
-        pittax_brackets     = s.brackets;   % Tax func is linearized, these are income thresholds 
-        pittax_burdens      = s.burdens;    % Tax burden (cumulative tax) at thresholds
-        pittax_rates        = s.rates;      % Effective marginal tax rate between thresholds
+        pit.brackets    = tax.brackets;   % Tax func is linearized, these are income thresholds 
+        pit.burdens     = tax.burdens;    % Tax burden (cumulative tax) at thresholds
+        pit.rates       = tax.rates;      % Effective marginal tax rate between thresholds
         
-        captaxshares        = s.captaxshare;             % Portion of capital income taxed at preferred rates
-        expshares           = s.shareCapitalExpensing;   % Portion of investment which can be expensed
-        taucaps             = s.taucap;                  % Capital tax rate
-        taucapgains         = s.taucapgain;              % Capital gains tax rate
+        captaxshares        = tax.captaxshare;             % Portion of capital income taxed at preferred rates
+        expshares           = tax.shareCapitalExpensing;   % Portion of investment which can be expensed
+        taucaps             = tax.taucap;                  % Capital tax rate
+        taucapgains         = tax.taucapgain;              % Capital gains tax rate
         
-        qtobin0     = s.qtobin0;
-        qtobin      = s.qtobin';
-        taucap_ss   = s.sstaucap;  % Used for open economy
+        qtobin0     = tax.qtobin0;
+        qtobin      = tax.qtobin';
+        taucap_ss   = tax.sstaucap;  % Used for open economy
 
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
@@ -183,9 +184,9 @@ methods (Static)
                 bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                 sstaxcredit, ssbenefits, ssincmins_indexed, ssincmaxs_indexed, cohort_wageindexes, ...
                 sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
-                pittax_brackets, pittax_burdens, pittax_rates, ... 
+                pit.brackets, pit.burdens, pit.rates, ... 
                 captaxshares, taucaps, Market.capgains .* taucapgains, Market.capgains .* Market.capshares', ...
-                Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.totrates, Market.expsubs);
+                Market.beqs, Market.wages, Market.capshares, Market.caprates, Market.govrates, Market.expsubs);
 
 
             % Initialize series of terminal utility values
@@ -350,7 +351,10 @@ methods (Static)
             Aggregate.cits     = f(OPTs.CIT);                                                                            % Capital income tax
             Aggregate.bens     = f(OPTs.BEN);                                                                            % Social Security benefits
             Aggregate.cons     = f(OPTs.CON);                                                                            % Consumption
-            Aggregate.assets   = f(repmat(reshape(kv, [1,nk,1,1,1]), [nz, 1,nb,T_life,T_model]));                        % Assets
+            Aggregate.assets   = f(repmat(reshape(kv, [1,nk,1,1,1]), [nz, 1,nb,T_life,T_model])) .* ...
+                                  (ones(1,T_model) + Market.capshares.*Market.capgains');                                % Assets
+            % Note: This definition of assets corresponds to beginning of period assets at
+            %       new policy prices, that is, accounting for eventual capital gains.
             
         end
         
@@ -393,11 +397,25 @@ methods (Static)
             Static.revs          = Static.pits + Static.ssts + Static.cits - Static.bens;            
             Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
             Static.caprevs       = Static.cits + Static.pits - Static.labpits;
+            
+            % In general, we have:
+            % Static.debts = Static.debts_domestic + Static.debts_foreign;
+            % But this is not true in the static economies.
+            % Since static decisions are fixed at the baseline, domestic and
+            % foreign debts do not change. But total debt changes due to new
+            % tax policy, which implies the equality above no longer holds.
+            % Notice that debts is a combination of the actual static debts and
+            % the residual mismatch from markets not clearing
 
             Static.debts = [Dynamic_base.debts(1), zeros(1,T_model-1)];
             for year = 1:T_model-1
                 Static.debts(year+1) = Static.Gtilde(year) - Static.Ttilde(year) - Static.revs(year) + Static.debts(year)*(1 + debtrates(year));
             end
+
+            % Total assets
+            % Note: tot_assets is a sum of choice variables, those are constant at baseline values
+            Static.tot_assets = qtobin .* Static.caps + ...
+                                Static.debts_domestic + Static.debts_foreign;
                         
             % Save static aggregates
             save(fullfile(save_dir, 'statics.mat'), '-struct', 'Static')
@@ -540,9 +558,11 @@ methods (Static)
                         Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
                     end
                     
-                    Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
-                    Market.totrates = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
+                    MPKs         = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
+                    capreturns   = MPKs - tax.rateCorporate .* (MPKs - Market.expsubs) - d;
                     
+                    Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
+
                 case 'open'
                     
                     if isinitial
@@ -551,19 +571,21 @@ methods (Static)
                         % capital are fixed.
                         Market.caprates  = Market0.caprates*ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
                         Market.govrates  = Market0.govrates*ones(1,T_model);
-                        Market.totrates  = Market0.totrates*ones(1,T_model);
                     end
                     
             end
             
+            % Report total returns to households
+            Market.totrates = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
+
             % Compute prices
             Market.rhos          = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
             Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
             Market.qtobin0       = qtobin0;
             Market.qtobin        = qtobin;
-            Market.capgains(1,1) = (qtobin(1) - qtobin0)/qtobin(1);
+            Market.capgains(1,1) = (qtobin(1) - qtobin0)/qtobin0;
             for t = 2:T_model
-               Market.capgains(t,1) = (qtobin(t) - qtobin(t-1))/qtobin(t);
+               Market.capgains(t,1) = (qtobin(t) - qtobin(t-1))/qtobin(t-1);
             end
             
             % Generate dynamic aggregates
@@ -585,28 +607,36 @@ methods (Static)
                     Dynamic.debts = x_(1);
                     Dynamic.caps  = x_(2);
                     Dynamic.outs  = x_(3);
+
+                    Dynamic.caps_domestic  = Dynamic.caps;
+                    Dynamic.caps_foreign   = zeros(1,T_model);
+                    Dynamic.cits_domestic  = Dynamic.caps;
+                    Dynamic.cits_foreign   = zeros(1,T_model);
+                    Dynamic.tot_assets     = Dynamic.assets;
                     
-                    % Calculate market clearing series
-                    rhos = max(Dynamic.caps, 0) / Dynamic.labeffs;
-                    beqs = Dynamic.bequests / (sum(DIST_trans(:))/sum(DIST(:)));
-                    clearing = Market.rhos - rhos;
-                    
-                    % Calculate income - THIS SHOULD BE OUTSIDE THE CASE
-                    % ECONOMY LOOP!
+                    % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = qtobin .* Market.caprates .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
-
+                    Dynamic.revs    = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;            
+                    
+                    % Calculate market clearing series
+                    rhos = max(Dynamic.caps, 0) / Dynamic.labeffs;
+                    % Note: capgains is zero in steady state, so bequests don't need to be changed
+                    beqs = Dynamic.bequests / sum(DIST_trans(:));
+                    clearing = Market.rhos - rhos;
+                    
                 case 'open'
                     
                     % Calculate capital and output
                     Dynamic.caps = Market.rhos .* Dynamic.labeffs;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
-                    Dynamic.caps_domestic = (Market.capshares .* [Dynamic0.assets, Dynamic.assets(1:T_model-1)]) ./ qtobin;
+                    Dynamic.caps_domestic = (Market.capshares .* Dynamic.assets) ./ qtobin;
                     Dynamic.caps_foreign  = Dynamic.caps - Dynamic.caps_domestic;
+                    % Note: Dynamic.assets represents current assets at new prices.
                     
                     % Calculate debt
                     Dynamic.cits_domestic = Dynamic.cits;
@@ -628,6 +658,7 @@ methods (Static)
                     
                     Dynamic.debts_domestic = (1 - Market.capshares) .* Dynamic.assets;
                     Dynamic.debts_foreign  = Dynamic.debts - Dynamic.debts_domestic;
+                    Dynamic.tot_assets     = qtobin .* Dynamic.caps + Dynamic.debts;
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
@@ -637,7 +668,14 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate market clearing series
-                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1) ./ Dynamic.pops(2:T_model)];
+                    % Note: Bequests should be priced according to the new policy because it
+                    %       corresponds to yesterday's assets that were collected and sold by the
+                    %       government yesterday after some people died, but redistributed today
+                    %       after the new policy took place.
+                    %       So we apply today's prices to yesterday's bequests and capshares.
+                    beqs = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
+                            Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
+                            ] ./ Dynamic.pops;
                     clearing = Market.beqs - beqs;
                     
                 case 'closed'
@@ -659,11 +697,13 @@ methods (Static)
                     Dynamic.debts_foreign  = zeros(1,T_model);
                     
                     % Calculate capital and output
-                    Dynamic.caps = ([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts) ./ qtobin;
+                    % Note: Dynamic.assets represents current assets at new prices.
+                    Dynamic.caps = (Dynamic.assets - Dynamic.debts) ./ qtobin;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
-                    Dynamic.caps_domestic = Dynamic.caps;
-                    Dynamic.caps_foreign  = zeros(1,T_model);
+                    Dynamic.caps_domestic  = Dynamic.caps;
+                    Dynamic.caps_foreign   = zeros(1,T_model);
+                    Dynamic.tot_assets     = Dynamic.assets;
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
@@ -673,18 +713,21 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Calculate market clearing series
-                    rhos = (max([Dynamic0.assets, Dynamic.assets(1:end-1)] - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
-                    beqs = [Market0.beqs, Dynamic.bequests(1:T_model-1) ./ Dynamic.pops(2:T_model)];
+                    % Note: Dynamic.assets represents current assets at new prices.
+                    %       Bequests should also be priced according to the new policy.
+                    %       So we apply today's prices to yesterday's bequests and capshares.
+                    rhos = (max(Dynamic.assets - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
+                    beqs = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
+                            Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
+                            ] ./ Dynamic.pops;
                     clearing = Market.rhos - rhos;
                     
             end
             
-            Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
-            
             % Calculate maximum error in market clearing series
             eps = max(abs(clearing));
             
-            fprintf('Error term = %7.4f\n', eps)
+            fprintf('Error term = %7.6f\n', eps)
             fprintf(iterlog, '%u,%0.4f\n', iter, eps);
             
             
@@ -727,16 +770,13 @@ methods (Static)
                 
                 
                 % Calculate labor elasticity
-                workmass = 0;
-                frisch   = 0;
-                
                 LAB_  = LABs{1};
                 DIST_ = sum(DIST.DIST(:,:,:,:,:,1), 5);
 
                 workind = (LAB_ > 0.01);
 
-                workmass = workmass + sum(DIST_(workind));
-                frisch   = frisch   + sum(DIST_(workind) .* (1 - LAB_(workind)) ./ LAB_(workind)) * (1 - gamma*(1-sigma))/sigma;
+                workmass = sum(DIST_(workind));
+                frisch   = sum(DIST_(workind) .* (1 - LAB_(workind)) ./ LAB_(workind)) * (1 - gamma*(1-sigma))/sigma;
                 
                 labelas = frisch / workmass;
                 
