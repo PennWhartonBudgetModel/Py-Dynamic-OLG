@@ -267,20 +267,15 @@ methods (Static)
 
                     case 'steady'
                         DIST_next = ones(nz,nk,nb,T_life,ng) / (nz*nk*nb*T_life*ng);
-                        lastyear = Inf;
-                        disttol = 1e-6;
+                        lastyear = 153;
 
                     case {'open', 'closed'}
                         DIST_next = DIST_steady(:,:,:,:,:,1);
                         lastyear = T_model;
-                        disttol = -Inf;
 
                 end
 
-                year = 1;
-                disteps = Inf;
-
-                while (disteps > disttol && year <= lastyear)
+                for year = 1:lastyear
 
                     % Store population distribution for current year
                     DIST_year = DIST_next;
@@ -311,12 +306,6 @@ methods (Static)
 
                     % Reduce illegal immigrant population for amnesty and deportation
                     DIST_next(:,:,:,:,g.illegal) = (1-amnesty-deportation)*DIST_next(:,:,:,:,g.illegal);
-
-                    % Calculate age distribution convergence error
-                    f = @(D) sum(sum(reshape(D, [], T_life, ng), 1), 3) / sum(D(:));
-                    disteps = max(abs(f(DIST_next) - f(DIST_year)));
-
-                    year = year + 1;
 
                     switch economy, case 'steady'
                         DIST_trans(:,:,:,:,:,1) = DIST_next;
