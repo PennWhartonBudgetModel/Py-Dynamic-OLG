@@ -629,7 +629,10 @@ methods (Static)
                               sum(DIST(:))) / sum(DIST(:) );
                             
                     % Calculate market clearing series
-                    clearing = Market.rhos - rhos;
+                    clearing = [Market.rhos    - rhos   , ...
+                                Market.beqs    - beqs   , ...
+                                Market.expsubs - expsubs  ...
+                                ];
                     
                 case 'open'
                     
@@ -682,8 +685,10 @@ methods (Static)
                                Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
                               ] ./ Dynamic.pops;
 
-                    % Calculate market clearing series
-                    clearing = Market.beqs - beqs;
+                    % Calculate market clearing series (rhos are fixed)
+                    clearing = [Market.beqs    - beqs   , ...
+                                Market.expsubs - expsubs  ...
+                                ];
                     
                 case 'closed'
                     
@@ -731,7 +736,10 @@ methods (Static)
                               ] ./ Dynamic.pops;
 
                     % Calculate market clearing series
-                    clearing = Market.rhos - rhos;
+                    clearing = [Market.rhos    - rhos   , ...
+                                Market.beqs    - beqs   , ...
+                                Market.expsubs - expsubs  ...
+                                ];
                     
             end
             
