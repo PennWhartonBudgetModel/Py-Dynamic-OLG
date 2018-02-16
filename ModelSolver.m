@@ -433,10 +433,11 @@ methods (Static)
             case 'steady'
                 
                 % Load initial conditions
-                Market0 = struct('beqs',0.0927,'capshares',3/(3+debttoout),'rhos',6.2);
+                Market0 = struct('beqs',0.0927,'capshares',3/(3+debttoout),'rhos',6.2,'expsubs',expshares*0.0078);
                     % Initial guesses set as follows:
                     % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
                     % beqs and rhos are guesses from previous code.
+                    % expsubs set at its value when pop growth rate = 0.78%
                 
                 DIST_steady = {};
                 
@@ -539,7 +540,7 @@ methods (Static)
             if isinitial
                 Market.beqs      = Market0.beqs*ones(1,T_model);
                 Market.capshares = Market0.capshares*ones(1,T_model);
-                Market.expsubs   = zeros(1,T_model);
+                Market.expsubs   = Market0.expsubs*ones(1,T_model);
             else
                 Market.beqs      = beqs;
                 Market.expsubs   = expsubs;
