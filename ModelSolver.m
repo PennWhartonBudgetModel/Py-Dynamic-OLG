@@ -432,12 +432,12 @@ methods (Static)
             
             case 'steady'
                 
-                % Load initial conditions
-                Market0 = struct('beqs',0.0927,'capshares',3/(3+debttoout),'rhos',6.2,'expsubs',expshares*0.0078);
-                    % Initial guesses set as follows:
-                    % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                    % beqs and rhos are guesses from previous code.
-                    % expsubs set at its value when pop growth rate = 0.78%
+                % Load initial guesses
+                Market0 = struct( 'beqs'     , 0.0927         , ...     % beqs are results from previous runs.
+                                  'capshares', 3/(3+debttoout), ...     % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                                  'rhos'     , 6.2            , ...     % rhos are results from previous runs.
+                                  'expsubs'  , expshares*0.0078 ...     % expsubs set at its value when pop growth rate = 0.78%
+                                 );
                 
                 DIST_steady = {};
                 
@@ -453,8 +453,7 @@ methods (Static)
                 Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
                 
                 % Load steady state population distribution
-                s        = hardyload('distribution.mat', steady_generator, steady_dir);
-                
+                s = hardyload('distribution.mat', steady_generator, steady_dir);
                 DIST_steady = s.DIST_trans;
                 
         end
@@ -538,9 +537,9 @@ methods (Static)
             
             % Define market conditions
             if isinitial
-                Market.beqs      = Market0.beqs*ones(1,T_model);
-                Market.capshares = Market0.capshares*ones(1,T_model);
-                Market.expsubs   = Market0.expsubs*ones(1,T_model);
+                Market.beqs      = Market0.beqs      * ones(1,T_model);
+                Market.capshares = Market0.capshares * ones(1,T_model);
+                Market.expsubs   = Market0.expsubs   * ones(1,T_model);
             else
                 Market.beqs      = beqs;
                 Market.expsubs   = expsubs;
@@ -623,12 +622,13 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     Dynamic.revs    = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;            
                     
+                    % Update guesses
+                    rhos    = max(Dynamic.caps, 0) / Dynamic.labeffs;
+                    beqs    = Dynamic.bequests / sum(DIST_trans(:));   % capgains is zero in steady state, so there's no addition to bequests
+                    expsubs = expshares * ( sum(DIST_trans(:)) - ...   % Assumption: caps grows at the population growth rate in steady state      
+                              sum(DIST(:))) / sum(DIST(:) );
+                            
                     % Calculate market clearing series
-                    rhos = max(Dynamic.caps, 0) / Dynamic.labeffs;
-                    % Note: capgains is zero in steady state, so there's no addition to bequests
-                    beqs     = Dynamic.bequests / sum(DIST_trans(:));
-                    % Assumption: caps grows at the population growth rate in steady state
-                    expsubs  = expshares * (sum(DIST_trans(:)) - sum(DIST(:))) / sum(DIST(:));
                     clearing = Market.rhos - rhos;
                     
                 case 'open'
@@ -670,16 +670,19 @@ methods (Static)
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
-                    % Calculate market clearing series
+                    % Update guesses
                     % Note: Bequests should be priced according to the new policy because it
                     %       corresponds to yesterday's assets that were collected and sold by the
                     %       government yesterday after some people died, but redistributed today
                     %       after the new policy took place.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    expsubs = expshares' .* max([diff(Dynamic.caps) Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))], 0) ./ Dynamic.caps;
+                    expsubs = expshares' .* max([diff(Dynamic.caps) ...
+                               Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))], 0) ./ Dynamic.caps;
                     beqs    = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
                                Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
                               ] ./ Dynamic.pops;
+
+                    % Calculate market clearing series
                     clearing = Market.beqs - beqs;
                     
                 case 'closed'
@@ -716,15 +719,18 @@ methods (Static)
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
-                    % Calculate market clearing series
+                    % Update guesses
                     % Note: Dynamic.assets represents current assets at new prices.
                     %       Bequests should also be priced according to the new policy.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    expsubs = expshares' .* max([diff(Dynamic.caps) Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))], 0) ./ Dynamic.caps;
                     rhos    = (max(Dynamic.assets - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
+                    expsubs = expshares' .* max([diff(Dynamic.caps) ...
+                               Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))], 0) ./ Dynamic.caps;
                     beqs    = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
                                Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
                               ] ./ Dynamic.pops;
+
+                    % Calculate market clearing series
                     clearing = Market.rhos - rhos;
                     
             end
