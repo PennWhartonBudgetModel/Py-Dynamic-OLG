@@ -542,7 +542,7 @@ methods (Static)
                 Market.expsubs   = zeros(1,T_model);
             else
                 Market.beqs      = beqs;
-                Market.expsubs   = expshares' .* max([diff(Dynamic.caps) Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))], 0) ./ Dynamic.caps;
+                Market.expsubs   = expsubs;
             end
             
             switch economy
@@ -675,9 +675,10 @@ methods (Static)
                     %       government yesterday after some people died, but redistributed today
                     %       after the new policy took place.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    beqs = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
-                            Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
-                            ] ./ Dynamic.pops;
+                    expsubs = expshares' .* max([diff(Dynamic.caps) Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))], 0) ./ Dynamic.caps;
+                    beqs    = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
+                               Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
+                              ] ./ Dynamic.pops;
                     clearing = Market.beqs - beqs;
                     
                 case 'closed'
@@ -718,10 +719,11 @@ methods (Static)
                     % Note: Dynamic.assets represents current assets at new prices.
                     %       Bequests should also be priced according to the new policy.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    rhos = (max(Dynamic.assets - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
-                    beqs = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
-                            Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
-                            ] ./ Dynamic.pops;
+                    expsubs = expshares' .* max([diff(Dynamic.caps) Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))], 0) ./ Dynamic.caps;
+                    rhos    = (max(Dynamic.assets - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
+                    beqs    = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
+                               Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
+                              ] ./ Dynamic.pops;
                     clearing = Market.rhos - rhos;
                     
             end
