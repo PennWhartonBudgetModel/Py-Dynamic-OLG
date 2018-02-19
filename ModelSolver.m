@@ -433,9 +433,9 @@ methods (Static)
             case 'steady'
                 
                 % Load initial guesses
-                Market0 = struct( 'beqs'     , 0.0927         , ...     % beqs are results from previous runs.
+                Market0 = struct( 'beqs'     , 0.1493         , ...     % guess based on Feb 19 steady state run.
                                   'capshares', 3/(3+debttoout), ...     % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                                  'rhos'     , 6.2            , ...     % rhos are results from previous runs.
+                                  'rhos'     , 7.2918         , ...     % guess based on Feb 19 steady state run.
                                   'expsubs'  , expshares*0.0078 ...     % expsubs set at its value when pop growth rate = 0.78%
                                  );
                 
