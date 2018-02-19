@@ -527,7 +527,7 @@ methods (Static)
         end
         
         
-        while (eps > tol && iter < itermax) || (iter < 2)
+        while (eps > tol && iter < itermax)
             
             % Increment iteration count
             iter = iter + 1;
