@@ -180,7 +180,7 @@ methods (Static)
         transz      = [transz, zeros(nz); zeros(nz), transz];
         transitions = repmat(transz, [1, 1, T_life]);
         zs          = [zs(:,:,1); zs(:,:,2)];
-        DISTz       = [DISTz; DISTz];
+        DISTz       = [DISTz; DISTz] / 2;
         
         s.ndem     = ndem;
         s.g        = g;
