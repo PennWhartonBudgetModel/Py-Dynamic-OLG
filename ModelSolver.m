@@ -535,51 +535,50 @@ methods (Static)
             isinitial = iter == 1;
             
             
-            % Define market conditions
+            % Define market conditions in the first iteration
             if isinitial
                 Market.beqs      = Market0.beqs      * ones(1,T_model);
                 Market.capshares = Market0.capshares * ones(1,T_model);
                 Market.expsubs   = Market0.expsubs   * ones(1,T_model);
-            else
-                Market.beqs      = beqs;
-                Market.expsubs   = expsubs;
-            end
-            
-            switch economy
                 
-                case {'steady', 'closed'}
+                switch economy
                     
-                    if isinitial
-                        Market.rhos      = Market0.rhos*ones(1,T_model);
-                        Market.govrates  = debtrates;
-                    else
+                    case{'steady', 'closed'}
+                        Market.rhos     = Market0.rhos*ones(1,T_model);
+                        Market.govrates = debtrates;
+                        Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
+                        
+                    case{'open'}
+                        % Rem: Returns are fixed to match steady-state in open economy.
+                        % That is, after-tax returns for capital are fixed.
+                        Market.caprates = Market0.caprates*ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
+                        Market.govrates = Market0.govrates*ones(1,T_model);
+                end
+                
+                Market.rhos = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
+                        
+            % Define market conditions for subsequent iterations
+            else
+                Market.beqs    = beqs;
+                Market.expsubs = expsubs;
+                
+                switch economy
+                    
+                    case{'steady', 'closed'}
                         rhostep = 0.5;
                         Market.rhos      = rhostep*rhos + (1-rhostep)*Market.rhos;
                         Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
-                    end
-                    
-                    MPKs         = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
-                    capreturns   = MPKs - tax.rateCorporate .* (MPKs - Market.expsubs) - d;
-                    
-                    Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
+                        Market.caprates  = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
+                        Market.rhos = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
 
-                case 'open'
-                    
-                    if isinitial
-                        % Rem: Returns are fixed to match steady-state in
-                        % open economy. That is, after-tax returns for
-                        % capital are fixed.
-                        Market.caprates  = Market0.caprates*ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
-                        Market.govrates  = Market0.govrates*ones(1,T_model);
-                    end
-                    
+                end
+                        
             end
-            
-            % Report total returns to households
-            Market.totrates = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
 
-            % Compute prices
-            Market.rhos          = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
+            % Compute prices            
+            MPKs                 = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
+            capreturns           = MPKs - tax.rateCorporate .* (MPKs - Market.expsubs) - d;
+            Market.totrates      = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates; % Report total returns to households
             Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
             Market.qtobin0       = qtobin0;
             Market.qtobin        = qtobin;
