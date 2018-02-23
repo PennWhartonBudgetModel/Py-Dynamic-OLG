@@ -538,24 +538,23 @@ methods (Static)
             % Define market conditions in the first iteration
             if isinitial
                 Market.beqs      = Market0.beqs      * ones(1,T_model);
-                Market.capshares = Market0.capshares * ones(1,T_model);
                 Market.expsubs   = Market0.expsubs   * ones(1,T_model);
+                Market.capshares = Market0.capshares * ones(1,T_model);
                 
                 switch economy
                     
                     case{'steady', 'closed'}
                         Market.rhos     = Market0.rhos*ones(1,T_model);
                         Market.govrates = debtrates;
-                        Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
+                        Market.caprates = A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d;
                         
                     case{'open'}
                         % Rem: Returns are fixed to match steady-state in open economy.
                         % That is, after-tax returns for capital are fixed.
                         Market.caprates = Market0.caprates*ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
                         Market.govrates = Market0.govrates*ones(1,T_model);
+                        Market.rhos     = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
                 end
-                
-                Market.rhos = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
                         
             % Define market conditions for subsequent iterations
             else
@@ -565,11 +564,10 @@ methods (Static)
                 switch economy
                     
                     case{'steady', 'closed'}
-                        rhostep = 0.5;
+                        rhostep          = 0.5;
                         Market.rhos      = rhostep*rhos + (1-rhostep)*Market.rhos;
+                        Market.caprates  = A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d;
                         Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
-                        Market.caprates  = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
-                        Market.rhos = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
 
                 end
                         
