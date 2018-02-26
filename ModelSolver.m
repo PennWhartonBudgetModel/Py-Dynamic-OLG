@@ -620,10 +620,11 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     Dynamic.revs    = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;            
                     
-                    % Proxy for investment in physical capital (net of depreciation)
+                    % Proxy for gross investment in physical capital
                     DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
                     assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.K, [], T_model), 1), 3);
-                    Dynamic.investment = (Market.capshares * (assets_tomorrow - Dynamic.bequests))/qtobin - Dynamic.caps;
+                    Dynamic.investment = (Market.capshares * (assets_tomorrow - Dynamic.bequests))/qtobin - ...
+                                         (1 - d) * Dynamic.caps;
                     
                     % Update guesses
                     rhos      = max(Dynamic.caps, 0) / Dynamic.labeffs;
@@ -678,8 +679,9 @@ methods (Static)
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
-                    % Investment in physical capital (net of depreciation)
-                    Dynamic.investment = [diff(Dynamic.caps) Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))];
+                    % Gross investment in physical capital
+                    Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - d) * ...
+                                         [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))];
                     
                     % Update guesses
                     % Note: Bequests should be priced according to the new policy because it
@@ -731,8 +733,9 @@ methods (Static)
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
-                    % Investment in physical capital (net of depreciation)
-                    Dynamic.investment = [diff(Dynamic.caps) Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))];
+                    % Gross investment in physical capital
+                    Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - d) * ...
+                                         [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))];
 
                     % Update guesses
                     % Note: Dynamic.assets represents current assets at new prices.
