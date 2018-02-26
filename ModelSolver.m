@@ -623,7 +623,7 @@ methods (Static)
                     % Proxy for investment in physical capital (net of depreciation)
                     DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
                     assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.K, [], T_model), 1), 3);
-                    Dynamic.investment = (Market.capshares * assets_tomorrow)/qtobin - Dynamic.caps;
+                    Dynamic.investment = (Market.capshares * (assets_tomorrow - Dynamic.bequests))/qtobin - Dynamic.caps;
                     
                     % Update guesses
                     rhos      = max(Dynamic.caps, 0) / Dynamic.labeffs;
