@@ -267,7 +267,116 @@ classdef Scenario
         end
         
         
-    end
+        %%
+        % Write out Scenario series for output in single CSV
+        %     tag : name of file
+        function [] = export(this, tag)
+            
+            % TBD: This should call the load() method
+            
+            % Identify scenario working directory
+            workingdir = PathFinder.getWorkingDir(this);
+            
+            % Load dynamic and static variables
+            Dynamic = load(fullfile(workingdir, 'dynamics.mat'));
+            if this.isCurrentPolicy()
+                Static = Dynamic;
+            else
+                Static = load(fullfile(workingdir, 'statics.mat'));
+            end
+            Market = load(fullfile(workingdir, 'market.mat'));
+            
+            % Specify data series years
+            years  = (this.TransitionFirstYear : this.TransitionLastYear)';
+
+            Dynamic.outvars = struct( ...
+            'ssts'              , 'PayrollTax'              , ...
+            'caprevs'           , 'CapitalTax'              , ...
+            'cits_domestic'     , 'CIT_Domestic'            , ...
+            'cits_foreign'      , 'CIT_Foreign'             , ...
+            'caps_domestic'     , 'Capital_Domestic'        , ...
+            'caps_foreign'      , 'Capital_Foreign'         , ...
+            'debts_domestic'    , 'Debt_Domestic'           , ...
+            'debts_foreign'     , 'Debt_Foreign'            , ...
+            'outs'              , 'Output'                  , ...
+            'bens'              , 'SocialSecurityBenefits'  , ...
+            'caps'              , 'Capital'                 , ...
+            'labeffs'           , 'EfficientLabor'          , ...
+            'labs'              , 'Labor'                   , ...
+            'labincs'           , 'LaborIncome'             , ...
+            'capincs'           , 'CapitalIncome'             ...
+            ); 
+    
+            Static.outvars = Dynamic.outvars;
+        
+            Market.outvars = struct( ...
+            'caprates'          , 'CapitalReturn'           , ...
+            'wages'             , 'WageLevel'                 ...
+            ); 
+        
+            % Helper function to identify Dollar series
+            function [b] = isDollar( outvar )
+                b = false;
+                switch outvar
+                    case 'labeffs'  
+                    case 'labs'     
+                    case 'caprates'
+                    case 'wages'
+                        b = false;
+                    otherwise
+                        b = true;
+                end
+            end % isDollar
+            
+            fid = fopen(fullfile(PathFinder.getDataSeriesOutputDir(), strcat(tag, '.csv')), 'w');
+
+            % Write header to file 
+            fprintf(fid, 'Year' );
+            for o = fieldnames( Dynamic.outvars )'
+                fprintf( fid, ',%s', Dynamic.outvars.(o{1}) );
+            end 
+            for o = fieldnames( Market.outvars )'
+                fprintf( fid, ',%s', Market.outvars.(o{1}) );
+            end 
+            for o = fieldnames( Static.outvars )'
+                fprintf( fid, ',STATIC.%s', Static.outvars.(o{1}) );
+            end                 
+            fprintf(fid, '\n');
+            
+            % Write values, year is first
+            toDollar = 1/this.modelunit_dollar;
+            for t = 1:length(years)-1
+                fprintf(fid, '%u', years(t));
+                for o = fieldnames( Dynamic.outvars )'
+                    val = Dynamic.(o{1})(t);
+                    if( isDollar( o{1} ) )
+                        val = val * toDollar;
+                    end
+                    fprintf( fid, ',%f', val );
+                end 
+                for o = fieldnames( Market.outvars )'
+                    val = Market.(o{1})(t);
+                    if( isDollar( o{1} ) )
+                        val = val * toDollar;
+                    end
+                    fprintf( fid, ',%f', val );
+                end 
+                for o = fieldnames( Static.outvars )'
+                    val = Static.(o{1})(t);
+                    if( isDollar( o{1} ) )
+                        val = val * toDollar;
+                    end
+                    fprintf( fid, ',%f', val );
+                end 
+                fprintf(fid, '\n');
+            end
+            
+            fclose(fid);
+            
+        end % export
+        
+        
+    end % instance methods, public
     
     
     
