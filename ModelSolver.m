@@ -620,6 +620,11 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     Dynamic.revs    = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;            
                     
+                    % Proxy for investment in physical capital (net of depreciation)
+                    DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
+                    assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.K, [], T_model), 1), 3);
+                    Dynamic.investment = (Market.capshares * assets_tomorrow)/qtobin - Dynamic.caps;
+                    
                     % Update guesses
                     rhos      = max(Dynamic.caps, 0) / Dynamic.labeffs;
                     beqs      = Dynamic.bequests / sum(DIST_trans(:));   % capgains is zero in steady state, so there's no addition to bequests
@@ -673,14 +678,16 @@ methods (Static)
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
+                    % Investment in physical capital (net of depreciation)
+                    Dynamic.investment = [diff(Dynamic.caps) Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))];
+                    
                     % Update guesses
                     % Note: Bequests should be priced according to the new policy because it
                     %       corresponds to yesterday's assets that were collected and sold by the
                     %       government yesterday after some people died, but redistributed today
                     %       after the new policy took place.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    expsubs = expshares' .* max([diff(Dynamic.caps) ...
-                               Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))], 0) ./ Dynamic.caps;
+                    expsubs = expshares' .* max(Dynamic.investment, 0) ./ Dynamic.caps;
                     beqs    = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
                                Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
                               ] ./ Dynamic.pops;
@@ -724,13 +731,15 @@ methods (Static)
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
+                    % Investment in physical capital (net of depreciation)
+                    Dynamic.investment = [diff(Dynamic.caps) Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))];
+
                     % Update guesses
                     % Note: Dynamic.assets represents current assets at new prices.
                     %       Bequests should also be priced according to the new policy.
                     %       So we apply today's prices to yesterday's bequests and capshares.
                     rhos      = (max(Dynamic.assets - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
-                    expsubs   = expshares' .* max([diff(Dynamic.caps) ...
-                                 Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))], 0) ./ Dynamic.caps;
+                    expsubs   = expshares' .* max(Dynamic.investment, 0) ./ Dynamic.caps;
                     capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
                     beqs      = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
                                  Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
