@@ -7,31 +7,32 @@
 function [OPT] ...
     = solve_cohort( ...
         V0, LAB_static, isdynamic, ...
-        nz, nk, nb, T_past, T_shift, T_active, T_work, T_model, ... 
-        zs, transz, kv, bv, beta, gamma, sigma, surv, ...
+        nz, ns, nb, T_past, T_shift, T_active, T_work, T_model, ... 
+        zs, transz, sv, bv, beta, gamma, sigma, surv, ...
         bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
         sstaxcredit, ssbenefits, ssincmins, ssincmaxs, sswageindexes, ...
         sstax_brackets, sstax_burdens, sstax_rates, ...
         pittax_brackets, pittax_burdens, pittax_rates, ... 
         captaxshares, taucaps, capgain_taxrates, capgain_shares, ...
-        beqs, wages, capshares, caprates, govrates, expsubs ...
+        beqs, capshares, govrates, expsubs, ...
+        wages, caprates, equityfund_prices ...
     ) %#codegen
 
 
 %% Argument verification
 
 nz_max          = 50;
-nk_max          = 50;
+ns_max          = 50;
 nb_max          = 50;
 T_max           = 100;
 nbrackets_max   = 20;
 
-assert( isa(V0          , 'double'  ) && (size(V0           , 1) <= nz_max  ) && (size(V0           , 2) <= nk_max  ) && (size(V0           , 3) <= nb_max  ) );
-assert( isa(LAB_static  , 'double'  ) && (size(LAB_static   , 1) <= nz_max  ) && (size(LAB_static   , 2) <= nk_max  ) && (size(LAB_static   , 3) <= nb_max  ) && (size(LAB_static   , 4) <= T_max   ) );
+assert( isa(V0          , 'double'  ) && (size(V0           , 1) <= nz_max  ) && (size(V0           , 2) <= ns_max  ) && (size(V0           , 3) <= nb_max  ) );
+assert( isa(LAB_static  , 'double'  ) && (size(LAB_static   , 1) <= nz_max  ) && (size(LAB_static   , 2) <= ns_max  ) && (size(LAB_static   , 3) <= nb_max  ) && (size(LAB_static   , 4) <= T_max   ) );
 assert( isa(isdynamic   , 'logical' ) && (size(isdynamic    , 1) == 1       ) && (size(isdynamic    , 2) == 1       ) );
 
 assert( isa(nz          , 'double'  ) && (size(nz           , 1) == 1       ) && (size(nz           , 2) == 1       ) );
-assert( isa(nk          , 'double'  ) && (size(nk           , 1) == 1       ) && (size(nk           , 2) == 1       ) );
+assert( isa(ns          , 'double'  ) && (size(ns           , 1) == 1       ) && (size(ns           , 2) == 1       ) );
 assert( isa(nb          , 'double'  ) && (size(nb           , 1) == 1       ) && (size(nb           , 2) == 1       ) );
 assert( isa(T_past      , 'double'  ) && (size(T_past       , 1) == 1       ) && (size(T_past       , 2) == 1       ) );
 assert( isa(T_shift     , 'double'  ) && (size(T_shift      , 1) == 1       ) && (size(T_shift      , 2) == 1       ) );
@@ -40,7 +41,7 @@ assert( isa(T_work      , 'double'  ) && (size(T_work       , 1) == 1       ) &&
 assert( isa(T_model     , 'double'  ) && (size(T_model      , 1) == 1       ) && (size(T_model      , 2) == 1       ) );
 assert( isa(zs          , 'double'  ) && (size(zs           , 1) <= nz_max  ) && (size(zs           , 2) <= T_max   ) );
 assert( isa(transz      , 'double'  ) && (size(transz       , 1) <= nz_max  ) && (size(transz       , 2) <= nz_max  ) && (size(transz        , 3) <= T_max  ) );
-assert( isa(kv          , 'double'  ) && (size(kv           , 1) <= nk_max  ) && (size(kv           , 2) == 1       ) );
+assert( isa(sv          , 'double'  ) && (size(sv           , 1) <= ns_max  ) && (size(sv           , 2) == 1       ) );
 assert( isa(bv          , 'double'  ) && (size(bv           , 1) <= nb_max  ) && (size(bv           , 2) == 1       ) );
 assert( isa(beta        , 'double'  ) && (size(beta         , 1) == 1       ) && (size(beta         , 2) == 1       ) );
 assert( isa(gamma       , 'double'  ) && (size(gamma        , 1) == 1       ) && (size(gamma        , 2) == 1       ) );
@@ -72,28 +73,30 @@ assert( isa(capgain_taxrates, 'double'  ) && (size(capgain_taxrates, 1) <= T_max
 assert( isa(capgain_shares  , 'double'  ) && (size(capgain_shares  , 1) <= T_max   ) && (size(capgain_shares  , 2) == 1       ) );
 
 assert( isa(beqs        , 'double'  ) && (size(beqs         , 1) == 1       ) && (size(beqs         , 2) <= T_max   ) );
-assert( isa(wages       , 'double'  ) && (size(wages        , 1) == 1       ) && (size(wages        , 2) <= T_max   ) );
 assert( isa(capshares   , 'double'  ) && (size(capshares    , 1) == 1       ) && (size(capshares    , 2) <= T_max   ) );
-assert( isa(caprates    , 'double'  ) && (size(caprates     , 1) == 1       ) && (size(caprates     , 2) <= T_max   ) );
 assert( isa(govrates    , 'double'  ) && (size(govrates     , 1) == 1       ) && (size(govrates     , 2) <= T_max   ) );
 assert( isa(expsubs     , 'double'  ) && (size(expsubs      , 1) == 1       ) && (size(expsubs      , 2) <= T_max   ) );
+
+assert( isa(wages               , 'double'  ) && (size(wages                , 1) == 1       ) && (size(wages                , 2) <= T_max   ) );
+assert( isa(caprates            , 'double'  ) && (size(caprates             , 1) == 1       ) && (size(caprates             , 2) <= T_max   ) );
+assert( isa(equityfund_prices   , 'double'  ) && (size(equityfund_prices    , 1) == 1       ) && (size(equityfund_prices    , 2) <= T_max   ) );
 
 
 %% Dynamic optimization
 
 % Initialize utility and optimal decision value arrays
-OPT.V   = zeros(nz,nk,nb,T_active);   % Utility
+OPT.V   = zeros(nz,ns,nb,T_active);   % Utility
 
-OPT.K   = zeros(nz,nk,nb,T_active);   % Savings
-OPT.LAB = zeros(nz,nk,nb,T_active);   % Labor level
-OPT.B   = zeros(nz,nk,nb,T_active);   % Average earnings
+OPT.K   = zeros(nz,ns,nb,T_active);   % Savings
+OPT.LAB = zeros(nz,ns,nb,T_active);   % Labor level
+OPT.B   = zeros(nz,ns,nb,T_active);   % Average earnings
 
-OPT.INC = zeros(nz,nk,nb,T_active);   % Taxable income
-OPT.PIT = zeros(nz,nk,nb,T_active);   % Personal income tax
-OPT.SST = zeros(nz,nk,nb,T_active);   % Social Security tax
-OPT.CIT = zeros(nz,nk,nb,T_active);   % Corporate income tax
-OPT.BEN = zeros(nz,nk,nb,T_active);   % Social Security benefits
-OPT.CON = zeros(nz,nk,nb,T_active);   % Consumption
+OPT.INC = zeros(nz,ns,nb,T_active);   % Taxable income
+OPT.PIT = zeros(nz,ns,nb,T_active);   % Personal income tax
+OPT.SST = zeros(nz,ns,nb,T_active);   % Social Security tax
+OPT.CIT = zeros(nz,ns,nb,T_active);   % Corporate income tax
+OPT.BEN = zeros(nz,ns,nb,T_active);   % Social Security benefits
+OPT.CON = zeros(nz,ns,nb,T_active);   % Consumption
 
 % Initialize forward-looking utility values
 V_step = V0;
@@ -114,13 +117,16 @@ for t = T_active:-1:1
     ssincmin    = ssincmins    (year);
     sswageindex = 1; % TBD: substitute by sswageindexes(year);
     beq         = beqs         (year);
-    wage        = wages        (year);
-    caprate     = caprates     (year);
     govrate     = govrates     (year);
     capshare    = capshares    (year);
     expsub      = expsubs      (year);
     captaxshare = captaxshares (year);
     taucap      = taucaps      (year);
+
+    % Prices for current year
+    wage             = wages            (year);
+    caprate          = caprates         (year);
+    equityfund_price = equityfund_prices(year);
     
     % Calculate total rate of return
     totrate     = capshare.*caprate + (1-capshare).*govrate;
@@ -140,9 +146,11 @@ for t = T_active:-1:1
         
     % Pre-calculate for speed and conciseness
     bequest_p_1   = beta * (1-surv(age))* bequest_phi_1;
+    bequest_p_2   = bequest_phi_2;
+    bequest_p_3   = bequest_phi_3;
     
     for ib = 1:nb
-        for ik = 1:nk
+        for is = 1:ns
             
             if (age > T_work)
                 
@@ -151,7 +159,7 @@ for t = T_active:-1:1
                 
                 [resources, inc, pit, ~, cit] = calculate_resources( ...
                     0, ...
-                    kv(ik), ...
+                    sv(is), ...
                     ssinc, sstaxcredit, ...
                     sst_brackets, sst_burdens, sst_rates, ...
                     pit_brackets, pit_burdens, pit_rates, ... 
@@ -164,40 +172,40 @@ for t = T_active:-1:1
                     % Calculate expected value conditional on living using forward-looking 
                     %   utility values. Pre-multiply by prob. survival and
                     %   beta to save on computation.
-                    EV = surv(age)*beta*reshape(V_step(1,:,:), [nk,nb]);
+                    EV = surv(age)*beta*reshape(V_step(1,:,:), [ns,nb]);
                     
                     % Solve dynamic optimization subproblem
-                    [k, v] = fminsearch( ...
-                        @(k) value_retirement( ...
-                            k, kv, resources, EV(:,ib), ... 
-                            bequest_p_1, bequest_phi_2, bequest_phi_3, ...
+                    [s, v] = fminsearch( ...
+                        @(s) value_retirement( ...
+                            s, sv, resources, EV(:,ib), ... 
+                            bequest_p_1, bequest_p_2, bequest_p_3, ...
                             sigma, gamma ...
-                        ), kv(ik), optim_options ...
+                        ), sv(is), optim_options ...
                     );
                     
                     % Checks -> only work in the absence of mex file!
                     assert( ~isinf(v)   , 'v is inf')
-                    assert( k <= kv(end), 'k (k_next) is too big!')
+                    assert( s <= sv(end), 's (s_next) is too big!')
 
                     % Record utility and optimal decision values
-                    OPT.V(:,ik,ib,t) = -v;
-                    OPT.K(:,ik,ib,t) = k ;
+                    OPT.V(:,is,ib,t) = -v;
+                    OPT.K(:,is,ib,t) = s ;
                     
                 else
                     
-                    k = kv(ik);
+                    s = sv(is);
                     
                 end
                 
-                OPT.LAB(:,ik,ib,t) = 0     ;
-                OPT.B  (:,ik,ib,t) = bv(ib);
+                OPT.LAB(:,is,ib,t) = 0     ;
+                OPT.B  (:,is,ib,t) = bv(ib);
                 
-                OPT.INC(:,ik,ib,t) = inc   ;
-                OPT.PIT(:,ik,ib,t) = pit   ;
-                OPT.SST(:,ik,ib,t) = 0     ;
-                OPT.CIT(:,ik,ib,t) = cit   ;
-                OPT.BEN(:,ik,ib,t) = ssinc ;
-                OPT.CON(:,ik,ib,t) = resources - k;
+                OPT.INC(:,is,ib,t) = inc   ;
+                OPT.PIT(:,is,ib,t) = pit   ;
+                OPT.SST(:,is,ib,t) = 0     ;
+                OPT.CIT(:,is,ib,t) = cit   ;
+                OPT.BEN(:,is,ib,t) = ssinc ;
+                OPT.CON(:,is,ib,t) = resources - s;
                 
             else
                 
@@ -210,7 +218,7 @@ for t = T_active:-1:1
                 % Create local instance of resource calculation function with fixed parameters
                 calculate_resources_ = @(labinc) calculate_resources( ...
                     labinc, ...
-                    kv(ik), ...
+                    sv(is), ...
                     0, 0, ...
                     sst_brackets, sst_burdens, sst_rates, ...
                     pit_brackets, pit_burdens, pit_rates, ... 
@@ -228,49 +236,49 @@ for t = T_active:-1:1
                         % Calculate expected value conditional on living using forward-looking 
                         %   utility values. Pre-multiply by prob. survival and
                         %   beta to save on computation.
-                        EV = surv(age)*beta*reshape(sum(repmat(transz(iz,:,age)', [1,nk,nb]) .* V_step, 1), [nk,nb]);
+                        EV = surv(age)*beta*reshape(sum(repmat(transz(iz,:,age)', [1,ns,nb]) .* V_step, 1), [ns,nb]);
                         
                         % Solve dynamic optimization subproblem
                         lab0 = 0.5;
-                        k0   = max(kv(ik), min(kv(end), 0.1 * wage_eff * lab0));   % Assumes taxation will not exceed 90% of labor income and at the same time forces k to be in the grid
+                        s0   = max(sv(is), min(sv(end), 0.1 * wage_eff * lab0));   % Assumes taxation will not exceed 90% of labor income and at the same time forces k to be in the grid
                         
                         [x, v] = fminsearch( ...
                             @(x) value_working( ...
-                                x, kv, bv, wage_eff, EV, ...
-                                bequest_p_1, bequest_phi_2, bequest_phi_3, ...
+                                x, sv, bv, wage_eff, EV, ...
+                                bequest_p_1, bequest_p_2, bequest_p_3, ...
                                 sigma, gamma, ...
                                 calculate_b_, calculate_resources_ ...
-                            ), [k0, lab0], optim_options ...
+                            ), [s0, lab0], optim_options ...
                         );
                         
-                        k   = x(1);
+                        s   = x(1);
                         lab = x(2);       
                         
                         % Checks -> only work in the absence of mex file!
                         assert( ~isinf(v)   , 'v is inf')
-                        assert( k <= kv(end), 'k (k_next) is too big!')
+                        assert( s <= sv(end), 'k (k_next) is too big!')
                         
                         % Record utility and optimal decision values
-                        OPT.V(iz,ik,ib,t) = -v;
-                        OPT.K(iz,ik,ib,t) = k ;
+                        OPT.V(iz,is,ib,t) = -v;
+                        OPT.K(iz,is,ib,t) = s ;
                         
                     else
-                        k = kv(ik);
-                        lab = LAB_static(iz,ik,ib,t);
+                        s = sv(is);
+                        lab = LAB_static(iz,is,ib,t);
                     end
                     
                     labinc = wage_eff * lab;
                     [resources, inc, pit, sst, cit] = calculate_resources_(labinc);
                     
-                    OPT.LAB(iz,ik,ib,t) = lab;
-                    OPT.B  (iz,ik,ib,t) = calculate_b_(labinc);
+                    OPT.LAB(iz,is,ib,t) = lab;
+                    OPT.B  (iz,is,ib,t) = calculate_b_(labinc);
                     
-                    OPT.INC(iz,ik,ib,t) = inc;
-                    OPT.PIT(iz,ik,ib,t) = pit;
-                    OPT.SST(iz,ik,ib,t) = sst;
-                    OPT.CIT(iz,ik,ib,t) = cit;
-                    OPT.BEN(iz,ik,ib,t) = 0  ;
-                    OPT.CON(iz,ik,ib,t) = resources - k;
+                    OPT.INC(iz,is,ib,t) = inc;
+                    OPT.PIT(iz,is,ib,t) = pit;
+                    OPT.SST(iz,is,ib,t) = sst;
+                    OPT.CIT(iz,is,ib,t) = cit;
+                    OPT.BEN(iz,is,ib,t) = 0  ;
+                    OPT.CON(iz,is,ib,t) = resources - s;
                     
                 end
                 
@@ -329,7 +337,7 @@ end
 function [v] ...
     = value_working( ...
         x, kv, bv, wage_eff, EV, ...
-        bequest_p_1, bequest_phi_2, bequest_phi_3, ...
+        bequest_p_1, bequest_p_2, bequest_p_3, ...
         sigma, gamma, ...
         calculate_b_, calculate_resources_ ...
     )
@@ -367,7 +375,7 @@ function [v] ...
     % Residual value of bequest.
     % NOTE: (1) bequest is assets chosen for next period,
     %       (2) bequest_p_1 is beta*prob_death*bequest_phi_1
-    value_bequest = bequest_p_1 * (1 + k/bequest_phi_2)^(1-bequest_phi_3);
+    value_bequest = bequest_p_1 * (1 + k/bequest_p_2)^(1-bequest_p_3);
 
     % Calculate utility
     v = (((consumption^gamma)*((1-lab)^(1-gamma)))^(1-sigma))*(1/(1-sigma))     ... % flow utility
@@ -406,7 +414,7 @@ end
 function [resources, inc, pit, sst, cit] ...
     = calculate_resources( ...
         labinc, ...
-        kv_ik, ...
+        sv_is, ...
         ssinc, sstaxcredit, ...
         sst_brackets, sst_burdens, sst_rates, ...
         pit_brackets, pit_burdens, pit_rates, ... 
@@ -420,7 +428,7 @@ function [resources, inc, pit, sst, cit] ...
     % Calculate taxable income
     %   We do not allow negative incomes
     inc = max( 0,...
-          capshare*caprate*kv_ik*(1-captaxshare) + (1-capshare)*govrate*kv_ik ...
+          capshare*caprate*sv_is*(1-captaxshare) + (1-capshare)*govrate*sv_is ...
           + (1-sstaxcredit)*ssinc + labinc...
           );
     pit = find_tax_liability( inc, pit_brackets, pit_burdens, pit_rates );
@@ -429,10 +437,10 @@ function [resources, inc, pit, sst, cit] ...
     sst = find_tax_liability( labinc, sst_brackets, sst_burdens, sst_rates );
 
     % Calculate corporate income tax
-    cit = (capshare + capgain_share)*kv_ik*(taucap*(caprate - expsub)*captaxshare);
+    cit = (capshare + capgain_share)*sv_is*(taucap*(caprate - expsub)*captaxshare);
 
     % Calculate available resources
-    resources = (1 + totrate)*kv_ik + labinc + ssinc - (pit + sst + cit) + beq + kv_ik*capgain_share;
+    resources = (1 + totrate)*sv_is + labinc + ssinc - (pit + sst + cit) + beq + sv_is*capgain_share;
 
 end
 
