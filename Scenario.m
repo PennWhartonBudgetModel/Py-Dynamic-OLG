@@ -391,7 +391,7 @@ classdef Scenario
             MIN_CHAR2   = 97;   MAX_CHAR2   = 122;
             CHAR0       = 48; 
             newtag      = tag( 1:min(length(tag), TAG_SIZE) );
-            for i=TAG_SIZE+1:length(tag)
+            for i=TAG_SIZE:length(tag)
                 d = mod(i, TAG_SIZE) + 1;
                 c = mod(newtag(d) + tag(i), MAX_CHAR2 - MIN_CHAR1) + MIN_CHAR1;
                 if ( (c > MAX_CHAR1) && (c < MIN_CHAR2) )
