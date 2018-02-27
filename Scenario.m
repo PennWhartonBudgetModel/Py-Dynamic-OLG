@@ -304,7 +304,8 @@ classdef Scenario
             'labeffs'           , 'EfficientLabor'          , ...
             'labs'              , 'Labor'                   , ...
             'labincs'           , 'LaborIncome'             , ...
-            'capincs'           , 'CapitalIncome'             ...
+            'capincs'           , 'CapitalIncome'           , ...
+            'pops'              , 'PopulationHouseholds'      ...
             ); 
     
             Static.outvars = Dynamic.outvars;
@@ -314,19 +315,29 @@ classdef Scenario
             'wages'             , 'WageLevel'                 ...
             ); 
         
-            % Helper function to identify Dollar series
-            function [b] = isDollar( outvar )
-                b = false;
+            % Helper function to convert series
+            function [f] = toOutputValue( outvar, outval )
+                % TBD: Get these values from interface?
+                %  Match population size in 2017 since pops=1 in 2017
+                %  Conversion to dollar aggregates is since modelunit_dollar is
+                %  currently targeted to GDP/HH
+                HH_2017     = 126.22 * 1e06;
+                DOLLAR      = (1/this.modelunit_dollar) * HH_2017;
+                
+                c = 1;
                 switch outvar
                     case 'labeffs'  
                     case 'labs'     
                     case 'caprates'
                     case 'wages'
-                        b = false;
+                        c = 1;
+                    case 'pops'
+                        c = HH_2017;
                     otherwise
-                        b = true;
+                        c = DOLLAR;
                 end
-            end % isDollar
+                f = outval * c; 
+            end % toOutputValue
             
             fid = fopen(fullfile(PathFinder.getDataSeriesOutputDir(), strcat(tag, '.csv')), 'w');
 
@@ -344,29 +355,19 @@ classdef Scenario
             fprintf(fid, '\n');
             
             % Write values, year is first
-            toDollar = 1/this.modelunit_dollar;
             for t = 1:length(years)-1
                 fprintf(fid, '%u', years(t));
                 for o = fieldnames( Dynamic.outvars )'
                     val = Dynamic.(o{1})(t);
-                    if( isDollar( o{1} ) )
-                        val = val * toDollar;
-                    end
-                    fprintf( fid, ',%f', val );
+                    fprintf( fid, ',%f', toOutputValue( o{1}, val ) );
                 end 
                 for o = fieldnames( Market.outvars )'
                     val = Market.(o{1})(t);
-                    if( isDollar( o{1} ) )
-                        val = val * toDollar;
-                    end
-                    fprintf( fid, ',%f', val );
+                    fprintf( fid, ',%f', toOutputValue( o{1}, val ) );
                 end 
                 for o = fieldnames( Static.outvars )'
                     val = Static.(o{1})(t);
-                    if( isDollar( o{1} ) )
-                        val = val * toDollar;
-                    end
-                    fprintf( fid, ',%f', val );
+                    fprintf( fid, ',%f', toOutputValue( o{1}, val ) );
                 end 
                 fprintf(fid, '\n');
             end
