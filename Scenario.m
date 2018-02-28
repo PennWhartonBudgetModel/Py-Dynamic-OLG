@@ -274,20 +274,19 @@ classdef Scenario
             
             % TBD: This should call the load() method
             
-            % Identify scenario working directory
-            workingdir = PathFinder.getWorkingDir(this);
-            
             % Load dynamic and static variables
-            Dynamic = load(fullfile(workingdir, 'dynamics.mat'));
+            Dynamic = load(fullfile(PathFinder.getWorkingDir(this), 'dynamics.mat'));
+            Market  = load(fullfile(PathFinder.getWorkingDir(this), 'market.mat'));
             if this.isCurrentPolicy()
-                Static = Dynamic;
+                Static       = Dynamic;
+                StaticMarket = Market;
             else
-                Static = load(fullfile(workingdir, 'statics.mat'));
+                Static       = load(fullfile(PathFinder.getWorkingDir(this), 'statics.mat'));
+                StaticMarket = load(fullfile(PathFinder.getWorkingDir(this.currentPolicy()), 'market.mat' ));
             end
-            Market = load(fullfile(workingdir, 'market.mat'));
             
             % Specify data series years
-            years  = (this.TransitionFirstYear : this.TransitionLastYear)';
+            years  = (this.TransitionFirstYear : this.TransitionLastYear-1)';
 
             Dynamic.outvars = struct( ...
             'ssts'              , 'PayrollTax'              , ...
@@ -307,21 +306,48 @@ classdef Scenario
             'capincs'           , 'CapitalIncome'           , ...
             'pops'              , 'PopulationHouseholds'      ...
             ); 
-    
-            Static.outvars = Dynamic.outvars;
-        
             Market.outvars = struct( ...
             'caprates'          , 'CapitalReturn'           , ...
             'wages'             , 'WageLevel'                 ...
             ); 
+            Static.outvars       = Dynamic.outvars;
+            StaticMarket.outvars = Market.outvars;
         
+            % Prepare file to which to write
+            if( ~exist( PathFinder.getDataSeriesOutputDir(), 'dir' ) )
+                mkdir( PathFinder.getDataSeriesOutputDir() );
+            end
+            outputfilename  = fullfile(PathFinder.getDataSeriesOutputDir(), strcat(tag, '.csv'));
+            fid             = fopen(outputfilename, 'w');
+            if( fid == -1 )
+                throw(MException('Scenario:export','Cannot open file (%s) for output.', outputfilename ));
+            end 
+
+            % Write header to file 
+            fprintf(fid, 'Year' );
+            for o = fieldnames( Dynamic.outvars )'
+                fprintf( fid, ',%s', Dynamic.outvars.(o{1}) );
+            end 
+            for o = fieldnames( Market.outvars )'
+                fprintf( fid, ',%s', Market.outvars.(o{1}) );
+            end 
+            for o = fieldnames( Static.outvars )'
+                fprintf( fid, ',STATIC.%s', Static.outvars.(o{1}) );
+            end                 
+            for o = fieldnames( StaticMarket.outvars )'
+                fprintf( fid, ',STATIC.%s', StaticMarket.outvars.(o{1}) );
+            end                 
+            fprintf(fid, '\n');
+            
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
             % Helper function to convert series
             function [f] = toOutputValue( outvar, outval )
                 % TBD: Get these values from interface?
                 %  Match population size in 2017 since pops=1 in 2017
                 %  Conversion to dollar aggregates is since modelunit_dollar is
                 %  currently targeted to GDP/HH
-                HH_2017     = 126.22 * 1e06;
+                HH_2017     = 193.7 * 1e06; % rem: age 21+
                 DOLLAR      = (1/this.modelunit_dollar) * HH_2017;
                 
                 c = 1;
@@ -339,36 +365,22 @@ classdef Scenario
                 f = outval * c; 
             end % toOutputValue
             
-            fid = fopen(fullfile(PathFinder.getDataSeriesOutputDir(), strcat(tag, '.csv')), 'w');
-
-            % Write header to file 
-            fprintf(fid, 'Year' );
-            for o = fieldnames( Dynamic.outvars )'
-                fprintf( fid, ',%s', Dynamic.outvars.(o{1}) );
-            end 
-            for o = fieldnames( Market.outvars )'
-                fprintf( fid, ',%s', Market.outvars.(o{1}) );
-            end 
-            for o = fieldnames( Static.outvars )'
-                fprintf( fid, ',STATIC.%s', Static.outvars.(o{1}) );
-            end                 
-            fprintf(fid, '\n');
+            %% Helper function to print values
+            function [] = printValues( s )
+                for o = fieldnames( s.outvars )'
+                    val = s.(o{1})(t);
+                    fprintf( fid, ',%f', toOutputValue( o{1}, val ) );
+                end 
+            end % printValues
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             
             % Write values, year is first
-            for t = 1:length(years)-1
+            for t = 1:length(years)
                 fprintf(fid, '%u', years(t));
-                for o = fieldnames( Dynamic.outvars )'
-                    val = Dynamic.(o{1})(t);
-                    fprintf( fid, ',%f', toOutputValue( o{1}, val ) );
-                end 
-                for o = fieldnames( Market.outvars )'
-                    val = Market.(o{1})(t);
-                    fprintf( fid, ',%f', toOutputValue( o{1}, val ) );
-                end 
-                for o = fieldnames( Static.outvars )'
-                    val = Static.(o{1})(t);
-                    fprintf( fid, ',%f', toOutputValue( o{1}, val ) );
-                end 
+                printValues( Dynamic        );
+                printValues( Market         );
+                printValues( Static         );
+                printValues( StaticMarket   );
                 fprintf(fid, '\n');
             end
             
