@@ -94,7 +94,7 @@ OPT.B   = zeros(nz,ns,nb,T_active);   % Average earnings
 OPT.INC = zeros(nz,ns,nb,T_active);   % Taxable income
 OPT.PIT = zeros(nz,ns,nb,T_active);   % Personal income tax
 OPT.SST = zeros(nz,ns,nb,T_active);   % Social Security tax
-OPT.CIT = zeros(nz,ns,nb,T_active);   % Corporate income tax
+OPT.CIT = zeros(nz,ns,nb,T_active);   % Capital income tax
 OPT.BEN = zeros(nz,ns,nb,T_active);   % Social Security benefits
 OPT.CON = zeros(nz,ns,nb,T_active);   % Consumption
 
@@ -129,15 +129,11 @@ for t = T_active:-1:1
     equityfund_price = equityfund_prices(year);
     bondfund_price   = 1; % TBD: This should be passed in
     
-    % Calculate total rate of return
-    totrate     = capshare.*caprate + (1-capshare).*govrate;
-    
-    
     % Taxes
-    capgain_taxrate     = capgain_taxrates      (year   );
-    capgain_share       = capgain_shares        (year   );
-    captax_share        = captax_shares     (year);
-    captax_pref_rate    = captax_pref_rates (year);
+    capgain_taxrate     = capgain_taxrates      (year);
+    capgain_share       = capgain_shares        (year);
+    captax_share        = captax_shares         (year);
+    captax_pref_rate    = captax_pref_rates     (year);
    
     sst_brackets    = sstax_brackets    (year, :);
     sst_burdens     = sstax_burdens     (year, :);
@@ -434,7 +430,7 @@ function [resources, inc, pit, sst, cit] ...
     bondvalue   = fund_shares * (1-capshare) * bondfund_price;
     
     equitydividend = caprate * equityvalue;
-    bonddividend   = govrate * equityvalue;
+    bonddividend   = govrate * bondvalue;
     
     % TBD: This needs to be revised
     equitycapgain  = fund_shares * equityfund_price * capgain_share;
@@ -443,7 +439,7 @@ function [resources, inc, pit, sst, cit] ...
     %   We do not allow negative incomes
     inc = max( 0,...
           equitydividend*(1-captax_share) + bonddividend ...
-          + (1-sstaxcredit)*ssinc + labinc...
+          + (1-sstaxcredit)*ssinc + labinc ...
           );
     pit = find_tax_liability( inc, pit_brackets, pit_burdens, pit_rates );
 
@@ -451,7 +447,7 @@ function [resources, inc, pit, sst, cit] ...
     sst = find_tax_liability( labinc, sst_brackets, sst_burdens, sst_rates );
 
     % Calculate preferred rates tax 
-    cit = captax_share * equitydividend * captax_pref_rate;
+    cit = captax_share * equitydividend * captax_pref_rate; % NOTE: capgains taxed here also
 
     % Calculate available resources
     resources = equityvalue + bondvalue ...
