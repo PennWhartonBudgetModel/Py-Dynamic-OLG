@@ -13,7 +13,7 @@ function [OPT] ...
         sstaxcredit, ssbenefits, ssincmins, ssincmaxs, sswageindexes, ...
         sstax_brackets, sstax_burdens, sstax_rates, ...
         pittax_brackets, pittax_burdens, pittax_rates, ... 
-        captaxshares, taucaps, capgain_taxrates, capgain_shares, ...
+        captax_shares, captax_pref_rates, capgain_taxrates, capgain_shares, ...
         beqs, capshares, govrates, expsubs, ...
         wages, caprates, equityfund_prices ...
     ) %#codegen
@@ -67,10 +67,10 @@ assert( isa(pittax_brackets  , 'double' ) && (size(pittax_brackets  , 1) <= T_ma
 assert( isa(pittax_burdens   , 'double' ) && (size(pittax_burdens   , 1) <= T_max ) && (size(pittax_burdens   , 2) <= nbrackets_max ) );
 assert( isa(pittax_rates     , 'double' ) && (size(pittax_rates     , 1) <= T_max ) && (size(pittax_rates     , 2) <= nbrackets_max ) );
 
-assert( isa(captaxshares    , 'double'  ) && (size(captaxshares    , 1) <= T_max   ) && (size(captaxshares    , 2) == 1       ) );
-assert( isa(taucaps         , 'double'  ) && (size(taucaps         , 1) <= T_max   ) && (size(taucaps         , 2) == 1       ) );
-assert( isa(capgain_taxrates, 'double'  ) && (size(capgain_taxrates, 1) <= T_max   ) && (size(capgain_taxrates, 2) == 1       ) );
-assert( isa(capgain_shares  , 'double'  ) && (size(capgain_shares  , 1) <= T_max   ) && (size(capgain_shares  , 2) == 1       ) );
+assert( isa(captax_shares     , 'double'  ) && (size(captax_shares     , 1) <= T_max   ) && (size(captax_shares     , 2) == 1       ) );
+assert( isa(captax_pref_rates , 'double'  ) && (size(captax_pref_rates , 1) <= T_max   ) && (size(captax_pref_rates , 2) == 1       ) );
+assert( isa(capgain_taxrates  , 'double'  ) && (size(capgain_taxrates  , 1) <= T_max   ) && (size(capgain_taxrates  , 2) == 1       ) );
+assert( isa(capgain_shares    , 'double'  ) && (size(capgain_shares    , 1) <= T_max   ) && (size(capgain_shares    , 2) == 1       ) );
 
 assert( isa(beqs        , 'double'  ) && (size(beqs         , 1) == 1       ) && (size(beqs         , 2) <= T_max   ) );
 assert( isa(capshares   , 'double'  ) && (size(capshares    , 1) == 1       ) && (size(capshares    , 2) <= T_max   ) );
@@ -116,14 +116,14 @@ for t = T_active:-1:1
     ssincmax    = ssincmaxs    (year);
     ssincmin    = ssincmins    (year);
     sswageindex = 1; % TBD: substitute by sswageindexes(year);
+    ssbenefit   = ssbenefits   (year, :);
+    
     beq         = beqs         (year);
-    govrate     = govrates     (year);
     capshare    = capshares    (year);
     expsub      = expsubs      (year);
-    captaxshare = captaxshares (year);
-    taucap      = taucaps      (year);
 
     % Prices for current year
+    govrate          = govrates     (year);
     wage             = wages            (year);
     caprate          = caprates         (year);
     equityfund_price = equityfund_prices(year);
@@ -131,11 +131,13 @@ for t = T_active:-1:1
     % Calculate total rate of return
     totrate     = capshare.*caprate + (1-capshare).*govrate;
     
-    capgain_taxrate = capgain_taxrates  (year   );
-    capgain_share   = capgain_shares    (year   );
     
-    ssbenefit       = ssbenefits        (year, :);
-    
+    % Taxes
+    capgain_taxrate     = capgain_taxrates      (year   );
+    capgain_share       = capgain_shares        (year   );
+    captax_share        = captax_shares     (year);
+    captax_pref_rate    = captax_pref_rates (year);
+   
     sst_brackets    = sstax_brackets    (year, :);
     sst_burdens     = sstax_burdens     (year, :);
     sst_rates       = sstax_rates       (year, :);
@@ -144,6 +146,7 @@ for t = T_active:-1:1
     pit_burdens     = pittax_burdens    (year, :);
     pit_rates       = pittax_rates      (year, :);
         
+    
     % Pre-calculate for speed and conciseness
     bequest_p_1   = beta * (1-surv(age))* bequest_phi_1;
     bequest_p_2   = bequest_phi_2;
@@ -163,7 +166,7 @@ for t = T_active:-1:1
                     ssinc, sstaxcredit, ...
                     sst_brackets, sst_burdens, sst_rates, ...
                     pit_brackets, pit_burdens, pit_rates, ... 
-                    captaxshare, taucap, capgain_share, ...
+                    captax_share, captax_pref_rate, capgain_share, ...
                     beq, capshare, caprate, govrate, totrate, expsub ...
                 );
                 
@@ -222,7 +225,7 @@ for t = T_active:-1:1
                     0, 0, ...
                     sst_brackets, sst_burdens, sst_rates, ...
                     pit_brackets, pit_burdens, pit_rates, ... 
-                    captaxshare, taucap, capgain_share, ...
+                    captax_share, captax_pref_rate, capgain_share, ...
                     beq, capshare, caprate, govrate, totrate, expsub ...
                 );
                 
@@ -418,7 +421,7 @@ function [resources, inc, pit, sst, cit] ...
         ssinc, sstaxcredit, ...
         sst_brackets, sst_burdens, sst_rates, ...
         pit_brackets, pit_burdens, pit_rates, ... 
-        captaxshare, taucap, capgain_share, ...
+        captax_share, captax_pref_rate, capgain_share, ...
         beq, capshare, caprate, govrate, totrate, expsub ...
     )
 
@@ -428,7 +431,7 @@ function [resources, inc, pit, sst, cit] ...
     % Calculate taxable income
     %   We do not allow negative incomes
     inc = max( 0,...
-          capshare*caprate*sv_is*(1-captaxshare) + (1-capshare)*govrate*sv_is ...
+          capshare*caprate*sv_is*(1-captax_share) + (1-capshare)*govrate*sv_is ...
           + (1-sstaxcredit)*ssinc + labinc...
           );
     pit = find_tax_liability( inc, pit_brackets, pit_burdens, pit_rates );
@@ -437,7 +440,7 @@ function [resources, inc, pit, sst, cit] ...
     sst = find_tax_liability( labinc, sst_brackets, sst_burdens, sst_rates );
 
     % Calculate corporate income tax
-    cit = (capshare + capgain_share)*sv_is*(taucap*(caprate - expsub)*captaxshare);
+    cit = (capshare + capgain_share)*sv_is*(captax_pref_rate*(caprate - expsub)*captax_share);
 
     % Calculate available resources
     resources = (1 + totrate)*sv_is + labinc + ssinc - (pit + sst + cit) + beq + sv_is*capgain_share;
