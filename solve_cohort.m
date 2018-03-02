@@ -160,13 +160,14 @@ for t = T_active:-1:1
             equityfund_share   = sv(is) * capshare;
             bondfund_share     = sv(is) - equityfund_share;
             
+            % Retired person
             if (age > T_work)
                 
                 % Calculate available resources and tax terms
                 labinc  = 0;
                 ssinc   = ssbenefit(ib);
                 
-                [resources, inc, pit, ~, cit] = calculate_resources( ...
+                [resources, inc, pit, sst, cit] = calculate_resources( ...
                     labinc, ssinc, ...
                     equityfund_share, bondfund_share, ...
                     equityfund_price, bondfund_price, ...
@@ -212,12 +213,13 @@ for t = T_active:-1:1
                 
                 OPT.INC(:,is,ib,t) = inc   ;
                 OPT.PIT(:,is,ib,t) = pit   ;
-                OPT.SST(:,is,ib,t) = 0     ;
+                OPT.SST(:,is,ib,t) = sst   ;
                 OPT.CIT(:,is,ib,t) = cit   ;
                 OPT.BEN(:,is,ib,t) = ssinc ;
                 OPT.CON(:,is,ib,t) = resources - s; % TBD: (s) is savings shares not savings
                 
             else
+                % Working age person
                 
                 % Create local instance of average earnings calculation function with fixed parameters
                 calculate_b_ = @(labinc) calculate_b( ...
@@ -290,7 +292,7 @@ for t = T_active:-1:1
                     OPT.SST(iz,is,ib,t) = sst;
                     OPT.CIT(iz,is,ib,t) = cit;
                     OPT.BEN(iz,is,ib,t) = 0  ;
-                    OPT.CON(iz,is,ib,t) = resources - s;
+                    OPT.CON(iz,is,ib,t) = resources - s; % TBD: (s) is savings in shares!
                     
                 end
                 
@@ -312,7 +314,7 @@ end
 function [v] ...
     = value_retirement( ...
         k, kv, resources, EV_ib, ... 
-        bequest_p_1, bequest_phi_2, bequest_phi_3, ...
+        bequest_p_1, bequest_p_2, bequest_p_3, ...
         sigma, gamma ...
     )
 
@@ -328,7 +330,7 @@ function [v] ...
         % Residual value of bequest.
         % NOTE: (1) bequest is assets chosen for next period,
         %       (2) bequest_p_1 is beta*prob_death*bequest_phi_1
-        value_bequest = bequest_p_1 * (1 + k/bequest_phi_2)^(1-bequest_phi_3);
+        value_bequest = bequest_p_1 * (1 + k/bequest_p_2)^(1-bequest_p_3);
 
         % Calculate utility
         v = (consumption^(gamma*(1-sigma)))*(1/(1-sigma))     ... % flow utility
