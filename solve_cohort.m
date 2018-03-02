@@ -120,33 +120,37 @@ for t = T_active:-1:1
     ssbenefit   = ssbenefits   (year, :);
     
     beq         = beqs                  (year);
-    capshare    = fund_equityshares     (year);
-    
-    % Prices for current year
-    wage             = wages                    (year);
-    
+
+    wage                    = wages                    (year);
+    fund_equityshare        = fund_equityshares        (year);
     equityfund_dividendrate = equityfund_dividendrates (year);
     equityfund_price        = equityfund_prices        (year);
     bondfund_dividendrate   = bondfund_dividendrates   (year);
     bondfund_price          = bondfund_prices          (year);
     
-    % THIS IS TEMP
+    % Calculate this period's "portfolio price" 
+    fund_price              = equityfund_price * fund_equityshare    ...
+                                + bondfund_price * (1 - fund_equityshare);
+    
+    % Calculate capital gain on equity -- THIS IMPLEMENTATION IS TEMP
     equityfund_prevprice = equityfund_prices(max(year-1),1);
     capgain_rate         = (equityfund_price - equityfund_prevprice)/equityfund_price;
     
-    % Taxes
+    % Capital taxes
     capgain_taxrate     = capgain_taxrates      (year);
     captax_share        = captax_shares         (year);
     captax_pref_rate    = captax_pref_rates     (year);
    
-    sst_brackets    = sstax_brackets    (year, :);
-    sst_burdens     = sstax_burdens     (year, :);
-    sst_rates       = sstax_rates       (year, :);
+    % Payroll taxes
+    sst_brackets        = sstax_brackets        (year, :);
+    sst_burdens         = sstax_burdens         (year, :);
+    sst_rates           = sstax_rates           (year, :);
     
-    pit_brackets    = pittax_brackets   (year, :);
-    pit_burdens     = pittax_burdens    (year, :);
-    pit_rates       = pittax_rates      (year, :);
-    pit_sscredit    = pittax_sscredit;
+    % Personal income taxes
+    pit_brackets        = pittax_brackets       (year, :);
+    pit_burdens         = pittax_burdens        (year, :);
+    pit_rates           = pittax_rates          (year, :);
+    pit_sscredit        = pittax_sscredit;
             
     % Pre-calculate for speed and conciseness
     bequest_p_1   = beta * (1-surv(age))* bequest_phi_1;
@@ -157,7 +161,7 @@ for t = T_active:-1:1
         for is = 1:ns
             
             % Calculate allocation in portfolio
-            equityfund_share   = sv(is) * capshare;
+            equityfund_share   = sv(is) * fund_equityshare;
             bondfund_share     = sv(is) - equityfund_share;
             
             % Retired person
@@ -188,7 +192,8 @@ for t = T_active:-1:1
                     % Solve dynamic optimization subproblem
                     [s, v] = fminsearch( ...
                         @(s) value_retirement( ...
-                            s, sv, resources, EV(:,ib), ... 
+                            s, fund_price, resources, EV(:,ib), ... 
+                            sv, ...
                             bequest_p_1, bequest_p_2, bequest_p_3, ...
                             sigma, gamma ...
                         ), sv(is), optim_options ...
@@ -258,7 +263,8 @@ for t = T_active:-1:1
                         
                         [x, v] = fminsearch( ...
                             @(x) value_working( ...
-                                x, sv, bv, wage_eff, EV, ...
+                                x, fund_price, EV, ...
+                                sv, bv, wage_eff,  ...
                                 bequest_p_1, bequest_p_2, bequest_p_3, ...
                                 sigma, gamma, ...
                                 calculate_b_, calculate_resources_ ...
@@ -313,7 +319,8 @@ end
 % Retirement age value function
 function [v] ...
     = value_retirement( ...
-        k, kv, resources, EV_ib, ... 
+        s, fund_price, resources, EV_ib, ... 
+        sv, ...
         bequest_p_1, bequest_p_2, bequest_p_3, ...
         sigma, gamma ...
     )
@@ -322,19 +329,20 @@ function [v] ...
     coder.inline('always');
 
     % Calculate consumption
-    consumption = resources - k;
+    savings     = fund_price * s;
+    consumption = resources - savings;
 
     % Perform bound checks
-    if (kv(1) <= k) && (k <= kv(end)) && (0 <= consumption)
+    if (sv(1) <= s) && (s <= sv(end)) && (0 <= consumption)
 
         % Residual value of bequest.
         % NOTE: (1) bequest is assets chosen for next period,
         %       (2) bequest_p_1 is beta*prob_death*bequest_phi_1
-        value_bequest = bequest_p_1 * (1 + k/bequest_p_2)^(1-bequest_p_3);
+        value_bequest = bequest_p_1 * (1 + savings/bequest_p_2)^(1-bequest_p_3);
 
         % Calculate utility
         v = (consumption^(gamma*(1-sigma)))*(1/(1-sigma))     ... % flow utility
-            + interp1(kv, EV_ib, k, 'linear')                 ... % continuation value of life
+            + interp1(sv, EV_ib, s, 'linear')                 ... % continuation value of life
             + value_bequest                                   ;   % value of bequest
 
         % Negate utility for minimization and force to scalar for C code generation
@@ -350,7 +358,8 @@ end
 % Working age value function
 function [v] ...
     = value_working( ...
-        x, kv, bv, wage_eff, EV, ...
+        x, fund_price, EV, ...
+        sv, bv, wage_eff, ...
         bequest_p_1, bequest_p_2, bequest_p_3, ...
         sigma, gamma, ...
         calculate_b_, calculate_resources_ ...
@@ -360,13 +369,13 @@ function [v] ...
     coder.inline('always');
 
     % Define decision variables and perform bound checks
-    k   = x(1);
+    s   = x(1);
     lab = x(2);
 
     labinc = wage_eff * lab;
 
     if ~((0 <= lab) && (lab <= 1) ...
-         && (kv(1) <= k) && (k <= kv(end)))
+         && (sv(1) <= s) && (s <= sv(end)))
 
         v = Inf;
         return
@@ -379,7 +388,8 @@ function [v] ...
     resources = calculate_resources_(labinc);
 
     % Calculate consumption and perform bound check
-    consumption = resources - k;
+    savings     = fund_price * s;
+    consumption = resources - savings;
 
     if ~(0 <= consumption)
         v = Inf;
@@ -389,11 +399,11 @@ function [v] ...
     % Residual value of bequest.
     % NOTE: (1) bequest is assets chosen for next period,
     %       (2) bequest_p_1 is beta*prob_death*bequest_phi_1
-    value_bequest = bequest_p_1 * (1 + k/bequest_p_2)^(1-bequest_p_3);
+    value_bequest = bequest_p_1 * (1 + savings/bequest_p_2)^(1-bequest_p_3);
 
     % Calculate utility
     v = (((consumption^gamma)*((1-lab)^(1-gamma)))^(1-sigma))*(1/(1-sigma))     ... % flow utility
-        + interp2(kv', bv, EV', k, b, 'linear')                                 ... % continuation value of life
+        + interp2(sv', bv, EV', s, b, 'linear')                                 ... % continuation value of life
         + value_bequest                                                         ;   % value of bequest
 
     % Negate utility for minimization and force to scalar for C code generation
@@ -441,15 +451,15 @@ function [resources, inc, pit, sst, cit] ...
     coder.inline('always');
 
     % Calculate wealth in equity and g'vt bonds
-    equityvalue = equityfund_share * equityfund_price;
-    bondvalue   = bondfund_share * bondfund_price;
+    equityvalue     = equityfund_share * equityfund_price;
+    bondvalue       = bondfund_share   * bondfund_price;
     
-    equitydividend = equityfund_dividendrate * equityvalue;
-    bonddividend   = bondfund_dividendrate * bondvalue;
+    equitydividend  = equityfund_dividendrate * equityvalue;
+    bonddividend    = bondfund_dividendrate   * bondvalue;
     
-    equitycapgain  = equityvalue * capgain_rate;
+    equitycapgain   = equityvalue * capgain_rate;
     
-    % Calculate taxable income
+    % Calculate PIT taxable income
     %   We do not allow negative incomes
     inc = max( 0,...
           equitydividend*(1-captax_share) + bonddividend ...
