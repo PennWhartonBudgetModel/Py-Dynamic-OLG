@@ -128,7 +128,7 @@ for t = T_active:-1:1
     equityfund_dividendrate = equityfund_dividendrates (year);
     equityfund_price        = equityfund_prices        (year);
     bondfund_dividendrate   = bondfund_dividendrates   (year);
-    bondfund_price          = 1; % TBD: This should be passed in
+    bondfund_price          = bondfund_prices          (year);
     
     % THIS IS TEMP
     equityfund_prevprice = equityfund_prices(max(year-1),1);
@@ -163,10 +163,11 @@ for t = T_active:-1:1
             if (age > T_work)
                 
                 % Calculate available resources and tax terms
-                ssinc = ssbenefit(ib);
+                labinc  = 0;
+                ssinc   = ssbenefit(ib);
                 
                 [resources, inc, pit, ~, cit] = calculate_resources( ...
-                    0, ssinc, ...
+                    labinc, ssinc, ...
                     equityfund_share, bondfund_share, ...
                     equityfund_price, bondfund_price, ...
                     equityfund_dividendrate, bondfund_dividendrate, ...
@@ -225,8 +226,9 @@ for t = T_active:-1:1
                 );
                 
                 % Create local instance of resource calculation function with fixed parameters
+                ssinc = 0;
                 calculate_resources_ = @(labinc) calculate_resources( ...
-                    labinc, 0, ...
+                    labinc, ssinc, ...
                     equityfund_share, bondfund_share,  ...
                     equityfund_price, bondfund_price, ...
                     equityfund_dividendrate, bondfund_dividendrate, ...
@@ -266,7 +268,7 @@ for t = T_active:-1:1
                         
                         % Checks -> only work in the absence of mex file!
                         assert( ~isinf(v)   , 'v is inf')
-                        assert( s <= sv(end), 'k (k_next) is too big!')
+                        assert( s <= sv(end), 's (s_next) is too big!')
                         
                         % Record utility and optimal decision values
                         OPT.V(iz,is,ib,t) = -v;
@@ -443,7 +445,6 @@ function [resources, inc, pit, sst, cit] ...
     equitydividend = equityfund_dividendrate * equityvalue;
     bonddividend   = bondfund_dividendrate * bondvalue;
     
-    % TBD: This needs to be revised
     equitycapgain  = equityvalue * capgain_rate;
     
     % Calculate taxable income
@@ -458,7 +459,9 @@ function [resources, inc, pit, sst, cit] ...
     sst = find_tax_liability( labinc, sst_brackets, sst_burdens, sst_rates );
 
     % Calculate preferred rates tax 
-    cit = captax_share * equitydividend * captax_pref_rate; % NOTE: capgains taxed here also
+    capgain_taxrate = 0;
+    cit = captax_share * equitydividend * captax_pref_rate ...
+            + equitycapgain * capgain_taxrate;
 
     % Calculate available resources
     resources = equityvalue + bondvalue ...
