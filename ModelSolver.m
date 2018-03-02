@@ -177,7 +177,8 @@ methods (Static)
                                             , sstax_rates            ...
                                             , Market.priceindices );            
 
-            
+            equityfund_prices = ones(1,T_model);
+            bondfund_prices   = ones(1,T_model);
             % Package fixed dynamic optimization arguments into anonymous function
             solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes) ...
                 solve_cohort( ...
@@ -192,8 +193,8 @@ methods (Static)
                     Market.beqs, ...
                     Market.wages, ...
                     Market.capshares, ...
-                    Market.caprates, ones(1:T_model), ... % Equity returns and prices
-                    Market.govrates, ones(1:T_model)  ... % Bond returns and prices
+                    Market.caprates, equityfund_prices, ... % Equity returns and prices
+                    Market.govrates, bondfund_prices  ... % Bond returns and prices
                     ); 
 
             % Initialize series of terminal utility values
