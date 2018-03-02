@@ -3,19 +3,21 @@
 % 
 %%
 
-
 function [OPT] ...
     = solve_cohort( ...
         V0, LAB_static, isdynamic, ...
         nz, ns, nb, T_past, T_shift, T_active, T_work, T_model, ... 
         zs, transz, sv, bv, beta, gamma, sigma, surv, ...
         bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
-        sstaxcredit, ssbenefits, ssincmins, ssincmaxs, sswageindexes, ...
+        ssbenefits, ssincmins, ssincmaxs, sswageindexes, ...
         sstax_brackets, sstax_burdens, sstax_rates, ...
-        pittax_brackets, pittax_burdens, pittax_rates, ... 
-        captax_shares, captax_pref_rates, capgain_taxrates, capgain_shares, ...
-        beqs, capshares, govrates, expsubs, ...
-        wages, caprates, equityfund_prices ...
+        pittax_sscredit, pittax_brackets, pittax_burdens, pittax_rates, ... 
+        captax_shares, captax_pref_rates, capgain_taxrates, ...
+        beqs, ...
+        wages, ...
+        fund_equityshares, ...
+        equityfund_dividendrates, equityfund_prices, ...
+        bondfund_dividendrates, bondfund_prices ...
     ) %#codegen
 
 
@@ -52,7 +54,6 @@ assert( isa(bequest_phi_1, 'double' ) && (size(bequest_phi_1, 1) == 1 ) && (size
 assert( isa(bequest_phi_2, 'double' ) && (size(bequest_phi_2, 1) == 1 ) && (size(bequest_phi_2, 2) == 1 ) );
 assert( isa(bequest_phi_3, 'double' ) && (size(bequest_phi_3, 1) == 1 ) && (size(bequest_phi_3, 2) == 1 ) );
 
-assert( isa(sstaxcredit  , 'double'  ) && (size(sstaxcredit  , 1) == 1       ) && (size(sstaxcredit  , 2) == 1       ) );
 assert( isa(ssincmins    , 'double'  ) && (size(ssincmins    , 1) <= T_max   ) && (size(ssincmins    , 2) == 1       ) );
 assert( isa(ssincmaxs    , 'double'  ) && (size(ssincmaxs    , 1) <= T_max   ) && (size(ssincmaxs    , 2) == 1       ) );
 assert( isa(sswageindexes, 'double'  ) && (size(sswageindexes, 1) <= T_max   ) && (size(sswageindexes, 2) == 1       ) );
@@ -63,6 +64,7 @@ assert( isa(sstax_brackets  , 'double' ) && (size(sstax_brackets  , 1) <= T_max 
 assert( isa(sstax_burdens   , 'double' ) && (size(sstax_burdens   , 1) <= T_max ) && (size(sstax_burdens   , 2) <= nbrackets_max ) );
 assert( isa(sstax_rates     , 'double' ) && (size(sstax_rates     , 1) <= T_max ) && (size(sstax_rates     , 2) <= nbrackets_max ) );
 
+assert( isa(pittax_sscredit  , 'double' ) && (size(pittax_sscredit  , 1) == 1     ) && (size(pittax_sscredit  , 2) == 1             ) );
 assert( isa(pittax_brackets  , 'double' ) && (size(pittax_brackets  , 1) <= T_max ) && (size(pittax_brackets  , 2) <= nbrackets_max ) );
 assert( isa(pittax_burdens   , 'double' ) && (size(pittax_burdens   , 1) <= T_max ) && (size(pittax_burdens   , 2) <= nbrackets_max ) );
 assert( isa(pittax_rates     , 'double' ) && (size(pittax_rates     , 1) <= T_max ) && (size(pittax_rates     , 2) <= nbrackets_max ) );
@@ -70,16 +72,15 @@ assert( isa(pittax_rates     , 'double' ) && (size(pittax_rates     , 1) <= T_ma
 assert( isa(captax_shares     , 'double'  ) && (size(captax_shares     , 1) <= T_max   ) && (size(captax_shares     , 2) == 1       ) );
 assert( isa(captax_pref_rates , 'double'  ) && (size(captax_pref_rates , 1) <= T_max   ) && (size(captax_pref_rates , 2) == 1       ) );
 assert( isa(capgain_taxrates  , 'double'  ) && (size(capgain_taxrates  , 1) <= T_max   ) && (size(capgain_taxrates  , 2) == 1       ) );
-assert( isa(capgain_shares    , 'double'  ) && (size(capgain_shares    , 1) <= T_max   ) && (size(capgain_shares    , 2) == 1       ) );
 
-assert( isa(beqs        , 'double'  ) && (size(beqs         , 1) == 1       ) && (size(beqs         , 2) <= T_max   ) );
-assert( isa(capshares   , 'double'  ) && (size(capshares    , 1) == 1       ) && (size(capshares    , 2) <= T_max   ) );
-assert( isa(govrates    , 'double'  ) && (size(govrates     , 1) == 1       ) && (size(govrates     , 2) <= T_max   ) );
-assert( isa(expsubs     , 'double'  ) && (size(expsubs      , 1) == 1       ) && (size(expsubs      , 2) <= T_max   ) );
+assert( isa(beqs    , 'double'  ) && (size(beqs     , 1) == 1       ) && (size(beqs     , 2) <= T_max   ) );
+assert( isa(wages   , 'double'  ) && (size(wages    , 1) == 1       ) && (size(wages    , 2) <= T_max   ) );
 
-assert( isa(wages               , 'double'  ) && (size(wages                , 1) == 1       ) && (size(wages                , 2) <= T_max   ) );
-assert( isa(caprates            , 'double'  ) && (size(caprates             , 1) == 1       ) && (size(caprates             , 2) <= T_max   ) );
-assert( isa(equityfund_prices   , 'double'  ) && (size(equityfund_prices    , 1) == 1       ) && (size(equityfund_prices    , 2) <= T_max   ) );
+assert( isa(fund_equityshares        , 'double'  ) && (size(fund_equityshares        , 1) == 1       ) && (size(fund_equityshares        , 2) <= T_max   ) );
+assert( isa(equityfund_dividendrates , 'double'  ) && (size(equityfund_dividendrates , 1) == 1       ) && (size(equityfund_dividendrates , 2) <= T_max   ) );
+assert( isa(equityfund_prices        , 'double'  ) && (size(equityfund_prices        , 1) == 1       ) && (size(equityfund_prices        , 2) <= T_max   ) );
+assert( isa(bondfund_dividendrates   , 'double'  ) && (size(bondfund_dividendrates   , 1) == 1       ) && (size(bondfund_dividendrates   , 2) <= T_max   ) );
+assert( isa(bondfund_prices          , 'double'  ) && (size(bondfund_prices          , 1) == 1       ) && (size(bondfund_prices          , 2) <= T_max   ) );
 
 
 %% Dynamic optimization
@@ -118,20 +119,23 @@ for t = T_active:-1:1
     sswageindex = 1; % TBD: substitute by sswageindexes(year);
     ssbenefit   = ssbenefits   (year, :);
     
-    beq         = beqs         (year);
-    capshare    = capshares    (year);
-    expsub      = expsubs      (year);
-
+    beq         = beqs                  (year);
+    capshare    = fund_equityshares     (year);
+    
     % Prices for current year
-    govrate          = govrates     (year);
-    wage             = wages            (year);
-    caprate          = caprates         (year);
-    equityfund_price = equityfund_prices(year);
+    govrate          = bondfund_dividendrates   (year);
+    wage             = wages                    (year);
+    caprate          = equityfund_dividendrates (year);
+    equityfund_price = equityfund_prices        (year);
     bondfund_price   = 1; % TBD: This should be passed in
+    
+    % THIS IS TEMP
+    equityfund_prevprice = equityfund_prices(max(year-1),1);
+    capgain_share = capshare*((equityfund_price - equityfund_prevprice)/equityfund_price);
+    sstaxcredit = pittax_sscredit;
     
     % Taxes
     capgain_taxrate     = capgain_taxrates      (year);
-    capgain_share       = capgain_shares        (year);
     captax_share        = captax_shares         (year);
     captax_pref_rate    = captax_pref_rates     (year);
    
