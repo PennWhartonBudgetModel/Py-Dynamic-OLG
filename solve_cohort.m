@@ -99,6 +99,8 @@ OPT.CIT = zeros(nz,ns,nb,T_active);   % Capital income tax
 OPT.BEN = zeros(nz,ns,nb,T_active);   % Social Security benefits
 OPT.CON = zeros(nz,ns,nb,T_active);   % Consumption
 
+OPT.SAVINGS = zeros(nz,ns,nb,T_active); % Savings in dollars
+
 % Initialize forward-looking utility values
 V_step = V0;
 
@@ -119,7 +121,7 @@ for t = T_active:-1:1
     sswageindex = 1; % TBD: substitute by sswageindexes(year);
     ssbenefit   = ssbenefits   (year, :);
     
-    beq         = beqs                  (year);
+    beq         = beqs         (year);
 
     wage                    = wages                    (year);
     fund_equityshare        = fund_equityshares        (year);
@@ -168,6 +170,7 @@ for t = T_active:-1:1
             if (age > T_work)
                 
                 % Calculate available resources and tax terms
+                lab     = 0;
                 labinc  = 0;
                 ssinc   = ssbenefit(ib);
                 
@@ -204,24 +207,35 @@ for t = T_active:-1:1
                     assert( s <= sv(end), 's (s_next) is too big!')
 
                     % Record utility and optimal decision values
-                    OPT.V(:,is,ib,t) = -v;
-                    OPT.K(:,is,ib,t) = s ;
+                    %   s (savings in shares) is set by the optimizer
+                    %   v is also from optimizer
+                    v        = -v;  % Rem: flipped for minimization
                     
-                else
+                else % STATIC
                     
+                    % TBD: Record correct values for Static
                     s = sv(is); % TBD: This should come from Static
+                    v = 0;  % TBD: Calculate from static?
                     
                 end
                 
-                OPT.LAB(:,is,ib,t) = 0     ;
-                OPT.B  (:,is,ib,t) = bv(ib);
+                % Calculate resources -- just $ savings in this case
+                savings  = s * fund_price;
+                    
+                % Record utility, decisions, and other values
+                OPT.V      (:,is,ib,t)  = v;
+                OPT.K      (:,is,ib,t)  = s ;
+                OPT.SAVINGS(:,is,ib,t)  = savings;
+
+                OPT.LAB(:,is,ib,t)      = lab;
+                OPT.B  (:,is,ib,t)      = bv(ib);
                 
-                OPT.INC(:,is,ib,t) = inc   ;
-                OPT.PIT(:,is,ib,t) = pit   ;
-                OPT.SST(:,is,ib,t) = sst   ;
-                OPT.CIT(:,is,ib,t) = cit   ;
-                OPT.BEN(:,is,ib,t) = ssinc ;
-                OPT.CON(:,is,ib,t) = resources - s; % TBD: (s) is savings shares not savings
+                OPT.INC(:,is,ib,t)      = inc   ;
+                OPT.PIT(:,is,ib,t)      = pit   ;
+                OPT.SST(:,is,ib,t)      = sst   ;
+                OPT.CIT(:,is,ib,t)      = cit   ;
+                OPT.BEN(:,is,ib,t)      = ssinc ;
+                OPT.CON(:,is,ib,t)      = resources - savings; 
                 
             else
                 % Working age person
@@ -278,18 +292,27 @@ for t = T_active:-1:1
                         assert( ~isinf(v)   , 'v is inf')
                         assert( s <= sv(end), 's (s_next) is too big!')
                         
-                        % Record utility and optimal decision values
-                        OPT.V(iz,is,ib,t) = -v;
-                        OPT.K(iz,is,ib,t) = s ;
+                        v   = -v;  % Rem: flipped for minimization
                         
-                    else
-                        s = sv(is);
+                    else   % STATIC
+                        
+                        % TBD: Record correct values for Static
+                        s   = sv(is); % TBD: This should come from Static                  s = sv(is);
                         lab = LAB_static(iz,is,ib,t);
+                        v   = 0;  % TBD: Calculate from static?     
+                        
                     end
                     
-                    labinc = wage_eff * lab;
+                    % Calculate resources
+                    savings     = s * fund_price;
+                    labinc      = wage_eff * lab;
                     [resources, inc, pit, sst, cit] = calculate_resources_(labinc);
-                    
+
+                    % Record utility, decisions, and other values
+                    OPT.V      (iz,is,ib,t) = v;
+                    OPT.K      (iz,is,ib,t) = s;
+                    OPT.SAVINGS(iz,is,ib,t) = savings;
+
                     OPT.LAB(iz,is,ib,t) = lab;
                     OPT.B  (iz,is,ib,t) = calculate_b_(labinc);
                     
@@ -298,7 +321,7 @@ for t = T_active:-1:1
                     OPT.SST(iz,is,ib,t) = sst;
                     OPT.CIT(iz,is,ib,t) = cit;
                     OPT.BEN(iz,is,ib,t) = 0  ;
-                    OPT.CON(iz,is,ib,t) = resources - s; % TBD: (s) is savings in shares!
+                    OPT.CON(iz,is,ib,t) = resources - savings; 
                     
                 end
                 
