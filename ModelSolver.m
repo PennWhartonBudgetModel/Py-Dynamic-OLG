@@ -510,30 +510,8 @@ methods (Static)
         iterlog = fopen(fullfile(save_dir, 'iterations.csv'), 'w');
         
         % Display header
-        fprintf('\n[')
-        switch economy
-            
-            case 'steady'
-                fprintf('Steady state')
-            
-            case {'open', 'closed'}
-                str1 = [upper(economy(1)), economy(2:end)];
-                if isbase, str2 = 'baseline'; else, str2 = 'counterfactual'; end
-                fprintf('%s economy %s', str1, str2)
-                
-        end
-        fprintf(']\n')
         fprintf( 'Started at: %s \n', datetime );
-        for label = { {'T_model'       , T_model                            } , ...
-                      {'Beta'          , scenario.beta                      } , ...
-                      {'Gamma'         , scenario.gamma                     } , ...
-                      {'Sigma'         , scenario.sigma                     } , ...
-                      {'IsLowReturn'   , scenario.IsLowReturn               } , ...
-                      {'Model$'        , scenario.modelunit_dollar          }   ...
-                    }
-            fprintf('\t%-25s= % 7.8f\n', label{1}{:})
-        end
-        
+        fprintf( '%s\n', scenario.shortDescription );
         
         while (eps > tol && iter < itermax)
             

@@ -233,6 +233,35 @@ classdef Scenario
         end
         
         
+        % Human-readable description
+        function [desc] = shortDescription(this)
+            
+            desc = '[';
+            switch( this.economy) 
+            case 'steady'
+                desc = strcat(desc, 'Steady-state');
+            case {'open', 'closed'}
+                str1 = [upper(this.economy(1)), this.economy(2:end)];
+                desc = strcat(desc, str1 );
+            end
+            if this.isCurrentPolicy()
+                desc = strcat(desc, ' economy - baseline');
+            else
+                desc = strcat(desc, ' economy - counterfactual');
+            end
+            
+            T_model = ParamGenerator.timing(this).T_model;
+            desc = sprintf( '%s]', desc );
+         	desc = sprintf( '%s\n \t%-25s= %u'   , desc, 'T_model'     , T_model               ); 
+        	desc = sprintf( '%s\n \t%-25s= %u'   , desc, 'IsLowReturn' , this.IsLowReturn      ); 
+        	desc = sprintf( '%s\n \t%-25s= %7.8f', desc, 'Beta'        , this.beta             ); 
+        	desc = sprintf( '%s\n \t%-25s= %7.8f', desc, 'Gamma'       , this.gamma            ); 
+        	desc = sprintf( '%s\n \t%-25s= %7.8f', desc, 'Sigma'       , this.sigma            );    
+        	desc = sprintf( '%s\n \t%-25s= %e'   , desc, 'Model$'      , this.modelunit_dollar );    
+ 
+        end %shortDescription
+         
+        
         % Generate corresponding current policy scenario
         function [scenario] = currentPolicy(this)
             params = this.getParams();
