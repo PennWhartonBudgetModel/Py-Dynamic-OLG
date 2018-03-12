@@ -539,10 +539,16 @@ methods (Static)
             if isinitial
                 Market.beqs      = Market0.beqs*ones(1,T_model);
                 Market.capshares = Market0.capshares*ones(1,T_model);
-                Market.invtocaps = zeros(1,T_model);
+                Market.invtocaps = 0.0878*ones(1,T_model);
             else
                 Market.beqs      = beqs;
-                Market.invtocaps = ([Dynamic.caps(2:T_model) Dynamic.caps(T_model)] - (1 - d) * [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))]) ./ Dynamic.caps;
+                damper           = 0.6;
+                Market.invtocaps = damper*(Dynamic.investment ./ Dynamic.caps) + (1 - damper)*Market.invtocaps;
+                
+                for i=1:T_model
+                    fprintf('\n I/K %f', Market.invtocaps(i))
+                    fprintf(' rho %f\n', Market.rhos(i))
+                end
                 
             end
             
@@ -632,7 +638,7 @@ methods (Static)
                     rhos = max(Dynamic.caps, 0) / Dynamic.labeffs;
                     % Note: capgains is zero in steady state, so bequests don't need to be changed
                     beqs = Dynamic.bequests / sum(DIST_trans(:));
-                    clearing = Market.rhos - rhos;
+                    clearing = (Market.rhos - rhos) / rhos;
                     
                 case 'open'
                     
@@ -686,7 +692,7 @@ methods (Static)
                     beqs = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
                             Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
                             ] ./ Dynamic.pops;
-                    clearing = Market.beqs - beqs;
+                    clearing = (Market.beqs - beqs) ./ beqs;
                     
                 case 'closed'
                     
@@ -734,7 +740,7 @@ methods (Static)
                     beqs = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
                             Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
                             ] ./ Dynamic.pops;
-                    clearing = Market.rhos - rhos;
+                    clearing = (Market.rhos - rhos) ./ rhos;
                     
             end
             
