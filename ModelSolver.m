@@ -539,10 +539,10 @@ methods (Static)
             if isinitial
                 Market.beqs      = Market0.beqs*ones(1,T_model);
                 Market.capshares = Market0.capshares*ones(1,T_model);
-                Market.expsubs   = zeros(1,T_model);
+                Market.invtocaps = zeros(1,T_model);
             else
                 Market.beqs      = beqs;
-                Market.expsubs   = expshares' .* ([Dynamic.caps(2:T_model) Dynamic.caps(T_model)] - (1 - d) * [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))]) ./ Dynamic.caps;
+                Market.invtocaps = ([Dynamic.caps(2:T_model) Dynamic.caps(T_model)] - (1 - d) * [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))]) ./ Dynamic.caps;
                 
             end
             
@@ -559,9 +559,7 @@ methods (Static)
                         Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
                     end
                     
-                    MPKs         = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
-                    capreturns   = MPKs - tax.rateCorporate .* (MPKs - Market.expsubs) - d;
-                    
+                    Market.MPKs     = A*alpha*(Market.rhos .* qtobin).^(alpha-1);                  
                     Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
 
                 case 'open'
@@ -580,6 +578,7 @@ methods (Static)
             Market.totrates = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
 
             % Compute prices
+            Market.expsubs       = expshares' .* Market.invtocaps;
             Market.rhos          = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
             Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
             Market.qtobin0       = qtobin0;
@@ -629,8 +628,6 @@ methods (Static)
                     Dynamic.investment = (Market.capshares * (assets_tomorrow - Dynamic.bequests))/qtobin - ...
                                          (1 - d) * Dynamic.caps;
                                      
-                    invtocaps = Dynamic.investment ./ Dynamic.caps
-                    
                     % Calculate market clearing series
                     rhos = max(Dynamic.caps, 0) / Dynamic.labeffs;
                     % Note: capgains is zero in steady state, so bequests don't need to be changed
@@ -680,8 +677,6 @@ methods (Static)
                     Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - d) * ...
                                          [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))];
 
-                    invtocaps = Dynamic.investment ./ Dynamic.caps
-                    
                     % Calculate market clearing series
                     % Note: Bequests should be priced according to the new policy because it
                     %       corresponds to yesterday's assets that were collected and sold by the
@@ -731,8 +726,6 @@ methods (Static)
                     Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - d) * ...
                                          [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))];
 
-                    invtocaps = Dynamic.investment ./ Dynamic.caps
-                    
                     % Calculate market clearing series
                     % Note: Dynamic.assets represents current assets at new prices.
                     %       Bequests should also be priced according to the new policy.
