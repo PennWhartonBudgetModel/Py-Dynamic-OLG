@@ -542,7 +542,8 @@ methods (Static)
                 Market.expsubs   = zeros(1,T_model);
             else
                 Market.beqs      = beqs;
-                Market.expsubs   = expshares' .* max([diff(Dynamic.caps) Dynamic.caps(T_model)-Dynamic.caps(max(T_model-1,1))], 0) ./ Dynamic.caps;
+                Market.expsubs   = expshares' .* max([Dynamic.caps(2:T_model) Dynamic.caps(T_model)] - [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))], 0) ./ Dynamic.caps;
+                
             end
             
             switch economy
