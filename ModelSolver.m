@@ -623,6 +623,14 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     Dynamic.revs    = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;            
                     
+                    % Proxy for gross investment in physical capital
+                    DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
+                    assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.K, [], T_model), 1), 3);
+                    Dynamic.investment = (Market.capshares * (assets_tomorrow - Dynamic.bequests))/qtobin - ...
+                                         (1 - d) * Dynamic.caps;
+                                     
+                    invtocaps = Dynamic.investment ./ Dynamic.caps
+                    
                     % Calculate market clearing series
                     rhos = max(Dynamic.caps, 0) / Dynamic.labeffs;
                     % Note: capgains is zero in steady state, so bequests don't need to be changed
@@ -668,6 +676,12 @@ methods (Static)
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
+                    % Gross investment in physical capital
+                    Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - d) * ...
+                                         [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))];
+
+                    invtocaps = Dynamic.investment ./ Dynamic.caps
+                    
                     % Calculate market clearing series
                     % Note: Bequests should be priced according to the new policy because it
                     %       corresponds to yesterday's assets that were collected and sold by the
@@ -712,6 +726,12 @@ methods (Static)
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
+                    
+                    % Gross investment in physical capital
+                    Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - d) * ...
+                                         [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))];
+
+                    invtocaps = Dynamic.investment ./ Dynamic.caps
                     
                     % Calculate market clearing series
                     % Note: Dynamic.assets represents current assets at new prices.
