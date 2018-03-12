@@ -565,7 +565,7 @@ methods (Static)
                         Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
                     end
                     
-                    Market.MPKs     = A*alpha*(Market.rhos .* qtobin).^(alpha-1);                  
+                    Market.MPKs     = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
                     Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
 
                 case 'open'
@@ -584,7 +584,7 @@ methods (Static)
             Market.totrates = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
 
             % Compute prices
-            Market.expsubs       = expshares' .* Market.invtocaps;
+            Market.expsubs       = tax.rateCorporate' .* expshares' .* Market.invtocaps;
             Market.rhos          = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
             Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
             Market.qtobin0       = qtobin0;
