@@ -426,9 +426,9 @@ methods (Static)
                                 Static.debts_domestic + Static.debts_foreign;
                         
             % Save static aggregates
-            save(fullfile(save_dir, 'statics.mat'), '-struct', 'Static')
-            save(fullfile(save_dir, 'Static_all_decisions.mat'   ), '-struct', 'Static_OPTs')
-            save(fullfile(save_dir, 'Static_distribution.mat'), 'Static_DIST')        
+            save(fullfile(save_dir, 'statics.mat')              , '-struct', 'Static')
+            save(fullfile(save_dir, 'Static_decisions.mat')     , '-struct', 'Static_OPTs')
+            save(fullfile(save_dir, 'Static_distribution.mat')  , 'Static_DIST')        
             
         end
         
@@ -746,16 +746,10 @@ methods (Static)
             warning('Model did not converge.')
         end
         
-        
-        % Save baseline optimal labor values and population distribution
-        if isbase
-            save(fullfile(save_dir, 'decisions.mat'   ), 'LABs')
-        end
-        
-        % Save market conditions and dynamic aggregates
-        save(fullfile(save_dir, 'market.mat'  ), '-struct', 'Market' )
-        save(fullfile(save_dir, 'dynamics.mat'), '-struct', 'Dynamic')
-        save(fullfile(save_dir, 'all_decisions.mat'   ), '-struct', 'OPTs')
+        % Save market conditions, HH policies, and dynamic aggregates
+        save(fullfile(save_dir, 'market.mat'   )    , '-struct', 'Market' )
+        save(fullfile(save_dir, 'dynamics.mat' )    , '-struct', 'Dynamic')
+        save(fullfile(save_dir, 'decisions.mat')    , 'OPTs', 'LABs')
         switch economy
             case 'steady'
                 DIST = struct('DIST', DIST, 'DIST_trans', DIST_trans);
