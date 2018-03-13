@@ -578,7 +578,7 @@ methods (Static)
                     case {'steady', 'closed'}
 
                         Market.rhos      = damper*rhos + (1-damper)*Market.rhos;
-                        Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
+                        Market.capshares = capshares;
                         Market.MPKs     = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
                         Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
 
@@ -644,6 +644,7 @@ methods (Static)
                     rhos      = Dynamic.caps / Dynamic.labeffs;
                     beqs      = Dynamic.bequests / sum(DIST_trans(:));          % Note: capgains is zero in steady state, so bequests don't need to be changed
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
+                    capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
 
                 case 'open'
                     
@@ -699,6 +700,7 @@ methods (Static)
                                  Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
                                 ] ./ Dynamic.pops;
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
+                    capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
 
                 case 'closed'
                     
@@ -747,6 +749,7 @@ methods (Static)
                                  Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
                                 ] ./ Dynamic.pops;
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
+                    capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
 
             end
             
@@ -754,15 +757,17 @@ methods (Static)
             clearing.rhos      = max(abs((Market.rhos      - rhos)      ./ rhos     ));
             clearing.beqs      = max(abs((Market.beqs      - beqs)      ./ beqs     ));
             clearing.invtocaps = max(abs((Market.invtocaps - invtocaps) ./ invtocaps));
+            clearing.capshares = max(abs((Market.capshares - capshares) ./ capshares));
                     
             % Check convergence
             isConverged = (clearing.rhos      < tolerance.rhos     ) && ...
                           (clearing.beqs      < tolerance.beqs     ) && ...
                           (clearing.invtocaps < tolerance.invtocaps);
             
-            fprintf('Error terms: rhos = %7.6f beqs = %7.6f I/K = %7.6f\n', ...
-                    clearing.rhos, clearing.beqs, clearing.invtocaps)
-            fprintf(iterlog, '%u,%0.6f,%0.6f,%0.6f\n', iter, clearing.rhos, clearing.beqs, clearing.invtocaps);
+            fprintf('Errors: rhos = %7.6f beqs = %7.6f I/K = %7.6f capshares = %7.6f\n', ...
+                    clearing.rhos, clearing.beqs, clearing.invtocaps, clearing.capshares)
+            fprintf(iterlog, '%u,%0.6f,%0.6f,%0.6f,%0.6f\n', iter, ...
+                    clearing.rhos, clearing.beqs, clearing.invtocaps, clearing.capshares);
             
             
         end
