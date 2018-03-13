@@ -433,12 +433,16 @@ methods (Static)
             case 'steady'
                 
                 % Load initial conditions
-                Market0 = struct('beqs',0.0927,'capshares',3/(3+debttoout),'rhos',6.2);
-                    % Initial guesses set as follows:
-                    % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                    % beqs and rhos are guesses from previous code.
-                
+                Market0 = struct( 'beqs'     , 0.0927         , ...     % beqs are results from previous runs.
+                                  'capshares', 3/(3+debttoout), ...     % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                                  'rhos'     , 6.2            , ...     % rhos are results from previous runs.
+                                  'invtocaps', 0.0078 + d       ...     % I/K = pop growth rate 0.0078 + depreciation
+                                 );
+
                 DIST_steady = {};
+                
+                % Initialize damper to update guesses
+                damper = 0.5;
                 
             case {'open', 'closed'}
                 
@@ -455,6 +459,9 @@ methods (Static)
                 s        = hardyload('distribution.mat', steady_generator, steady_dir);
                 
                 DIST_steady = s.DIST_trans;
+                
+                % Initialize damper to update guesses
+                damper = 1;
                 
         end
         
@@ -539,42 +546,44 @@ methods (Static)
             
             % Define market conditions
             if isinitial
-                Market.beqs      = Market0.beqs*ones(1,T_model);
+                Market.beqs      = Market0.beqs     *ones(1,T_model);
                 Market.capshares = Market0.capshares*ones(1,T_model);
-                Market.invtocaps = 0.0878*ones(1,T_model);
-            else
-                Market.beqs      = beqs;
-                damper           = 0.6;
-                Market.invtocaps = damper*invtocaps + (1 - damper)*Market.invtocaps;
-                                
-            end
-            
-            switch economy
+                Market.invtocaps = Market0.invtocaps*ones(1,T_model);
                 
-                case {'steady', 'closed'}
-                    
-                    if isinitial
-                        Market.rhos      = Market0.rhos*ones(1,T_model);
-                        Market.govrates  = debtrates;
-                    else
-                        rhostep = 0.5;
-                        Market.rhos      = rhostep*rhos + (1-rhostep)*Market.rhos;
-                        Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
-                    end
-                    
-                    Market.MPKs     = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
-                    Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
+                switch economy
 
-                case 'open'
-                    
-                    if isinitial
+                    case {'steady', 'closed'}
+
+                        Market.rhos     = Market0.rhos*ones(1,T_model);
+                        Market.govrates = debtrates;
+                        Market.MPKs     = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
+                        Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
+
+                    case 'open'
+
                         % Rem: Returns are fixed to match steady-state in
                         % open economy. That is, after-tax returns for
                         % capital are fixed.
-                        Market.caprates  = Market0.caprates*ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
-                        Market.govrates  = Market0.govrates*ones(1,T_model);
-                    end
-                    
+                        Market.caprates = Market0.caprates*ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
+                        Market.govrates = Market0.govrates*ones(1,T_model);
+
+                end
+                
+            else
+                Market.beqs      = damper*beqs      + (1 - damper)*Market.beqs     ;
+                Market.invtocaps = damper*invtocaps + (1 - damper)*Market.invtocaps;
+                                            
+                switch economy
+
+                    case {'steady', 'closed'}
+
+                        Market.rhos      = damper*rhos + (1-damper)*Market.rhos;
+                        Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
+                        Market.MPKs     = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
+                        Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
+
+                end
+                
             end
             
             % Report total returns to households
