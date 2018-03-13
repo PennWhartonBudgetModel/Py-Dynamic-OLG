@@ -429,7 +429,7 @@ function [resources, inc, pit, sst, cit] ...
     sst = find_tax_liability( labinc, sst_brackets, sst_burdens, sst_rates );
 
     % Calculate corporate income tax
-    cit = (capshare + capgain_share)*kv_ik*(taucap*(caprate - expsub)*captaxshare);
+    cit = (capshare + capgain_share)*kv_ik*((taucap*caprate - expsub)*captaxshare);
 
     % Calculate available resources
     resources = (1 + totrate)*kv_ik + labinc + ssinc - (pit + sst + cit) + beq + kv_ik*capgain_share;

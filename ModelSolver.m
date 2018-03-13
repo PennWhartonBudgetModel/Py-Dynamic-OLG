@@ -433,13 +433,16 @@ methods (Static)
             case 'steady'
                 
                 % Load initial guesses
-                Market0 = struct( 'beqs'     , 0.1493         , ...     % guess based on Feb 19 steady state run.
+                Market0 = struct( 'beqs'     , 0.0927         , ...     % beqs are results from previous runs.
                                   'capshares', 3/(3+debttoout), ...     % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                                  'rhos'     , 7.2918         , ...     % guess based on Feb 19 steady state run.
-                                  'expsubs'  , expshares*0.0078 ...     % expsubs set at its value when pop growth rate = 0.78%
+                                  'rhos'     , 6.2            , ...     % rhos are results from previous runs.
+                                  'invtocaps', 0.0078 + d       ...     % I/K = pop growth rate 0.0078 + depreciation
                                  );
-                
+
                 DIST_steady = {};
+                
+                % Initialize damper to update guesses
+                damper = 0.5;
                 
             case {'open', 'closed'}
                 
@@ -455,6 +458,9 @@ methods (Static)
                 % Load steady state population distribution
                 s = hardyload('distribution.mat', steady_generator, steady_dir);
                 DIST_steady = s.DIST_trans;
+                
+                % Initialize damper to update guesses
+                damper = 1;
                 
         end
         
@@ -490,8 +496,10 @@ methods (Static)
         
         
         % Define marketing clearing tolerance and initialize error term
-        tol = 1e-5;
-        eps = Inf;
+        tolerance.rhos      = 1e-5;
+        tolerance.beqs      = 1e-4;
+        tolerance.invtocaps = 5e-4;
+        isConverged         = false;
         
         % Initialize iteration count and set maximum number of iterations
         iter    =  0;
@@ -527,7 +535,7 @@ methods (Static)
         end
         
         
-        while (eps > tol && iter < itermax)
+        while (~isConverged && iter < itermax)
             
             % Increment iteration count
             iter = iter + 1;
@@ -537,47 +545,50 @@ methods (Static)
             
             % Define market conditions in the first iteration
             if isinitial
-                Market.beqs      = Market0.beqs      * ones(1,T_model);
-                Market.expsubs   = Market0.expsubs   * ones(1,T_model);
-                Market.capshares = Market0.capshares * ones(1,T_model);
+                Market.beqs      = Market0.beqs     *ones(1,T_model);
+                Market.capshares = Market0.capshares*ones(1,T_model);
+                Market.invtocaps = Market0.invtocaps*ones(1,T_model);
                 
                 switch economy
-                    
-                    case{'steady', 'closed'}
+
+                    case {'steady', 'closed'}
+
                         Market.rhos     = Market0.rhos*ones(1,T_model);
                         Market.govrates = debtrates;
-                        Market.caprates = A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d;
-                        
-                    case{'open'}
-                        % Rem: Returns are fixed to match steady-state in open economy.
-                        % That is, after-tax returns for capital are fixed.
+                        Market.MPKs     = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
+                        Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
+
+                    case 'open'
+
+                        % Rem: Returns are fixed to match steady-state in
+                        % open economy. That is, after-tax returns for
+                        % capital are fixed.
                         Market.caprates = Market0.caprates*ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
                         Market.govrates = Market0.govrates*ones(1,T_model);
-                        Market.rhos     = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
-                        
-                end
-                        
-            % Define market conditions for subsequent iterations
-            else
-                Market.beqs    = beqs;
-                Market.expsubs = expsubs;
-                
-                switch economy
-                    
-                    case{'steady', 'closed'}
-                        rhostep          = 0.5;
-                        Market.rhos      = rhostep*rhos + (1-rhostep)*Market.rhos;
-                        Market.caprates  = A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d;
-                        Market.capshares = capshares;
 
                 end
-                        
+                
+            else
+                Market.beqs      = damper*beqs      + (1 - damper)*Market.beqs     ;
+                Market.invtocaps = damper*invtocaps + (1 - damper)*Market.invtocaps;
+                                            
+                switch economy
+
+                    case {'steady', 'closed'}
+
+                        Market.rhos      = damper*rhos + (1-damper)*Market.rhos;
+                        Market.capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
+                        Market.MPKs     = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
+                        Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
+
+                end
+                
             end
 
-            % Compute prices            
-            MPKs                 = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
-            capreturns           = MPKs - tax.rateCorporate .* (MPKs - Market.expsubs) - d;
-            Market.totrates      = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates; % Report total returns to households
+            % Compute prices
+            Market.expsubs       = tax.rateCorporate' .* expshares' .* Market.invtocaps;
+            Market.totrates      = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
+            Market.rhos          = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
             Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
             Market.qtobin0       = qtobin0;
             Market.qtobin        = qtobin;
@@ -589,7 +600,7 @@ methods (Static)
             % Generate dynamic aggregates
             [Dynamic, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {});
             
-            
+
             % Calculate additional dynamic aggregates
             % (Note that open economy requires capital calculation before debt calculation while closed economy requires the reverse)
             switch economy
@@ -625,21 +636,12 @@ methods (Static)
                     assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.K, [], T_model), 1), 3);
                     Dynamic.investment = (Market.capshares * (assets_tomorrow - Dynamic.bequests))/qtobin - ...
                                          (1 - d) * Dynamic.caps;
-                    
+                                     
                     % Update guesses
-                    rhos      = max(Dynamic.caps, 0) / Dynamic.labeffs;
-                    beqs      = Dynamic.bequests / sum(DIST_trans(:));   % capgains is zero in steady state, so there's no addition to bequests
-                    capshares = (Dynamic.assets - Dynamic.debts) / Dynamic.assets;
-                    expsubs   = expshares * ( sum(DIST_trans(:)) - ...   % Assumption: caps grows at the population growth rate in steady state      
-                                sum(DIST(:))) / sum(DIST(:) );
-                            
-                    % Calculate market clearing series
-                    clearing = [(Market.rhos      - rhos)      / rhos   ,  ...
-                                (Market.beqs      - beqs)      / beqs   ,  ...
-                                (Market.expsubs   - expsubs)   / expsubs,  ...
-                                (Market.capshares - capshares) / capshares ...
-                                ];
-                    
+                    rhos      = Dynamic.caps / Dynamic.labeffs;
+                    beqs      = Dynamic.bequests / sum(DIST_trans(:));          % Note: capgains is zero in steady state, so bequests don't need to be changed
+                    invtocaps = Dynamic.investment ./ Dynamic.caps;
+
                 case 'open'
                     
                     % Calculate capital and output
@@ -682,23 +684,18 @@ methods (Static)
                     % Gross investment in physical capital
                     Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - d) * ...
                                          [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))];
-                    
                     % Update guesses
                     % Note: Bequests should be priced according to the new policy because it
                     %       corresponds to yesterday's assets that were collected and sold by the
                     %       government yesterday after some people died, but redistributed today
                     %       after the new policy took place.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    expsubs = expshares' .* max(Dynamic.investment, 0) ./ Dynamic.caps;
-                    beqs    = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
-                               Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
-                              ] ./ Dynamic.pops;
+                    rhos      = Dynamic.caps / Dynamic.labeffs;
+                    beqs      = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
+                                 Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
+                                ] ./ Dynamic.pops;
+                    invtocaps = Dynamic.investment ./ Dynamic.caps;
 
-                    % Calculate market clearing series (rhos are fixed)
-                    clearing = [(Market.beqs      - beqs)    ./ beqs   ,  ...
-                                (Market.expsubs   - expsubs) ./ expsubs  ...
-                                ];
-                    
                 case 'closed'
                     
                     % Calculate debt
@@ -741,34 +738,34 @@ methods (Static)
                     % Note: Dynamic.assets represents current assets at new prices.
                     %       Bequests should also be priced according to the new policy.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    rhos      = (max(Dynamic.assets - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
-                    expsubs   = expshares' .* max(Dynamic.investment, 0) ./ Dynamic.caps;
-                    capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
+                    rhos      = Dynamic.caps ./ Dynamic.labeffs;
                     beqs      = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
                                  Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
                                 ] ./ Dynamic.pops;
+                    invtocaps = Dynamic.investment ./ Dynamic.caps;
 
-                    % Calculate market clearing series
-                    clearing = [(Market.rhos      - rhos)      ./ rhos   ,  ...
-                                (Market.beqs      - beqs)      ./ beqs   ,  ...
-                                (Market.expsubs   - expsubs)   ./ expsubs,  ...
-                                (Market.capshares - capshares) ./ capshares ...
-                                ];
-                    
             end
             
-            % Calculate maximum error in market clearing series
-            eps = max(abs(clearing));
+            % Calculate market clearing series
+            clearing.rhos      = max(abs((Market.rhos      - rhos)      ./ rhos     ));
+            clearing.beqs      = max(abs((Market.beqs      - beqs)      ./ beqs     ));
+            clearing.invtocaps = max(abs((Market.invtocaps - invtocaps) ./ invtocaps));
+                    
+            % Check convergence
+            isConverged = (clearing.rhos      < tolerance.rhos     ) && ...
+                          (clearing.beqs      < tolerance.beqs     ) && ...
+                          (clearing.invtocaps < tolerance.invtocaps);
             
-            fprintf('Error term = %7.6f\n', eps)
-            fprintf(iterlog, '%u,%0.4f\n', iter, eps);
+            fprintf('Error terms: rhos = %7.6f beqs = %7.6f I/K = %7.6f\n', ...
+                    clearing.rhos, clearing.beqs, clearing.invtocaps)
+            fprintf(iterlog, '%u,%0.6f,%0.6f,%0.6f\n', iter, clearing.rhos, clearing.beqs, clearing.invtocaps);
             
             
         end
         fprintf('\n')
         fclose(iterlog);
         
-        Dynamic.is_converged = (eps <= tol);
+        Dynamic.is_converged = isConverged;
         % Issue warning if did not converge
         if (~Dynamic.is_converged)
             warning('Model did not converge.')
