@@ -441,8 +441,12 @@ methods (Static)
 
                 DIST_steady = {};
                 
-                % Initialize damper to update guesses
-                damper = 0.5;
+                % Initialize damper to update guesses - 0 means not
+                % dampened and 1 means fully dampened
+                damper.rhos      = 0.5;
+                damper.beqs      = 0.0;
+                damper.invtocaps = 0.5;
+                damper.capshares = 0.0;
                 
             case {'open', 'closed'}
                 
@@ -460,8 +464,12 @@ methods (Static)
                 
                 DIST_steady = s.DIST_trans;
                 
-                % Initialize damper to update guesses
-                damper = 1;
+                % Initialize damper to update guesses - 0 means not
+                % dampened and 1 means fully dampened
+                damper.rhos      = 0.0;
+                damper.beqs      = 0.0;
+                damper.invtocaps = 0.0;
+                damper.capshares = 0.0;
                 
         end
         
@@ -570,17 +578,17 @@ methods (Static)
                 end
                 
             else
-                Market.beqs      = damper*beqs      + (1 - damper)*Market.beqs     ;
-                Market.invtocaps = damper*invtocaps + (1 - damper)*Market.invtocaps;
+                Market.beqs      = damper.beqs*Market.beqs + (1 - damper.beqs)*beqs;
+                Market.invtocaps = damper.invtocaps*Market.invtocaps + (1 - damper.invtocaps)*invtocaps;
                                             
                 switch economy
 
                     case {'steady', 'closed'}
 
-                        Market.rhos      = damper*rhos + (1-damper)*Market.rhos;
-                        Market.capshares = capshares;
-                        Market.MPKs     = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
-                        Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
+                        Market.rhos      = damper.rhos*Market.rhos + (1-damper.rhos)*rhos;
+                        Market.capshares = damper.capshares*Market.capshares + (1-damper.capshares)*capshares;
+                        Market.MPKs      = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
+                        Market.caprates  = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
 
                 end
                 
