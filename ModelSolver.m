@@ -490,8 +490,10 @@ methods (Static)
         
         
         % Define marketing clearing tolerance and initialize error term
-        tol = 1e-5;
-        eps = Inf;
+        tolerance.rhos      = 1e-5;
+        tolerance.beqs      = 1e-4;
+        tolerance.invtocaps = 5e-4;
+        isConverged         = false;
         
         % Initialize iteration count and set maximum number of iterations
         iter    =  0;
@@ -527,7 +529,7 @@ methods (Static)
         end
         
         
-        while (eps > tol && iter < itermax) || (iter < 2)
+        while (~isConverged && iter < itermax)
             
             % Increment iteration count
             iter = iter + 1;
@@ -543,13 +545,8 @@ methods (Static)
             else
                 Market.beqs      = beqs;
                 damper           = 0.6;
-                Market.invtocaps = damper*(Dynamic.investment ./ Dynamic.caps) + (1 - damper)*Market.invtocaps;
-                
-                for i=1:T_model
-                    fprintf('\n I/K %f', Market.invtocaps(i))
-                    fprintf(' rho %f\n', Market.rhos(i))
-                end
-                
+                Market.invtocaps = damper*invtocaps + (1 - damper)*Market.invtocaps;
+                                
             end
             
             switch economy
@@ -597,7 +594,7 @@ methods (Static)
             % Generate dynamic aggregates
             [Dynamic, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {});
             
-            
+
             % Calculate additional dynamic aggregates
             % (Note that open economy requires capital calculation before debt calculation while closed economy requires the reverse)
             switch economy
@@ -634,12 +631,11 @@ methods (Static)
                     Dynamic.investment = (Market.capshares * (assets_tomorrow - Dynamic.bequests))/qtobin - ...
                                          (1 - d) * Dynamic.caps;
                                      
-                    % Calculate market clearing series
-                    rhos = max(Dynamic.caps, 0) / Dynamic.labeffs;
-                    % Note: capgains is zero in steady state, so bequests don't need to be changed
-                    beqs = Dynamic.bequests / sum(DIST_trans(:));
-                    clearing = (Market.rhos - rhos) / rhos;
-                    
+                    % Update guesses
+                    rhos      = Dynamic.caps / Dynamic.labeffs;
+                    beqs      = Dynamic.bequests / sum(DIST_trans(:));          % Note: capgains is zero in steady state, so bequests don't need to be changed
+                    invtocaps = Dynamic.investment ./ Dynamic.caps;
+
                 case 'open'
                     
                     % Calculate capital and output
@@ -683,17 +679,18 @@ methods (Static)
                     Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - d) * ...
                                          [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))];
 
-                    % Calculate market clearing series
+                    % Update guesses
                     % Note: Bequests should be priced according to the new policy because it
                     %       corresponds to yesterday's assets that were collected and sold by the
                     %       government yesterday after some people died, but redistributed today
                     %       after the new policy took place.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    beqs = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
-                            Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
-                            ] ./ Dynamic.pops;
-                    clearing = (Market.beqs - beqs) ./ beqs;
-                    
+                    rhos      = Dynamic.caps / Dynamic.labeffs;
+                    beqs      = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
+                                 Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
+                                ] ./ Dynamic.pops;
+                    invtocaps = Dynamic.investment ./ Dynamic.caps;
+
                 case 'closed'
                     
                     % Calculate debt
@@ -732,30 +729,38 @@ methods (Static)
                     Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - d) * ...
                                          [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))];
 
-                    % Calculate market clearing series
+                    % Update guesses
                     % Note: Dynamic.assets represents current assets at new prices.
                     %       Bequests should also be priced according to the new policy.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    rhos = (max(Dynamic.assets - Dynamic.debts, 0) ./ qtobin) ./ Dynamic.labeffs;
-                    beqs = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
-                            Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
-                            ] ./ Dynamic.pops;
-                    clearing = (Market.rhos - rhos) ./ rhos;
-                    
+                    rhos      = Dynamic.caps ./ Dynamic.labeffs;
+                    beqs      = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
+                                 Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
+                                ] ./ Dynamic.pops;
+                    invtocaps = Dynamic.investment ./ Dynamic.caps;
+
             end
             
-            % Calculate maximum error in market clearing series
-            eps = max(abs(clearing));
+            % Calculate market clearing series
+            clearing.rhos      = max(abs((Market.rhos      - rhos)      ./ rhos     ));
+            clearing.beqs      = max(abs((Market.beqs      - beqs)      ./ beqs     ));
+            clearing.invtocaps = max(abs((Market.invtocaps - invtocaps) ./ invtocaps));
+                    
+            % Check convergence
+            isConverged = (clearing.rhos      < tolerance.rhos     ) && ...
+                          (clearing.beqs      < tolerance.beqs     ) && ...
+                          (clearing.invtocaps < tolerance.invtocaps);
             
-            fprintf('Error term = %7.6f\n', eps)
-            fprintf(iterlog, '%u,%0.4f\n', iter, eps);
+            fprintf('Error terms: rhos = %7.6f beqs = %7.6f I/K = %7.6f\n', ...
+                    clearing.rhos, clearing.beqs, clearing.invtocaps)
+            fprintf(iterlog, '%u,%0.6f,%0.6f,%0.6f\n', iter, clearing.rhos, clearing.beqs, clearing.invtocaps);
             
             
         end
         fprintf('\n')
         fclose(iterlog);
         
-        Dynamic.is_converged = (eps <= tol);
+        Dynamic.is_converged = isConverged;
         % Issue warning if did not converge
         if (~Dynamic.is_converged)
             warning('Model did not converge.')
