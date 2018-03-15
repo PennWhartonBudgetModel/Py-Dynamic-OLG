@@ -254,7 +254,8 @@ methods (Static, Access = public)
     end
     
     
-    
+    %%%%%%%%%%%%%%%%%%%%%%%%%
+    %%  Output interfaces
     
     % Get calibration output directory
     function [calibrationoutputdir] = getCalibrationOutputDir()
@@ -266,6 +267,10 @@ methods (Static, Access = public)
         dataseriesoutputdir = PathFinder.getOutputDir('dataseries');
     end
     
+    % Get transition matrices output directory
+    function [dataseriesoutputdir] = getTransitionMatrixOutputDir()
+        dataseriesoutputdir = PathFinder.getOutputDir('transition');
+    end
     
 end
 
