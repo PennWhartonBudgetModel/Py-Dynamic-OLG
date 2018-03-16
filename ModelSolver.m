@@ -189,7 +189,7 @@ methods (Static)
                     ssbenefits, ssincmins_indexed, ssincmaxs_indexed, cohort_wageindexes, ...
                     sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
                     sstaxcredit, pit.brackets, pit.burdens, pit.rates, ... 
-                    captaxshares, tax.ratePreferred, taucapgains, ...
+                    captaxshares, pit.ratePreferred, taucapgains, ...
                     Market.beqs, ...
                     Market.wages, ...
                     Market.capshares, ...
@@ -533,7 +533,7 @@ methods (Static)
             
             % Increment iteration count
             iter = iter + 1;
-            fprintf('\tIteration %2d  ...  ', iter)
+            fprintf(' Iteration %2d  ...  ', iter)
             isinitial = iter == 1;
             
             
@@ -549,7 +549,6 @@ methods (Static)
 
                         Market.rhos     = Market0.rhos*ones(1,T_model);
                         Market.govrates = debtrates;
-                        Market.MPKs     = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
                         Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
 
                     case 'open'
@@ -572,7 +571,6 @@ methods (Static)
 
                         Market.rhos      = damper.rhos*Market.rhos + (1-damper.rhos)*rhos;
                         Market.capshares = damper.capshares*Market.capshares + (1-damper.capshares)*capshares;
-                        Market.MPKs      = A*alpha*(Market.rhos .* qtobin).^(alpha-1);
                         Market.caprates  = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
 
                 end
