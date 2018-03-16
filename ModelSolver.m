@@ -138,6 +138,9 @@ methods (Static)
         bequest_phi_2 = s.phi2;                 % phi2 measures the extent to which bequests are a luxury good
         bequest_phi_3 = s.phi3;                 % phi3 is the relative risk aversion coefficient
 
+        % Instantiate a Firm
+        theFirm       = Firm( scenario );
+        
         
         %% Aggregate generation function
         
@@ -536,7 +539,6 @@ methods (Static)
             fprintf(' Iteration %2d  ...  ', iter)
             isinitial = iter == 1;
             
-            
             % Define market conditions in the first iteration
             if isinitial
                 Market.beqs      = Market0.beqs     *ones(1,T_model);
@@ -550,7 +552,14 @@ methods (Static)
                         Market.rhos     = Market0.rhos*ones(1,T_model);
                         Market.govrates = debtrates;
                         Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
-
+                        
+                        % TBD: Conversion 
+                        capital     = ones(1,T_model); 
+                        labor       = ones(1,T_model);
+                        investment  = zeros(1,T_model);
+                        wage        = ones(1,T_model);
+                        [dividends , cits] = theFirm.dividends(capital, labor, investment, wage)
+                        % END CONVERSION
                     case 'open'
 
                         % Rem: Returns are fixed to match steady-state in
@@ -562,6 +571,15 @@ methods (Static)
                 end
                 
             else
+                
+                % TBD: Conversion 
+                capital     = Dynamic.caps; 
+                labor       = Dynamic.labeffs;
+                investment  = Dynamic.investment;
+                wage        = Market.wages;
+                [dividends , cits] = theFirm.dividends(capital, labor, investment, wage)
+                % END CONVERSION
+                
                 Market.beqs      = damper.beqs*Market.beqs + (1 - damper.beqs)*beqs;
                 Market.invtocaps = damper.invtocaps*Market.invtocaps + (1 - damper.invtocaps)*invtocaps;
                                             

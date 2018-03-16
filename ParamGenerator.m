@@ -352,7 +352,7 @@ methods (Static)
         s.risk_premium  = 0;
         s.depreciation  = params.Depreciation;  % Actual depreciation rate
         if( scenario.IsLowReturn )
-            s.risk_premium  = 0.08 - params.Depreciation % "Depreciation rate" to generate r=risk-free rate         ;
+            s.risk_premium  = 0.08 - params.Depreciation; % "Depreciation rate" to generate r=risk-free rate         ;
         end
         s.d             = s.depreciation + s.risk_premium;  
         
