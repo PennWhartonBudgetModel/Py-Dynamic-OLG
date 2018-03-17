@@ -554,10 +554,10 @@ methods (Static)
                         Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
                         
                         % TBD: Conversion 
-                        capital     = ones(1,T_model); 
-                        labor       = ones(1,T_model);
-                        investment  = zeros(1,T_model);
-                        wage        = ones(1,T_model);
+                        capital     = ones(1,T_model)'; 
+                        labor       = ones(1,T_model)';
+                        investment  = zeros(1,T_model)';
+                        wage        = ones(1,T_model)';
                         [dividends , cits] = theFirm.dividends(capital, labor, investment, wage)
                         % END CONVERSION
                     case 'open'
@@ -573,10 +573,10 @@ methods (Static)
             else
                 
                 % TBD: Conversion 
-                capital     = Dynamic.caps; 
-                labor       = Dynamic.labeffs;
-                investment  = Dynamic.investment;
-                wage        = Market.wages;
+                capital     = Dynamic.caps'; 
+                labor       = Dynamic.labeffs';
+                investment  = Dynamic.investment';
+                wage        = Market.wages';
                 [dividends , cits] = theFirm.dividends(capital, labor, investment, wage)
                 % END CONVERSION
                 

@@ -42,7 +42,7 @@ classdef Firm
         function [divs, cits] = dividends( this, capital, labor, investment, wage )
             
             % Total revenues
-            y = this.TFP * ( capital^this.capitalShare * labor^(1-this.capitalShare));
+            y = this.TFP * ( capital.^this.capitalShare .* labor.^(1-this.capitalShare));
             
             % Wage payments
             wagesPaid = wage .* labor;
