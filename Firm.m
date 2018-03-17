@@ -15,6 +15,7 @@ classdef Firm
         corpTaxRate                     % tax on corp. profits
         
         priceCapital                    % See documentation. This is p_K
+        priceCapital0 = 1;
         
     end % properties
     
