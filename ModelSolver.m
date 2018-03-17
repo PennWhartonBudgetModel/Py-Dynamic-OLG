@@ -180,8 +180,6 @@ methods (Static)
                                             , sstax_rates            ...
                                             , Market.priceindices );            
 
-            equityfund_prices = ones(1,T_model);
-            bondfund_prices   = ones(1,T_model);
             % Package fixed dynamic optimization arguments into anonymous function
             solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes) ...
                 solve_cohort( ...
@@ -196,8 +194,8 @@ methods (Static)
                     Market.beqs, ...
                     Market.wages, ...
                     Market.capshares, ...
-                    Market.caprates, equityfund_prices, ... % Equity returns and prices
-                    Market.govrates, bondfund_prices  ... % Bond returns and prices
+                    Market.caprates, Market.equityFundPrices, ... % Equity returns and prices
+                    Market.bondFundDividends, Market.bondFundPrices  ... % Bond returns and prices
                     ); 
 
             % Initialize series of terminal utility values
@@ -449,7 +447,8 @@ methods (Static)
                                   'rhos'     , 6.2            , ...     % rhos are results from previous runs.
                                   'invtocaps', 0.0078 + d       ...     % I/K = pop growth rate 0.0078 + depreciation
                                  );
-
+                Dynamic0.debts  = debttoout;
+                Dynamic0.assets = 3 + debttoout;
                 DIST_steady = {};
                 
             case {'open', 'closed'}
@@ -551,6 +550,9 @@ methods (Static)
                 Market.capshares = Market0.capshares*ones(1,T_model);
                 Market.invtocaps = Market0.invtocaps*ones(1,T_model);
                 
+                Dynamic.assets   = Dynamic0.assets;
+                Dynamic.debts    = Dynamic0.debts;
+                
                 switch economy
 
                     case {'steady', 'closed'}
@@ -612,6 +614,13 @@ methods (Static)
             for t = 2:T_model
                Market.capgains(t,1) = (priceCapital(t) - priceCapital(t-1))/priceCapital(t-1);
             end
+            
+            Market.equityFundPrices = ones(1,T_model);  
+            
+            % 'Price' of g'vt debt -- this is because HH own equal shares
+            % of both bond & equity funds
+            Market.bondFundPrices       = (Dynamic.assets - Dynamic.debts) ./ Dynamic.debts;
+            Market.bondFundDividends    = debtrates; %rem: dividendrate is per $ of assets
             
             % Generate dynamic aggregates
             [Dynamic, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {});
