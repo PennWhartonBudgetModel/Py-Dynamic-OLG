@@ -452,13 +452,6 @@ methods (Static)
 
                 DIST_steady = {};
                 
-                % Initialize damper to update guesses - 0 means not
-                % dampened and 1 means fully dampened
-                damper.rhos      = 0.5;
-                damper.beqs      = 0.0;
-                damper.invtocaps = 0.5;
-                damper.capshares = 0.0;
-                
             case {'open', 'closed'}
                 
                 % Make Scenario for current policy, steady state. 
@@ -473,13 +466,6 @@ methods (Static)
                 % Load steady state population distribution
                 s = hardyload('distribution.mat', steady_generator, steady_dir);
                 DIST_steady = s.DIST_trans;
-                
-                % Initialize damper to update guesses - 0 means not
-                % dampened and 1 means fully dampened
-                damper.rhos      = 0.0;
-                damper.beqs      = 0.0;
-                damper.invtocaps = 0.0;
-                damper.capshares = 0.0;
                 
         end
         
@@ -519,6 +505,26 @@ methods (Static)
         tolerance.beqs      = 1e-4;
         tolerance.invtocaps = 5e-4;
         isConverged         = false;
+        
+        % Set damper to update guesses - 0 means not
+        % dampened and 1 means fully dampened
+        switch economy
+            case 'steady'
+                damper.rhos      = 0.5;
+                damper.beqs      = 0.0;
+                damper.invtocaps = 0.5;
+                damper.capshares = 0.0;
+            case 'open'
+                damper.rhos      = 1.0;     % Never update
+                damper.beqs      = 0.0;
+                damper.invtocaps = 0.0;
+                damper.capshares = 1.0; 
+            case 'closed'
+                damper.rhos      = 0.0;
+                damper.beqs      = 0.0;
+                damper.invtocaps = 0.0;
+                damper.capshares = 0.0; 
+        end
         
         % Initialize iteration count and set maximum number of iterations
         iter    =  0;
@@ -582,16 +588,10 @@ methods (Static)
                 
                 Market.beqs      = damper.beqs*Market.beqs + (1 - damper.beqs)*beqs;
                 Market.invtocaps = damper.invtocaps*Market.invtocaps + (1 - damper.invtocaps)*invtocaps;
-                                            
-                switch economy
-
-                    case {'steady', 'closed'}
-
-                        Market.rhos      = damper.rhos*Market.rhos + (1-damper.rhos)*rhos;
-                        Market.capshares = damper.capshares*Market.capshares + (1-damper.capshares)*capshares;
-                        Market.caprates  = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
-
-                end
+                Market.rhos      = damper.rhos*Market.rhos + (1-damper.rhos)*rhos;
+                Market.capshares = damper.capshares*Market.capshares + (1-damper.capshares)*capshares;
+                Market.caprates  = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
+                     
                 % NOTE: For open economy, capshares will NOT converge
                 % because the portfolio allocation is fixed by steady-state
                 % and we do not allow it to change even as the economy's 
