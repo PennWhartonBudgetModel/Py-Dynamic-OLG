@@ -193,7 +193,6 @@ methods (Static)
                     captaxshares, pit.ratePreferred, taucapgains, ...
                     Market.beqs, ...
                     Market.wages, ...
-                    Market.capshares, ...
                     Market.equityFundDividends, Market.equityFundPrices, ... % Equity returns and prices
                     Market.bondFundDividends, Market.bondFundPrices  ... % Bond returns and prices
                     ); 
@@ -603,8 +602,6 @@ methods (Static)
             [dividends , cits] = theFirm.dividends(capital, labor, investment, wage);
             
             % Compute prices
-            Market.expsubs       = tax.rateCorporate' .* expshares' .* Market.invtocaps;
-            Market.totrates      = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
             Market.rhos          = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
             Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
             Market.qtobin0       = qtobin0;
@@ -844,7 +841,6 @@ methods (Static)
                 
                 Market_dev.caprates = Market.caprates * (1 + ratedev);
                 Market_dev.govrates = Market.govrates * (1 + ratedev);
-                Market_dev.totrates = Market.totrates * (1 + ratedev);
                 
                 [Dynamic_dev] = generate_aggregates(Market_dev, {}, {}, {});
                 
