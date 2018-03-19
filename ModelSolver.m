@@ -194,7 +194,7 @@ methods (Static)
                     Market.beqs, ...
                     Market.wages, ...
                     Market.capshares, ...
-                    Market.caprates, Market.equityFundPrices, ... % Equity returns and prices
+                    Market.equityFundDividends, Market.equityFundPrices, ... % Equity returns and prices
                     Market.bondFundDividends, Market.bondFundPrices  ... % Bond returns and prices
                     ); 
 
@@ -550,8 +550,15 @@ methods (Static)
                 Market.capshares = Market0.capshares*ones(1,T_model);
                 Market.invtocaps = Market0.invtocaps*ones(1,T_model);
                 
-                Dynamic.assets   = Dynamic0.assets;
-                Dynamic.debts    = Dynamic0.debts;
+                Dynamic.assets   = Dynamic0.assets  *ones(1,T_model);
+                Dynamic.debts    = Dynamic0.debts   *ones(1,T_model);
+
+                % TBD: Conversion 
+                        capital     = ones(1,T_model)'; 
+                        labor       = ones(1,T_model)';
+                        investment  = zeros(1,T_model)';
+                        wage        = ones(1,T_model)';
+                % END CONVERSION
                 
                 switch economy
 
@@ -561,13 +568,6 @@ methods (Static)
                         Market.govrates = debtrates;
                         Market.caprates = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
                         
-                        % TBD: Conversion 
-                        capital     = ones(1,T_model)'; 
-                        labor       = ones(1,T_model)';
-                        investment  = zeros(1,T_model)';
-                        wage        = ones(1,T_model)';
-                        [dividends , cits] = theFirm.dividends(capital, labor, investment, wage)
-                        % END CONVERSION
                     case 'open'
 
                         % Rem: Returns are fixed to match steady-state in
@@ -585,7 +585,6 @@ methods (Static)
                 labor       = Dynamic.labeffs';
                 investment  = Dynamic.investment';
                 wage        = Market.wages';
-                [dividends , cits] = theFirm.dividends(capital, labor, investment, wage)
                 % END CONVERSION
                 
                 Market.beqs      = damper.beqs*Market.beqs + (1 - damper.beqs)*beqs;
@@ -599,7 +598,10 @@ methods (Static)
                 % and we do not allow it to change even as the economy's 
                 % mix of capital vs. debt changes.
             end
-
+            
+            % CONVERSION
+            [dividends , cits] = theFirm.dividends(capital, labor, investment, wage);
+            
             % Compute prices
             Market.expsubs       = tax.rateCorporate' .* expshares' .* Market.invtocaps;
             Market.totrates      = Market.capshares.*Market.caprates + (1-Market.capshares).*Market.govrates;
@@ -615,11 +617,12 @@ methods (Static)
                Market.capgains(t,1) = (priceCapital(t) - priceCapital(t-1))/priceCapital(t-1);
             end
             
-            Market.equityFundPrices = ones(1,T_model);  
-            
-            % 'Price' of g'vt debt -- this is because HH own equal shares
+            % 'Price' of assets -- this is because HH own equal shares
             % of both bond & equity funds
-            Market.bondFundPrices       = (Dynamic.assets - Dynamic.debts) ./ Dynamic.debts;
+            Market.equityFundPrices     = ones(1,T_model); %Market.capshares;  
+            Market.equityFundDividends  = Market.caprates;
+            
+            Market.bondFundPrices       = 1 - Market.capshares;
             Market.bondFundDividends    = debtrates; %rem: dividendrate is per $ of assets
             
             % Generate dynamic aggregates
