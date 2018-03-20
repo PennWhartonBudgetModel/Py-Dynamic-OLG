@@ -444,10 +444,15 @@ methods (Static)
                 Market0 = struct( 'beqs'     , 0.0927         , ...     % beqs are results from previous runs.
                                   'capshares', 3/(3+debttoout), ...     % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
                                   'rhos'     , 6.2            , ...     % rhos are results from previous runs.
-                                  'invtocaps', 0.0078 + d       ...     % I/K = pop growth rate 0.0078 + depreciation
-                                 );
-                Dynamic0.debts  = debttoout;
-                Dynamic0.assets = 3 + debttoout;
+                                  'invtocaps', 0.0078 + d     , ...     % I/K = pop growth rate 0.0078 + depreciation
+                                  'wages'    , 1                ...     % Need better guess
+                                );
+                Dynamic0.debts      = debttoout;
+                Dynamic0.assets     = 3 + debttoout;
+                Dynamic0.caps       = 3; 
+                Dynamic0.labeffs    = Dynamic0.caps ./ Market0.rhos; 
+                Dynamic0.investment = Market0.invtocaps ./ Dynamic0.caps;
+                
                 DIST_steady = {};
                 
             case {'open', 'closed'}
@@ -551,16 +556,13 @@ methods (Static)
                 Market.beqs      = Market0.beqs     *ones(1,T_model);
                 Market.capshares = Market0.capshares*ones(1,T_model);
                 Market.invtocaps = Market0.invtocaps*ones(1,T_model);
+                Market.wages     = Market0.wages    *ones(1,T_model);
                 
-                Dynamic.assets   = Dynamic0.assets  *ones(1,T_model);
-                Dynamic.debts    = Dynamic0.debts   *ones(1,T_model);
-
-                % CONVERSION
-                        capital     = ones(1,T_model)'; 
-                        labor       = ones(1,T_model)';
-                        investment  = zeros(1,T_model)';
-                        wage        = ones(1,T_model)';
-                % END CONVERSION
+                Dynamic.assets      = Dynamic0.assets       *ones(1,T_model);
+                Dynamic.debts       = Dynamic0.debts        *ones(1,T_model);
+                Dynamic.caps        = Dynamic0.caps         *ones(1,T_model); 
+                Dynamic.labeffs     = Dynamic0.labeffs      *ones(1,T_model);
+                Dynamic.investment  = Dynamic0.investment   *ones(1,T_model);
                 
                 switch economy
 
@@ -582,13 +584,6 @@ methods (Static)
                 
             else
                 
-                % CONVERSION 
-                capital     = Dynamic.caps'; 
-                labor       = Dynamic.labeffs';
-                investment  = Dynamic.investment';
-                wage        = Market.wages';
-                % END CONVERSION
-                
                 Market.beqs      = damper.beqs*Market.beqs + (1 - damper.beqs)*beqs;
                 Market.invtocaps = damper.invtocaps*Market.invtocaps + (1 - damper.invtocaps)*invtocaps;
                 Market.rhos      = damper.rhos*Market.rhos + (1-damper.rhos)*rhos;
@@ -601,9 +596,11 @@ methods (Static)
                 % mix of capital vs. debt changes.
             end
             
-            % CONVERSION
-            [dividends , cits]  = theFirm.dividends(capital, labor, investment, wage);
-            dividendRates       = dividends ./ capital;
+            [corpDividends , cits]  = theFirm.dividends(    Dynamic.caps'           ...
+                                                        ,   Dynamic.labeffs'        ...
+                                                        ,   Dynamic.investment'     ...
+                                                        ,   Market.wages'           ...
+                                                        );
             % END CONVERSION
             
             % Compute prices
@@ -619,10 +616,14 @@ methods (Static)
                Market.capgains(t,1) = (priceCapital(t) - priceCapital(t-1))/priceCapital(t-1);
             end
             
-            % 'Price' of assets -- this is because HH own equal shares
-            % of both bond & equity funds
+            % 'Price' of assets -- HH own equal shares of both bond & equity funds
+            % (equityFund/bondFund)Dividends are actually dividend rates
             Market.equityFundPrices     = Market.capshares;  
-            Market.equityFundDividends  = Market.caprates;
+            Market.equityFundDividends  = (corpDividends ./ (Dynamic.caps' .* priceCapital))';
+            
+            %% DEBUG
+            Market.caprates
+            (corpDividends ./ (Dynamic.caps' .* priceCapital))
             
             Market.bondFundPrices       = 1 - Market.capshares;
             Market.bondFundDividends    = debtrates; %rem: dividendrate is per $ of assets
