@@ -498,6 +498,9 @@ methods (Static)
         end
         
         
+        
+        
+        %%
         % Define marketing clearing tolerance and initialize error term
         tolerance.rhos      = 1e-5;
         tolerance.beqs      = 1e-4;
@@ -552,7 +555,7 @@ methods (Static)
                 Dynamic.assets   = Dynamic0.assets  *ones(1,T_model);
                 Dynamic.debts    = Dynamic0.debts   *ones(1,T_model);
 
-                % TBD: Conversion 
+                % CONVERSION
                         capital     = ones(1,T_model)'; 
                         labor       = ones(1,T_model)';
                         investment  = zeros(1,T_model)';
@@ -579,7 +582,7 @@ methods (Static)
                 
             else
                 
-                % TBD: Conversion 
+                % CONVERSION 
                 capital     = Dynamic.caps'; 
                 labor       = Dynamic.labeffs';
                 investment  = Dynamic.investment';
@@ -590,8 +593,8 @@ methods (Static)
                 Market.invtocaps = damper.invtocaps*Market.invtocaps + (1 - damper.invtocaps)*invtocaps;
                 Market.rhos      = damper.rhos*Market.rhos + (1-damper.rhos)*rhos;
                 Market.capshares = damper.capshares*Market.capshares + (1-damper.capshares)*capshares;
-                Market.caprates  = max((A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d), 0);
-                     
+                Market.caprates  = A*alpha*((Market.rhos .* qtobin).^(alpha-1)) - d;
+                
                 % NOTE: For open economy, capshares will NOT converge
                 % because the portfolio allocation is fixed by steady-state
                 % and we do not allow it to change even as the economy's 
@@ -599,7 +602,9 @@ methods (Static)
             end
             
             % CONVERSION
-            [dividends , cits] = theFirm.dividends(capital, labor, investment, wage);
+            [dividends , cits]  = theFirm.dividends(capital, labor, investment, wage);
+            dividendRates       = dividends ./ capital;
+            % END CONVERSION
             
             % Compute prices
             Market.rhos          = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1)) ./ qtobin;
@@ -616,7 +621,7 @@ methods (Static)
             
             % 'Price' of assets -- this is because HH own equal shares
             % of both bond & equity funds
-            Market.equityFundPrices     = ones(1,T_model); %Market.capshares;  
+            Market.equityFundPrices     = Market.capshares;  
             Market.equityFundDividends  = Market.caprates;
             
             Market.bondFundPrices       = 1 - Market.capshares;
@@ -791,7 +796,8 @@ methods (Static)
                     clearing.rhos, clearing.beqs, clearing.invtocaps, clearing.capshares);
             
             
-        end
+        end % GE loop
+        
         fprintf('\n')
         fclose(iterlog);
         
