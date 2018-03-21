@@ -569,7 +569,7 @@ methods (Static)
 
                         Market.rhos      = Market0.rhos*ones(1,T_model);
                         Market.debtrates = debtrates;
-                        Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) ) - d;
+                        Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) );
                         
                     case 'open'
 
@@ -588,7 +588,7 @@ methods (Static)
                 Market.rhos      = damper.rhos*Market.rhos + (1-damper.rhos)*rhos;
                 Market.capshares = damper.capshares*Market.capshares + (1-damper.capshares)*capshares;
                 
-                Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) ) - d;
+                Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) );
                 
                 % NOTE: For open economy, capshares will NOT converge
                 % because the portfolio allocation is fixed by steady-state
@@ -596,14 +596,14 @@ methods (Static)
                 % mix of capital vs. debt changes.
             end
             
-            [corpDividends , cits]  = theFirm.dividends(    Dynamic.caps'           ...
+            [corpDividends , corpTaxs]  = theFirm.dividends(    Dynamic.caps'           ...
                                                         ,   Dynamic.labeffs'        ...
                                                         ,   Dynamic.investment'     ...
                                                         ,   Market.wages'           ...
                                                         );
             
             % Compute prices
-            Market.rhos          = ((Market.caprates + d)/(A*alpha)).^(1/(alpha-1));
+            Market.rhos          = ( Market.caprates./(A*alpha) ).^(1/(alpha-1));
             Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
             
             % Capital prices
@@ -649,7 +649,7 @@ methods (Static)
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = priceCapital' .* Market.caprates .* Dynamic.caps;
+                    Dynamic.capincs = Market.caprates .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
@@ -701,7 +701,7 @@ methods (Static)
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = priceCapital' .* Market.caprates .* Dynamic.caps;
+                    Dynamic.capincs = Market.caprates .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
@@ -751,7 +751,7 @@ methods (Static)
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = priceCapital' .* Market.caprates .* Dynamic.caps;
+                    Dynamic.capincs = Market.caprates .* Dynamic.caps;
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
