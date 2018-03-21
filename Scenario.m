@@ -315,7 +315,12 @@ classdef Scenario
             end
             
             % Specify data series years
-            years  = (this.TransitionFirstYear : this.TransitionLastYear-1)';
+            switch this.economy
+                case 'steady'
+                    years = [this.TransitionFirstYear - 1];
+                otherwise
+                    years  = (this.TransitionFirstYear : this.TransitionLastYear-1)';
+            end
 
             Dynamic.outvars = struct( ...
             'ssts'              , 'PayrollTax'              , ...
