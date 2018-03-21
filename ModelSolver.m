@@ -620,12 +620,21 @@ methods (Static)
             Market.bondFundPrices       = 1 - Market.capshares;
             Market.bondFundDividends    = debtrates; %rem: dividendrate is per $ of assets
             
+            
             % Generate dynamic aggregates
             [Dynamic, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {});
             
 
             % Calculate additional dynamic aggregates
-            % (Note that open economy requires capital calculation before debt calculation while closed economy requires the reverse)
+            % (Note that open economy requires capital calculation before debt calculation 
+            % while closed economy requires the reverse)
+            
+            % Taxes
+            Dynamic.corpTaxs    = corpTaxs';
+            Dynamic.revs        = Dynamic.pits + Dynamic.ssts           ...
+                                  + Dynamic.cits + Dynamic.corpTaxs     ...
+                                  - Dynamic.bens;
+                    
             switch economy
                 
                 case 'steady'
@@ -654,7 +663,6 @@ methods (Static)
                     
                     Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
-                    Dynamic.revs    = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;            
                     
                     % Proxy for gross investment in physical capital
                     DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
@@ -678,17 +686,11 @@ methods (Static)
                     Dynamic.caps_foreign  = Dynamic.caps - Dynamic.caps_domestic;
                     % Note: Dynamic.assets represents current assets at new prices.
                     
-                    % Calculate debt
-                    Dynamic.cits_domestic = Dynamic.cits;
-                    Dynamic.cits_foreign  = taucaps' .* Market.caprates .* captaxshares' .* (priceCapital' .* Dynamic.caps_foreign);
-                    Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
-                    
                     if isbase
                         Gtilde = (tax_revenue_by_GDP - fedgovtnis).*Dynamic.outs - Dynamic.bens;
                         Ttilde = tax_revenue_by_GDP.*Dynamic.outs - Dynamic.pits - Dynamic.ssts - Dynamic.cits;
                     end
                     
-                    Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
                     Dynamic.debts = [debttoout*Dynamic0.outs, zeros(1,T_model-1)];
                     for year = 1:T_model-1
                         Dynamic.debts(year+1) = Gtilde(year) - Ttilde(year) - Dynamic.revs(year) + Dynamic.debts(year)*(1 + debtrates(year));
@@ -725,12 +727,6 @@ methods (Static)
 
                 case 'closed'
                     
-                    % Calculate debt
-                    Dynamic.cits_domestic = Dynamic.cits;
-                    Dynamic.cits_foreign  = zeros(1,T_model);
-                    Dynamic.cits          = Dynamic.cits_domestic + Dynamic.cits_foreign;
-                    
-                    Dynamic.revs  = Dynamic.pits + Dynamic.ssts + Dynamic.cits - Dynamic.bens;
                     Dynamic.debts = [debttoout*Dynamic0.outs, zeros(1,T_model-1)];
                     for year = 1:T_model-1
                         Dynamic.debts(year+1) = Gtilde(year) - Ttilde(year) - Dynamic.revs(year) + Dynamic.debts(year)*(1 + debtrates(year));
