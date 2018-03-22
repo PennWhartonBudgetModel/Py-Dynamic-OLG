@@ -191,8 +191,9 @@ methods (Static)
                     captaxshares, pit.ratePreferred, taucapgains, ...
                     Market.beqs, ...
                     Market.wages, ...
-                    Market.equityFundDividends, Market.equityFundPrices, ... % Equity returns and prices
-                    Market.bondFundDividends, Market.bondFundPrices  ... % Bond returns and prices
+                    Market.capshares, ...
+                    Market.equityFundDividends, Market.equityFundPrices, Market.equityFundPrice0, ... % Equity returns and prices
+                    Market.bondFundDividends, Market.bondFundPrices, Market.bondFundPrice0  ... % Bond returns and prices
                     ); 
 
             % Initialize series of terminal utility values
@@ -595,7 +596,7 @@ methods (Static)
                 % mix of capital vs. debt changes.
             end
             
-            [corpDividends , corpTaxs]  = theFirm.dividends(    Dynamic.caps'           ...
+            [corpDividends, corpTaxs]  = theFirm.dividends( Dynamic.caps'           ...
                                                         ,   Dynamic.labeffs'        ...
                                                         ,   Dynamic.investment'     ...
                                                         ,   Market.wages'           ...
@@ -614,10 +615,12 @@ methods (Static)
             
             % 'Price' of assets -- HH own equal shares of both bond & equity funds
             % (equityFund/bondFund)Dividends are actually dividend rates
-            Market.equityFundPrices     = Market.capshares;  
+            Market.equityFundPrice0     = theFirm.priceCapital0;
+            Market.equityFundPrices     = priceCapital';  
             Market.equityFundDividends  = (corpDividends ./ (Dynamic.caps' .* priceCapital))';
             
-            Market.bondFundPrices       = 1 - Market.capshares;
+            Market.bondFundPrice0       = 1;
+            Market.bondFundPrices       = ones(1,T_model);
             Market.bondFundDividends    = debtrates; %rem: dividendrate is per $ of assets
             
             
