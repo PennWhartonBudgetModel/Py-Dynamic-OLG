@@ -393,15 +393,14 @@ methods (Static)
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
             
-            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde'}
+            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde', 'corpTaxs' }
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
 
             % Calculate static budgetary aggregate variables
-            Static.cits_domestic = Static.cits;
-            Static.cits_foreign  = taucaps' .* Market.caprates .* captaxshares' .* (priceCapital' .* Static.caps_foreign);
-            Static.cits          = Static.cits_domestic + Static.cits_foreign;
-            Static.revs          = Static.pits + Static.ssts + Static.cits - Static.bens;            
+            Static.revs          = Static.pits + Static.ssts        ... 
+                                    + Static.cits + Static.corpTaxs ...
+                                    - Static.bens;            
             Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
             Static.caprevs       = Static.cits + Static.pits - Static.labpits;
             
@@ -656,8 +655,6 @@ methods (Static)
                     Dynamic.debts_foreign  = zeros(1,T_model);
                     Dynamic.caps_domestic  = Dynamic.caps;
                     Dynamic.caps_foreign   = zeros(1,T_model);
-                    Dynamic.cits_domestic  = Dynamic.caps;
-                    Dynamic.cits_foreign   = zeros(1,T_model);
                     Dynamic.tot_assets     = Dynamic.assets;
                     
                     % Calculate income

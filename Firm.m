@@ -11,11 +11,11 @@ classdef Firm
         depreciationRate    ;           % delta
         riskPremium         ;           % for high/low return
         
-        expensingRate                   % phi_exp
-        corpTaxRate                     % tax on corp. profits
+        expensingRate       ;            % phi_exp
+        corpTaxRate         ;           % tax on corp. profits
         
-        priceCapital                    % See documentation. This is p_K
-        priceCapital0 = 1;
+        priceCapital        ;           % See documentation. This is p_K
+        priceCapital0 = 1   ;
         
     end % properties
     
@@ -33,7 +33,7 @@ classdef Firm
         	this.corpTaxRate    = tax.rateCorporate;     
             
             % Calculate the price of capital (p_K, see docs)
-            this.priceCapital   = tax.qtobin ./ tax.qtobin0;
+            this.priceCapital   = this.priceCapital0 * (tax.qtobin ./ tax.qtobin0);
         end % constructor
         
         

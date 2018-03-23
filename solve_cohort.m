@@ -470,10 +470,9 @@ function [resources, inc, pit, sst, cit] ...
     coder.inline('always');
 
     % Calculate wealth in equity and g'vt bonds
-    equityshares    = savings * portfolio_equityshare;
-    bondshares      = savings * (1-portfolio_equityshare);  % TBD: if more than one asset, revise this
-    equityvalue     = equityshares * equityfund_price;
-    bondvalue       = bondshares * bondfund_price;
+    % TBD: if more than one asset, revise this
+    equityvalue     = savings * portfolio_equityshare       * equityfund_price;
+    bondvalue       = savings * (1-portfolio_equityshare)   * bondfund_price;
     
     equitydividend  = equityfund_dividendrate * equityvalue;
     bonddividend    = bondfund_dividendrate   * bondvalue;
