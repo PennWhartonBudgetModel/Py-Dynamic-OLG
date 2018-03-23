@@ -439,17 +439,19 @@ methods (Static)
             case 'steady'
                 
                 % Load initial guesses
-                Market0 = struct( 'beqs'     , 0.0927               , ...     % beqs are results from previous runs.
-                                  'capshares', 3/(3+debttoout)      , ...     % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                                  'rhos'     , 6.2                  , ...     % rhos are results from previous runs.
-                                  'invtocaps', 0.0078 + depreciation, ...     % I/K = pop growth rate 0.0078 + depreciation
-                                  'wages'    , 1                      ...     % Need better guess
-                                );
-                Dynamic0.debts      = debttoout;
-                Dynamic0.assets     = 3 + debttoout;
-                Dynamic0.caps       = 3; 
-                Dynamic0.labeffs    = Dynamic0.caps ./ Market0.rhos; 
-                Dynamic0.investment = Market0.invtocaps ./ Dynamic0.caps;
+                Dynamic0.outs       = 3.35;
+                Dynamic0.caps       = 12.20; 
+                captoout            = Dynamic0.caps / Dynamic0.outs;
+                
+                Market0.beqs        = 0.1662;                           % beqs are results from previous runs.
+                Market0.capshares   = captoout / (captoout+debttoout);  % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                Market0.rhos        = 7.0652;                           % rhos are results from previous runs.
+                Market0.invtocaps   = 0.0078 + depreciation;            % I/K = pop growth rate 0.0078 + depreciation
+
+                Dynamic0.debts      = Dynamic0.outs * debttoout;
+                Dynamic0.assets     = Dynamic0.caps + Dynamic0.debts;
+                Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
+                Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
                 
                 DIST_steady = {};
                 
@@ -514,10 +516,10 @@ methods (Static)
         % dampened and 1 means fully dampened
         switch economy
             case 'steady'
-                damper.rhos      = 0.5;
-                damper.beqs      = 0.0;
-                damper.invtocaps = 0.5;
-                damper.capshares = 0.0;
+                damper.rhos      = 0.75;
+                damper.beqs      = 0.75;
+                damper.invtocaps = 0.75;
+                damper.capshares = 0.75;
             case 'open'
                 damper.rhos      = 1.0;     % Never update
                 damper.beqs      = 0.0;
@@ -554,7 +556,6 @@ methods (Static)
                 Market.beqs      = Market0.beqs     *ones(1,T_model);
                 Market.capshares = Market0.capshares*ones(1,T_model);
                 Market.invtocaps = Market0.invtocaps*ones(1,T_model);
-                Market.wages     = Market0.wages    *ones(1,T_model);
                 
                 Dynamic.assets      = Dynamic0.assets       *ones(1,T_model);
                 Dynamic.debts       = Dynamic0.debts        *ones(1,T_model);
@@ -577,6 +578,7 @@ methods (Static)
                         % capital are fixed.
                         Market.caprates  = Market0.caprates  *ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
                         Market.debtrates = Market0.debtrates *ones(1,T_model);
+                        Market.rhos      = ( Market.caprates./(A*alpha) ).^(1/(alpha-1));
 
                 end
                 
@@ -595,15 +597,14 @@ methods (Static)
                 % mix of capital vs. debt changes.
             end
             
+            
+            % Compute prices
+            Market.wages               = A*(1-alpha)*(Market.rhos.^alpha);
             [corpDividends, corpTaxs]  = theFirm.dividends( Dynamic.caps'           ...
                                                         ,   Dynamic.labeffs'        ...
                                                         ,   Dynamic.investment'     ...
                                                         ,   Market.wages'           ...
                                                         );
-            
-            % Compute prices
-            Market.rhos          = ( Market.caprates./(A*alpha) ).^(1/(alpha-1));
-            Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
             
             % Capital prices
             priceCapital         = theFirm.priceCapital;
