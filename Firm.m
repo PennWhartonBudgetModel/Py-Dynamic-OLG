@@ -65,6 +65,24 @@ classdef Firm
                   
         end % dividends
         
+        
+        %% 
+        % Calculate K/L ratio from dividend rate
+        function [KLratio] = calculateKLRatio( this, dividendRate, capital, investment )
+            
+            expensingSubsidyRate = this.expensingRate .* this.corpTaxRate ...
+                                .* (investment ./ capital) ...
+                                .* this.priceCapital;
+            % Calculate MPK 
+            r  = ( dividendRate ...
+                   + this.depreciationRate .* this.priceCapital ...
+                   - expensingSubsidyRate ...
+                  ) ./ (1 - this.corpTaxRate);
+              
+            % Calculate K/L ratio from MPK
+            KLratio = ( r ./ (this.TFP * this.capitalShare) ) .^ (1/(this.capitalShare-1));
+        end % calculateKLRatio
+        
     end % instance methods
     
 end % classdef

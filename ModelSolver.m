@@ -576,10 +576,15 @@ methods (Static)
                         % Rem: Returns are fixed to match steady-state in
                         % open economy. That is, after-tax returns for
                         % capital are fixed.
+                        steadyStateDividendRate = Market0.equityFundDividends;
+                        klRatio = theFirm.calculateKLRatio( steadyStateDividendRate, ... 
+                                                            Dynamic0.caps, ...
+                                                            Dynamic0.investment );
+                        
                         Market.caprates  = Market0.caprates  *ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
                         Market.debtrates = Market0.debtrates *ones(1,T_model);
                         Market.rhos      = ( Market.caprates./(A*alpha) ).^(1/(alpha-1));
-
+                        
                 end
                 
             else
