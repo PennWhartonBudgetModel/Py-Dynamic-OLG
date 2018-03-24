@@ -568,8 +568,6 @@ methods (Static)
                     case {'steady', 'closed'}
 
                         Market.rhos      = Market0.rhos*ones(1,T_model);
-                        Market.debtrates = debtrates;
-                        Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) );
                         
                     case 'open'
 
@@ -581,13 +579,16 @@ methods (Static)
                                                             Dynamic0.caps, ...
                                                             Dynamic0.investment );
                         
-                        Market.caprates  = Market0.caprates  *ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
-                        Market.debtrates = Market0.debtrates *ones(1,T_model);
-                        Market.rhos      = ( Market.caprates./(A*alpha) ).^(1/(alpha-1));
-                        
+                        Market.rhos      = klRatio';
+                        %% TBD: Do we need to set caps to have foreign investment here?
+                        %       Seems like yes.
                 end
                 
-            else
+                Market.debtrates = debtrates;
+                Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) ); % This is just for reporting
+            
+            % end initial loop iteration
+            else  
                 
                 Market.beqs      = damper.beqs*Market.beqs + (1 - damper.beqs)*beqs;
                 Market.invtocaps = damper.invtocaps*Market.invtocaps + (1 - damper.invtocaps)*invtocaps;
