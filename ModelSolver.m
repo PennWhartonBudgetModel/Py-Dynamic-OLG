@@ -135,9 +135,12 @@ methods (Static)
         bequest_phi_2 = s.phi2;                 % phi2 measures the extent to which bequests are a luxury good
         bequest_phi_3 = s.phi3;                 % phi3 is the relative risk aversion coefficient
 
-        % Instantiate a Firm
-        theFirm       = Firm( scenario );
+        % Instantiate a Firm (SingleFirm)
+        theFirm       = Firm( scenario, Firm.SINGLEFIRM );
         priceCapital  = theFirm.priceCapital;
+        
+        % Instantiate the Pass-Through Firm
+        thePassThrough  = Firm( scenario, Firm.PASSTHROUGH );
         
         
         %% Aggregate generation function

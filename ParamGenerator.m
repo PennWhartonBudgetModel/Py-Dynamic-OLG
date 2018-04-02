@@ -255,6 +255,16 @@ methods (Static)
             s.(f{1}) = tax_vars.(f{1});
         end
         
+        % Foreign tax withholding -- TEMP
+        %   TBD: Read these from file
+        s.rateForeignCorpIncome         = 0.30; % Tax rate on corp. distributions to foreigners
+        s.rateForeignPassThroughIncome  = 0.10; % Tax rate on pass-through distributions to foreigners
+        
+        % Allocation of capital income between Corp & Pass-Through -- TEMP
+        %   TBD: Read these from file
+        s.shareIncomeCorp               = 1.00;  % Amount of capital to corps
+        s.shareIncomePassThrough        = 1 - s.shareIncomeCorp;
+        
         % Calculate Q-Tobin
         switch scenario.economy
             case 'steady'
