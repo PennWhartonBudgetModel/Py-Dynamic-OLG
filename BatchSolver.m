@@ -40,21 +40,7 @@ methods (Static)
     % Read batch of scenarios from database
     function [scenarios, rows] = readBatch(batch)
         
-        % Add JDBC driver to Matlab Java path
-        javaaddpath(fullfile(PathFinder.getSourceDir(), 'jar', 'sqljdbc41.jar'));
-        
-        % Establish database connection
-        connection = database('pwbm_scenario', 'development', 'yeFMa8cUEu9UYDmm', ...
-                              'Vendor', 'Microsoft SQL Server', 'AuthType', 'Server', ...
-                              'Server', 'ppi-slcsql.wharton.upenn.edu', 'PortNumber', 49170);
-        
-        % Get scenario rows from database using stored procedure
-        o = connection.exec( sprintf( 'EXEC p_ScenarioBatch ''%s'' ', batch ) );
-        rows = cell2struct( o.fetch().Data, o.columnnames(true), 2 );
-        o.close();
-        
-        % Close database connection
-        connection.close();
+        rows = table2struct(readtable(fullfile(PathFinder.getBundleDir(batch), 'scenarios.csv')));
         
         % Initialize cell array of scenarios
         %   Empty values will correspond to rows unaddressable by the dynamic model
