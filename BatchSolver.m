@@ -50,11 +50,14 @@ methods (Static)
             
             row = rows(i);
             
-            % Identify economy openness, skipping scenarios that are neither fully open nor fully closed
-            switch row.OpenEconomy
-                case 1, economy = 'open'  ;
-                case 0, economy = 'closed';
-                otherwise, continue
+            % Skip if model type is not dynamic
+            if ~strcmp(row.ModelType, 'D'), continue; end
+            
+            % Identify economy openness, specifying closed economy for partially open economies to generate both open and closed economies
+            if row.OpenEconomy == 1
+                economy = 'open';
+            else
+                economy = 'closed';
             end
             
             % Invert elasticities
