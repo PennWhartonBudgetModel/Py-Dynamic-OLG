@@ -419,8 +419,17 @@ methods (Static)
             
             try
                 
-                % Construct data series
-                dataseries = constructDataSeries(scenario, bundle_scenario.UseDynamicBaseline);
+                % Construct data series, using linear combinations of open and closed economy data series for partially open economy scenarios
+                if (bundle_scenario.OpenEconomy == 0 || bundle_scenario.OpenEconomy == 1)
+                    dataseries = constructDataSeries(scenario, bundle_scenario.UseDynamicBaseline);
+                else
+                    dataseries_open   = constructDataSeries(scenario.open()  , bundle_scenario.UseDynamicBaseline);
+                    dataseries_closed = constructDataSeries(scenario.closed(), bundle_scenario.UseDynamicBaseline);
+                    for o = fieldnames(dataseries_ids)'
+                        dataseries.(o{1}) = dataseries_open  .(o{1})*(bundle_scenario.OpenEconomy    ) ...
+                                          + dataseries_closed.(o{1})*(1 - bundle_scenario.OpenEconomy);
+                    end
+                end
                 
                 % Write data series to output files
                 for o = fieldnames(dataseries_ids)'
@@ -446,7 +455,7 @@ methods (Static)
         if ~n_failed
             fprintf('Successfully completed data series output generation for all %d new scenarios.\n', n_new);
         else
-            fprintf('Failed to complete data series output generation for %d of %d scenarios.\n', n_failed, n_new);
+            fprintf('Failed to complete data series output generation for %d of %d new scenarios.\n', n_failed, n_new);
         end
         
         % Write mapping structure to output directory
