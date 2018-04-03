@@ -35,12 +35,14 @@ classdef TransitionMatrixWriter
             % melt productivity values
             productivity_values = ParamGenerator.grids(scenario).zs;
             [productivity_index, age_index] = ind2sub(size(productivity_values), (1:numel(productivity_values))');
-            productivity_values = [productivity_index, age_index, productivity_values(:)];
+            productivity_values = productivity_values(:);
+            productivity_values_index = [productivity_index, age_index];
             
             % melt productivity transitions
             z_transitions = ParamGenerator.grids(scenario).transz;
             [productivity_index, productivity_prime_index, age_index] = ind2sub(size(z_transitions), (1:numel(z_transitions))');
-            productivity_transitions = [productivity_index, productivity_prime_index, age_index, z_transitions(:)];
+            productivity_transitions = z_transitions(:);
+            productivity_transitions_index = [productivity_index, productivity_prime_index, age_index];
 
             % write to file
             outputdir = PathFinder.getTransitionMatrixOutputDir();
@@ -69,11 +71,13 @@ classdef TransitionMatrixWriter
             values = struct2table(scenario.getParams());
             writetable(values, '.temp.txt', 'WriteVariableNames', false);
             text = fileread('.temp.txt');
+            delete('.temp.txt');
             filehandle = fopen(fullfile(outputdir, 'map.csv'), 'a');
             fprintf(filehandle, [scenario.basedeftag, ',', scenario.counterdeftag, ',', text]);
             fprintf(filehandle, '\n');
             fclose(filehandle);
             
+            % delete 
             % store all output in subfolder
             outputdir = fullfile(outputdir, scenario.basedeftag, scenario.counterdeftag);
             
@@ -82,12 +86,15 @@ classdef TransitionMatrixWriter
 
             h5create(fullfile(outputdir, 'data.hdf5'), '/decision_rules', size(decision_rules), 'ChunkSize', size(decision_rules), 'Deflate', 9);
             h5write(fullfile(outputdir, 'data.hdf5'), '/decision_rules', decision_rules);
-            
+
             h5create(fullfile(outputdir, 'data.hdf5'), '/decision_index', size(decision_index), 'ChunkSize', size(decision_index), 'Deflate', 9);
             h5write(fullfile(outputdir, 'data.hdf5'), '/decision_index', decision_index);
             
             h5create(fullfile(outputdir, 'data.hdf5'), '/productivity_values', size(productivity_values), 'ChunkSize', size(productivity_values), 'Deflate', 9);
             h5write(fullfile(outputdir, 'data.hdf5'), '/productivity_values', productivity_values);
+            
+            h5create(fullfile(outputdir, 'data.hdf5'), '/productivity_values_index', size(productivity_values_index), 'ChunkSize', size(productivity_values_index), 'Deflate', 9);
+            h5write(fullfile(outputdir, 'data.hdf5'), '/productivity_values_index', productivity_values_index);
             
             h5create(fullfile(outputdir, 'data.hdf5'), '/earnings_values', size(ParamGenerator.grids(scenario).bv), 'ChunkSize', size(ParamGenerator.grids(scenario).bv), 'Deflate', 9);
             h5write(fullfile(outputdir, 'data.hdf5'), '/earnings_values', ParamGenerator.grids(scenario).bv);
@@ -98,6 +105,9 @@ classdef TransitionMatrixWriter
             h5create(fullfile(outputdir, 'data.hdf5'), '/productivity_transitions', size(productivity_transitions), 'ChunkSize', size(productivity_transitions), 'Deflate', 9);
             h5write(fullfile(outputdir, 'data.hdf5'), '/productivity_transitions', productivity_transitions);
 
+            h5create(fullfile(outputdir, 'data.hdf5'), '/productivity_transitions_index', size(productivity_transitions_index), 'ChunkSize', size(productivity_transitions_index), 'Deflate', 9);
+            h5write(fullfile(outputdir, 'data.hdf5'), '/productivity_transitions_index', productivity_transitions_index);
+
         end
  
         %% test
@@ -105,6 +115,10 @@ classdef TransitionMatrixWriter
         %       output folder.
         function [] = test()
             scenario = Scenario(ModelTester.test_params).currentPolicy().closed();
+            ModelSolver.solve(scenario);
+            TransitionMatrixWriter.writeScenario(scenario);
+            
+            scenario = Scenario(ModelTester.test_params).currentPolicy().steady();
             ModelSolver.solve(scenario);
             TransitionMatrixWriter.writeScenario(scenario);
         end
