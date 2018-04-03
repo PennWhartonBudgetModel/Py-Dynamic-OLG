@@ -376,26 +376,24 @@ methods (Static)
             % Construct data series
             for o_ = fieldnames(dataseries_ids)'
                 
-                name_ = o_{1};
-                
                 % Extract dynamic and static variable values and handle special series
-                switch name_
+                switch o_{1}
                     case 'nonindexed'
                         v_Dynamic = [ones(1,10), Dynamic.outs(11:T_model)]; 
                         v_Static  = [ones(1,10), Dynamic.outs(11:T_model)]; 
                     otherwise
-                        v_Dynamic = Dynamic.(name_);
-                        v_Static  = Static. (name_);
+                        v_Dynamic = Dynamic.(o_{1});
+                        v_Static  = Static. (o_{1});
                 end
                 
                 % Scale static variable values if performing dynamic baseline scaling
                 if useDynamicBaseline
-                    v_Static = v_Static .* Dynamic_currentPolicyOpen.(name_) ./ Dynamic_currentPolicyClosed.(name_);
+                    v_Static = v_Static .* Dynamic_currentPolicyOpen.(o_{1}) ./ Dynamic_currentPolicyClosed.(o_{1});
                     v_Static(isnan(v_Static)) = 0;
                 end
                 
                 % Consolidate, shift, trim, and pad dynamic and static variable values to form data series
-                dataseries.(name_) = [ ones(1, nprepad), v_Dynamic(1:end-ntrim), ones(1, npostpad) ;
+                dataseries.(o_{1}) = [ ones(1, nprepad), v_Dynamic(1:end-ntrim), ones(1, npostpad) ;
                                        ones(1, nprepad), v_Static( 1:end-ntrim), ones(1, npostpad) ]';
                 
             end
@@ -426,15 +424,11 @@ methods (Static)
                 
                 % Write data series to output files
                 for o = fieldnames(dataseries_ids)'
-                    
-                    name = o{1};
-                    
-                    for series_id = dataseries_ids.(name)
+                    for series_id = dataseries_ids.(o{1})
                         csvfile = fullfile(outputdir, sprintf('%s-%u.csv', map.Properties.RowNames{i}, series_id));
                         fid = fopen(csvfile, 'w'); fprintf(fid, 'Year,Dynamic,Static\n'); fclose(fid);
-                        dlmwrite(csvfile, [years, dataseries.(name)], '-append')
+                        dlmwrite(csvfile, [years, dataseries.(o{1})], '-append')
                     end
-                    
                 end
                 
             catch
