@@ -332,7 +332,12 @@ methods (Static)
         ); %#ok<NBRAK>
         
         % Iterate over new bundle scenarios
-        for i = n_mapped+1:height(map)
+        i = n_mapped;
+        n_new = height(map) - n_mapped; n_failed = 0;
+        
+        while i < height(map)
+            
+            i = i+1;
             
             map.Properties.RowNames{i} = sprintf('%05d', i);
             bundle_scenario = map(i,:);
@@ -414,14 +419,24 @@ methods (Static)
                 
             catch
                 
-                warning('Failed to complete data series output generation for scenario %s.\n', map.Properties.RowNames{i});
+                % Increment failure counter and delete row from mapping structure
+                n_failed = n_failed+1;
+                map(i,:) = [];
+                i = i-1;
                 
             end
             
         end
         
+        % Report on output generation success
+        if ~n_failed
+            fprintf('Successfully completed data series output generation for all %d new scenarios.\n', n_new);
+        else
+            fprintf('Failed to complete data series output generation for %d of %d scenarios.\n', n_failed, n_new);
+        end
+        
         % Write mapping structure to output directory
-        writetable(map, fullfile(outputdir, 'map.csv'), 'WriteRowNames', true)
+        if ~isempty(map), writetable(map, fullfile(outputdir, 'map.csv'), 'WriteRowNames', true); end
         
         % Generate interface dependencies file if not already present
         dependenciesfile = fullfile(outputdir, 'dependencies.csv');
