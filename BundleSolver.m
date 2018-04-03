@@ -331,6 +331,79 @@ methods (Static)
             'nonindexed'        , [299]         ...
         ); %#ok<NBRAK>
         
+        
+        
+        % Specify standard data series years
+        first_year  = 2017;
+        last_year   = 2090;
+        years       = (first_year : last_year)';
+        
+        % Define function to construct data series aligned to standard years for a specific scenario
+        function dataseries = constructDataSeries(scenario, useDynamicBaseline)
+            
+            % Identify scenario working directory
+            workingdir = PathFinder.getWorkingDir(scenario);
+            
+            % Load dynamic and static variables
+            Dynamic = load(fullfile(workingdir, 'dynamics.mat'));
+            if scenario.isCurrentPolicy()
+                Static = Dynamic;
+            else
+                Static = load(fullfile(workingdir, 'statics.mat'));
+            end
+            
+            % Determine timing parameters
+            timing      = ParamGenerator.timing(scenario);
+            
+            % Determine number of years to pre-pad variable values
+            nprepad     = timing.TransitionFirstYear - first_year;
+            
+            % Determine number of variable values to be trimmed or post-padded
+            T_model     = timing.T_model;
+            nextra      = nprepad + T_model - length(years);
+            ntrim       = +max(nextra, 0);
+            npostpad    = -min(nextra, 0);
+            
+            % Load additional variables if performing dynamic baseline scaling
+            if useDynamicBaseline
+                Dynamic_currentPolicyOpen   = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy().open()  ), 'dynamics.mat'));
+                Dynamic_currentPolicyClosed = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy().closed()), 'dynamics.mat'));
+            else
+                Dynamic_currentPolicyOpen   = {};
+                Dynamic_currentPolicyClosed = {};
+            end
+            
+            % Construct data series
+            for o_ = fieldnames(dataseries_ids)'
+                
+                name_ = o_{1};
+                
+                % Extract dynamic and static variable values and handle special series
+                switch name_
+                    case 'nonindexed'
+                        v_Dynamic = [ones(1,10), Dynamic.outs(11:T_model)]; 
+                        v_Static  = [ones(1,10), Dynamic.outs(11:T_model)]; 
+                    otherwise
+                        v_Dynamic = Dynamic.(name_);
+                        v_Static  = Static. (name_);
+                end
+                
+                % Scale static variable values if performing dynamic baseline scaling
+                if useDynamicBaseline
+                    v_Static = v_Static .* Dynamic_currentPolicyOpen.(name_) ./ Dynamic_currentPolicyClosed.(name_);
+                    v_Static(isnan(v_Static)) = 0;
+                end
+                
+                % Consolidate, shift, trim, and pad dynamic and static variable values to form data series
+                dataseries.(name_) = [ ones(1, nprepad), v_Dynamic(1:end-ntrim), ones(1, npostpad) ;
+                                       ones(1, nprepad), v_Static( 1:end-ntrim), ones(1, npostpad) ]';
+                
+            end
+            
+        end
+        
+        
+        
         % Iterate over new bundle scenarios
         i = n_mapped;
         n_new = height(map) - n_mapped; n_failed = 0;
@@ -339,80 +412,27 @@ methods (Static)
             
             i = i+1;
             
+            % Define scenario ID
             map.Properties.RowNames{i} = sprintf('%05d', i);
+            
+            % Extract bundle scenario and identify corresponding dynamic model scenario
             bundle_scenario = map(i,:);
-            
-            % Identify corresponding dynamic model scenario
             scenario = BundleSolver.convertBundleScenario(table2struct(bundle_scenario));
-            
-            % Identify scenario working directory
-            workingdir = PathFinder.getWorkingDir(scenario);
             
             try
                 
-                % Load dynamic and static variables
-                Dynamic = load(fullfile(workingdir, 'dynamics.mat'));
-                if scenario.isCurrentPolicy()
-                    Static = Dynamic;
-                else
-                    Static = load(fullfile(workingdir, 'statics.mat'));
-                end
+                % Construct data series
+                dataseries = constructDataSeries(scenario, bundle_scenario.UseDynamicBaseline);
                 
-                % Specify data series years
-                first_year  = 2017;
-                last_year   = 2090;
-                years       = (first_year : last_year)';
-                timing      = ParamGenerator.timing( scenario );
-                
-                % Determine number of years to pre-pad variable values
-                nprepad     = timing.TransitionFirstYear - first_year;
-                
-                % Determine number of variable values to be trimmed or post-padded
-                T_model     = timing.T_model;
-                nextra      = nprepad + T_model - length(years);
-                ntrim       = +max(nextra, 0);
-                npostpad    = -min(nextra, 0);
-                
-                % Load additional variables if performing dynamic baseline scaling
-                if bundle_scenario.UseDynamicBaseline
-                    Dynamic_currentPolicyOpen   = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy().open()  ), 'dynamics.mat'));
-                    Dynamic_currentPolicyClosed = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy().closed()), 'dynamics.mat'));
-                else
-                    Dynamic_currentPolicyOpen   = {};
-                    Dynamic_currentPolicyClosed = {};
-                end
-                
-                % Write data series output files
+                % Write data series to output files
                 for o = fieldnames(dataseries_ids)'
                     
-                    % Extract variable name
                     name = o{1};
                     
-                    % Extract dynamic and static variable values and handle special series
-                    switch name
-                        case 'nonindexed'
-                            v_Dynamic = [ones(1,10), Dynamic.outs(11:T_model)]; 
-                            v_Static  = [ones(1,10), Dynamic.outs(11:T_model)]; 
-                        otherwise
-                            v_Dynamic = Dynamic.(name);
-                            v_Static  = Static. (name);
-                    end
-                    
-                    % Scale static variable values if performing dynamic baseline scaling
-                    if bundle_scenario.UseDynamicBaseline
-                        v_Static = v_Static .* Dynamic_currentPolicyOpen.(name) ./ Dynamic_currentPolicyClosed.(name);
-                        v_Static(isnan(v_Static)) = 0;
-                    end
-                    
-                    % Consolidate, shift, trim, and pad dynamic and static variable values to form data series
-                    dataseries = [ ones(1, nprepad), v_Dynamic(1:end-ntrim), ones(1, npostpad) ;
-                                   ones(1, nprepad), v_Static( 1:end-ntrim), ones(1, npostpad) ]';
-                    
-                    % Write data series to csv files
                     for series_id = dataseries_ids.(name)
                         csvfile = fullfile(outputdir, sprintf('%s-%u.csv', map.Properties.RowNames{i}, series_id));
                         fid = fopen(csvfile, 'w'); fprintf(fid, 'Year,Dynamic,Static\n'); fclose(fid);
-                        dlmwrite(csvfile, [years, dataseries], '-append')
+                        dlmwrite(csvfile, [years, dataseries.(name)], '-append')
                     end
                     
                 end
