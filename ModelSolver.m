@@ -717,8 +717,12 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Gross investment in physical capital
-                    Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - depreciation) * ...
-                                         [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))];
+                    %   T_model investment converges to final steady
+                    %   state investment, K_ss*(pop_growth + depreciation)
+                    Dynamic.investment = [Dynamic.caps(2:T_model)   0] - (1 - depreciation) * ...
+                                         [Dynamic.caps(1:T_model-1) 0];
+                    Dynamic.investment(T_model) = Market0.invtocaps * Dynamic.caps(T_model);
+                    
                     % Update guesses
                     % Note: Bequests should be priced according to the new policy because it
                     %       corresponds to yesterday's assets that were collected and sold by the
@@ -761,8 +765,11 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Gross investment in physical capital
-                    Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - depreciation) * ...
-                                         [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))];
+                    %   T_model investment converges to final steady
+                    %   state investment, K_ss*(pop_growth + depreciation)
+                    Dynamic.investment = [Dynamic.caps(2:T_model)   0] - (1 - depreciation) * ...
+                                         [Dynamic.caps(1:T_model-1) 0];
+                    Dynamic.investment(T_model) = Market0.invtocaps * Dynamic.caps(T_model);
 
                     % Update guesses
                     % Note: Dynamic.assets represents current assets at new prices.
