@@ -314,13 +314,15 @@ methods (Static)
         bundle_scenarios = BundleSolver.readBundle(bundle_id);
         
         % Load or initialize output mapping structure
+        %   Inclusion of options structure for readtable required to force interpretation of row names as character arrays
         mapfile = fullfile(outputdir, 'map.csv');
         if exist(mapfile, 'file')
-            map = readtable(mapfile, 'ReadRowNames', true);
+            map = readtable(mapfile, detectImportOptions(mapfile), 'ReadRowNames', true);
+            map(:,1) = [];
         else
             map = cell2table(cell(0, size(bundle_scenarios, 2)), 'VariableNames', bundle_scenarios.Properties.VariableNames);
-            map.Properties.DimensionNames = {'id', 'ScenarioParameters'};
         end
+        map.Properties.DimensionNames = {'id', 'ScenarioParameters'};
         
         % Determine number of scenarios already mapped
         n_mapped = height(map);
