@@ -291,14 +291,27 @@ methods (Static)
     % Generate data series output for a bundle
     function [] = generateDataSeries(bundle_id)
         
-        % Get bundle scenarios
-        bundle_scenarios = BundleSolver.readBundle(bundle_id);
-        
         % Identify data series output directory
         outputdir = PathFinder.getDataSeriesOutputDir();
         
         % Create output directory if not already present
         if ~exist(outputdir, 'dir'), mkdir(outputdir), end
+        
+        % Generate interface dependencies file if not already present
+        dependenciesfile = fullfile(outputdir, 'dependencies.csv');
+        if ~exist(dependenciesfile, 'file')
+            fid = fopen(dependenciesfile, 'w');
+            fprintf(fid, 'Component,Interface,Version\n');
+            for r = PathFinder.getInputSet()
+                fprintf(fid, '%s,%s,%s\n', r{1}{1}, r{1}{2}, r{1}{3});
+            end
+            fclose(fid);
+        end
+        
+        
+        
+        % Get bundle scenarios
+        bundle_scenarios = BundleSolver.readBundle(bundle_id);
         
         % Load or initialize output mapping structure
         mapfile = fullfile(outputdir, 'map.csv');
@@ -460,17 +473,6 @@ methods (Static)
         
         % Write mapping structure to output directory
         if ~isempty(map), writetable(map, fullfile(outputdir, 'map.csv'), 'WriteRowNames', true); end
-        
-        % Generate interface dependencies file if not already present
-        dependenciesfile = fullfile(outputdir, 'dependencies.csv');
-        if ~exist(dependenciesfile, 'file')
-            fid = fopen(dependenciesfile, 'w');
-            fprintf(fid, 'Component,Interface,Version\n');
-            for r = PathFinder.getInputSet()
-                fprintf(fid, '%s,%s,%s\n', r{1}{1}, r{1}{2}, r{1}{3});
-            end
-            fclose(fid);
-        end
         
     end
     
