@@ -499,6 +499,9 @@ classdef Scenario
             h5create(fullfile(outputdir, 'data.hdf5'), '/decision_index', size(decision_index), 'ChunkSize', size(decision_index), 'Deflate', 9);
             h5write(fullfile(outputdir, 'data.hdf5'), '/decision_index', decision_index);
             
+            h5create(fullfile(outputdir, 'data.hdf5'), '/decision_index', size(decision_index), 'ChunkSize', size(decision_index), 'Deflate', 9);
+            h5write(fullfile(outputdir, 'data.hdf5'), '/decision_index', decision_index);
+
             h5create(fullfile(outputdir, 'data.hdf5'), '/productivity_values', size(productivity_values), 'ChunkSize', size(productivity_values), 'Deflate', 9);
             h5write(fullfile(outputdir, 'data.hdf5'), '/productivity_values', productivity_values);
             
