@@ -40,10 +40,13 @@ classdef Firm
         % dividend is the return of the corporation 
         % net of tax.
         %   NOTE: investment is GROSS physical investment --> K' - (1-d)K
-        function [divs, cits] = dividends( this, capital, labor, investment, wage )
+        function [divs, cits] = dividends( this, capital, investment, klRatio, wage )
+            
+            % Labor
+            labor = ( capital ./ klRatio );
             
             % Total revenues
-            y = this.TFP * ( capital.^this.capitalShare .* labor.^(1-this.capitalShare));
+            y = this.TFP * ( (capital.^this.capitalShare) .* (labor.^(1-this.capitalShare)) );
             
             % Wage payments
             wagesPaid = wage .* labor;
