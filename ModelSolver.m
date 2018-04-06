@@ -729,7 +729,7 @@ methods (Static)
                     %       government yesterday after some people died, but redistributed today
                     %       after the new policy took place.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    rhos      = Dynamic.caps / Dynamic.labeffs;
+                    rhos      = Dynamic.caps ./ Dynamic.labeffs;
                     beqs      = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
                                  Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
                                 ] ./ Dynamic.pops;
