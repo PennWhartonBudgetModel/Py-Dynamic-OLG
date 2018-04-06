@@ -518,17 +518,14 @@ methods (Static)
             case 'steady'
                 damper.rhos      = 0.75;
                 damper.beqs      = 0.75;
-                damper.invtocaps = 0.75;
                 damper.capshares = 0.75;
             case 'open'
                 damper.rhos      = 1.0;     % Never update
                 damper.beqs      = 0.0;
-                damper.invtocaps = 0.0;
                 damper.capshares = 1.0; 
             case 'closed'
                 damper.rhos      = 0.0;
                 damper.beqs      = 0.0;
-                damper.invtocaps = 0.0;
                 damper.capshares = 0.0; 
         end
         
@@ -591,11 +588,11 @@ methods (Static)
             else  
                 
                 Market.beqs      = damper.beqs*Market.beqs + (1 - damper.beqs)*beqs;
-                Market.invtocaps = damper.invtocaps*Market.invtocaps + (1 - damper.invtocaps)*invtocaps;
                 Market.rhos      = damper.rhos*Market.rhos + (1-damper.rhos)*rhos;
                 Market.capshares = damper.capshares*Market.capshares + (1-damper.capshares)*capshares;
                 
                 Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) );
+                Market.invtocaps = invtocaps;
                 
                 % NOTE: For open economy, capshares will NOT converge
                 % because the portfolio allocation is fixed by steady-state
