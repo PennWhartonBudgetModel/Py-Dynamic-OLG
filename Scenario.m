@@ -440,7 +440,7 @@ classdef Scenario
                 decision_index = [productivity_index, savings_index, earnings_index, age_index, time_index];
             end
 
-            decision_rules = [OPTs.CON(:), OPTs.K(:), OPTs.LAB(:), OPTs.B(:)];
+            decision_rules = [OPTs.CON(:), OPTs.K(:), OPTs.LAB(:), OPTs.B(:), OPTs.INC(:)];
 
             % melt productivity values
             productivity_values = ParamGenerator.grids(scenario).zs;
