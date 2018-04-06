@@ -37,10 +37,13 @@ classdef Firm
         end % constructor
         
         
-        % dividend is the return of the corporation 
-        % net of tax.
-        %   NOTE: investment is GROSS physical investment --> K' - (1-d)K
+        %%
         function [divs, cits] = dividends( this, capital, investment, klRatio, wage )
+            % Inputs : capital
+            %          investment = GROSS physical investment --> K' - (1-d)K
+            %          klRatio & wage (which are consistent in the current iteration)
+            % Outputs: divs = dividend is the return of the corporation net of tax.
+            %          cits = corporate income taxes payed by the firms
             
             % Labor
             labor = ( capital ./ klRatio );
