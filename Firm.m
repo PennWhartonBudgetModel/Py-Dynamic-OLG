@@ -71,22 +71,59 @@ classdef Firm
                   
         end % dividends
         
-        
         %% 
         % Calculate K/L ratio from dividend rate
-        function [KLratio] = calculateKLRatio( this, dividendRate, capital, investment )
+        function [KLratio] = calculateKLRatio( this, dividendRate, labor, invtocapsT_model )
             
-            expensingSubsidyRate = this.expensingRate .* this.corpTaxRate ...
-                                .* (investment ./ capital) ...
-                                .* this.priceCapital;
-            % Calculate MPK 
-            r  = ( dividendRate ...
-                   + this.depreciationRate .* this.priceCapital ...
-                   - expensingSubsidyRate ...
-                  ) ./ (1 - this.corpTaxRate);
-              
-            % Calculate K/L ratio from MPK
-            KLratio = ( r ./ (this.TFP * this.capitalShare) ) .^ (1/(this.capitalShare-1));
+            % Initialize variables
+            T_model            = length(dividendRate);
+            caps               = zeros(T_model+1,1);
+            invtocaps          = zeros(T_model,1);
+            invtocaps(T_model) = invtocapsT_model;
+            
+            % Find K at T_model
+            % Total expensing divided by capital (expensing subsidy rate)
+            exptocaps      = this.expensingRate(T_model) * this.corpTaxRate(T_model) ...
+                             * invtocaps(T_model) * this.priceCapital(T_model);
+            % MPK
+            MPK            = ( dividendRate(T_model) + this.depreciationRate ...
+                                * this.priceCapital(T_model) - exptocaps     ...
+                              ) / (1 - this.corpTaxRate(T_model))            ;
+            % KLratio
+            KLratioT_model = ( MPK / (this.TFP * this.capitalShare) ) ^ (1/(this.capitalShare-1));
+            % Capital at T_model
+            caps(T_model)  = KLratioT_model * labor(T_model);
+            
+            % Find capital sequence by backward induction numerically solving
+            % the polynomial: Psi*k(t) - Gamma*k(t)^alpha - Phi(k(t+1)) = 0 
+            for t = T_model-1:-1:1
+                
+                % Constants
+                Psi = ( dividendRate(t) + this.depreciationRate * this.priceCapital(t) + ...
+                        this.expensingRate(t) * this.corpTaxRate(t) * this.priceCapital(t) * ...
+                        (1 - this.depreciationRate) ) ... 
+                      / ( this.TFP * this.capitalShare * (1 - this.corpTaxRate(t)) );
+                Phi = caps(t+1) * ...
+                      ( ( this.expensingRate(t) * this.corpTaxRate(t) * this.priceCapital(t) ) ...
+                      / (  this.TFP * this.capitalShare * (1 - this.corpTaxRate(t)) ));                
+                Gamma = labor(t)^(1 - this.capitalShare);
+                
+                % Find polynomial root
+                % caps(t+1) is used as the guess
+                [x, ~, exitflag] = fzero(@(x) (x - (Gamma/Psi)*(x^this.capitalShare) - Phi/Psi), caps(t+1) );
+                
+                if ( exitflag ~= 1)
+                    error('No root to the polynomial.')
+                end
+                
+                % Save time t capital
+                caps(t) = x;
+               
+            end
+            
+            % Calculate capital-labor ratio
+            KLratio = caps(1:T_model) ./ labor;
+            
         end % calculateKLRatio
         
     end % instance methods

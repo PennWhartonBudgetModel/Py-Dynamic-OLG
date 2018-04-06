@@ -573,8 +573,8 @@ methods (Static)
                         % capital are fixed.
                         worldDividendRate = Market0.equityFundDividends;
                         klRatio = theFirm.calculateKLRatio( worldDividendRate, ... 
-                                                            Dynamic0.caps, ...
-                                                            Dynamic0.investment );
+                                                            Dynamic.labeffs', ...
+                                                            Market0.invtocaps );
                         
                         Market.rhos      = klRatio';
                         %% TBD: Do we need to set caps to have foreign investment here?
