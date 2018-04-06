@@ -254,8 +254,7 @@ methods (Static, Access = public)
     end
     
     
-    %%%%%%%%%%%%%%%%%%%%%%%%%
-    %%  Output interfaces
+    
     
     % Get calibration output directory
     function [calibrationoutputdir] = getCalibrationOutputDir()
@@ -271,6 +270,15 @@ methods (Static, Access = public)
     function [dataseriesoutputdir] = getTransitionMatrixOutputDir()
         dataseriesoutputdir = PathFinder.getOutputDir('transition');
     end
+    
+    
+    
+    
+    % Get bundle directory
+    function [bundledir] = getBundleDir(bundle)
+        bundledir = fullfile(PathFinder.getComponentRootDir('Bundler'), 'Bundles', bundle);
+    end
+    
     
 end
 
