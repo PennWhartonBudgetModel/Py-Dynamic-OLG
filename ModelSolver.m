@@ -78,9 +78,9 @@ methods (Static)
         
         % Load production parameters
         s = ParamGenerator.production( scenario );
-        A       = s.A;        % Total factor productivity
-        alpha   = s.alpha;    % Capital share of output
-        d       = s.d;        % Depreciation rate
+        A               = s.A;              % Total factor productivity
+        alpha           = s.alpha;          % Capital share of output
+        depreciation    = s.depreciation;   % Depreciation rate
         
         % Load population growth parameters
         % Load age-dependent parameters
@@ -135,9 +135,12 @@ methods (Static)
         bequest_phi_2 = s.phi2;                 % phi2 measures the extent to which bequests are a luxury good
         bequest_phi_3 = s.phi3;                 % phi3 is the relative risk aversion coefficient
 
-        % Instantiate a Firm
-        theFirm       = Firm( scenario );
+        % Instantiate a Firm (SingleFirm)
+        theFirm       = Firm( scenario, Firm.SINGLEFIRM );
         priceCapital  = theFirm.priceCapital;
+        
+        % Instantiate the Pass-Through Firm
+        thePassThrough  = Firm( scenario, Firm.PASSTHROUGH );
         
         
         %% Aggregate generation function
@@ -191,8 +194,9 @@ methods (Static)
                     captaxshares, pit.ratePreferred, taucapgains, ...
                     Market.beqs, ...
                     Market.wages, ...
-                    Market.equityFundDividends, Market.equityFundPrices, ... % Equity returns and prices
-                    Market.bondFundDividends, Market.bondFundPrices  ... % Bond returns and prices
+                    Market.capshares, ...
+                    Market.equityFundDividends, Market.equityFundPrices, Market.equityFundPrice0, ... % Equity returns and prices
+                    Market.bondFundDividends, Market.bondFundPrices, Market.bondFundPrice0  ... % Bond returns and prices
                     ); 
 
             % Initialize series of terminal utility values
@@ -392,15 +396,14 @@ methods (Static)
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
             
-            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde'}
+            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde', 'corpTaxs' }
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
 
             % Calculate static budgetary aggregate variables
-            Static.cits_domestic = Static.cits;
-            Static.cits_foreign  = taucaps' .* Market.caprates .* captaxshares' .* (priceCapital' .* Static.caps_foreign);
-            Static.cits          = Static.cits_domestic + Static.cits_foreign;
-            Static.revs          = Static.pits + Static.ssts + Static.cits - Static.bens;            
+            Static.revs          = Static.pits + Static.ssts        ... 
+                                    + Static.cits + Static.corpTaxs ...
+                                    - Static.bens;            
             Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
             Static.caprevs       = Static.cits + Static.pits - Static.labpits;
             
@@ -439,17 +442,19 @@ methods (Static)
             case 'steady'
                 
                 % Load initial guesses
-                Market0 = struct( 'beqs'     , 0.0927         , ...     % beqs are results from previous runs.
-                                  'capshares', 3/(3+debttoout), ...     % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                                  'rhos'     , 6.2            , ...     % rhos are results from previous runs.
-                                  'invtocaps', 0.0078 + d     , ...     % I/K = pop growth rate 0.0078 + depreciation
-                                  'wages'    , 1                ...     % Need better guess
-                                );
-                Dynamic0.debts      = debttoout;
-                Dynamic0.assets     = 3 + debttoout;
-                Dynamic0.caps       = 3; 
-                Dynamic0.labeffs    = Dynamic0.caps ./ Market0.rhos; 
-                Dynamic0.investment = Market0.invtocaps ./ Dynamic0.caps;
+                Dynamic0.outs       = 3.35;
+                Dynamic0.caps       = 12.20; 
+                captoout            = Dynamic0.caps / Dynamic0.outs;
+                
+                Market0.beqs        = 0.1662;                           % beqs are results from previous runs.
+                Market0.capshares   = captoout / (captoout+debttoout);  % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                Market0.rhos        = 7.0652;                           % rhos are results from previous runs.
+                Market0.invtocaps   = 0.0078 + depreciation;            % I/K = pop growth rate 0.0078 + depreciation
+
+                Dynamic0.debts      = Dynamic0.outs * debttoout;
+                Dynamic0.assets     = Dynamic0.caps + Dynamic0.debts;
+                Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
+                Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
                 
                 DIST_steady = {};
                 
@@ -514,10 +519,10 @@ methods (Static)
         % dampened and 1 means fully dampened
         switch economy
             case 'steady'
-                damper.rhos      = 0.5;
-                damper.beqs      = 0.0;
-                damper.invtocaps = 0.5;
-                damper.capshares = 0.0;
+                damper.rhos      = 0.75;
+                damper.beqs      = 0.75;
+                damper.invtocaps = 0.75;
+                damper.capshares = 0.75;
             case 'open'
                 damper.rhos      = 1.0;     % Never update
                 damper.beqs      = 0.0;
@@ -554,7 +559,6 @@ methods (Static)
                 Market.beqs      = Market0.beqs     *ones(1,T_model);
                 Market.capshares = Market0.capshares*ones(1,T_model);
                 Market.invtocaps = Market0.invtocaps*ones(1,T_model);
-                Market.wages     = Market0.wages    *ones(1,T_model);
                 
                 Dynamic.assets      = Dynamic0.assets       *ones(1,T_model);
                 Dynamic.debts       = Dynamic0.debts        *ones(1,T_model);
@@ -567,20 +571,27 @@ methods (Static)
                     case {'steady', 'closed'}
 
                         Market.rhos      = Market0.rhos*ones(1,T_model);
-                        Market.debtrates = debtrates;
-                        Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) );
                         
                     case 'open'
 
                         % Rem: Returns are fixed to match steady-state in
                         % open economy. That is, after-tax returns for
                         % capital are fixed.
-                        Market.caprates  = Market0.caprates  *ones(1,T_model) .* (1-taucap_ss) ./ (1 - taucaps');
-                        Market.debtrates = Market0.debtrates *ones(1,T_model);
-
+                        steadyStateDividendRate = Market0.equityFundDividends;
+                        klRatio = theFirm.calculateKLRatio( steadyStateDividendRate, ... 
+                                                            Dynamic0.caps, ...
+                                                            Dynamic0.investment );
+                        
+                        Market.rhos      = klRatio';
+                        %% TBD: Do we need to set caps to have foreign investment here?
+                        %       Seems like yes.
                 end
                 
-            else
+                Market.debtrates = debtrates;
+                Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) ); % This is just for reporting
+            
+            % end initial loop iteration
+            else  
                 
                 Market.beqs      = damper.beqs*Market.beqs + (1 - damper.beqs)*beqs;
                 Market.invtocaps = damper.invtocaps*Market.invtocaps + (1 - damper.invtocaps)*invtocaps;
@@ -595,15 +606,14 @@ methods (Static)
                 % mix of capital vs. debt changes.
             end
             
-            [corpDividends , corpTaxs]  = theFirm.dividends(    Dynamic.caps'           ...
+            
+            % Compute prices
+            Market.wages               = A*(1-alpha)*(Market.rhos.^alpha);
+            [corpDividends, corpTaxs]  = theFirm.dividends( Dynamic.caps'           ...
                                                         ,   Dynamic.labeffs'        ...
                                                         ,   Dynamic.investment'     ...
                                                         ,   Market.wages'           ...
                                                         );
-            
-            % Compute prices
-            Market.rhos          = ( Market.caprates./(A*alpha) ).^(1/(alpha-1));
-            Market.wages         = A*(1-alpha)*(Market.rhos.^alpha);
             
             % Capital prices
             priceCapital         = theFirm.priceCapital;
@@ -614,10 +624,12 @@ methods (Static)
             
             % 'Price' of assets -- HH own equal shares of both bond & equity funds
             % (equityFund/bondFund)Dividends are actually dividend rates
-            Market.equityFundPrices     = Market.capshares;  
+            Market.equityFundPrice0     = theFirm.priceCapital0;
+            Market.equityFundPrices     = priceCapital';  
             Market.equityFundDividends  = (corpDividends ./ (Dynamic.caps' .* priceCapital))';
             
-            Market.bondFundPrices       = 1 - Market.capshares;
+            Market.bondFundPrice0       = 1;
+            Market.bondFundPrices       = ones(1,T_model);
             Market.bondFundDividends    = debtrates; %rem: dividendrate is per $ of assets
             
             
@@ -653,8 +665,6 @@ methods (Static)
                     Dynamic.debts_foreign  = zeros(1,T_model);
                     Dynamic.caps_domestic  = Dynamic.caps;
                     Dynamic.caps_foreign   = zeros(1,T_model);
-                    Dynamic.cits_domestic  = Dynamic.caps;
-                    Dynamic.cits_foreign   = zeros(1,T_model);
                     Dynamic.tot_assets     = Dynamic.assets;
                     
                     % Calculate income
@@ -668,7 +678,7 @@ methods (Static)
                     DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
                     assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.K, [], T_model), 1), 3);
                     Dynamic.investment = (Market.capshares * (assets_tomorrow - Dynamic.bequests))./ priceCapital' ...
-                                         - (1 - d) * Dynamic.caps;
+                                         - (1 - depreciation) * Dynamic.caps;
                                      
                     % Update guesses
                     rhos      = Dynamic.caps / Dynamic.labeffs;
@@ -710,7 +720,7 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Gross investment in physical capital
-                    Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - d) * ...
+                    Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - depreciation) * ...
                                          [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))];
                     % Update guesses
                     % Note: Bequests should be priced according to the new policy because it
@@ -754,7 +764,7 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Gross investment in physical capital
-                    Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - d) * ...
+                    Dynamic.investment = [Dynamic.caps(2:T_model)   Dynamic.caps(T_model)] - (1 - depreciation) * ...
                                          [Dynamic.caps(1:T_model-1) Dynamic.caps(max(T_model-1,1))];
 
                     % Update guesses
@@ -844,7 +854,7 @@ methods (Static)
                 savelas = (Dynamic_dev.assets - Dynamic.assets) / (Dynamic.assets * ratedev);
                 
                 % Calculate $GDP/HH
-                outperHH = (Dynamic.outs./Dynamic.pops)./modelunit_dollar;
+                outperHH = (Dynamic.outs./Dynamic.pops)./scenario.modelunit_dollar;
                 
                 % Calculate gini
                 GiniTable = MomentsGenerator(scenario,DIST.DIST,Market,OPTs).giniTable;

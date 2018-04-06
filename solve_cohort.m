@@ -15,8 +15,9 @@ function [OPT] ...
         captax_shares, captax_pref_rates, capgain_taxrates, ...
         beqs, ...
         wages, ...
-        equityfund_dividendrates, equityfund_prices, ...
-        bondfund_dividendrates, bondfund_prices ...
+        portfolio_equityshares, ...
+        equityfund_dividendrates, equityfund_prices, equityfund_price0, ...
+        bondfund_dividendrates, bondfund_prices, bondfund_price0 ...
     ) %#codegen
 
 
@@ -75,10 +76,13 @@ assert( isa(capgain_taxrates  , 'double'  ) && (size(capgain_taxrates  , 1) <= T
 assert( isa(beqs    , 'double'  ) && (size(beqs     , 1) == 1       ) && (size(beqs     , 2) <= T_max   ) );
 assert( isa(wages   , 'double'  ) && (size(wages    , 1) == 1       ) && (size(wages    , 2) <= T_max   ) );
 
+assert( isa(portfolio_equityshares   , 'double'  ) && (size(portfolio_equityshares   , 1) == 1       ) && (size(portfolio_equityshares   , 2) <= T_max   ) );
 assert( isa(equityfund_dividendrates , 'double'  ) && (size(equityfund_dividendrates , 1) == 1       ) && (size(equityfund_dividendrates , 2) <= T_max   ) );
 assert( isa(equityfund_prices        , 'double'  ) && (size(equityfund_prices        , 1) == 1       ) && (size(equityfund_prices        , 2) <= T_max   ) );
+assert( isa(equityfund_price0        , 'double'  ) && (size(equityfund_price0        , 1) == 1       ) && (size(equityfund_price0        , 2) == 1       ) );
 assert( isa(bondfund_dividendrates   , 'double'  ) && (size(bondfund_dividendrates   , 1) == 1       ) && (size(bondfund_dividendrates   , 2) <= T_max   ) );
 assert( isa(bondfund_prices          , 'double'  ) && (size(bondfund_prices          , 1) == 1       ) && (size(bondfund_prices          , 2) <= T_max   ) );
+assert( isa(bondfund_price0          , 'double'  ) && (size(bondfund_price0          , 1) == 1       ) && (size(bondfund_price0          , 2) == 1       ) );
 
 
 %% Dynamic optimization
@@ -105,7 +109,6 @@ V_step = V0;
 % Specify settings for dynamic optimization subproblems
 optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
 
-
 % Solve dynamic optimization problem through backward induction
 for t = T_active:-1:1
     
@@ -122,17 +125,20 @@ for t = T_active:-1:1
     beq         = beqs         (year);
 
     wage                    = wages                    (year);
+    
+    portfolio_equityshare   = portfolio_equityshares   (year);
     equityfund_dividendrate = equityfund_dividendrates (year);
     equityfund_price        = equityfund_prices        (year);
     bondfund_dividendrate   = bondfund_dividendrates   (year);
     bondfund_price          = bondfund_prices          (year);
     
-    % Calculate this period's "portfolio price" 
-    fund_price              = equityfund_price + bondfund_price;
-    
-    % Calculate capital gain on equity -- THIS IMPLEMENTATION IS TEMP
-    equityfund_prevprice = equityfund_prices(max(year-1),1);
-    capgain_rate         = (equityfund_price - equityfund_prevprice)/equityfund_price;
+    % Calculate capital gain on equity
+    if( year == 1 )
+        equityfund_prevprice = equityfund_price0;
+    else
+        equityfund_prevprice = equityfund_prices( year-1 );
+    end
+    capgain_rate = (equityfund_price - equityfund_prevprice)/equityfund_price;
     
     % Capital taxes
     capgain_taxrate     = capgain_taxrates      (year);
@@ -158,8 +164,6 @@ for t = T_active:-1:1
     for ib = 1:nb
         for is = 1:ns
             
-            fund_share   = sv(is);
-            
             % Retired person
             if (age > T_work)
                 
@@ -170,7 +174,7 @@ for t = T_active:-1:1
                 
                 [resources, inc, pit, sst, cit] = calculate_resources( ...
                     labinc, ssinc, ...
-                    fund_share, ...
+                    sv(is), portfolio_equityshare, ...
                     equityfund_price, bondfund_price, ...
                     equityfund_dividendrate, bondfund_dividendrate, ...
                     sst_brackets, sst_burdens, sst_rates, ...
@@ -189,7 +193,7 @@ for t = T_active:-1:1
                     % Solve dynamic optimization subproblem
                     [s, v] = fminsearch( ...
                         @(s) value_retirement( ...
-                            s, fund_price, resources, EV(:,ib), ... 
+                            s, resources, EV(:,ib), ... 
                             sv, ...
                             bequest_p_1, bequest_p_2, bequest_p_3, ...
                             sigma, gamma ...
@@ -201,25 +205,23 @@ for t = T_active:-1:1
                     assert( s <= sv(end), 's (s_next) is too big!')
 
                     % Record utility and optimal decision values
-                    %   s (savings in shares) is set by the optimizer
+                    %   s (savings) is set by the optimizer
                     %   v is also from optimizer
-                    v        = -v;  % Rem: flipped for minimization
+                    v = -v;  % Rem: flipped for minimization
                     
                 else % STATIC
                     
                     % TBD: Record correct values for Static
-                    s = sv(is); % TBD: This should come from Static
-                    v = 0;  % TBD: Calculate from static?
+                    s   = sv(is); % TBD: This should come from Static
+                    lab = 0;
+                    v   = 0;  % TBD: Calculate from static?
                     
                 end
                 
-                % Calculate resources -- just $ savings in this case
-                savings  = s * fund_price;
-                    
                 % Record utility, decisions, and other values
                 OPT.V      (:,is,ib,t)  = v;
-                OPT.K      (:,is,ib,t)  = s ;
-                OPT.SAVINGS(:,is,ib,t)  = savings;
+                OPT.K      (:,is,ib,t)  = s;
+                OPT.SAVINGS(:,is,ib,t)  = s;
 
                 OPT.LAB(:,is,ib,t)      = lab;
                 OPT.B  (:,is,ib,t)      = bv(ib);
@@ -229,7 +231,7 @@ for t = T_active:-1:1
                 OPT.SST(:,is,ib,t)      = sst   ;
                 OPT.CIT(:,is,ib,t)      = cit   ;
                 OPT.BEN(:,is,ib,t)      = ssinc ;
-                OPT.CON(:,is,ib,t)      = resources - savings; 
+                OPT.CON(:,is,ib,t)      = resources - s; 
                 
             else
                 % Working age person
@@ -244,7 +246,7 @@ for t = T_active:-1:1
                 ssinc = 0;
                 calculate_resources_ = @(labinc) calculate_resources( ...
                     labinc, ssinc, ...
-                    fund_share, ...
+                    sv(is), portfolio_equityshare, ...
                     equityfund_price, bondfund_price, ...
                     equityfund_dividendrate, bondfund_dividendrate, ...
                     sst_brackets, sst_burdens, sst_rates, ...
@@ -271,7 +273,7 @@ for t = T_active:-1:1
                         
                         [x, v] = fminsearch( ...
                             @(x) value_working( ...
-                                x, fund_price, EV, ...
+                                x, EV, ...
                                 sv, bv, wage_eff,  ...
                                 bequest_p_1, bequest_p_2, bequest_p_3, ...
                                 sigma, gamma, ...
@@ -286,7 +288,10 @@ for t = T_active:-1:1
                         assert( ~isinf(v)   , 'v is inf')
                         assert( s <= sv(end), 's (s_next) is too big!')
                         
-                        v   = -v;  % Rem: flipped for minimization
+                        % Record utility and optimal decision values
+                        %   s (savings) is set by the optimizer
+                        %   v is also from optimizer
+                        v = -v;  % Rem: flipped for minimization
                         
                     else   % STATIC
                         
@@ -298,24 +303,23 @@ for t = T_active:-1:1
                     end
                     
                     % Calculate resources
-                    savings     = s * fund_price;
                     labinc      = wage_eff * lab;
                     [resources, inc, pit, sst, cit] = calculate_resources_(labinc);
 
                     % Record utility, decisions, and other values
                     OPT.V      (iz,is,ib,t) = v;
                     OPT.K      (iz,is,ib,t) = s;
-                    OPT.SAVINGS(iz,is,ib,t) = savings;
+                    OPT.SAVINGS(iz,is,ib,t) = s;
 
-                    OPT.LAB(iz,is,ib,t) = lab;
-                    OPT.B  (iz,is,ib,t) = calculate_b_(labinc);
+                    OPT.LAB(iz,is,ib,t)     = lab;
+                    OPT.B  (iz,is,ib,t)     = calculate_b_(labinc);
                     
-                    OPT.INC(iz,is,ib,t) = inc;
-                    OPT.PIT(iz,is,ib,t) = pit;
-                    OPT.SST(iz,is,ib,t) = sst;
-                    OPT.CIT(iz,is,ib,t) = cit;
-                    OPT.BEN(iz,is,ib,t) = 0  ;
-                    OPT.CON(iz,is,ib,t) = resources - savings; 
+                    OPT.INC(iz,is,ib,t)     = inc;
+                    OPT.PIT(iz,is,ib,t)     = pit;
+                    OPT.SST(iz,is,ib,t)     = sst;
+                    OPT.CIT(iz,is,ib,t)     = cit;
+                    OPT.BEN(iz,is,ib,t)     = 0  ;
+                    OPT.CON(iz,is,ib,t)     = resources - s; 
                     
                 end
                 
@@ -336,7 +340,7 @@ end
 % Retirement age value function
 function [v] ...
     = value_retirement( ...
-        s, fund_price, resources, EV_ib, ... 
+        s, resources, EV_ib, ... 
         sv, ...
         bequest_p_1, bequest_p_2, bequest_p_3, ...
         sigma, gamma ...
@@ -346,8 +350,7 @@ function [v] ...
     coder.inline('always');
 
     % Calculate consumption
-    savings     = fund_price * s;
-    consumption = resources - savings;
+    consumption = resources - s;
 
     % Perform bound checks
     if (sv(1) <= s) && (s <= sv(end)) && (0 <= consumption)
@@ -355,7 +358,7 @@ function [v] ...
         % Residual value of bequest.
         % NOTE: (1) bequest is assets chosen for next period,
         %       (2) bequest_p_1 is beta*prob_death*bequest_phi_1
-        value_bequest = bequest_p_1 * (1 + savings/bequest_p_2)^(1-bequest_p_3);
+        value_bequest = bequest_p_1 * (1 + s/bequest_p_2)^(1-bequest_p_3);
 
         % Calculate utility
         v = (consumption^(gamma*(1-sigma)))*(1/(1-sigma))     ... % flow utility
@@ -375,7 +378,7 @@ end
 % Working age value function
 function [v] ...
     = value_working( ...
-        x, fund_price, EV, ...
+        x, EV, ...
         sv, bv, wage_eff, ...
         bequest_p_1, bequest_p_2, bequest_p_3, ...
         sigma, gamma, ...
@@ -405,8 +408,7 @@ function [v] ...
     resources = calculate_resources_(labinc);
 
     % Calculate consumption and perform bound check
-    savings     = fund_price * s;
-    consumption = resources - savings;
+    consumption = resources - s;
 
     if ~(0 <= consumption)
         v = Inf;
@@ -416,7 +418,7 @@ function [v] ...
     % Residual value of bequest.
     % NOTE: (1) bequest is assets chosen for next period,
     %       (2) bequest_p_1 is beta*prob_death*bequest_phi_1
-    value_bequest = bequest_p_1 * (1 + savings/bequest_p_2)^(1-bequest_p_3);
+    value_bequest = bequest_p_1 * (1 + s/bequest_p_2)^(1-bequest_p_3);
 
     % Calculate utility
     v = (((consumption^gamma)*((1-lab)^(1-gamma)))^(1-sigma))*(1/(1-sigma))     ... % flow utility
@@ -455,7 +457,7 @@ end
 function [resources, inc, pit, sst, cit] ...
     = calculate_resources( ...
         labinc, ssinc, ...
-        fund_share, ...
+        savings, portfolio_equityshare, ...
         equityfund_price, bondfund_price, ...
         equityfund_dividendrate, bondfund_dividendrate, ...
         sst_brackets, sst_burdens, sst_rates, ...
@@ -468,13 +470,17 @@ function [resources, inc, pit, sst, cit] ...
     coder.inline('always');
 
     % Calculate wealth in equity and g'vt bonds
-    equityvalue     = fund_share * equityfund_price;
-    bondvalue       = fund_share * bondfund_price;
+    % TBD: if more than one asset, revise this
+    equityvalue     = savings * portfolio_equityshare       * equityfund_price;
+    bondvalue       = savings * (1-portfolio_equityshare)   * bondfund_price;
     
     equitydividend  = equityfund_dividendrate * equityvalue;
     bonddividend    = bondfund_dividendrate   * bondvalue;
     
-    equitycapgain   = equityvalue * capgain_rate;
+    % Rem: this is ONLY for taxation, actual gain is already in price
+    %   NOTE that capgain_rate is in form (p_t - p_(t-1))/p_t
+    %        since equityvalue is based on p_t
+    equitycapgain   = equityvalue * capgain_rate; 
     
     % Calculate PIT taxable income
     %   We do not allow negative incomes
@@ -497,7 +503,7 @@ function [resources, inc, pit, sst, cit] ...
                 + equitydividend + bonddividend ...
                 + labinc + ssinc ...
                 - (pit + sst + cit) ...
-                + beq + equitycapgain;
+                + beq;
 
 end
 

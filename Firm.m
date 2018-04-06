@@ -5,23 +5,37 @@
 
 classdef Firm
     
+    properties (Constant)
+        SINGLEFIRM          = 0;
+        PASSTHROUGH         = 1;
+        MULTIFIRM           = 2;
+    end
+    
     properties
         TFP                 ;           % A
         capitalShare        ;           % alpha
         depreciationRate    ;           % delta
         riskPremium         ;           % for high/low return
         
-        expensingRate                   % phi_exp
-        corpTaxRate                     % tax on corp. profits
+        expensingRate       ;           % phi_exp
+        corpTaxRate         ;           % tax on corp. profits
         
-        priceCapital                    % See documentation. This is p_K
-        priceCapital0 = 1;
+        priceCapital        ;           % See documentation. This is p_K
+        priceCapital0 = 1   ;
+        
+        firmType            ;           % from the enumeration
         
     end % properties
     
     methods
         
-        function [this] = Firm( scenario )
+        function [this] = Firm( scenario, firmType )
+            
+            this.firmType           = firmType;   
+            if( ~(firmType == Firm.SINGLEFIRM || firmType == Firm.PASSTHROUGH) )
+                throw(MException('Firm:firmType','firmType must be SingleFirm or PassThrough'));
+            end
+            
             prod                    = ParamGenerator.production( scenario );
             this.TFP                = prod.A;
             this.capitalShare       = prod.alpha;
@@ -33,7 +47,7 @@ classdef Firm
         	this.corpTaxRate    = tax.rateCorporate;     
             
             % Calculate the price of capital (p_K, see docs)
-            this.priceCapital   = tax.qtobin ./ tax.qtobin0;
+            this.priceCapital   = this.priceCapital0 * (tax.qtobin ./ tax.qtobin0);
         end % constructor
         
         
@@ -55,7 +69,11 @@ classdef Firm
             expensing    = this.expensingRate .* investment .* this.priceCapital;
             
             % Combine to get net tax
-            cits  = (y - wagesPaid - expensing) .* this.corpTaxRate;
+            if( this.firmType == Firm.SINGLEFIRM )
+                cits  = (y - wagesPaid - expensing) .* this.corpTaxRate;
+            else
+                cits  = 0;
+            end
 
             % Calculate returns to owners
             divs  = y                                   ... % revenues
@@ -64,6 +82,24 @@ classdef Firm
                   - cits;                                   % net taxes
                   
         end % dividends
+        
+        
+        %% 
+        % Calculate K/L ratio from dividend rate
+        function [KLratio] = calculateKLRatio( this, dividendRate, capital, investment )
+            
+            expensingSubsidyRate = this.expensingRate .* this.corpTaxRate ...
+                                .* (investment ./ capital) ...
+                                .* this.priceCapital;
+            % Calculate MPK 
+            r  = ( dividendRate ...
+                   + this.depreciationRate .* this.priceCapital ...
+                   - expensingSubsidyRate ...
+                  ) ./ (1 - this.corpTaxRate);
+              
+            % Calculate K/L ratio from MPK
+            KLratio = ( r ./ (this.TFP * this.capitalShare) ) .^ (1/(this.capitalShare-1));
+        end % calculateKLRatio
         
     end % instance methods
     
