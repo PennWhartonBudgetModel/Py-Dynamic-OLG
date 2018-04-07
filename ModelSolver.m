@@ -594,10 +594,19 @@ methods (Static)
                 Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) );
                 Market.invtocaps = invtocaps;
                 
-                % NOTE: For open economy, capshares will NOT converge
-                % because the portfolio allocation is fixed by steady-state
-                % and we do not allow it to change even as the economy's 
-                % mix of capital vs. debt changes.
+                switch economy
+
+                    case 'open'
+                        % NOTE: For open economy, capshares will NOT converge
+                        % because the portfolio allocation is fixed by steady-state
+                        % and we do not allow it to change even as the economy's 
+                        % mix of capital vs. debt changes.
+
+                        klRatio     = theFirm.calculateKLRatio( worldDividendRate, ...
+                                            Dynamic.labeffs', Market0.invtocaps );
+                        Market.rhos = klRatio';
+                        
+                end
             end
             
             
