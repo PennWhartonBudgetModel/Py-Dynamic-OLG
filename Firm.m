@@ -5,23 +5,37 @@
 
 classdef Firm
     
+    properties (Constant)
+        SINGLEFIRM          = 0;
+        PASSTHROUGH         = 1;
+        MULTIFIRM           = 2;
+    end
+    
     properties
         TFP                 ;           % A
         capitalShare        ;           % alpha
         depreciationRate    ;           % delta
         riskPremium         ;           % for high/low return
         
-        expensingRate       ;            % phi_exp
+        expensingRate       ;           % phi_exp
         corpTaxRate         ;           % tax on corp. profits
         
         priceCapital        ;           % See documentation. This is p_K
         priceCapital0 = 1   ;
         
+        firmType            ;           % from the enumeration
+        
     end % properties
     
     methods
         
-        function [this] = Firm( scenario )
+        function [this] = Firm( scenario, firmType )
+            
+            this.firmType           = firmType;   
+            if( ~(firmType == Firm.SINGLEFIRM || firmType == Firm.PASSTHROUGH) )
+                throw(MException('Firm:firmType','firmType must be SingleFirm or PassThrough'));
+            end
+            
             prod                    = ParamGenerator.production( scenario );
             this.TFP                = prod.A;
             this.capitalShare       = prod.alpha;
@@ -61,7 +75,11 @@ classdef Firm
             expensing    = this.expensingRate .* investment .* this.priceCapital;
             
             % Combine to get net tax
-            cits  = (y - wagesPaid - expensing) .* this.corpTaxRate;
+            if( this.firmType == Firm.SINGLEFIRM )
+                cits  = (y - wagesPaid - expensing) .* this.corpTaxRate;
+            else
+                cits  = 0;
+            end
 
             % Calculate returns to owners
             divs  = y                                   ... % revenues
