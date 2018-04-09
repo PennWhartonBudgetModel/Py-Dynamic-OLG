@@ -248,7 +248,7 @@ methods (Static)
         end %calculate_captaxes
         
         [s.captaxshare, s.taucap]   = calculate_captaxes( tax_vars );
-        s.taucapgain                = zeros(T_model,1);
+        s.rateCapGain               = zeros(T_model,1);
         
         % Pass along all CIT parameters as well
         for f = fieldnames(tax_vars)'
@@ -257,8 +257,8 @@ methods (Static)
         
         % Foreign tax withholding -- TEMP
         %   TBD: Read these from file
-        s.rateForeignCorpIncome         = 0.30; % Tax rate on corp. distributions to foreigners
-        s.rateForeignPassThroughIncome  = 0.10; % Tax rate on pass-through distributions to foreigners
+        s.rateForeignCorpIncome         = 0.179 ;   % Tax rate on corp. distributions to foreigners
+        s.rateForeignPassThroughIncome  = 0.10  ;   % Tax rate on pass-through distributions to foreigners
         
         % Allocation of capital income between Corp & Pass-Through -- TEMP
         %   TBD: Read these from file
@@ -292,12 +292,6 @@ methods (Static)
         if( any(s.shareCapitalExpensing < 0) || any(s.shareCapitalExpensing > 1) )
             fprintf( 'WARNING! shareCapitalExpensing=%f outside expectations.\n', s.shareCapitalExpensing );
         end
-        if( any(s.taucap < 0) || any(s.taucap > 1) )
-            fprintf( 'WARNING! taucap=%f outside expectations.\n', s.taucap );
-        end        
-        if( any(s.taucapgain < 0) || any(s.taucapgain > 1) )
-            fprintf( 'WARNING! taucapgain=%f outside expectations.\n', s.taucapgain );
-        end  
         
         % Catch fatal errors
         if( any(s.shareCapitalOrdinary + s.shareCapitalPreferred + s.shareCapitalCorporate) ~= 1 ) 
