@@ -575,7 +575,7 @@ methods (Static)
                         % Rem: Returns are fixed to match steady-state in
                         % open economy. That is, after-tax returns for
                         % capital are fixed.
-                        worldDividendRate = Market0.equityFundDividends;
+                        worldDividendRate = Market0.equityFundDividends*ones(T_model,1);
                         klRatio = theFirm.calculateKLRatio( worldDividendRate, ... 
                                                             Dynamic.labeffs', ...
                                                             Market0.invtocaps );
