@@ -122,13 +122,13 @@ methods (Static)
         pit.burdens       = tax.burdens;        % Tax burden (cumulative tax) at thresholds
         pit.rates         = tax.rates;          % Effective marginal tax rate between thresholds
         pit.ratePreferred = tax.ratePreferred;  % Tax rate on capital in HH
+        pit.rateCapGain   = tax.rateCapGain;    % Capital gains tax
         
-        captaxshares        = tax.captaxshare;             % Portion of capital income taxed at preferred rates
-        taucaps             = tax.taucap;                  % Capital tax rate
-        taucapgains         = tax.taucapgain;              % Capital gains tax rate
-        
-        taucap_ss   = tax.sstaucap;  % Used for open economy
+        captaxshares      = tax.captaxshare;    % Portion of capital income taxed at preferred rates
 
+        % Tax parameters for current policy, steady-state
+        sstax = ParamGenerator.tax( scenario.steady().currentPolicy() );  
+        
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
         bequest_phi_1 = s.phi1;                 % phi1 reflects parent's concern about leaving bequests to her children (THIS IS THE ONE WE WANT TO CALIBRATE FOR LATER!)
@@ -190,7 +190,7 @@ methods (Static)
                     ssbenefits, ssincmins_indexed, ssincmaxs_indexed, cohort_wageindexes, ...
                     sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
                     sstaxcredit, pit.brackets, pit.burdens, pit.rates, ... 
-                    captaxshares, pit.ratePreferred, taucapgains, ...
+                    captaxshares, pit.ratePreferred, pit.rateCapGain, ...
                     Market.beqs, ...
                     Market.wages, ...
                     Market.capshares, 0, ... % portfolio allocations
@@ -579,8 +579,13 @@ methods (Static)
 
                         % Rem: Returns are fixed to match steady-state in
                         % open economy. That is, after-tax returns for
-                        % capital are fixed.
-                        worldDividendRate = Market0.equityFundDividends;
+                        % capital are fixed, including cap gains.
+                        % 
+                        % Define the pre-tax returns necessary to return
+                        % the world rate from steady-state.
+                        worldDividendRate   = Market0.equityFundDividends ...
+                                             * ...
+                                             (1 - tax.rateForeignCorpIncome)./(1 - sstax.rateForeignCorpIncome);
                         klRatio = theFirm.calculateKLRatio( worldDividendRate, ... 
                                                             Dynamic.labeffs', ...
                                                             Market0.invtocaps );
