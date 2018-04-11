@@ -519,9 +519,9 @@ methods (Static)
         % dampened and 1 means fully dampened
         switch economy
             case 'steady'
-                damper.rhos      = 0.75;
-                damper.beqs      = 0.75;
-                damper.capshares = 0.75;
+                damper.rhos      = 0.5;
+                damper.beqs      = 0.5;
+                damper.capshares = 0.5;
             case 'open'
                 damper.rhos      = 1.0;     % Never update
                 damper.beqs      = 0.0;
