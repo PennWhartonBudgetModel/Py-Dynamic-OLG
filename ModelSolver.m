@@ -193,7 +193,7 @@ methods (Static)
                     captaxshares, pit.ratePreferred, pit.rateCapGain, ...
                     Market.beqs, ...
                     Market.wages, ...
-                    Market.capshares, 0, ... % portfolio allocations
+                    Market.capshares, zeros(1,T_model), ... % portfolio allocations
                     zeros(1,T_model), zeros(1,T_model), 0,  ... % pass-through prices
                     Market.equityFundDividends, Market.equityFundPrices, Market.equityFundPrice0, ... % Equity returns and prices
                     Market.bondFundDividends, Market.bondFundPrices, Market.bondFundPrice0  ... % Bond returns and prices
@@ -815,7 +815,6 @@ methods (Static)
                     clearing.rhos, clearing.beqs, clearing.invtocaps, clearing.capshares)
             fprintf(iterlog, '%u,%0.6f,%0.6f,%0.6f,%0.6f\n', iter, ...
                     clearing.rhos, clearing.beqs, clearing.invtocaps, clearing.capshares);
-            
             
         end % GE loop
         
