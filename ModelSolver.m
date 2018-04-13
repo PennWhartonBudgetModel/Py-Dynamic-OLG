@@ -734,7 +734,10 @@ methods (Static)
                     
                     % Gross investment in physical capital
                     %   T_model investment converges to final steady
-                    %   state investment, K_ss*(pop_growth + depreciation)
+                    %   state investment, K_ss*(pop_growth + depreciation).
+                    %   In an open economy, capital gets to its optimal level
+                    %   instantaneously, so it's ok to use the steady state
+                    %   rate of capital replacement here.
                     Dynamic.investment = [Dynamic.caps(2:T_model)   0] - (1 - depreciation) * ...
                                          [Dynamic.caps(1:T_model-1) 0];
                     Dynamic.investment(T_model) = Market0.invtocaps * Dynamic.caps(T_model);
@@ -781,11 +784,13 @@ methods (Static)
                     Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Gross investment in physical capital
-                    %   T_model investment converges to final steady
-                    %   state investment, K_ss*(pop_growth + depreciation)
+                    %   T_model investment eventually converges to final steady
+                    %   state investment, K_ss*(pop_growth + depreciation),
+                    %   but closed economy capital has not yet converged so
+                    %   the last period is a more smooth guess
                     Dynamic.investment = [Dynamic.caps(2:T_model)   0] - (1 - depreciation) * ...
                                          [Dynamic.caps(1:T_model-1) 0];
-                    Dynamic.investment(T_model) = Market0.invtocaps * Dynamic.caps(T_model);
+                    Dynamic.investment(T_model) = Market.invtocaps(T_model-1) * Dynamic.caps(T_model);
 
                     % Update guesses
                     % Note: Dynamic.assets represents current assets at new prices.
