@@ -73,7 +73,7 @@ classdef MomentsGenerator
             % Import policy functions
             f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model]), [1,1,1,1,ng,1]);
             if ~exist('OPTs','var') || isempty(OPTs)
-                s        = load( fullfile(save_dir, 'all_decisions.mat' ) );
+                s        = load( fullfile(save_dir, 'decisions.mat' ) ); s = s.OPTs;
                 labinc   = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1]),[1,nk,nb,1,ng,T_model]) * wages;
                 k        = f(s.K);
                 this.ben = f(s.BEN);
