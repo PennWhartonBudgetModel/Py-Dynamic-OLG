@@ -71,6 +71,9 @@ classdef Firm
             % Replace depreciated capital (rem: at cost to buy it)
             depreciation = this.depreciationRate .* capital .* this.priceCapital;
             
+            % Risk premium (rem: at cost to buy it)
+            risk = this.riskPremium .* capital .* this.priceCapital;
+            
             % Investment expensing 'subsidy'
             expensing    = this.expensingRate .* investment .* this.priceCapital;
             
@@ -85,6 +88,7 @@ classdef Firm
             divs  = y                                   ... % revenues
                   - wagesPaid                           ... % labor costs
                   - depreciation                        ... % replace depreciated capital
+                  - risk                                ... % discount money lost due to risk
                   - cits;                                   % net taxes
                   
         end % dividends
@@ -92,6 +96,11 @@ classdef Firm
         %% 
         % Calculate K/L ratio from dividend rate
         function [KLratio] = calculateKLRatio( this, dividendRate, labor, invtocapsT_model )
+            % Inputs : dividendRate = dollars received as dividend per
+            %                         dollar owned of equity
+            %          labor = efficient units of labor (from last iteration)
+            %          invtocapsT_model = last period guess of I/K
+            % Outputs: KLratio that generates the exact dividendRate of inputs
             
             % Initialize variables
             T_model            = length(dividendRate);
@@ -105,7 +114,7 @@ classdef Firm
                              * invtocaps(T_model);
             % MPK
             MPK            = ( dividendRate(T_model) + this.depreciationRate ...
-                                - exptocaps     ...
+                                + this.riskPremium - exptocaps     ...
                               ) * this.priceCapital(T_model) / (1 - this.corpTaxRate(T_model))            ;
             % KLratio
             KLratioT_model = ( MPK / (this.TFP * this.capitalShare) ) ^ (1/(this.capitalShare-1));
@@ -117,7 +126,7 @@ classdef Firm
             for t = T_model-1:-1:1
                 
                 % Constants
-                Psi = ( dividendRate(t) + this.depreciationRate ...
+                Psi = ( dividendRate(t) + this.depreciationRate + this.riskPremium ...
                        + this.expensingRate(t) * this.corpTaxRate(t) * (1 - this.depreciationRate) ... 
                        ) * this.priceCapital(T_model) ...
                       / ( this.TFP * this.capitalShare * (1 - this.corpTaxRate(t)) );
