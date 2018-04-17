@@ -523,9 +523,9 @@ methods (Static)
                 damper.beqs      = 0.5;
                 damper.capshares = 0.5;
             case 'open'
-                damper.rhos      = 1.0;     % Never update
+                damper.rhos      = 1.0;      % Fully update to Market.rhos (rhos carries the old value in the open economy)
                 damper.beqs      = 0.0;
-                damper.capshares = 1.0; 
+                damper.capshares = 1.0;      % Never update
             case 'closed'
                 damper.rhos      = 0.0;
                 damper.beqs      = 0.0;
@@ -592,7 +592,8 @@ methods (Static)
                                                             Dynamic.labeffs'        , ...
                                                             Market0.invtocaps );
                         
-                        Market.rhos      = klRatio';
+                        rhos        = Market0.rhos*ones(1,T_model);
+                        Market.rhos = klRatio';
                         %% TBD: Do we need to set caps to have foreign investment here?
                         %       Seems like yes.
                 end
@@ -621,6 +622,7 @@ methods (Static)
                         klRatio     = theFirm.calculateKLRatio( effectiveDividendRate   , ...
                                                                 Dynamic.labeffs'        , ...
                                                                 Market0.invtocaps );
+                        rhos        = Market.rhos;
                         Market.rhos = klRatio';
                         
                 end
@@ -748,7 +750,6 @@ methods (Static)
                     %       government yesterday after some people died, but redistributed today
                     %       after the new policy took place.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    rhos      = Dynamic.caps ./ Dynamic.labeffs;
                     beqs      = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
                                  Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
                                 ] ./ Dynamic.pops;
