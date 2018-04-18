@@ -393,6 +393,8 @@ classdef Scenario
                     case 'labs'     
                     case 'caprates'
                     case 'wages'
+                    case 'equityFundDividends'
+                    case 'bondFundDividends'
                         c = 1;
                     case 'pops'
                         c = HH_2017;
