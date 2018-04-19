@@ -5,18 +5,18 @@
 
 wipe;
 
-%% Params for K/Y=3 with d=0.056
-% params.beta =  0.98600000;
-% params.gamma = 0.75000000;
-% params.sigma = 1.24000000;
-% params.modelunit_dollar = 4.359874681178362e-05;
+%% Params for high return economy
+% params.beta =  0.980000000000000;
+% params.gamma = 0.768000000000000;
+% params.sigma = 1.600000000000000;
+% params.modelunit_dollar = 4.050982750000000e-05;
 % params.IsLowReturn = false;
 
-%% Params for K/Y=3 with d=0.08
-params.beta =  1.003341000000000;
-params.gamma = 0.680000000000000;
+%% Params for low return economy
+params.beta =  0.994000000000000;
+params.gamma = 0.726000000000000;
 params.sigma = 1.500000000000000;
-params.modelunit_dollar = 4.135682750000000e-05;
+params.modelunit_dollar = 3.850000000000000e-05;
 params.IsLowReturn = true;
 
 params.TransitionFirstYear = 2018;
@@ -27,7 +27,7 @@ params.TransitionLastYear  = 2018+25;
 % Solve for baseline steady state
 scenario   = Scenario(struct('economy', 'closed', 'beta', params.beta, 'gamma', params.gamma, ...
                              'sigma', params.sigma, 'modelunit_dollar', params.modelunit_dollar, ...
-                             'IsLowReturn', params.IsLowReturn, 'bequest_phi_1', 0, 'BaseBrackets', 'Conf', ...
+                             'IsLowReturn', params.IsLowReturn, 'bequest_phi_1', 0, 'BaseBrackets', 'PermanentTCJA', ...
                              'TransitionFirstYear', params.TransitionFirstYear, 'TransitionLastYear', params.TransitionLastYear));
 
 sc_steady   = scenario.currentPolicy.steady;
@@ -49,35 +49,35 @@ ModelSolver.solve(scenario);
 
 % Import variables in dynamics file
 d_steady = load(fullfile(steady_dir  , 'dynamics.mat'), ... 
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens' );
-d_steady.cits_domestic = d_steady.cits;
+            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens', 'investment', 'corpTaxs' );
+d_steady.caps_foreign = 0;
 d_open   = load(fullfile(open_dir  , 'dynamics.mat'), ... 
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens' );
+            'debts', 'revs', 'outs', 'caps', 'caps_foreign', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens', 'investment', 'corpTaxs' );
 d_closed = load(fullfile(closed_dir, 'dynamics.mat'), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens' );
+            'debts', 'revs', 'outs', 'caps', 'caps_foreign', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens', 'investment', 'corpTaxs' );
 
 % Import variables in **baseline** dynamics file
 b_open   = load(fullfile(bopen_dir  , 'dynamics.mat'), ... 
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens' );
+            'debts', 'revs', 'outs', 'caps', 'caps_foreign', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens', 'investment', 'corpTaxs' );
 b_closed = load(fullfile(bclosed_dir, 'dynamics.mat'), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens' );
+            'debts', 'revs', 'outs', 'caps', 'caps_foreign', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens', 'investment', 'corpTaxs' );
 
 % Import variables in statics file
 s_open   = load(fullfile(open_dir  , 'statics.mat' ), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens');
+            'debts', 'revs', 'outs', 'caps', 'caps_foreign', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens', 'investment', 'corpTaxs');
 s_closed = load(fullfile(closed_dir, 'statics.mat' ), ...
-            'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens');
+            'debts', 'revs', 'outs', 'caps', 'caps_foreign', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens', 'investment', 'corpTaxs');
 
 % Import variables in market file
-m_steady  = load(fullfile(steady_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'govrates', 'totrates', 'qtobin');
-m_open    = load(fullfile(open_dir  , 'market.mat'  ), 'caprates', 'wages', 'rhos', 'govrates', 'totrates', 'qtobin');
-mb_open   = load(fullfile(bopen_dir  , 'market.mat' ), 'caprates', 'wages', 'rhos', 'govrates', 'totrates', 'qtobin');
-m_closed  = load(fullfile(closed_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'govrates', 'totrates', 'qtobin');
-mb_closed = load(fullfile(bclosed_dir, 'market.mat' ), 'caprates', 'wages', 'rhos', 'govrates', 'totrates', 'qtobin');
+m_steady  = load(fullfile(steady_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices');
+m_open    = load(fullfile(open_dir  , 'market.mat'  ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices');
+mb_open   = load(fullfile(bopen_dir  , 'market.mat' ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices');
+m_closed  = load(fullfile(closed_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices');
+mb_closed = load(fullfile(bclosed_dir, 'market.mat' ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices');
 
 % Include steady state year in all series
 include_ss = @(x, xss) [xss x];
-os = {'debts', 'revs', 'outs', 'caps', 'labs', 'labeffs', 'labincs', 'assets', 'cons', 'pops', 'labpits', 'caprevs', 'cits', 'cits_domestic', 'pits', 'ssts', 'bens'};
+os = {'debts', 'revs', 'outs', 'caps', 'caps_foreign', 'labs', 'labeffs', 'labincs', 'assets', 'cons', 'pops', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens', 'investment', 'corpTaxs'};
 for o = os
     d_open.(o{1})   = include_ss(d_open.(o{1})  , d_steady.(o{1}));
     s_open.(o{1})   = include_ss(s_open.(o{1})  , d_steady.(o{1}));
@@ -86,7 +86,7 @@ for o = os
     s_closed.(o{1}) = include_ss(s_closed.(o{1}), d_steady.(o{1}));
     b_closed.(o{1}) = include_ss(b_closed.(o{1}), d_steady.(o{1}));
 end
-os = {'caprates', 'wages', 'rhos', 'govrates', 'totrates', 'qtobin'};
+os = {'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices'};
 for o = os
     m_open.(o{1})    = include_ss(m_open.(o{1})  , m_steady.(o{1}));
     mb_open.(o{1})   = include_ss(mb_open.(o{1})  , m_steady.(o{1}));
@@ -107,16 +107,16 @@ end
 % Years vector
 yearsv = [(params.TransitionFirstYear - 1):1:(params.TransitionLastYear-1)];
 
-% Raw values reports
-header      = {'year', 'MPK_netDep', 'gov_interest_rate', 'total_interest_rate', 'qtobin', 'wages', 'K_L_ratio', ...
-               'output_d', 'capital_d', 'labor_d', 'labor_efficient_d', 'labor_efficient_by_pop_d', 'labpits_d', 'labincs_d', 'caprevs_d', 'consumption_d', 'assets_d', 'debt_d', 'revenues_d', ...
-               'output_s', 'capital_s', 'labor_s', 'labor_efficient_s', 'labor_efficient_by_pop_s', 'labpits_s', 'labincs_s', 'caprevs_s', 'consumption_s', 'assets_s', 'debt_s', 'revenues_s', ...
-               'MPK_netDep_b', 'wages_b', 'output_b', 'capital_b', 'labor_efficient_b', 'labincs_b', 'revenues_b'};
+%% Raw values reports
+header      = {'year', 'MPK', 'gov_interest_rate', 'equityFundDividends', 'equityFundPrices', 'wages', 'K_L_ratio', ...
+               'output_d', 'capital_d', 'labor_d', 'labor_efficient_d', 'labor_efficient_by_pop_d', 'labpits_d', 'labincs_d', 'caprevs_d', 'consumption_d', 'assets_d', 'debt_d', 'revenues_d', 'investment_d', 'corpTaxs_d', ...
+               'output_s', 'capital_s', 'labor_s', 'labor_efficient_s', 'labor_efficient_by_pop_s', 'labpits_s', 'labincs_s', 'caprevs_s', 'consumption_s', 'assets_s', 'debt_s', 'revenues_s', 'investment_s', 'corpTaxs_s', ...
+               'MPK_netDep_b', 'wages_b', 'output_b', 'capital_b', 'labor_efficient_b', 'labincs_b', 'revenues_b', 'investment_b', 'corpTaxs_b'};
 
-f = @( d, s, m, mb, b ) table(yearsv', m.caprates', m.govrates', m.totrates', m.qtobin', m.wages', m.rhos', ...
-                  d.outs', d.caps', d.labs', d.labeffs', (d.labeffs ./ d.pops)', d.labpits', d.labincs', d.caprevs', d.cons', d.assets', d.debts', d.revs', ...
-                  s.outs', s.caps', s.labs', s.labeffs', (s.labeffs ./ s.pops)', s.labpits', s.labincs', s.caprevs', s.cons', s.assets', s.debts', s.revs', ...
-                  mb.caprates', mb.wages', b.outs', b.caps', b.labeffs', b.labincs', b.revs', ...
+f = @( d, s, m, mb, b ) table(yearsv', m.caprates', m.debtrates', m.equityFundDividends', m.equityFundPrices', m.wages', m.rhos', ...
+                  d.outs', d.caps', d.labs', d.labeffs', (d.labeffs ./ d.pops)', d.labpits', d.labincs', d.caprevs', d.cons', d.assets', d.debts', d.revs', d.investment', d.corpTaxs', ...
+                  s.outs', s.caps', s.labs', s.labeffs', (s.labeffs ./ s.pops)', s.labpits', s.labincs', s.caprevs', s.cons', s.assets', s.debts', s.revs', s.investment', s.corpTaxs', ...
+                  mb.caprates', mb.wages', b.outs', b.caps', b.labeffs', b.labincs', b.revs', b.investment', b.corpTaxs', ...
                   'VariableNames', header);
            
 res_open   = f(d_open, s_open, m_open, mb_open, b_open);
@@ -127,34 +127,43 @@ open('res_open')
 writetable(res_open, 'res_open.csv')
 writetable(res_closed, 'res_closed.csv')
            
-% Deltas report
+%% Deltas report
 header = {'year', ...
-          'output', 'capital', 'labor', ...
-          'labor_efficient', 'assets', 'consumption', ...
+          'MPK', 'gov_interest_rate', 'equityFundDividends', 'equityFundPrices', 'wages', 'KLratio', ...
+          'output', 'capital', 'caps_foreign', 'labor', ...
+          'labor_efficient', 'assets', 'consumption', 'investment' ...
           'debt', 'revenue', 'tax', ...
-          'labpits', 'caprevs', 'ssts', 'cits', 'pits', ...
+          'labpits', 'caprevs', 'ssts', 'cits', 'pits', 'corpTaxs',  ...
           'totinc', 'totincwss'};
       
-f = @( d, s ) table(yearsv', ...
-                   (d.outs ./ s.outs)', (d.caps ./ s.caps)', (d.labs ./ s.labs)', ...
-                   (d.labeffs ./ s.labeffs)', (d.assets ./ s.assets)', (d.cons ./ s.cons)', ...
+f = @( m, d, s ) table(yearsv', ...
+                    m.caprates', m.debtrates', m.equityFundDividends', m.equityFundPrices', m.wages', m.rhos', ...
+                   (d.outs ./ s.outs)', (d.caps ./ s.caps)', (d.caps_foreign ./ s.caps_foreign)', (d.labs ./ s.labs)', ...
+                   (d.labeffs ./ s.labeffs)', (d.assets ./ s.assets)', (d.cons ./ s.cons)', (d.investment ./ s.investment)', ...
                    (d.debts ./ s.debts)', (d.revs ./ s.revs)', (d.tax ./ s.tax)', ...
                    (d.labpits ./ s.labpits)', (d.caprevs ./ s.caprevs)', ...
-                   (d.ssts ./ s.ssts)', (d.cits ./ s.cits)', (d.pits ./ s.pits)',...
+                   (d.ssts ./ s.ssts)', (d.cits ./ s.cits)', (d.pits ./ s.pits)', (d.corpTaxs ./ s.corpTaxs)',...
                    (d.totinc ./ s.totinc)', (d.totincwss ./ s.totincwss)', ...
                    'VariableNames', header);
     
-delta_closed  = f(d_closed, s_closed);
-delta_open    = f(d_open  , s_open  );
-
+delta_closed  = f(m_closed, d_closed, s_closed);
+delta_open    = f(m_open  , d_open  , s_open  );
 open('delta_closed');
 open('delta_open');
 
+if (scenario.IsLowReturn)
+    filename = 'deltas_lo_return.xlsx';
+else
+    filename = 'deltas_hi_return.xlsx';
+end
+writetable(delta_open  ,filename,'Sheet','open'  )
+writetable(delta_closed,filename,'Sheet','closed')
 
-% TPC report
-header = {'year', 'MPK_netDep', 'gov_interest_rate', 'total_interest_rate', 'qtobin', 'wages', 'K_L_ratio', ...
+
+%% TPC report
+header = {'year', 'MPK', 'gov_interest_rate', 'equityFundDividends', 'equityFundPrices', 'wages', 'KLratio', ...
           'output', 'debt', 'revenue', 'capital', 'labor', 'labor_efficient', 'assets', 'assets_per_pop'};
-f = @( d, s, m ) table(yearsv', m.caprates', m.govrates', m.totrates', m.qtobin', m.wages', m.rhos', ...
+f = @( d, s, m ) table(yearsv', m.caprates', m.debtrates', m.equityFundDividends', m.equityFundPrices', m.wages', m.rhos', ...
                       (d.outs ./ s.outs)', (d.debts ./ s.debts)', (d.revs ./ s.revs)', ...
                       (d.caps ./ s.caps)', (d.labs ./ s.labs)', (d.labeffs ./ s.labeffs)', ...
                       (d.assets ./ s.assets)', ((d.assets./d.pops) ./ (s.assets./s.pops))', ...
@@ -178,7 +187,10 @@ function x = build_var(x_name, dynamic_struct, market_struct, scenario, static)
 
     if strcmp(x_name, 'tax')
         
-        x = dynamic_struct.pits + dynamic_struct.cits_domestic + dynamic_struct.ssts;
+        x = dynamic_struct.pits + dynamic_struct.cits + dynamic_struct.ssts;
+        % Recall that cits now mean capital income taxes paid by households
+        % (so cits = cits_domestic). Corporate taxes, paid by firms, are
+        % denoted by corpTaxs.
         
     elseif strcmp(x_name, 'totinc')
         
@@ -207,7 +219,8 @@ function x = build_var(x_name, dynamic_struct, market_struct, scenario, static)
         end
         
         f = @(F) sum(sum(reshape(DIST .* F, [], T_model+1), 1), 3);
-        x = dynamic_struct.labincs + f(karray) .* (1 - shareCapitalCorporate) .* market_struct.totrates;
+        x = dynamic_struct.labincs + f(karray) .* (1 - shareCapitalCorporate) .* market_struct.debtrates ...
+                                   + f(karray) .* shareCapitalCorporate .* market_struct.equityFundDividends;
         
     elseif strcmp(x_name, 'totincwss')
         
