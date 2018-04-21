@@ -99,6 +99,7 @@ classdef Firm
                             init_caps, labor, invtocapsT_model )
             % Inputs : dividendRate = dollars received as dividend per
             %                         dollar owned of equity
+            %          init_caps = capital initial guess
             %          labor = efficient units of labor (from last iteration)
             %          invtocapsT_model = last period guess of I/K
             % Outputs: KLratio that generates the dividendRate of inputs
