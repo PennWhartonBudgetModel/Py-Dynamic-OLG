@@ -95,7 +95,80 @@ classdef Firm
         
         %% 
         % Calculate K/L ratio from dividend rate
-        function [KLratio] = calculateKLRatio( this, dividendRate, labor, invtocapsT_model )
+        function [KLratio, caps] = calculateKLRatio( this, dividendRate, ...
+                            init_caps, labor, invtocapsT_model )
+            % Inputs : dividendRate = dollars received as dividend per
+            %                         dollar owned of equity
+            %          labor = efficient units of labor (from last iteration)
+            %          invtocapsT_model = last period guess of I/K
+            % Outputs: KLratio that generates the dividendRate of inputs
+            
+            % Initialize variables
+            caps    = init_caps;
+            divRate = dividendRate;
+            
+            tolerance = 1e-12;
+            err_div   = Inf;
+            
+            while( err_div > tolerance )
+                
+                investment = [diff(caps); caps(end)*invtocapsT_model ];
+                
+                % Update capital 
+                %  if divRate > dividendRate 
+                %    --> caps gets bigger, and divRate gets smaller
+                caps = caps .* ((1+divRate) ./ (1+dividendRate) );
+                
+                K_by_L = caps ./ labor;
+                wage   = this.TFP * (1-this.capitalShare) .* (K_by_L .^ this.capitalShare);
+                
+                divs = this.dividends( caps, investment, K_by_L, wage );
+                divRate = divs ./ (caps .* this.priceCapital);
+                
+                err_div = max(abs((divRate - dividendRate) ./ dividendRate));
+                
+            end % while
+            
+            % Calculate capital-labor ratio
+            KLratio  = caps ./ labor;
+        end % calculateKLRatio
+
+        
+        %% Test
+        function  [] = testMe( this )
+            
+            T_model = 25;
+            
+            % Make sample inputs
+            effectiveDividendRate = ones(T_model,1) .* 0.05;
+            labor = ones(T_model,1);
+            init_caps = ones(T_model,1) * 12;
+            invtocap_Tmodel = 0.07;
+            
+            [klRatio tCaps]     = this.calculateKLRatio( effectiveDividendRate   , ...
+                                        init_caps, labor        , ...
+                                        invtocap_Tmodel );
+                        
+             tempCaps   = klRatio .* labor;
+             tempI      = [diff(tempCaps); invtocap_Tmodel * tempCaps(T_model)];
+             tempWages  = this.TFP*(1-this.capitalShare)*(klRatio.^this.capitalShare);
+             
+             [tempDividends, ~]  = this.dividends( tempCaps          ...
+                                                     ,   tempI     ...
+                                                     ,   klRatio            ...
+                                                     ,   tempWages           ...
+                                                     );  
+              tempDivRates = (tempDividends ./ (tempCaps .* this.priceCapital));                                   
+
+              fprintf('diff in dividends');
+              tempDivRates - effectiveDividendRate
+
+        end %testMe
+        
+        
+        %% 
+        % Calculate K/L ratio from dividend rate
+        function [KLratio, tempCaps] = old_calculateKLRatio( this, dividendRate, labor, invtocapsT_model )
             % Inputs : dividendRate = dollars received as dividend per
             %                         dollar owned of equity
             %          labor = efficient units of labor (from last iteration)
@@ -128,7 +201,7 @@ classdef Firm
                 % Constants
                 Psi = ( dividendRate(t) + this.depreciationRate + this.riskPremium ...
                        + this.expensingRate(t) * this.corpTaxRate(t) * (1 - this.depreciationRate) ... 
-                       ) * this.priceCapital(T_model) ...
+                       ) * this.priceCapital(t) ...
                       / ( this.TFP * this.capitalShare * (1 - this.corpTaxRate(t)) );
                 Phi = caps(t+1) * ...
                       ( ( this.expensingRate(t) * this.corpTaxRate(t) * this.priceCapital(t) ) ...
@@ -150,8 +223,9 @@ classdef Firm
             
             % Calculate capital-labor ratio
             KLratio = caps(1:T_model) ./ labor;
-            
+            tempCaps = caps(1:T_model);
         end % calculateKLRatio
+
         
     end % instance methods
     
