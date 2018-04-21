@@ -7,9 +7,9 @@ wipe;
 
 %% Params for high return economy
 % params.beta =  0.980000000000000;
-% params.gamma = 0.768000000000000;
+% params.gamma = 0.766000000000000;
 % params.sigma = 1.600000000000000;
-% params.modelunit_dollar = 4.050982750000000e-05;
+% params.modelunit_dollar = 3.950983000000000e-05;
 % params.IsLowReturn = false;
 
 %% Params for low return economy
