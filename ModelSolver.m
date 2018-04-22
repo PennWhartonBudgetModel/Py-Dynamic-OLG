@@ -620,25 +620,11 @@ methods (Static)
                         % and we do not allow it to change even as the economy's 
                         % mix of capital vs. debt changes.
 
-                        [klRatio tCaps]     = theFirm.calculateKLRatio( effectiveDividendRate   , ...
+                        klRatio     = theFirm.calculateKLRatio( effectiveDividendRate   , ...
                                                                 Dynamic.caps'           , ...
                                                                 Dynamic.labeffs'        , ...
                                                                 Market0.invtocaps );
-                        % DEBUG
-                        tempCaps = klRatio' .* Dynamic.labeffs;
-                        
-                        tempI = [diff(tempCaps) Market0.invtocaps * tempCaps(T_model)];
-                        tempWages = A*(1-alpha)*(klRatio.^alpha);
-                        [tempDividends, ~]  = theFirm.dividends( tempCaps'     ...
-                                                                ,   tempI'     ...
-                                                                ,   klRatio    ...
-                                                                ,   tempWages  ...
-                                                                );  
-                        tempDivRates = (tempDividends ./ (tempCaps'.* theFirm.priceCapital));                                   
 
-                        fprintf('diff in dividends');
-                        tempDivRates - effectiveDividendRate
-                        % END DEBUG
                         rhos        = Market.rhos;
                         Market.rhos = klRatio';
                         
