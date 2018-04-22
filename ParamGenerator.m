@@ -237,20 +237,13 @@ methods (Static)
         filename = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', taxplanid, '.csv'));
         tax_vars = read_series( filename, 'year', first_year, last_year );
         
-        % Calculate combined tax rate and share for Capital
-        %    Do this as function to reuse for Q-Tobin calculation
-        function [captaxshare, taucap] = calculate_captaxes( vars )
-            captaxshare         = vars.shareCapitalCorporate + vars.shareCapitalPreferred; 
-            taucap              = (   vars.rateCorporate .* vars.shareCapitalCorporate   ...
-                                    + vars.ratePreferred .* vars.shareCapitalPreferred   ...
-                                  ) ...
-                                  ./ (vars.shareCapitalCorporate + vars.shareCapitalPreferred );
-        end %calculate_captaxes
+        % Portion of corporate income taxed at PIT rates
+        s.captaxshare   = tax_vars.shareCapitalPreferred + tax_vars.shareCapitalCorporate;
         
-        [s.captaxshare, s.taucap]   = calculate_captaxes( tax_vars );
-        s.rateCapGain               = zeros(T_model,1);
+        % Capital gains tax == zero for now
+        s.rateCapGain   = zeros(T_model,1);
         
-        % Pass along all CIT parameters as well
+        % Pass along all CIT parameters 
         for f = fieldnames(tax_vars)'
             s.(f{1}) = tax_vars.(f{1});
         end
@@ -268,20 +261,16 @@ methods (Static)
         % Calculate Q-Tobin
         switch scenario.economy
             case 'steady'
-                s.qtobin0   = 1 - tax_vars.shareCapitalExpensing(1) * s.taucap(1);
+                s.qtobin0   = 1 - tax_vars.shareCapitalExpensing(1) * s.rateCorporate(1);
                 s.qtobin    = s.qtobin0;
-                s.sstaucap  = s.taucap(1);
             otherwise
                 % Read tax params from steady-state, current-policy to make t=0 values
                 sstaxplanid = find_taxplanid(scenario.steady().currentPolicy());
                 filename    = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', sstaxplanid, '.csv'));
                 sstax_vars  = read_series( filename, 'year', first_year - 1, first_year - 1 );
 
-                [~, sstaucap] = calculate_captaxes( sstax_vars );
-                
-                s.qtobin0   = 1 - sstax_vars.shareCapitalExpensing(1) * sstaucap(1);
-                s.qtobin    = 1 - tax_vars.shareCapitalExpensing .* s.taucap;
-                s.sstaucap  = sstaucap;
+                s.qtobin0   = 1 - sstax_vars.shareCapitalExpensing(1) * sstax_vars.rateCorporate(1);
+                s.qtobin    = 1 - tax_vars.shareCapitalExpensing .* s.rateCorporate;
         end  
                
         
