@@ -237,8 +237,10 @@ methods (Static)
         filename = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', taxplanid, '.csv'));
         tax_vars = read_series( filename, 'year', first_year, last_year );
         
-        % Portion of corporate income taxed at PIT rates
-        s.captaxshare   = tax_vars.shareCapitalPreferred + tax_vars.shareCapitalCorporate;
+        % Portion of corporate income taxed at preferred rates
+        %   TBD: Fix this when John R. gives new inputs
+        s.captaxshare   = tax_vars.shareCapitalPreferred ...
+                         ./ (tax_vars.shareCapitalPreferred + tax_vars.shareCapitalOrdinary);
         
         % Capital gains tax == zero for now
         s.rateCapGain   = zeros(T_model,1);
