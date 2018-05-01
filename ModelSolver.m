@@ -874,13 +874,16 @@ methods (Static)
                 ratedev = 0.01;
                 Market_dev = Market;
                 
-                Market_dev.caprates  = Market.caprates * (1 + ratedev);
-                Market_dev.debtrates = Market.debtrates * (1 + ratedev);
+                % Increase rates of return to HH by ratedev
+                %   Note: Cap gains is zero in steady state, so 
+                %         return to HH is only on equity + debt.
+                Market_dev.equityFundDividends = Market.equityFundDividends * (1 + ratedev);
+                Market_dev.bondFundDividends   = Market.bondFundDividends   * (1 + ratedev);
                 
                 [Dynamic_dev] = generate_aggregates(Market_dev, {}, {}, {});
                 
                 savelas = (Dynamic_dev.assets - Dynamic.assets) / (Dynamic.assets * ratedev);
-                
+
                 % Calculate $GDP/HH
                 outperHH = (Dynamic.outs./Dynamic.pops)./scenario.modelunit_dollar;
                 
