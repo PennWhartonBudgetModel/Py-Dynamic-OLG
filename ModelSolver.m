@@ -584,9 +584,10 @@ methods (Static)
                         % Rem: Returns are fixed to match steady-state in
                         % open economy. That is, after-tax returns for
                         % capital are fixed, including cap gains.
-                        %   NOTE: Assumes cap gains are fixed (which is
-                        %   true until priceCapital is allowed to change)
                         % 
+                        % First period capital (inherited from steady state)
+                        caps_period1 = Dynamic0.investment + (1 - depreciation)*Dynamic0.caps;
+                        Dynamic.caps = [caps_period1 Dynamic.caps(2:T_model)];
                         % Define the pre-tax returns necessary to return
                         % the world rate from steady-state.
                         effectiveDividendRate = ( Market0.equityFundDividends*(1 - sstax.rateForeignCorpIncome) ...
@@ -625,6 +626,7 @@ methods (Static)
                         % and we do not allow it to change even as the economy's 
                         % mix of capital vs. debt changes.
 
+                        Dynamic.caps = [caps_period1 Dynamic.caps(2:T_model)];
                         klRatio     = theFirm.calculateKLRatio( effectiveDividendRate   , ...
                                                                 Dynamic.caps'           , ...
                                                                 Dynamic.labeffs'        , ...
