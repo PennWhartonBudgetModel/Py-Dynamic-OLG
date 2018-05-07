@@ -7,8 +7,9 @@ classdef Scenario
     properties (GetAccess = public, SetAccess = immutable)
         
         % Identifier tags
-        basedeftag
-        counterdeftag
+        basedeftag;
+        counterdeftag;
+        comparisontag;      % REM: This is for isEquivalent()
         
         %% REQUIRED parameters
         
@@ -152,10 +153,15 @@ classdef Scenario
             % Generate identifier tags for baseline and counterfactual definitions
             %   1. Make string of concatenated params
             %   2. Hash the string down to 120 chars
-            tag = ''; 
+            % NOTE: comparisontag is built for isEquivalent 
+            tag         = ''; 
+            compTag     = '';
             for o = Scenario.req_params'
                 if( ~strcmp( o{1}, 'economy' ) )
                     tag = strcat( tag, '_', num2str(this.(o{1})) );
+                    if( ~strcmp( o{1}, 'TransitionLastYear' ) ) 
+                        compTag = strcat( compTag, '_', num2str( this.(o{1})) );
+                    end
                 end
             end
             this.basedeftag = Scenario.compactifyTag( tag );
@@ -168,16 +174,19 @@ classdef Scenario
                 end
                 this.counterdeftag = Scenario.compactifyTag( tag );
             end
-            
+            this.comparisontag = strcat( compTag, this.counterdeftag );
+            this.comparisontag = strcat( this.comparisontag, this.economy );
+            if( ~strcmp( this.economy, 'steady' ) )
+                this.comparisontag = strcat( this.comparisontag, num2str( this.TransitionLastYear ));
+            end
         end % Scenario constructor
         
         
         % Identify if scenario is equivalent to another scenario
         %   Parameter representations in tags determine precision for equivalency evaluation
+        %   NOTE: For economy=steady, we ignore TransitionLastYear
         function [flag] = isEquivalent(this, scenario)
-            flag = strcmp(this.economy      , scenario.economy      ) ...
-                && strcmp(this.basedeftag   , scenario.basedeftag   ) ...
-                && strcmp(this.counterdeftag, scenario.counterdeftag);
+            flag = strcmp(this.comparisontag, scenario.comparisontag );
         end
         
         

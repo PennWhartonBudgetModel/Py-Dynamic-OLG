@@ -538,17 +538,26 @@ end
 %  Helper function to find tax liability from brackets & rates
 %       NOTE:   income, burdens, & brackets are in US dollars; 
 %           calculated liability is in also in US dollars.
+%           rates apply for income between brackets(i-1) and brackets(i)
+%           burdens(i) are pre-calculated total tax liability at brackets(i)
+%       IMPORTANT:  Expect 
+%                   (1) equal-size vectors with brackets(1)=0
+%                   (2) brackets are in ascending order
+%                   (3) rates, burdens match brackets
 function [tax] = find_tax_liability( income, brackets, burdens, rates )
 
     % Enforce function inlining for C code generation
     coder.inline('always');
 
-    %       Expect equal-size vectors with brackets(1)=0
-    %       rates apply for income between brackets(i-1) and brackets(i)
-    %       burdens(i) are pre-calculated total tax liability at brackets(i)
-    thebracket  = find(brackets <= income, 1, 'last');
-    thebracket  = thebracket(1);   % Force to scalar for C code generation
-    tax         = burdens(thebracket) + rates(thebracket)*(income - brackets(thebracket));
+    % Linear search since assume relatively small size vectors
+    numbrackets = length(brackets);
+    thebracket  = 1;
+    while( (brackets(thebracket) <= income) && (thebracket <= numbrackets) )
+        thebracket = thebracket + 1;
+    end
+    thebracket = thebracket - 1;
+    
+    tax = burdens(thebracket) + rates(thebracket)*(income - brackets(thebracket));
 
 end % find_tax_liability
 
