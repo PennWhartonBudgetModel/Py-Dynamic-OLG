@@ -717,7 +717,8 @@ methods (Static)
                     Dynamic.caps = Market.rhos .* Dynamic.labeffs;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
-                    Dynamic.caps_domestic = (Market.capshares_1 .* Dynamic.assets_1) ./ theFirm.priceCapital';
+                    Dynamic.caps_domestic = (Market.capshares_0 .* Dynamic.assets_0) ./ ...
+                                               [theFirm.priceCapital0 theFirm.priceCapital(1:T_model-1)'];
                     Dynamic.caps_foreign  = Dynamic.caps - Dynamic.caps_domestic;
                     % Note: Dynamic.assets represents current assets at new prices.
                     
