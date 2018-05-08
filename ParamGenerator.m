@@ -250,6 +250,15 @@ methods (Static)
             s.(f{1}) = tax_vars.(f{1});
         end
         
+        % TEMP -- This is to switch to progressive structure
+        % TBD: Get Cap Preferred rates from file
+        
+        s.prefrates      = repmat(tax_vars.ratePreferred, [1 2]);
+        s.prefbrackets   = repmat([0 1], [T_model 1]);
+        s.prefburdens    = cumsum(diff(s.prefbrackets, 1, 2).*s.prefrates(:, 1:end-1), 2); 
+        s.prefburdens    = [zeros(size(s.prefbrackets, 1), 1), s.prefburdens];  % rem: first burden is zero
+        
+        
         % Foreign tax withholding -- TEMP
         %   TBD: Read these from file
         s.rateForeignCorpIncome         = 0.179 ;   % Tax rate on corp. distributions to foreigners
