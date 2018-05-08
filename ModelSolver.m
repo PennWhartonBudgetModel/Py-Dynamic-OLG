@@ -690,6 +690,7 @@ methods (Static)
                     Dynamic.debts_foreign  = zeros(1,T_model);
                     Dynamic.caps_domestic  = Dynamic.caps;
                     Dynamic.caps_foreign   = zeros(1,T_model);
+                    Dynamic.invest_foreign = zeros(1,T_model);
                     Dynamic.tot_assets_0   = Dynamic.assets_0;
                     Dynamic.tot_assets_1   = Dynamic.assets_1;
                     
@@ -719,10 +720,12 @@ methods (Static)
                     Dynamic.caps = Market.rhos .* Dynamic.labeffs;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
-                    Dynamic.caps_domestic = (Market.capshares_0 .* Dynamic.assets_0) ./ ...
+                    % Note: Dynamic.assets_0 represents current assets at old prices.
+                    Dynamic.caps_domestic  = (Market.capshares_0 .* Dynamic.assets_0) ./ ...
                                                [theFirm.priceCapital0 theFirm.priceCapital(1:T_model-1)'];
-                    Dynamic.caps_foreign  = Dynamic.caps - Dynamic.caps_domestic;
-                    % Note: Dynamic.assets represents current assets at new prices.
+                    Dynamic.caps_foreign   = Dynamic.caps - Dynamic.caps_domestic;
+                    Dynamic.invest_foreign = [Dynamic.caps_foreign(2:T_model) Dynamic.caps_foreign(T_model)] ...
+                                              - (1 - depreciation) * [Dynamic.caps_foreign(1:T_model-1) Dynamic.caps_foreign(T_model-1)];
                     
                     if isbase
                         Gtilde = (tax_revenue_by_GDP - fedgovtnis).*Dynamic.outs - Dynamic.bens;
@@ -792,6 +795,7 @@ methods (Static)
                     
                     Dynamic.caps_domestic  = Dynamic.caps;
                     Dynamic.caps_foreign   = zeros(1,T_model);
+                    Dynamic.invest_foreign = zeros(1,T_model);
                     Dynamic.tot_assets_0   = Dynamic.assets_0;
                     Dynamic.tot_assets_1   = Dynamic.assets_1;
                     
