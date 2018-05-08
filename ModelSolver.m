@@ -517,17 +517,18 @@ methods (Static)
         tolerance.invtocaps = 5e-4;
         isConverged         = false;
         
-        % Set damper to update guesses - 0 means not
-        % dampened and 1 means fully dampened
+        % Set damper to update guesses
+        %    0 = not dampened, i.e., completely updated to new value
+        % 	 1 = fully dampened, i.e., stays the same
         switch economy
             case 'steady'
                 damper.rhos      = 0.5;
                 damper.beqs      = 0.5;
                 damper.capshares = 0.5;
             case 'open'
-                damper.rhos      = 1.0;      % Fully update to Market.rhos (rhos carries the old value in the open economy)
+                damper.rhos      = 1.0;      % In open economy, it's set by theFirm.calculateKLRatio function.
                 damper.beqs      = 0.0;
-                damper.capshares = 1.0;      % Never update
+                damper.capshares = 0.0;
             case 'closed'
                 damper.rhos      = 0.0;
                 damper.beqs      = 0.0;
