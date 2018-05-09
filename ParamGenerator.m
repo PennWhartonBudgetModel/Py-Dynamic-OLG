@@ -389,25 +389,25 @@ methods (Static)
         s.taxcredit = 0.15;     % Benefit tax credit percentage
 
         % Get T_works (retirement ages)
-        nrafile     = fullfile( PathFinder.getSocialSecurityNRAInputDir()                                       ...
-                            ,   strcat(   'NRA_'                                                                ...
+        nrafile     = fullfile( PathFinder.getOASIcalculatorInputDir()                                       ...
+                            ,   strcat(   'retirementAges_'                                                     ...
                                 ,   find_policy_id( scenario                                                    ...
-                                       ,   {'SSNRAPolicy'}                                                      ...
-                                       ,   fullfile( PathFinder.getSocialSecurityNRAInputDir(), 'Map.csv' ) )   ...                    ...
+                                       ,   {'id_OASIcalculator'}                                                ...
+                                       ,   fullfile( PathFinder.getOASIcalculatorInputDir(), 'map.csv' ) )      ...
                                 ,   '.csv' ) ...
                       );
         switch scenario.economy
             case 'steady'
                 first_year   = first_transition_year - 1;
                 survivalprob = ParamGenerator.demographics(scenario).surv;
-                series       = read_series( nrafile, 'BirthYear', first_year - (T_life + realage_entry), [] );
-                T_works      = series.RetirementAge;
-                mass         = ones(T_life,1); for i = 2:T_life; mass(i) = mass(i-1)*survivalprob(i-1); end;
+                series       = read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry), [] );
+                T_works      = series.NRA;
+                mass         = ones(T_life,1); for i = 2:T_life; mass(i) = mass(i-1)*survivalprob(i-1); end
                 T_works      = round(sum((mass.*T_works(1:T_life))/sum(mass))) - realage_entry;
             case {'open', 'closed'}
                 first_year   = first_transition_year;
-                series       = read_series( nrafile, 'BirthYear', first_year - (T_life + realage_entry), [] );
-                T_works      = series.RetirementAge;
+                series       = read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry), [] );
+                T_works      = series.NRA;
                 T_works      = T_works(1:nstartyears) - realage_entry;
         end
         s.T_works           = T_works;
