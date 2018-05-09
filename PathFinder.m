@@ -245,6 +245,11 @@ methods (Static, Access = public)
         ssinputdir = PathFinder.getInputDir('SocialSecurity', 'benpolicy');
     end
     
+    % Get OASIcalculator input directory
+    function [ssinputdir] = getOASIcalculatorInputDir()
+        ssinputdir = PathFinder.getInputDir('OASIcalculator', 'oasicalculator');
+    end
+    
     % Get tax plan input directory
     function [taxplaninputdir] = getTaxPlanInputDir()
         taxplaninputdir = PathFinder.getInputDir('TaxCalculator', 'taxplan');
