@@ -204,9 +204,12 @@ methods (Static)
     function s = tax( scenario )
         
         timing                  = ParamGenerator.timing(scenario);
-        % Find tax plan ID corresponding to scenario tax parameters
-        taxplanid               = find_taxplanid(scenario);
         
+        % Find tax plan ID corresponding to scenario tax parameters
+        taxplanmapfile          = fullfile(PathFinder.getTaxPlanInputDir(), 'Map.csv');
+        taxplanid               = find_policy_id( scenario, {'BaseBrackets'}, taxplanmapfile );
+        sstaxplanid             = find_policy_id( scenario.steady().currentPolicy(), {'BaseBrackets'}, taxplanmapfile );
+                
         T_model                 = timing.T_model;
         switch scenario.economy
             case 'steady'
@@ -283,7 +286,6 @@ methods (Static)
                 s.qtobin    = s.qtobin0;
             otherwise
                 % Read tax params from steady-state, current-policy to make t=0 values
-                sstaxplanid = find_taxplanid(scenario.steady().currentPolicy());
                 filename    = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', sstaxplanid, '.csv'));
                 sstax_vars  = read_series( filename, 'year', first_year - 1, first_year - 1 );
 
@@ -299,6 +301,8 @@ methods (Static)
         if( any(s.shareCapitalExpensing < 0) || any(s.shareCapitalExpensing > 1) )
             fprintf( 'WARNING! shareCapitalExpensing=%f outside expectations.\n', s.shareCapitalExpensing );
         end
+        
+        %% TBD: Enlarge the space of error checks
         
         % Catch fatal errors
         if( any(s.shareCapitalOrdinary + s.shareCapitalPreferred + s.shareCapitalCorporate) ~= 1 ) 
@@ -567,9 +571,10 @@ methods (Static)
         % tax plan.
         % Input: Revenues_<taxplanid>.csv -- Estimate of tax
         %           revenues as percent GDP
-        taxplanid   = find_taxplanid( scenario );
-        filename    = fullfile( PathFinder.getTaxPlanInputDir(), strcat('Revenues_', taxplanid, '.csv') );
-        tax_revenue = read_series(filename, 'year', first_year, last_year );
+        taxplanmapfile  = fullfile(PathFinder.getTaxPlanInputDir(), 'Map.csv');
+        taxplanid       = find_policy_id( scenario, {'BaseBrackets'}, taxplanmapfile );
+        filename        = fullfile( PathFinder.getTaxPlanInputDir(), strcat('Revenues_', taxplanid, '.csv') );
+        tax_revenue     = read_series(filename, 'year', first_year, last_year );
         
         s.tax_revenue_by_GDP    = tax_revenue.revenuesShareGDP'; 
         
@@ -676,55 +681,10 @@ methods (Static)
     end
     
     
-    % TAXPLAN ID
-    function id = getTaxPlanID( scenario )
-        id = find_taxplanid( scenario );
-    end
-    
 end % methods
 
 end % class ParamGenerator
 
-
-%%
-%  Helper function to find tax plan ID corresponding to scenario tax parameter values
-function [taxplanid] = find_taxplanid( scenario )
-    
-    % Load tax plan ID map from tax plan input directory
-    taxplanidmap = table2struct(readtable(fullfile(PathFinder.getTaxPlanInputDir(), 'Map.csv')));
-    
-    matchparams = { ...
-                'BaseBrackets'                      ...
-            ,   'HasBuffetRule'                     ...
-            ,   'HasDoubleStandardDeduction'        ...
-            ,   'HasLimitDeductions'                ...
-            ,   'HasExpandChildCredit'              ...
-            ,   'NoACAIncomeTax'                    ...
-            ,   'CorporateTaxRate'                  ...
-            ,   'HasSpecialPassThroughRate'         ...
-            ,   'HasImmediateExpensing'             ...
-        	,   'HasRepealCorporateExpensing'       ...
-            };
-
-    % Identify tax plans with parameter values matching scenario tax parameter values
-    %   Default values specified for tax plan parameters not represented in dynamic model
-    match = arrayfun(@(row) ...
-        row.('HasAGISurcharge_5m'         ) == false && ...
-        row.('HasPITRateOnCarriedInterest') == false && ...
-        all(cellfun(@(param) ...
-            isequal(scenario.(param), row.(param)), matchparams ...
-        )), ...
-        taxplanidmap ...
-    );
-    
-    % Check for singular match
-    assert(sum(match) > 0, 'No tax plan found with parameter values matching scenario tax parameter values.'           );
-    assert(sum(match) < 2, 'More than one tax plan found with parameter values matching scenario tax parameter values.');
-    
-    % Extract ID of matching tax plan
-    taxplanid = num2str(taxplanidmap(match).ID);
-    
-end
 
 
 %%
