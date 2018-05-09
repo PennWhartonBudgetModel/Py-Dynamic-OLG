@@ -250,14 +250,21 @@ methods (Static)
             s.(f{1}) = tax_vars.(f{1});
         end
         
-        % TEMP -- This is to switch to progressive structure
-        % TBD: Get Cap Preferred rates from file
+        % Read Preferred Rates
+        bracketsfile    = strcat('PreferredRates_', taxplanid, '.csv' );
+        bracketsfile    = fullfile( PathFinder.getTaxPlanInputDir(), bracketsfile );      
+
+        [brackets, rates] = read_brackets_rates( bracketsfile, first_year, T_model );                               ...
         
-        s.prefrates      = repmat(tax_vars.ratePreferred, [1 2]);
-        s.prefbrackets   = repmat([0 1], [T_model 1]);
-        s.prefburdens    = cumsum(diff(s.prefbrackets, 1, 2).*s.prefrates(:, 1:end-1), 2); 
-        s.prefburdens    = [zeros(size(s.prefbrackets, 1), 1), s.prefburdens];  % rem: first burden is zero
+        % TBD: This should be done in ModelSolver as for SocialSecurity
+        % Calculate cumulative tax burdens along brackets dimension
+        burdens         = cumsum(diff(brackets, 1, 2).*rates(:, 1:end-1), 2); 
+        burdens         = [zeros(size(brackets, 1), 1), burdens];  % rem: first burden is zero
         
+        % Convert US dollar amounts into modelunit_dollars
+        s.prefburdens   = burdens  .*scenario.modelunit_dollar;   % Cumulative tax burden
+        s.prefbrackets  = brackets .*scenario.modelunit_dollar;   % Preferred Rate tax brackets, rem: first one is zero
+        s.prefrates     = rates;                                  % Rate for above each bracket threshold
         
         % Foreign tax withholding -- TEMP
         %   TBD: Read these from file
