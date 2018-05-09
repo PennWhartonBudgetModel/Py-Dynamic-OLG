@@ -389,13 +389,9 @@ methods (Static)
         s.taxcredit = 0.15;     % Benefit tax credit percentage
 
         % Get T_works (retirement ages)
-        nrafile     = fullfile( PathFinder.getOASIcalculatorInputDir()                                       ...
-                            ,   strcat(   'retirementAges_'                                                     ...
-                                ,   find_policy_id( scenario                                                    ...
-                                       ,   {'id_OASIcalculator'}                                                ...
-                                       ,   fullfile( PathFinder.getOASIcalculatorInputDir(), 'map.csv' ) )      ...
-                                ,   '.csv' ) ...
-                      );
+        id = find_policy_id(scenario, {'id_OASIcalculator'}, fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), 'id_OASIcalculator');
+        nrafile = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('retirementAges_', id, '.csv'));
+        
         switch scenario.economy
             case 'steady'
                 first_year   = first_transition_year - 1;
@@ -692,7 +688,7 @@ end % class ParamGenerator
 %        matchparams : cell array of param names to match
 %        mapfile     : fullfile name of map file with format 
 %           (ID) (Param1) (Param2) ... (ParamN)
-function [id] = find_policy_id( scenario, matchparams, mapfile )
+function [id] = find_policy_id( scenario, matchparams, mapfile, idcolumn )
     
     % Load plan ID map from input directory
     map = table2struct(readtable(mapfile));
@@ -710,7 +706,8 @@ function [id] = find_policy_id( scenario, matchparams, mapfile )
     assert(sum(match) < 2, 'More than one ID found with parameter values matching scenario parameter values.');
     
     % Extract ID of matching plan
-    id = num2str(map(match).ID);
+    if ~exist('idcolumn', 'var') || isempty(idcolumn), idcolumn = 'ID'; end
+    id = num2str(map(match).(idcolumn));
     
 end %find_policy_id
 
