@@ -362,9 +362,8 @@ methods (Static)
             Aggregate.bens     = f(OPTs.BEN);                                                                            % Social Security benefits
             Aggregate.cons     = f(OPTs.CON);                                                                            % Consumption
             Aggregate.assets_0 = f(repmat(reshape(kv, [1,nk,1,1,1]), [nz, 1,nb,T_life,T_model]));                        % Assets before re-pricing
-            Aggregate.assets_1 = Aggregate.assets_0 .* (ones(1,T_model) + Market.capshares_0.*Market.capgains');         % Assets after re-pricing
-            % Note: The definition of assets_1 corresponds to beginning of period assets at
-            %       new policy prices, that is, accounting for eventual capital gains.
+            Aggregate.assets_1 = Aggregate.assets_0 .* (ones(1,T_model) + Market.capgains') ...                          % Assets after re-pricing            
+                                    .* (Market.capshares_0./Market.capshares_1);                                         % Note: The definition of assets_1 corresponds to beginning of period assets at new policy prices, that is, accounting for eventual capital gains.
             
         end
         
@@ -723,6 +722,9 @@ methods (Static)
                     % Note: Dynamic.assets_0 represents current assets at old prices.
                     Dynamic.caps_domestic  = (Market.capshares_0 .* Dynamic.assets_0) ./ ...
                                                [theFirm.priceCapital0 theFirm.priceCapital(1:T_model-1)'];
+                    % DEBUG
+                    check = Dynamic.caps_domestic - (Market.capshares_1 .* Dynamic.assets_1) ./ theFirm.priceCapital'
+                    % DEBUG
                     Dynamic.caps_foreign   = Dynamic.caps - Dynamic.caps_domestic;
                     Dynamic.invest_foreign = [Dynamic.caps_foreign(2:T_model) Dynamic.caps_foreign(T_model)] ...
                                               - (1 - depreciation) * [Dynamic.caps_foreign(1:T_model-1) Dynamic.caps_foreign(T_model-1)];
@@ -791,6 +793,10 @@ methods (Static)
                     % Calculate capital and output
                     % Note: Dynamic.assets represents current assets at new prices.
                     Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theFirm.priceCapital';
+                    % DEBUG
+                    check = Dynamic.caps - (Market.capshares_0 .* Dynamic.assets_0) ./ ...
+                                               [theFirm.priceCapital0 theFirm.priceCapital(1:T_model-1)']
+                    % DEBUG
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     Dynamic.caps_domestic  = Dynamic.caps;
