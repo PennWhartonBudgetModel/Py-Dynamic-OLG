@@ -431,42 +431,25 @@ methods (Static)
         s.taxindices    = indices                             ;     % Type of index to use for the bracket change
         
         % BENEFITS
-        matchparams     = {'SSBenefitsPolicy', 'SSBenefitsAccrualPolicy' };
-        mapfile         = fullfile( PathFinder.getSocialSecurityBenefitsInputDir(), 'Map.csv' );
-        policy_id       = find_policy_id( scenario, matchparams, mapfile );
-      
+        
         % Get range of income which is credited toward benefit calculation
-        minmaxfile  = fullfile(     PathFinder.getSocialSecurityBenefitsInputDir()  ...
-                                ,   strcat('MinMaxRange_', policy_id , '.csv' )); 
-        minmaxinput = read_series(minmaxfile, 'Year', first_year, first_year + T_model - 1);
-        s.ssincmins = (minmaxinput.Bracket1 * scenario.modelunit_dollar)';
-        s.ssincmaxs = (minmaxinput.Bracket2 * scenario.modelunit_dollar)';
+        file = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('BenefitParameters_', id, '.csv' ));
+        [brackets] = read_brackets_rates_indices(file, first_year, T_model);
+        
+        s.ssincmins = (brackets(:, 1) * scenario.modelunit_dollar)';
+        s.ssincmaxs = (brackets(:, 2) * scenario.modelunit_dollar)';
         
         % Fetch initial benefits for each cohort 
         %   REM: Benefits are per month in US dollars 
         %        in year = first_transition_year - 1
         first_birthyear = first_year - (T_life + realage_entry);
         
-        bracketsfile    = fullfile( PathFinder.getSocialSecurityBenefitsInputDir() ...
-                                ,   strcat('InitialBenefits_', policy_id , '.csv' ) );      
+        file = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('PIAParameters_', id, '.csv' ));
+        [brackets, rates] = read_brackets_rates_indices(file, first_birthyear, nstartyears);
         
-        [brackets, rates]   = read_brackets_rates_indices( bracketsfile, first_birthyear, nstartyears );                               ...
-        
-        s.startyear_benefitbrackets   = 12*scenario.modelunit_dollar*brackets;    
+        s.startyear_benefitbrackets   = 12*scenario.modelunit_dollar*brackets;
         s.startyear_benefitrates      = rates;
         
-        % Year-based policy for benefit rates adjustments
-        filename = fullfile(    PathFinder.getSocialSecurityBenefitsInputDir()    ...
-                            ,   strcat('BenefitsAdjustment_', policy_id , '.csv' ));
-        
-        [~, adjrates] = read_brackets_rates_indices( filename, first_year, T_model );
-    
-        % Verify that adj has same number of brackets
-        if( size(adjrates, 2) ~= size(brackets, 2) )
-            throw(MException('ParamGenerator.social_security:SIZE','SSBenefits and BenefitsAdjustments must have same number of brackets.'));
-        end
-        
-        s.benefits_adjustment = adjrates;
     end % social_security
     
     
