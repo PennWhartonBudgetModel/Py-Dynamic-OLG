@@ -399,13 +399,13 @@ methods (Static)
                 first_year   = first_transition_year - 1;
                 survivalprob = ParamGenerator.demographics(scenario).surv;
                 series       = read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry), [] );
-                T_works      = series.NRA;
+                T_works      = round(series.NRA);
                 mass         = ones(T_life,1); for i = 2:T_life; mass(i) = mass(i-1)*survivalprob(i-1); end
                 T_works      = round(sum((mass.*T_works(1:T_life))/sum(mass))) - realage_entry;
             case {'open', 'closed'}
                 first_year   = first_transition_year;
                 series       = read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry), [] );
-                T_works      = series.NRA;
+                T_works      = round(series.NRA);
                 T_works      = T_works(1:nstartyears) - realage_entry;
         end
         s.T_works           = T_works;
