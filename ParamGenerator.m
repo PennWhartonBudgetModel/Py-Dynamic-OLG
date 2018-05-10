@@ -207,9 +207,8 @@ methods (Static)
         
         % Find tax plan ID corresponding to scenario tax parameters
         taxplanmapfile = fullfile(PathFinder.getTaxPlanInputDir(), 'Map.csv');
-        param_pairs = struct('TaxCalculator_BaseBrackets', 'BaseBrackets');
-        taxplanid   = find_policy_id(taxplanmapfile, scenario                         , param_pairs, 'ID');
-        sstaxplanid = find_policy_id(taxplanmapfile, scenario.steady().currentPolicy(), param_pairs, 'ID');
+        taxplanid   = find_policy_id(taxplanmapfile, scenario                         , {'BaseBrackets'}, 'ID');
+        sstaxplanid = find_policy_id(taxplanmapfile, scenario.steady().currentPolicy(), {'BaseBrackets'}, 'ID');
                 
         T_model                 = timing.T_model;
         switch scenario.economy
@@ -390,17 +389,9 @@ methods (Static)
         s.taxcredit = 0.15;     % Benefit tax credit percentage
 
         % Get OASIcalculator scenario ID
-        id = find_policy_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario, struct( ...
-            'OASIcalculator_TaxRate'                    , 'TaxRate'                     , ...
-            'OASIcalculator_TaxMax'                     , 'TaxMax'                      , ...
-            'OASIcalculator_DonutHole'                  , 'DonutHole'                   , ...
-            'OASIcalculator_COLA'                       , 'COLA'                        , ...
-            'OASIcalculator_PIA'                        , 'PIA'                         , ...
-            'OASIcalculator_NRA'                        , 'NRA'                         , ...
-            'OASIcalculator_CreditEarningsAboveTaxMax'  , 'CreditEarningsAboveTaxMax'   , ...
-            'OASIcalculator_FirstYear'                  , 'FirstYear'                   , ...
-            'OASIcalculator_GradualChange'              , 'GradualChange'               ...
-        ), 'id_OASIcalculator');
+        id = find_policy_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario, {
+            'TaxRate', 'TaxMax', 'DonutHole', 'COLA', 'PIA', 'NRA', 'CreditEarningsAboveTaxMax', 'FirstYear', 'GradualChange'
+        }, 'id_OASIcalculator');
         
         % Get T_works (retirement ages)
         nrafile = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('retirementAges_', id, '.csv'));
@@ -555,9 +546,8 @@ methods (Static)
         % tax plan.
         % Input: Revenues_<taxplanid>.csv -- Estimate of tax
         %           revenues as percent GDP
-        taxplanmapfile  = fullfile(PathFinder.getTaxPlanInputDir(), 'Map.csv');
-        param_pairs = struct('TaxCalculator_BaseBrackets', 'BaseBrackets');
-        taxplanid = find_policy_id(taxplanmapfile, scenario, param_pairs, 'ID');
+        taxplanmapfile = fullfile(PathFinder.getTaxPlanInputDir(), 'Map.csv');
+        taxplanid = find_policy_id(taxplanmapfile, scenario, {'BaseBrackets'}, 'ID');
         
         filename        = fullfile( PathFinder.getTaxPlanInputDir(), strcat('Revenues_', taxplanid, '.csv') );
         tax_revenue     = read_series(filename, 'year', first_year, last_year );
@@ -674,11 +664,12 @@ end % class ParamGenerator
 
 
 %%
-%  Helper function to find a Policy ID corresponding to scenario parameter values
-%        matchparams : cell array of param names to match
-%        mapfile     : fullfile name of map file with format 
-%           (ID) (Param1) (Param2) ... (ParamN)
-function [id] = find_policy_id(mapfile, scenario, param_pairs, idcolumn)
+%  Helper function to find a policy ID corresponding to a given scenario's parameter values
+%        mapfile     : Name of map file mapping parameter values to policy IDs
+%        scenario    : Scenario of interest
+%        matchparams : Cell array of parameter names identifying parameters to use for matching
+%        idcolumn    : Name of map file column containing policy IDs
+function [id] = find_policy_id(mapfile, scenario, matchparams, idcolumn)
     
     % Load plan ID map from input directory
     map = table2struct(readtable(mapfile));
@@ -686,8 +677,8 @@ function [id] = find_policy_id(mapfile, scenario, param_pairs, idcolumn)
     % Identify policies with parameter values matching scenario parameter values
     match = arrayfun( ...
         @(row) all(cellfun( ...
-            @(scenario_param) isequal(scenario.(scenario_param), row.(param_pairs.(scenario_param))), ...
-            fieldnames(param_pairs)) ...
+            @(param) isequal(scenario.(param), row.(param)), ...
+            matchparams) ...
         ), ...
         map ...
     );
