@@ -7,8 +7,9 @@ classdef Scenario
     properties (GetAccess = public, SetAccess = immutable)
         
         % Identifier tags
-        basedeftag;
-        counterdeftag;
+        basedeftag;         % level 1 in dir structure
+        counterdeftag;      % level 2 in dir structure
+        economytag;         % level 3 in dir structure
         comparisontag;      % REM: This is for isEquivalent()
         
         %% REQUIRED parameters
@@ -131,13 +132,9 @@ classdef Scenario
             %   2. Hash the string down to 120 chars
             % NOTE: comparisontag is built for isEquivalent 
             tag         = ''; 
-            compTag     = '';
             for o = Scenario.req_params'
-                if( ~strcmp( o{1}, 'economy' ) )
-                    tag = strcat( tag, '_', num2str(this.(o{1})) );
-                    if( ~strcmp( o{1}, 'TransitionLastYear' ) ) 
-                        compTag = strcat( compTag, '_', num2str( this.(o{1})) );
-                    end
+                if( ~strcmp( o{1}, 'economy' ) && ~strcmp( o{1}, 'TransitionLastYear' ) ) 
+                    tag = strcat( tag, '_', num2str( this.(o{1})) );
                 end
             end
             this.basedeftag = Scenario.compactifyTag( tag );
@@ -150,10 +147,12 @@ classdef Scenario
                 end
                 this.counterdeftag = Scenario.compactifyTag( tag );
             end
-            this.comparisontag = strcat( compTag, this.counterdeftag );
-            this.comparisontag = strcat( this.comparisontag, this.economy );
+            this.comparisontag = strcat( this.basedeftag, this.counterdeftag );
+            this.economytag    = this.economy;
             if( ~strcmp( this.economy, 'steady' ) )
-                this.comparisontag = strcat( this.comparisontag, num2str( this.TransitionLastYear ));
+                addyear             = num2str( this.TransitionLastYear );
+                this.economytag     = strcat( this.economytag   , addyear );
+                this.comparisontag  = strcat( this.comparisontag, addyear );
             end
         end % Scenario constructor
         
