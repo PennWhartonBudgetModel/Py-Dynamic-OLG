@@ -212,48 +212,20 @@ methods (Static, Access = public)
     
     
     
-    % Get microsim input directory
-    function [defaultsdir] = getDefaultsMacroDir()
-        defaultsdir = PathFinder.getInputDir('Defaults', 'macro');
-    end
-    
-    % Get microsim input directory
-    function [microsiminputdir] = getMicrosimInputDir()
-        microsiminputdir = PathFinder.getInputDir('Microsim', 'microsim');
-    end
-    
-    % Get OASIcalculator input directory
-    function [ssinputdir] = getOASIcalculatorInputDir()
-        ssinputdir = PathFinder.getInputDir('OASIcalculator', 'oasicalculator');
-    end
-    
-    % Get tax plan input directory
-    function [taxplaninputdir] = getTaxPlanInputDir()
-        taxplaninputdir = PathFinder.getInputDir('TaxCalculator', 'taxplan');
-    end
-    
-    % Get calibration input directory
-    function [calibrationinputdir] = getCalibrationInputDir()
-        calibrationinputdir = PathFinder.getInputDir('DynamicModel', 'calibration');
-    end
+    % Get input directory
+    function [inputdir] = getDefaultsMacroDir()         , inputdir = PathFinder.getInputDir('Defaults'          , 'macro'           ); end
+    function [inputdir] = getMicrosimInputDir()         , inputdir = PathFinder.getInputDir('Microsim'          , 'microsim'        ); end
+    function [inputdir] = getOASIcalculatorInputDir()   , inputdir = PathFinder.getInputDir('OASIcalculator'    , 'oasicalculator'  ); end
+    function [inputdir] = getTaxPlanInputDir()          , inputdir = PathFinder.getInputDir('TaxCalculator'     , 'taxplan'         ); end
+    function [inputdir] = getCalibrationInputDir()      , inputdir = PathFinder.getInputDir('DynamicModel'      , 'calibration'     ); end
     
     
     
     
-    % Get calibration output directory
-    function [calibrationoutputdir] = getCalibrationOutputDir()
-        calibrationoutputdir = PathFinder.getOutputDir('calibration');
-    end
-    
-    % Get data series output directory
-    function [dataseriesoutputdir] = getDataSeriesOutputDir()
-        dataseriesoutputdir = PathFinder.getOutputDir('dataseries');
-    end
-    
-    % Get transition matrices output directory
-    function [dataseriesoutputdir] = getTransitionMatrixOutputDir()
-        dataseriesoutputdir = PathFinder.getOutputDir('transition');
-    end
+    % Get output directory
+    function [outputdir] = getCalibrationOutputDir()        , outputdir = PathFinder.getOutputDir('calibration' ); end
+    function [outputdir] = getDataSeriesOutputDir()         , outputdir = PathFinder.getOutputDir('dataseries'  ); end
+    function [outputdir] = getTransitionMatrixOutputDir()   , outputdir = PathFinder.getOutputDir('transition'  ); end
     
     
     
