@@ -586,7 +586,7 @@ methods (Static)
                         % 
                         % First period capital (inherited from steady state)
                         caps_period1 = Dynamic0.investment + (1 - depreciation)*Dynamic0.caps;
-                        Dynamic.caps = [caps_period1 Dynamic.caps(2:T_model)];
+                        Dynamic.caps(1) = caps_period1;                    % Overwrite the first period
                         % Define the pre-tax returns necessary to return
                         % the world rate from steady-state.
                         effectiveDividendRate = ( Market0.equityFundDividends*(1 - sstax.rateForeignCorpIncome) ...
@@ -625,7 +625,7 @@ methods (Static)
                         % and we do not allow it to change even as the economy's 
                         % mix of capital vs. debt changes.
 
-                        Dynamic.caps = [caps_period1 Dynamic.caps(2:T_model)];
+                        Dynamic.caps(1) = caps_period1;                    % Overwrite the first period
                         klRatio     = theFirm.calculateKLRatio( effectiveDividendRate   , ...
                                                                 Dynamic.caps'           , ...
                                                                 Dynamic.labeffs'        , ...
@@ -720,11 +720,7 @@ methods (Static)
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     % Note: Dynamic.assets_0 represents current assets at old prices.
-                    Dynamic.caps_domestic  = (Market.capshares_0 .* Dynamic.assets_0) ./ ...
-                                               [theFirm.priceCapital0 theFirm.priceCapital(1:T_model-1)'];
-                    % DEBUG
-                    check = Dynamic.caps_domestic - (Market.capshares_1 .* Dynamic.assets_1) ./ theFirm.priceCapital'
-                    % DEBUG
+                    Dynamic.caps_domestic  =  (Market.capshares_1 .* Dynamic.assets_1) ./ theFirm.priceCapital';
                     Dynamic.caps_foreign   = Dynamic.caps - Dynamic.caps_domestic;
                     Dynamic.invest_foreign = [Dynamic.caps_foreign(2:T_model) Dynamic.caps_foreign(T_model)] ...
                                               - (1 - depreciation) * [Dynamic.caps_foreign(1:T_model-1) Dynamic.caps_foreign(T_model-1)];
@@ -793,10 +789,6 @@ methods (Static)
                     % Calculate capital and output
                     % Note: Dynamic.assets represents current assets at new prices.
                     Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theFirm.priceCapital';
-                    % DEBUG
-                    check = Dynamic.caps - (Market.capshares_0 .* Dynamic.assets_0) ./ ...
-                                               [theFirm.priceCapital0 theFirm.priceCapital(1:T_model-1)']
-                    % DEBUG
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     Dynamic.caps_domestic  = Dynamic.caps;
