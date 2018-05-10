@@ -388,8 +388,10 @@ methods (Static)
         %  OLD STUFF: TBD Revisit and revise
         s.taxcredit = 0.15;     % Benefit tax credit percentage
 
+        % Get OASIcalculator scenario ID
+        id = scenario.id_OASIcalculator;
+        
         % Get T_works (retirement ages)
-        id = find_policy_id(scenario, {'id_OASIcalculator'}, fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), 'id_OASIcalculator');
         nrafile = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('retirementAges_', id, '.csv'));
         
         switch scenario.economy
