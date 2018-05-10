@@ -585,8 +585,7 @@ methods (Static)
                         % capital are fixed, including cap gains.
                         % 
                         % First period capital (inherited from steady state)
-                        caps_period1 = Dynamic0.investment + (1 - depreciation)*Dynamic0.caps;
-                        Dynamic.caps(1) = caps_period1;                    % Overwrite the first period
+                        Dynamic.caps(1) = Market0.capshares_0 * Dynamic0.assets_0;
                         % Define the pre-tax returns necessary to return
                         % the world rate from steady-state.
                         effectiveDividendRate = ( Market0.equityFundDividends*(1 - sstax.rateForeignCorpIncome) ...
@@ -624,8 +623,8 @@ methods (Static)
                         % because the portfolio allocation is fixed by steady-state
                         % and we do not allow it to change even as the economy's 
                         % mix of capital vs. debt changes.
-
-                        Dynamic.caps(1) = caps_period1;                    % Overwrite the first period
+                        % Overwrite the first period capital
+                        Dynamic.caps(1) = Market.capshares_0(1) * Dynamic.assets_0(1);
                         klRatio     = theFirm.calculateKLRatio( effectiveDividendRate   , ...
                                                                 Dynamic.caps'           , ...
                                                                 Dynamic.labeffs'        , ...
