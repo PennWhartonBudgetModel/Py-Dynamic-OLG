@@ -223,7 +223,7 @@ methods (Static)
         bracketsfile    = strcat('PIT_', taxplanid, '.csv' );
         bracketsfile    = fullfile( PathFinder.getTaxPlanInputDir(), bracketsfile );      
 
-        [brackets, rates] = read_brackets_rates( bracketsfile, first_year, T_model );                               ...
+        [brackets, rates] = read_brackets_rates_indices( bracketsfile, first_year, T_model );                               ...
         
         % TBD: This should be done in ModelSolver as for SocialSecurity
         % Calculate cumulative tax burdens along brackets dimension
@@ -257,7 +257,7 @@ methods (Static)
         bracketsfile    = strcat('PreferredRates_', taxplanid, '.csv' );
         bracketsfile    = fullfile( PathFinder.getTaxPlanInputDir(), bracketsfile );      
 
-        [brackets, rates] = read_brackets_rates( bracketsfile, first_year, T_model );                               ...
+        [brackets, rates] = read_brackets_rates_indices( bracketsfile, first_year, T_model );                               ...
         
         % TBD: This should be done in ModelSolver as for SocialSecurity
         % Calculate cumulative tax burdens along brackets dimension
@@ -419,16 +419,8 @@ methods (Static)
         %   Pad if file years do not go to T_model, truncate if too long
         %   Calculate cumulative liability to speed up calculation 
         %   Convert from US dollars to modelunit dollars
-        matchparams     = {'SSTaxPolicy'};
-        mapfile         = fullfile( PathFinder.getSocialSecurityTaxInputDir(), 'Map.csv' );
-        sstaxid         = find_policy_id( scenario, matchparams, mapfile );
-        bracketsfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir()      ...
-                                ,   strcat('PayrollTax_'    , sstaxid, '.csv' ) );
-        indexingfile    = fullfile( PathFinder.getSocialSecurityTaxInputDir()      ...
-                                ,   strcat('BracketsIndex_' , sstaxid, '.csv' ) );
-
-        [brackets, rates]   = read_brackets_rates  ( bracketsfile, first_year, T_model );                               ...
-        [indices]           = read_brackets_indices( indexingfile );
+        file = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('TaxParameters_', id, '.csv' ));
+        [brackets, rates, indices] = read_brackets_rates_indices(file, first_year, T_model);
         
         if( size(indices,2) ~= size(brackets,2) )
             throw(MException('social_security:TAXBRACKETS','SSTaxBrackets and BracketsIndexes must have same number of brackets.'));
@@ -458,7 +450,7 @@ methods (Static)
         bracketsfile    = fullfile( PathFinder.getSocialSecurityBenefitsInputDir() ...
                                 ,   strcat('InitialBenefits_', policy_id , '.csv' ) );      
         
-        [brackets, rates]   = read_brackets_rates( bracketsfile, first_birthyear, nstartyears );                               ...
+        [brackets, rates]   = read_brackets_rates_indices( bracketsfile, first_birthyear, nstartyears );                               ...
         
         s.startyear_benefitbrackets   = 12*scenario.modelunit_dollar*brackets;    
         s.startyear_benefitrates      = rates;
@@ -467,7 +459,7 @@ methods (Static)
         filename = fullfile(    PathFinder.getSocialSecurityBenefitsInputDir()    ...
                             ,   strcat('BenefitsAdjustment_', policy_id , '.csv' ));
         
-        [~, adjrates] = read_brackets_rates( filename, first_year, T_model );
+        [~, adjrates] = read_brackets_rates_indices( filename, first_year, T_model );
     
         % Verify that adj has same number of brackets
         if( size(adjrates, 2) ~= size(brackets, 2) )
@@ -737,8 +729,7 @@ end % read_vars()
 %    filename     : fullfile of CSV to read
 %    first_year   : don't read years before this param
 %    T_years      : read this many years 
-function [brackets, rates] = read_brackets_rates( ...
-                                        filename, first_year, T_years )
+function [brackets, rates, indices] = read_brackets_rates_indices(filename, first_year, T_years)
 
     warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
     warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
@@ -746,21 +737,21 @@ function [brackets, rates] = read_brackets_rates( ...
     if ~exist(filename, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
         throw(MException('read_brackets_rates:FILENAME', err_msg ));
-    end;
+    end
         
-    T           = readtable(filename);
-    T_arr       = table2array(T);
+    T = readtable(filename);
     
     % Find first year
-    years       = T_arr(:,1);
+    years       = table2array(T(:,1));
     year_start  = find( years == first_year, 1);
     if( isempty(year_start) )
         throw(MException('read_brackets_rates:FIRSTINDEX','Cannot find first index (%u) in file (%s).', first_year, filename));
     end    
     
-    % Find all brackets & rates
-    brackets    = T_arr(year_start:end,  contains(T.Properties.VariableNames, 'Bracket' ) );
-    rates       = T_arr(year_start:end,  contains(T.Properties.VariableNames, 'Rate' ) );
+    % Find all brackets, rates, and indices
+    brackets = table2array(T(year_start:end, contains(T.Properties.VariableNames, 'Bracket')));
+    rates    = table2array(T(year_start:end, contains(T.Properties.VariableNames, 'Rate'   )));
+    indices  = table2array(T(1             , contains(T.Properties.VariableNames, 'Index'  )));
     
     % Enforce that first bracket must be zero.
     % If there are no brackets, make all zeros brackets
@@ -784,31 +775,7 @@ function [brackets, rates] = read_brackets_rates( ...
             repmat(rates(end,:)     , [T_years-num_years, 1])   ];
     end
     
-end % read_brackets_rates()
-
-
-%%
-% Read a CSV file in format (Bracket1Index),...(BracketNIndex)
-%    This file defines the indexing methodology to use for the brackets.
-function [indices] = read_brackets_indices( filename )
-
-    warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
-    warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
-
-    if ~exist(filename, 'file')
-        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
-        throw(MException('read_brackets_indices:FILENAME', err_msg ));
-    end;
-        
-    T       = readtable(filename);
-    indices = table2array(T(1, :));
-    
-    % Validate that indices are in the allowed set:
-    %    reals, nominals, wage_inflations, cohort_wages
-    
-    
-end % read_brackets_indices
-
+end % read_brackets_rates_indices()
 
 
 %%
