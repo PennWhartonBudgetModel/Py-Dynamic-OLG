@@ -132,7 +132,7 @@ classdef Scenario
                 
                 if ( ~isfield(Scenario.def_params, o{1})     ...
                     && ~any(strcmp(o{1}, Scenario.req_params)) )
-                    error( 'Field <%s> does not match any Scenario fields.', o{1} );
+                    warning('Scenario:constructor:noParameterMatch', 'Field <%s> does not match any Scenario fields.', o{1});
                 end
                 
             end

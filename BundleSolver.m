@@ -73,8 +73,8 @@ methods (Static)
     
     
     
-    % Convert a bundle scenario, represented as a structure, into a dynamic model scenario
-    function [scenario] = convertBundleScenario(s)
+    % Convert an output scenario, represented as a structure, into a dynamic model scenario
+    function [scenario] = convertOutputScenario(s)
         
         % Identify economy openness, specifying closed economy for partially open economies to generate both open and closed economies
         if s.OpenEconomy == 1
@@ -102,24 +102,16 @@ methods (Static)
             'TransitionLastYear'    , 2018 + 25                 ...
         );
         
-        % Add optional parameters, assuming dynamic model parameter names match bundle scenario parameter names
-        optional_parameters = { ...
-            'TaxCode'                   , ...
-            'TaxMax'                    , ...
-            'DonutHole'                 , ...
-            'COLA'                      , ...
-            'PIA'                       , ...
-            'NRA'                       , ...
-            'CreditEarningsAboveTaxMax' , ...
-            'FirstYear'                 , ...
-            'GradualChange'             ...
-        };
-        for o = optional_parameters
-            parameters.(o{1}) = s.(o{1});
+        % Add optional parameters as available
+        for field_ = fieldnames(s)', field = field_{1};
+            if ~isfield(parameters, field)
+                parameters.(field) = s.(field);
+            end
         end
         
         % Construct scenario from parameter structure
-        scenario = Scenario(parameters);
+        warningid = 'Scenario:constructor:noParameterMatch';
+        warning('off', warningid), scenario = Scenario(parameters); warning('on', warningid)
         
     end
     
@@ -225,7 +217,7 @@ methods (Static)
         compress = @(c) c(~cellfun(@isempty, c));
                 
         % Convert output scenarios to dynamic model scenarios
-        scenarios = arrayfun(@BundleSolver.convertBundleScenario, output_scenarios, 'UniformOutput', false);
+        scenarios = arrayfun(@BundleSolver.convertOutputScenario, output_scenarios, 'UniformOutput', false);
         
         % Remove duplicate scenarios
         for i = 1:length(scenarios)
