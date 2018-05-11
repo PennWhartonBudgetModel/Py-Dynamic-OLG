@@ -206,9 +206,9 @@ methods (Static)
         timing                  = ParamGenerator.timing(scenario);
         
         % Find tax plan ID corresponding to scenario tax parameters
-        taxplanmapfile          = fullfile(PathFinder.getTaxPlanInputDir(), 'Map.csv');
-        taxplanid               = find_policy_id( scenario, {'BaseBrackets'}, taxplanmapfile );
-        sstaxplanid             = find_policy_id( scenario.steady().currentPolicy(), {'BaseBrackets'}, taxplanmapfile );
+        taxplanmapfile = fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv');
+        taxplanid   = find_policy_id(taxplanmapfile, scenario                         , {'TaxCode'}, 'ID');
+        sstaxplanid = find_policy_id(taxplanmapfile, scenario.steady().currentPolicy(), {'TaxCode'}, 'ID');
                 
         T_model                 = timing.T_model;
         switch scenario.economy
@@ -220,10 +220,8 @@ methods (Static)
                 last_year       = timing.TransitionLastYear - 1;
         end    
         
-        bracketsfile    = strcat('PIT_', taxplanid, '.csv' );
-        bracketsfile    = fullfile( PathFinder.getTaxPlanInputDir(), bracketsfile );      
-
-        [brackets, rates] = read_brackets_rates_indices( bracketsfile, first_year, T_model );                               ...
+        file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('OrdinaryRates_', taxplanid, '.csv' ));
+        [brackets, rates] = read_brackets_rates_indices(file, first_year, T_model);
         
         % TBD: This should be done in ModelSolver as for SocialSecurity
         % Calculate cumulative tax burdens along brackets dimension
@@ -237,8 +235,8 @@ methods (Static)
 
         % Get the capital and tax treatment allocation params. 
         %    Rem: These are time-varying, so read results are vectors.
-        filename = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', taxplanid, '.csv'));
-        tax_vars = read_series( filename, 'year', first_year, last_year );
+        file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('CapitalTaxes_', taxplanid, '.csv'));
+        tax_vars = read_series(file, 'year', first_year, last_year);
         
         % Portion of corporate income taxed at preferred rates
         %   TBD: Fix this when John R. gives new inputs
@@ -254,10 +252,8 @@ methods (Static)
         end
         
         % Read Preferred Rates
-        bracketsfile    = strcat('PreferredRates_', taxplanid, '.csv' );
-        bracketsfile    = fullfile( PathFinder.getTaxPlanInputDir(), bracketsfile );      
-
-        [brackets, rates] = read_brackets_rates_indices( bracketsfile, first_year, T_model );                               ...
+        file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('PreferredRates_', taxplanid, '.csv'));
+        [brackets, rates] = read_brackets_rates_indices(file, first_year, T_model);
         
         % TBD: This should be done in ModelSolver as for SocialSecurity
         % Calculate cumulative tax burdens along brackets dimension
@@ -286,8 +282,8 @@ methods (Static)
                 s.qtobin    = s.qtobin0;
             otherwise
                 % Read tax params from steady-state, current-policy to make t=0 values
-                filename    = fullfile( PathFinder.getTaxPlanInputDir(), strcat('CIT_', sstaxplanid, '.csv'));
-                sstax_vars  = read_series( filename, 'year', first_year - 1, first_year - 1 );
+                file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('CapitalTaxes_', sstaxplanid, '.csv'));
+                sstax_vars = read_series(file, 'year', first_year - 1, first_year - 1);
 
                 s.qtobin0   = 1 - sstax_vars.shareCapitalExpensing(1) * sstax_vars.rateCorporate(1);
                 s.qtobin    = 1 - tax_vars.shareCapitalExpensing .* s.rateCorporate;
@@ -386,7 +382,9 @@ methods (Static)
         s.taxcredit = 0.15;     % Benefit tax credit percentage
 
         % Get OASIcalculator scenario ID
-        id = scenario.id_OASIcalculator;
+        id = find_policy_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario, {
+            'TaxRate', 'TaxMax', 'DonutHole', 'COLA', 'PIA', 'NRA', 'CreditEarningsAboveTaxMax', 'FirstYear', 'GradualChange'
+        }, 'id_OASIcalculator');
         
         % Get T_works (retirement ages)
         nrafile = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('retirementAges_', id, '.csv'));
@@ -396,13 +394,13 @@ methods (Static)
                 first_year   = first_transition_year - 1;
                 survivalprob = ParamGenerator.demographics(scenario).surv;
                 series       = read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry), [] );
-                T_works      = series.NRA;
+                T_works      = round(series.NRA);
                 mass         = ones(T_life,1); for i = 2:T_life; mass(i) = mass(i-1)*survivalprob(i-1); end
                 T_works      = round(sum((mass.*T_works(1:T_life))/sum(mass))) - realage_entry;
             case {'open', 'closed'}
                 first_year   = first_transition_year;
                 series       = read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry), [] );
-                T_works      = series.NRA;
+                T_works      = round(series.NRA);
                 T_works      = T_works(1:nstartyears) - realage_entry;
         end
         s.T_works           = T_works;
@@ -468,35 +466,97 @@ methods (Static)
                 first_year  = first_transition_year;
                 last_year   = first_year + T_model - 1;
         end
-
-        % Interest rates, expenditures, and debt
-        % Input: 
-        %       MicroSIM\GDPandBudget.csv 
-        %       CBO\HistoricalDebt.csv
-        % Output: 
-        %       debttoout, fedgovtnis, debtrates, GEXP_by_GDP
-        seriesfilename  = fullfile( PathFinder.getMicrosimInputDir(), 'GDPandBudget.csv'   );
-        debtfilename    = fullfile( PathFinder.getMicrosimInputDir(), 'HistoricalDebt.csv' );
         
-        series          = read_series( seriesfilename, 'Year', first_year, last_year ); 
-        % IMPORTANT:  Note that we pad out to last_year. If data does not
-        % exist to that year, we must be OK with padding.
         
-        % Fetch historical debt, revenues, expenditures
-        debt_series     = read_series( debtfilename  , 'Year', first_transition_year - 1, first_transition_year - 1 ); 
-        past_series     = read_series( seriesfilename, 'Year', first_transition_year - 1, first_year ); 
-                       
+        projections_file = fullfile(PathFinder.getProjectionsInputDir(), 'Projections.csv');
+        projections_series      = read_series(projections_file, 'Year', first_year               , last_year                );
+        projections_past_series = read_series(projections_file, 'Year', first_transition_year - 1, first_year               );
+        projections_debt_series = read_series(projections_file, 'Year', first_transition_year - 1, first_transition_year - 1);
+        projections_full_series = read_series(projections_file, 'Year', first_year               , []                       );
+        
+        taxcalculator_id = find_policy_id(fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv'), scenario, {'TaxCode'}, 'ID');
+        taxcalculator_file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('Aggregates_', taxcalculator_id, '.csv'));
+        taxcalculator_series      = read_series(taxcalculator_file, 'Year', first_year               , last_year );
+        taxcalculator_past_series = read_series(taxcalculator_file, 'Year', first_transition_year - 1, first_year);
+        
+        oasicalculator_id = find_policy_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario, {
+            'TaxRate', 'TaxMax', 'DonutHole', 'COLA', 'PIA', 'NRA', 'CreditEarningsAboveTaxMax', 'FirstYear', 'GradualChange'
+        }, 'id_OASIcalculator');
+        oasicalculator_file = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('aggregate_', oasicalculator_id, '.csv'));
+        oasicalculator_series      = read_series(oasicalculator_file, 'year', first_year               , last_year );
+        oasicalculator_past_series = read_series(oasicalculator_file, 'year', first_transition_year - 1, first_year);
+        
+        
+        revenues = ( ...
+            ...
+            + taxcalculator_series.RevenuesIndividualIncomeTax          ...
+            + taxcalculator_series.RevenuesPayrollTaxExSocialSecurity   ...
+            + taxcalculator_series.RevenuesCorporateIncomeTax           ...
+            + taxcalculator_series.RevenuesEstateAndGiftTaxes           ...
+            + taxcalculator_series.RevenuesExciseTaxes                  ...
+            + taxcalculator_series.RevenuesCustomsDuties                ...
+            + taxcalculator_series.RevenuesMiscellaneousReceipts        ...
+            ...
+            + oasicalculator_series.RevenuesPayrollTaxSocialSecurity    ...
+            ...
+        );
+        
+        noninterestspending = ( ...
+            + projections_series.OutlaysDiscretionary       ...
+            + projections_series.OutlaysMedicare            ...
+            + projections_series.OutlaysMedicaid            ...
+            + projections_series.OutlaysFederalRetirement   ...
+            + projections_series.OutlaysVeteransPrograms    ...
+            + projections_series.OutlaysOtherPrograms       ...
+            + projections_series.OutlaysOffsettingReceipts  ...
+            ...
+            + taxcalculator_series.OutlaysIncomeSecurity    ...
+            ...
+            + oasicalculator_series.OutlaysSocialSecurity   ...
+            ...
+        );
+        
+        past_revenues = ( ...
+            ...
+            + taxcalculator_past_series.RevenuesIndividualIncomeTax          ...
+            + taxcalculator_past_series.RevenuesPayrollTaxExSocialSecurity   ...
+            + taxcalculator_past_series.RevenuesCorporateIncomeTax           ...
+            + taxcalculator_past_series.RevenuesEstateAndGiftTaxes           ...
+            + taxcalculator_past_series.RevenuesExciseTaxes                  ...
+            + taxcalculator_past_series.RevenuesCustomsDuties                ...
+            + taxcalculator_past_series.RevenuesMiscellaneousReceipts        ...
+            ...
+            + oasicalculator_past_series.RevenuesPayrollTaxSocialSecurity    ...
+            ...
+        );
+        
+        past_noninterestspending = ( ...
+            + projections_past_series.OutlaysDiscretionary       ...
+            + projections_past_series.OutlaysMedicare            ...
+            + projections_past_series.OutlaysMedicaid            ...
+            + projections_past_series.OutlaysFederalRetirement   ...
+            + projections_past_series.OutlaysVeteransPrograms    ...
+            + projections_past_series.OutlaysOtherPrograms       ...
+            + projections_past_series.OutlaysOffsettingReceipts  ...
+            ...
+            + taxcalculator_past_series.OutlaysIncomeSecurity    ...
+            ...
+            + oasicalculator_past_series.OutlaysSocialSecurity   ...
+            ...
+        );
+        
+        
         % Calculate debt to get DEBT/GDP for first_year
-        deficit_nis     = past_series.Revenues - past_series.NonInterestSpending;
+        deficit_nis     = past_revenues - past_noninterestspending;
         debt            = zeros(size(deficit_nis));
-        debt(1)         = debt_series.DebtHeldByPublic(1);
+        debt(1)         = projections_debt_series.DebtHeldByThePublic(1);
         for i = 2:size(deficit_nis)
-            debt(i) = debt(i-1)*(1+past_series.EffectiveInterestRateOnDebt(i)/100.0) - deficit_nis(i);
-        end;
-        s.debttoout     = debt(end) / series.GDP(1);
+            debt(i) = debt(i-1)*(1+projections_past_series.AverageInterestRateOnDebt(i)/100.0) - deficit_nis(i);
+        end
+        s.debttoout     = debt(end) / projections_series.GDP_FY(1);
         
         % Calculate deficit/GDP for time of model
-        s.fedgovtnis    = (series.Revenues - series.NonInterestSpending) ./ series.GDP;
+        s.fedgovtnis    = (revenues - noninterestspending) ./ projections_series.GDP_FY;
         s.fedgovtnis    = s.fedgovtnis';
         
         % Rates
@@ -504,19 +564,18 @@ methods (Static)
         %    NOTE: EffectiveInterestRateOnDebt is in NOMINAL terms and we
         %    deflate by GDPPriceIndex
         if( strcmp(scenario.economy, 'steady') )
-            fullseries      = read_series( seriesfilename, 'Year', first_year, [] ); 
-            gdpPriceIndex   = fullseries.GDPPriceIndex;
-            interest_rate   = fullseries.EffectiveInterestRateOnDebt / 100;
+            gdpPriceIndex   = projections_full_series.ChainedCPIU;
+            interest_rate   = projections_full_series.AverageInterestRateOnDebt / 100;
         else
-            gdpPriceIndex   = series.GDPPriceIndex;
-            interest_rate   = series.EffectiveInterestRateOnDebt / 100;
+            gdpPriceIndex   = projections_series.ChainedCPIU;
+            interest_rate   = projections_series.AverageInterestRateOnDebt / 100;
         end
         
         deflator        = zeros(size(gdpPriceIndex));
         deflator(1)     = 1.0;
         for i = 2:size(deflator)
             deflator(i) = gdpPriceIndex(i)/gdpPriceIndex(i-1);
-        end;
+        end
         rates_adjusted  = ((1 + interest_rate)./deflator) - 1.0;    
         
         if( strcmp(scenario.economy, 'steady') )
@@ -526,28 +585,18 @@ methods (Static)
         end
        
         % Consumption good price index
-        s.CPI               = (series.CPI / series.CPI(1))';                           % normalize to 1 for first_year
+        s.CPI = (projections_series.ChainedCPIU / projections_series.ChainedCPIU(1))'; % normalize to 1 for first_year
 
         % Unmodeled g'vt spending as percent GDP (for expenditure shifting)
-        GEXP_by_GDP     = series.NonInterestSpending   ./100    ...
-                        - series.SocialSecuritySpending./100    ...
-                        - series.MedicareSpending      ./100    ...
+        GEXP_by_GDP     = noninterestspending                           ./100    ...
+                        - oasicalculator_series.OutlaysSocialSecurity   ./100    ...
+                        - projections_series.OutlaysMedicare            ./100    ...
                     ;
         s.GEXP_by_GDP   = GEXP_by_GDP';
-
-        % TAX REVENUE TARGETS                  
-        % Tax revenues as fraction of GDP are loaded from
-        % single-series CSV files which contain data by
-        % tax plan.
-        % Input: Revenues_<taxplanid>.csv -- Estimate of tax
-        %           revenues as percent GDP
-        taxplanmapfile  = fullfile(PathFinder.getTaxPlanInputDir(), 'Map.csv');
-        taxplanid       = find_policy_id( scenario, {'BaseBrackets'}, taxplanmapfile );
-        filename        = fullfile( PathFinder.getTaxPlanInputDir(), strcat('Revenues_', taxplanid, '.csv') );
-        tax_revenue     = read_series(filename, 'year', first_year, last_year );
         
-        s.tax_revenue_by_GDP    = tax_revenue.revenuesShareGDP'; 
         
+        % TAX REVENUE TARGETS           
+        s.tax_revenue_by_GDP = (revenues ./ projections_series.GDP_FY)';
         
         % WARNINGS if parameters are outside expectations
         if( any( abs(s.debtrates) > 0.05 ) )
@@ -658,19 +707,21 @@ end % class ParamGenerator
 
 
 %%
-%  Helper function to find a Policy ID corresponding to scenario parameter values
-%        matchparams : cell array of param names to match
-%        mapfile     : fullfile name of map file with format 
-%           (ID) (Param1) (Param2) ... (ParamN)
-function [id] = find_policy_id( scenario, matchparams, mapfile, idcolumn )
+%  Helper function to find a policy ID corresponding to a given scenario's parameter values
+%        mapfile     : Name of map file mapping parameter values to policy IDs
+%        scenario    : Scenario of interest
+%        matchparams : Cell array of parameter names identifying parameters to use for matching
+%        idcolumn    : Name of map file column containing policy IDs
+function [id] = find_policy_id(mapfile, scenario, matchparams, idcolumn)
     
     % Load plan ID map from input directory
     map = table2struct(readtable(mapfile));
     
     % Identify policies with parameter values matching scenario parameter values
-    match = arrayfun(@(row) ...
-        all(cellfun(@(param) ...
-            isequal(scenario.(param), row.(param)), matchparams) ...
+    match = arrayfun( ...
+        @(row) all(cellfun( ...
+            @(param) isequal(scenario.(param), row.(param)), ...
+            matchparams) ...
         ), ...
         map ...
     );
@@ -680,7 +731,6 @@ function [id] = find_policy_id( scenario, matchparams, mapfile, idcolumn )
     assert(sum(match) < 2, 'More than one ID found with parameter values matching scenario parameter values.');
     
     % Extract ID of matching plan
-    if ~exist('idcolumn', 'var') || isempty(idcolumn), idcolumn = 'ID'; end
     id = num2str(map(match).(idcolumn));
     
 end %find_policy_id
@@ -780,14 +830,14 @@ function [series] = read_series(filename, index_name, first_index, last_index )
     if ~exist(filename, 'file')
         err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
         throw(MException('read_series:FILENAME', err_msg ));
-    end;
+    end
         
-    T           = readtable(filename);
+    T = readtable(filename, 'TreatAsEmpty', {'NA'});
     
     idx_drop    = ( T.(index_name) < first_index );
     if( all(idx_drop) )
         throw(MException('read_series:FIRSTINDEX','Cannot find first index in file.'));
-    end;
+    end
     
     % Remove unused table rows
     T( idx_drop, : ) = [];
@@ -802,7 +852,7 @@ function [series] = read_series(filename, index_name, first_index, last_index )
         if( num_add > 0 )
             T    = [T; repmat(T(end,:), [num_add, 1])];
         end
-    end;
+    end
     
     series = table2struct( T, 'ToScalar', true );
     
