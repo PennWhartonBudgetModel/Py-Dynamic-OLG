@@ -234,10 +234,10 @@ for t = T_active:-1:1
                     
                 else % STATIC
                     
-                    % First dimension of saving is labor productivity shock, which is the same across all retirees
-                    s   = saving_static(1,is,ib,t);
+                    s   = saving_static(1,is,ib,t);  % First dimension is productivity shock (doesn't matter for retirees)
                     lab = 0;
-                    v   = 0;  % TBD: Calculate from static?
+                    v   = NaN;                       % Utility is not properly defined since consumption can be negative
+                    
                     
                 end
                 
@@ -330,7 +330,7 @@ for t = T_active:-1:1
                         
                         s   = saving_static(iz,is,ib,t);
                         lab = LAB_static(iz,is,ib,t);
-                        v   = 0;  % TBD: Calculate from static?     
+                        v   = NaN;                       % Utility is not properly defined since consumption can be negative
                         
                     end
                     
