@@ -234,8 +234,8 @@ for t = T_active:-1:1
                     
                 else % STATIC
                     
-                    % TBD: Record correct values for Static
-                    s   = sv(is); % TBD: This should come from Static
+                    % First dimension of saving is labor productivity shock, which is the same across all retirees
+                    s   = saving_static(1,is,ib,t);
                     lab = 0;
                     v   = 0;  % TBD: Calculate from static?
                     
@@ -328,8 +328,7 @@ for t = T_active:-1:1
                         
                     else   % STATIC
                         
-                        % TBD: Record correct values for Static
-                        s   = sv(is); % TBD: This should come from Static                  s = sv(is);
+                        s   = saving_static(iz,is,ib,t);
                         lab = LAB_static(iz,is,ib,t);
                         v   = 0;  % TBD: Calculate from static?     
                         
