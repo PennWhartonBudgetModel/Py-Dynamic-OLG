@@ -408,9 +408,7 @@ methods (Static)
             % Calculate static budgetary aggregate variables
             Static.revs          = Static.pits + Static.ssts        ... 
                                     + Static.cits + Static.corpTaxs ...
-                                    - Static.bens;            
-            Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
-            Static.caprevs       = Static.cits + Static.pits - Static.labpits;
+                                    ;            
             
             % In general, we have:
             % Static.debts = Static.debts_domestic + Static.debts_foreign;
@@ -423,7 +421,9 @@ methods (Static)
 
             Static.debts = [Dynamic_base.debts(1), zeros(1,T_model-1)];
             for year = 1:T_model-1
-                Static.debts(year+1) = Static.Gtilde(year) - Static.Ttilde(year) - Static.revs(year) + Static.debts(year)*(1 + debtrates(year));
+                Static.debts(year+1)    = Static.Gtilde(year) + Static.bens(year)   ...
+                                        - Static.Ttilde(year) - Static.revs(year)   ...
+                                        + Static.debts(year)*(1 + debtrates(year));
             end
 
             % Total assets
@@ -668,7 +668,7 @@ methods (Static)
             Dynamic.corpTaxs    = corpTaxs';
             Dynamic.revs        = Dynamic.pits + Dynamic.ssts           ...
                                   + Dynamic.cits + Dynamic.corpTaxs     ...
-                                  - Dynamic.bens;
+                                  ;
                     
             switch economy
                 
@@ -726,7 +726,9 @@ methods (Static)
                     
                     Dynamic.debts = [debttoout*Dynamic0.outs, zeros(1,T_model-1)];
                     for year = 1:T_model-1
-                        Dynamic.debts(year+1) = Gtilde(year) - Ttilde(year) - Dynamic.revs(year) + Dynamic.debts(year)*(1 + debtrates(year));
+                        Dynamic.debts(year+1) = Gtilde(year) + Dynamic.bens(year)   ...
+                                                - Ttilde(year) - Dynamic.revs(year) ...
+                                                + Dynamic.debts(year)*(1 + debtrates(year));
                     end
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
@@ -768,7 +770,9 @@ methods (Static)
                     
                     Dynamic.debts = [debttoout*Dynamic0.outs, zeros(1,T_model-1)];
                     for year = 1:T_model-1
-                        Dynamic.debts(year+1) = Gtilde(year) - Ttilde(year) - Dynamic.revs(year) + Dynamic.debts(year)*(1 + debtrates(year));
+                        Dynamic.debts(year+1) = Gtilde(year) + Dynamic.bens(year)   ...
+                                                - Ttilde(year) - Dynamic.revs(year) ...
+                                                + Dynamic.debts(year)*(1 + debtrates(year));
                     end
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
