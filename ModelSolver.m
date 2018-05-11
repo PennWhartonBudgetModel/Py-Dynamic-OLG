@@ -144,20 +144,21 @@ methods (Static)
         
         %% Aggregate generation function
         
-        function [Aggregate, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, LABs_static, DIST_static)
+        function [Aggregate, LABs, savings, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, LABs_static, savings_static, DIST_static)
             
             % Define dynamic aggregate generation flag
-            isdynamic = isempty(LABs_static) || isempty(DIST_static);
+            isdynamic = isempty(DIST_static) || isempty(LABs_static) || isempty(savings_static);
             
             % Set static optimal decision values to empty values for dynamic aggregate generation
-            if isdynamic, LABs_static = cell(nstartyears); end
+            if isdynamic, LABs_static = cell(nstartyears); savings_static = cell(nstartyears); end
             
             % Initialize optimal decision value arrays
             os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN', 'CON', 'V'};
             for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model); end
             
             % Initialize array of cohort optimal labor values
-            LABs = cell(nstartyears);
+            LABs    = cell(nstartyears);
+            savings = cell(nstartyears);
             
             % Initialize population distribution array
             DIST = zeros(nz,nk,nb,T_life,ng,T_model);
@@ -181,9 +182,9 @@ methods (Static)
                                             , Market.priceindices );            
 
             % Package fixed dynamic optimization arguments into anonymous function
-            solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes) ...
+            solve_cohort_ = @(V0, LAB_static, saving_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes) ...
                 solve_cohort( ...
-                    V0, LAB_static, isdynamic, ...
+                    V0, LAB_static, saving_static, isdynamic, ...
                     nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, ...
                     zs, transz, kv, bv, scenario.beta, scenario.gamma, scenario.sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
@@ -217,7 +218,7 @@ methods (Static)
 
                 % Solve dynamic optimization
                 % (Note that active time is set to full lifetime)
-                OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits, Market.priceindices.cohort_wages(:,end));
+                OPT = solve_cohort_(V0s(:,:,:,T_life), [], [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits, Market.priceindices.cohort_wages(:,end));
 
                 % Define series of terminal utility values
                 V0s(:,:,:,1:T_life-1) = OPT.V(:,:,:,2:T_life);
@@ -231,7 +232,8 @@ methods (Static)
 
                     % Store optimal decision values
                     for o = os, OPTs.(o{1})(:,:,:,:,1) = OPT.(o{1}); end
-                    LABs{1} = OPT.LAB;
+                    LABs{1}    = OPT.LAB;
+                    savings{1} = OPT.K;
 
                 case {'open', 'closed'}
 
@@ -252,9 +254,10 @@ methods (Static)
                                         ,   bv, T_model );
 
                         % Solve dynamic optimization
-                        OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, Market.priceindices.cohort_wages(:,i));
+                        OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i}, savings_static{i}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, Market.priceindices.cohort_wages(:,i));
 
-                        LABs{i} = OPTs_cohort{i}.LAB;
+                        LABs{i}    = OPTs_cohort{i}.LAB;
+                        savings{i} = OPTs_cohort{i}.K  ;
 
                     end
 
@@ -362,9 +365,8 @@ methods (Static)
             Aggregate.bens     = f(OPTs.BEN);                                                                            % Social Security benefits
             Aggregate.cons     = f(OPTs.CON);                                                                            % Consumption
             Aggregate.assets_0 = f(repmat(reshape(kv, [1,nk,1,1,1]), [nz, 1,nb,T_life,T_model]));                        % Assets before re-pricing
-            Aggregate.assets_1 = Aggregate.assets_0 .* (ones(1,T_model) + Market.capshares_0.*Market.capgains');         % Assets after re-pricing
-            % Note: The definition of assets_1 corresponds to beginning of period assets at
-            %       new policy prices, that is, accounting for eventual capital gains.
+            Aggregate.assets_1 = Aggregate.assets_0 .* (ones(1,T_model) + Market.capgains') ...                          % Assets after re-pricing            
+                                    .* (Market.capshares_0./Market.capshares_1);                                         % Note: The definition of assets_1 corresponds to beginning of period assets at new policy prices, that is, accounting for eventual capital gains.
             
         end
         
@@ -382,7 +384,8 @@ methods (Static)
             Market = hardyload('market.mat'      , base_generator, base_dir);
             
             s      = hardyload('decisions.mat'   , base_generator, base_dir);
-            LABs_static = s.LABs;
+            LABs_static    = s.LABs;
+            savings_static = s.savings;
             
             s      = hardyload('distribution.mat', base_generator, base_dir);
             DIST_static = s.DIST;
@@ -390,8 +393,8 @@ methods (Static)
             
             % Generate static aggregates
             % (Intermediary structure used to filter out extraneous fields)
-            [Static, ~, Static_DIST, Static_OPTs, ~] = ...
-                generate_aggregates(Market, {}, LABs_static, DIST_static);
+            [Static, ~, ~, Static_DIST, Static_OPTs, ~] = ...
+                generate_aggregates(Market, {}, LABs_static, savings_static, DIST_static);
             
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
@@ -587,8 +590,7 @@ methods (Static)
                         % capital are fixed, including cap gains.
                         % 
                         % First period capital (inherited from steady state)
-                        caps_period1 = Dynamic0.investment + (1 - depreciation)*Dynamic0.caps;
-                        Dynamic.caps = [caps_period1 Dynamic.caps(2:T_model)];
+                        Dynamic.caps(1) = Market0.capshares_0 * Dynamic0.assets_0;
                         % Define the pre-tax returns necessary to return
                         % the world rate from steady-state.
                         effectiveDividendRate = ( Market0.equityFundDividends*(1 - sstax.rateForeignCorpIncome) ...
@@ -626,8 +628,8 @@ methods (Static)
                         % because the portfolio allocation is fixed by steady-state
                         % and we do not allow it to change even as the economy's 
                         % mix of capital vs. debt changes.
-
-                        Dynamic.caps = [caps_period1 Dynamic.caps(2:T_model)];
+                        % Overwrite the first period capital
+                        Dynamic.caps(1) = Market.capshares_0(1) * Dynamic.assets_0(1);
                         klRatio     = theFirm.calculateKLRatio( effectiveDividendRate   , ...
                                                                 Dynamic.caps'           , ...
                                                                 Dynamic.labeffs'        , ...
@@ -660,7 +662,7 @@ methods (Static)
             
             
             % Generate dynamic aggregates
-            [Dynamic, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {});
+            [Dynamic, LABs, savings, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {}, {});
             
 
             % Calculate additional dynamic aggregates
@@ -722,8 +724,7 @@ methods (Static)
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     % Note: Dynamic.assets_0 represents current assets at old prices.
-                    Dynamic.caps_domestic  = (Market.capshares_0 .* Dynamic.assets_0) ./ ...
-                                               [theFirm.priceCapital0 theFirm.priceCapital(1:T_model-1)'];
+                    Dynamic.caps_domestic  =  (Market.capshares_1 .* Dynamic.assets_1) ./ theFirm.priceCapital';
                     Dynamic.caps_foreign   = Dynamic.caps - Dynamic.caps_domestic;
                     Dynamic.invest_foreign = [Dynamic.caps_foreign(2:T_model) Dynamic.caps_foreign(T_model)] ...
                                               - (1 - depreciation) * [Dynamic.caps_foreign(1:T_model-1) Dynamic.caps_foreign(T_model-1)];
@@ -860,7 +861,7 @@ methods (Static)
         % Save market conditions, HH policies, and dynamic aggregates
         save(fullfile(save_dir, 'market.mat'   )    , '-struct', 'Market' )
         save(fullfile(save_dir, 'dynamics.mat' )    , '-struct', 'Dynamic')
-        save(fullfile(save_dir, 'decisions.mat')    , 'OPTs', 'LABs')
+        save(fullfile(save_dir, 'decisions.mat')    , 'OPTs', 'LABs', 'savings')
         switch economy
             case 'steady'
                 DIST = struct('DIST', DIST, 'DIST_trans', DIST_trans);
@@ -901,7 +902,7 @@ methods (Static)
                 Market_dev.equityFundDividends = Market.equityFundDividends * (1 + ratedev);
                 Market_dev.bondFundDividends   = Market.bondFundDividends   * (1 + ratedev);
                 
-                [Dynamic_dev] = generate_aggregates(Market_dev, {}, {}, {});
+                [Dynamic_dev] = generate_aggregates(Market_dev, {}, {}, {}, {});
                 
                 savelas = (Dynamic_dev.assets_1 - Dynamic.assets_1) / (Dynamic.assets_1 * ratedev);
                 

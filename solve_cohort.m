@@ -5,7 +5,7 @@
 
 function [OPT] ...
     = solve_cohort( ...
-        V0, LAB_static, isdynamic, ...
+        V0, LAB_static, saving_static, isdynamic, ...
         nz, ns, nb, T_past, T_shift, T_active, T_work, T_model, ... 
         zs, transz, sv, bv, beta, gamma, sigma, surv, ...
         bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
@@ -32,6 +32,7 @@ nbrackets_max   = 20;
 
 assert( isa(V0          , 'double'  ) && (size(V0           , 1) <= nz_max  ) && (size(V0           , 2) <= ns_max  ) && (size(V0           , 3) <= nb_max  ) );
 assert( isa(LAB_static  , 'double'  ) && (size(LAB_static   , 1) <= nz_max  ) && (size(LAB_static   , 2) <= ns_max  ) && (size(LAB_static   , 3) <= nb_max  ) && (size(LAB_static   , 4) <= T_max   ) );
+assert( isa(saving_static, 'double' ) && (size(saving_static, 1) <= nz_max  ) && (size(saving_static, 2) <= ns_max  ) && (size(saving_static, 3) <= nb_max  ) && (size(saving_static, 4) <= T_max   ) );
 assert( isa(isdynamic   , 'logical' ) && (size(isdynamic    , 1) == 1       ) && (size(isdynamic    , 2) == 1       ) );
 
 assert( isa(nz          , 'double'  ) && (size(nz           , 1) == 1       ) && (size(nz           , 2) == 1       ) );
@@ -233,10 +234,10 @@ for t = T_active:-1:1
                     
                 else % STATIC
                     
-                    % TBD: Record correct values for Static
-                    s   = sv(is); % TBD: This should come from Static
+                    s   = saving_static(1,is,ib,t);  % First dimension is productivity shock (doesn't matter for retirees)
                     lab = 0;
-                    v   = 0;  % TBD: Calculate from static?
+                    v   = NaN;                       % Utility is not properly defined since consumption can be negative
+                    
                     
                 end
                 
@@ -327,10 +328,9 @@ for t = T_active:-1:1
                         
                     else   % STATIC
                         
-                        % TBD: Record correct values for Static
-                        s   = sv(is); % TBD: This should come from Static                  s = sv(is);
+                        s   = saving_static(iz,is,ib,t);
                         lab = LAB_static(iz,is,ib,t);
-                        v   = 0;  % TBD: Calculate from static?     
+                        v   = NaN;                       % Utility is not properly defined since consumption can be negative
                         
                     end
                     
