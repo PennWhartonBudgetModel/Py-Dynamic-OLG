@@ -359,17 +359,14 @@ methods (Static)
     %        , capital share
     function s = production( scenario )
         
-        filename    = fullfile( PathFinder.getDefaultsMacroDir(), 'Macro.csv');
-        params      = read_vars( filename );
-        
+        % TBD: These are hard coded for now, until we resolve sourcing
         s.A             = 1;                    % Total factor productivity
-        s.alpha         = params.Alpha;         % Capital share of output
+        s.alpha         = 0.34;                 % Capital share of output
         s.risk_premium  = 0;
-        s.depreciation  = params.Depreciation;  % Actual depreciation rate
+        s.depreciation  = 0.056;                % Actual depreciation rate
         if( scenario.IsLowReturn )
-            s.risk_premium  = 0.08 - params.Depreciation; % "Depreciation rate" to generate r=risk-free rate         ;
+            s.risk_premium  = 0.08 - s.depreciation; % "Depreciation rate" to generate r=risk-free rate         ;
         end
-        s.d             = s.depreciation + s.risk_premium;  
         
     end % production
         
