@@ -25,7 +25,7 @@ methods (Static)
     % Solve a bundle
     function [] = solveBundle(bundle_id)
         
-        [currentpolicys, counterfactuals] = BundleSolver.generateScenarioSet(bundle_id);
+        [currentpolicys, counterfactuals] = BundleSolver.generateScenarioSet();
         
         for i = 1:length(currentpolicys ), BundleSolver.solveCurrentPolicy (i); end
         for i = 1:length(counterfactuals), BundleSolver.solveCounterfactual(i); end
@@ -84,13 +84,13 @@ methods (Static)
         end
         
         % Invert elasticities
-        inverse = ParamGenerator.invert(struct(...
+        inverse = ParamGenerator.invert(struct( ...
             'is_low_return'  , s.IsLowReturn     , ...
             'labelas'        , s.LaborElasticity ...
         ));
         
         % Initialize scenario parameter structure with required parameters
-        parameters = struct(...
+        parameters = struct( ...
             'economy'               , economy                   , ...
             'beta'                  , inverse.beta              , ...
             'gamma'                 , inverse.gamma             , ...
@@ -103,18 +103,16 @@ methods (Static)
         );
         
         % Add optional parameters, assuming dynamic model parameter names match bundle scenario parameter names
-        optional_parameters = {...
-            'ExpenditureShift'              , ...
-            'BaseBrackets'                  , ...
-            'HasBuffetRule'                 , ...
-            'HasDoubleStandardDeduction'    , ...
-            'HasLimitDeductions'            , ...
-            'HasExpandChildCredit'          , ...
-            'NoACAIncomeTax'                , ...
-            'CorporateTaxRate'              , ...
-            'HasSpecialPassThroughRate'     , ...
-            'HasImmediateExpensing'         , ...
-            'HasRepealCorporateExpensing'   ...
+        optional_parameters = { ...
+            'TaxCode'                   , ...
+            'TaxMax'                    , ...
+            'DonutHole'                 , ...
+            'COLA'                      , ...
+            'PIA'                       , ...
+            'NRA'                       , ...
+            'CreditEarningsAboveTaxMax' , ...
+            'FirstYear'                 , ...
+            'GradualChange'             ...
         };
         for o = optional_parameters
             parameters.(o{1}) = s.(o{1});
@@ -128,17 +126,106 @@ methods (Static)
     
     
     
-    % Generate minimal set of executable scenarios for a bundle
-    function [currentpolicys, counterfactuals] = generateScenarioSet(bundle_id)
+    % Generate set of executable scenarios
+    % 
+    %   output_parameters.OpenEconomy     = { 0.0, 0.5, 1.0 };
+    %   output_parameters.LaborElasticity = { 0.25, 0.75 };
+    % 
+    %   input_filters.TaxCode = { 'CurrentPolicy' };
+    %   input_filters.TaxRate = { 0 };
+    % 
+    function [currentpolicys, counterfactuals] = generateScenarioSet(output_parameters, input_filters)
+        
+        
+        % Generate input sets using input interface map files, applying parameter value filters if specified
+        taxcalculator_s  = generateInputSet(fullfile(PathFinder.getTaxCalculatorInputDir() , 'Map.csv'), 'ID'               , 'taxcalculator' );
+        oasicalculator_s = generateInputSet(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), 'id_OASIcalculator', 'oasicalculator');
+        
+        function [input_s] = generateInputSet(mapfile, idcolumn, tag)
+            
+            map_ = readtable(mapfile);
+            map_.Properties.VariableNames{idcolumn} = ['id_', tag];
+            input_s  = table2struct(map_)';
+
+            if exist('input_filters', 'var') && ~isempty(input_filters)
+                for o_ = fieldnames(input_filters)'
+                    if ischar(input_filters.(o_{1}){1})
+                        f = @strcmp; g = @cell;
+                    else
+                        f = @eq; g = @cell2mat;
+                    end
+                    if isfield(input_s, o_{1})
+                        input_s = input_s(arrayfun( ...
+                            @(s) any( f(s.(o_{1}), g(input_filters.(o_{1}))) ), input_s ...
+                        ));
+                    end
+                end
+            end
+            
+        end
+        
+        
+        
+        % Define default output parameter value sets
+        output_parameters0.OpenEconomy          = {0, 1};
+        output_parameters0.UseDynamicBaseline   = {true, false};
+        output_parameters0.LaborElasticity      = {0.5};
+        output_parameters0.IsLowReturn          = {true};
+        
+        % Identify output parameter value sets, applying defaults where unspecified
+        if exist('output_parameters', 'var') && ~isempty(output_parameters)
+            for o = fieldnames(output_parameters0)'
+                if ~isfield(output_parameters, o{1})
+                    output_parameters.(o{1}) = output_parameters0.(o{1});
+                end
+            end
+        else
+            output_parameters = output_parameters0;
+        end
+        
+        
+        
+        % Generate all combinations of input sets and output sets to determine full set of output scenarios
+        s_sets = [ ...
+            cellfun(@(o) struct(o, output_parameters.(o)), fieldnames(output_parameters)', 'UniformOutput', false), ...
+            {taxcalculator_s } , ...
+            {oasicalculator_s} ...
+        ];
+        
+        output_scenarios = struct();
+        for s_set_ = s_sets, s_set = s_set_{1};
+            new_output_scenarios = [];
+            for option = s_set
+                option_scenarios = output_scenarios;
+                for o = fieldnames(option)'
+                    [option_scenarios.(o{1})] = deal(option.(o{1}));
+                end
+                new_output_scenarios = [new_output_scenarios, option_scenarios]; %#ok<AGROW>
+            end
+            output_scenarios = new_output_scenarios;
+        end
+        
+        if isempty(output_scenarios), warning('No output scenarios. Scenario set generation terminated.'), return, end
+        
+        
+        
+        % Generate map file for output scenarios
+        map = struct2table(output_scenarios);
+        map.Properties.DimensionNames = {'id', 'ScenarioParameters'};
+        map.Properties.RowNames = arrayfun(@(i) sprintf('%05d', i), 1:height(map), 'UniformOutput', false);
+        
+        outputdir = PathFinder.getDataSeriesOutputDir();
+        if ~exist(outputdir, 'dir'), mkdir(outputdir), end
+        
+        writetable(map, fullfile(outputdir, 'map.csv'), 'WriteRowNames', true);
+        
+        
         
         % Define function to remove empty entries from a cell array
         compress = @(c) c(~cellfun(@isempty, c));
-        
-        % Get bundle scenarios
-        bundle_scenarios = BundleSolver.readBundle(bundle_id);
-        
-        % Convert bundle scenarios to dynamic model scenarios
-        scenarios = arrayfun(@BundleSolver.convertBundleScenario, table2struct(bundle_scenarios), 'UniformOutput', false);
+                
+        % Convert output scenarios to dynamic model scenarios
+        scenarios = arrayfun(@BundleSolver.convertBundleScenario, output_scenarios, 'UniformOutput', false);
         
         % Remove duplicate scenarios
         for i = 1:length(scenarios)
