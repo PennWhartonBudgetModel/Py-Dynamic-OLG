@@ -118,7 +118,7 @@ classdef Firm
                 % Update capital 
                 %  if divRate > dividendRate 
                 %    --> caps gets bigger, and divRate gets smaller
-                caps = caps .* ((1+divRate) ./ (1+dividendRate) );
+                caps(2:end) = caps(2:end) .* ((1+divRate(2:end)) ./ (1+dividendRate(2:end)) );
                 
                 K_by_L = caps ./ labor;
                 wage   = this.TFP * (1-this.capitalShare) .* (K_by_L .^ this.capitalShare);
@@ -126,7 +126,7 @@ classdef Firm
                 divs = this.dividends( caps, investment, K_by_L, wage );
                 divRate = divs ./ (caps .* this.priceCapital);
                 
-                err_div = max(abs((divRate - dividendRate) ./ dividendRate));
+                err_div = max(abs((divRate(2:end) - dividendRate(2:end)) ./ dividendRate(2:end)));
                 
             end % while
             
