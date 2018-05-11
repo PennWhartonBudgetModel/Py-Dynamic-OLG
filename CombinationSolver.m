@@ -2,7 +2,7 @@
 % Dynamic model bundle solver and data series output generator.
 %
 %%
-classdef BundleSolver
+classdef CombinationSolver
 
 
 properties (Constant)
@@ -11,8 +11,8 @@ properties (Constant)
     scenariodir = fullfile(PathFinder.getSourceDir(), 'Scenarios');
     
     % Define current policy and counterfactual scenario file path generators
-    currentpolicyfile  = @(i) fullfile(BundleSolver.scenariodir, sprintf('currentpolicy%05d.mat' , i));
-    counterfactualfile = @(i) fullfile(BundleSolver.scenariodir, sprintf('counterfactual%05d.mat', i));
+    currentpolicyfile  = @(i) fullfile(CombinationSolver.scenariodir, sprintf('currentpolicy%05d.mat' , i));
+    counterfactualfile = @(i) fullfile(CombinationSolver.scenariodir, sprintf('counterfactual%05d.mat', i));
     
 end
 
@@ -25,12 +25,12 @@ methods (Static)
     % Solve a bundle
     function [] = solveBundle(bundle_id)
         
-        [currentpolicys, counterfactuals] = BundleSolver.generateScenarioSet();
+        [currentpolicys, counterfactuals] = CombinationSolver.generateScenarioSet();
         
-        for i = 1:length(currentpolicys ), BundleSolver.solveCurrentPolicy (i); end
-        for i = 1:length(counterfactuals), BundleSolver.solveCounterfactual(i); end
+        for i = 1:length(currentpolicys ), CombinationSolver.solveCurrentPolicy (i); end
+        for i = 1:length(counterfactuals), CombinationSolver.solveCounterfactual(i); end
         
-        BundleSolver.generateDataSeries(bundle_id);
+        CombinationSolver.generateDataSeries(bundle_id);
         
     end
     
@@ -217,7 +217,7 @@ methods (Static)
         compress = @(c) c(~cellfun(@isempty, c));
                 
         % Convert output scenarios to dynamic model scenarios
-        scenarios = arrayfun(@BundleSolver.convertOutputScenario, output_scenarios, 'UniformOutput', false);
+        scenarios = arrayfun(@CombinationSolver.convertOutputScenario, output_scenarios, 'UniformOutput', false);
         
         % Remove duplicate scenarios
         for i = 1:length(scenarios)
@@ -267,18 +267,18 @@ methods (Static)
         counterfactuals = compress(counterfactuals);
         
         % Clear or create scenario directory
-        if exist(BundleSolver.scenariodir, 'dir'), rmdir(BundleSolver.scenariodir, 's'), end, mkdir(BundleSolver.scenariodir)
+        if exist(CombinationSolver.scenariodir, 'dir'), rmdir(CombinationSolver.scenariodir, 's'), end, mkdir(CombinationSolver.scenariodir)
         
         % Save current policy scenarios
         for i = 1:length(currentpolicys)
             scenario = currentpolicys{i}; %#ok<NASGU>
-            save(BundleSolver.currentpolicyfile(i), 'scenario');
+            save(CombinationSolver.currentpolicyfile(i), 'scenario');
         end
         
         % Save counterfactual scenarios
         for i = 1:length(counterfactuals)
             scenario = counterfactuals{i}; %#ok<NASGU>
-            save(BundleSolver.counterfactualfile(i), 'scenario');
+            save(CombinationSolver.counterfactualfile(i), 'scenario');
         end
         
     end
@@ -308,11 +308,11 @@ methods (Static)
     end
     
     function [] = solveCurrentPolicy(i)
-        BundleSolver.solve(BundleSolver.currentpolicyfile(i));
+        CombinationSolver.solve(CombinationSolver.currentpolicyfile(i));
     end
     
     function [] = solveCounterfactual(i)
-        BundleSolver.solve(BundleSolver.counterfactualfile(i));
+        CombinationSolver.solve(CombinationSolver.counterfactualfile(i));
     end
     
     
@@ -323,8 +323,8 @@ methods (Static)
         
         % Get all scenario files
         scenariofiles = arrayfun(@(s) fullfile(s.folder, s.name), ...
-            [ dir(fullfile(BundleSolver.scenariodir, 'currentpolicy*.mat' )) ;
-              dir(fullfile(BundleSolver.scenariodir, 'counterfactual*.mat')) ], ...
+            [ dir(fullfile(CombinationSolver.scenariodir, 'currentpolicy*.mat' )) ;
+              dir(fullfile(CombinationSolver.scenariodir, 'counterfactual*.mat')) ], ...
             'UniformOutput', false ...
         );
         nscenario = length(scenariofiles);
@@ -357,7 +357,7 @@ methods (Static)
         [~, sortinds] = sortrows(cell2mat(terminations(:,5:6)));
         
         % Save termination conditions to csv file
-        fid = fopen(fullfile(BundleSolver.scenariodir, 'terminations.csv'), 'w');
+        fid = fopen(fullfile(CombinationSolver.scenariodir, 'terminations.csv'), 'w');
         fprintf(fid, 'ScenarioIndex,BaselineDefinition,CounterfactualDefinition,Economy,TerminationIteration,TerminationErrorTerm\n');
         for i = 1:nscenario, fprintf(fid, '%s,%s,%s,%s,%d,%0.4f\n', terminations{sortinds(i),:}); end
         fclose(fid);
@@ -390,7 +390,7 @@ methods (Static)
         
         
         % Get bundle scenarios
-        bundle_scenarios = BundleSolver.readBundle(bundle_id);
+        bundle_scenarios = CombinationSolver.readBundle(bundle_id);
         
         % Load or initialize output mapping structure
         %   Inclusion of options structure for readtable required to force interpretation of row names as character arrays
@@ -509,7 +509,7 @@ methods (Static)
             
             % Extract bundle scenario and identify corresponding dynamic model scenario
             bundle_scenario = map(i,:);
-            scenario = BundleSolver.convertBundleScenario(table2struct(bundle_scenario));
+            scenario = CombinationSolver.convertBundleScenario(table2struct(bundle_scenario));
             
             try
                 
