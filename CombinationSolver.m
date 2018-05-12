@@ -33,6 +33,8 @@ methods (Static)
         for i = 1:length(currentpolicys ), CombinationSolver.solveCurrentPolicy (i); end
         for i = 1:length(counterfactuals), CombinationSolver.solveCounterfactual(i); end
         
+        CombinationSolver.checkTerminations();
+        
         CombinationSolver.generateDataSeries();
         
     end
