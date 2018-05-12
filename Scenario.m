@@ -214,12 +214,7 @@ classdef Scenario
         
         % Check if the Scenario has been solved and stored to files
         function [flag] = isSolved(this)
-            work_dir = PathFinder.getWorkingDir(this);
-            % TBD
-            %  1. have paramTargets.mat hold solved info
-            %  2. read it and see that it matches this scenario and is
-            %  solved
-            
+            flag = exist(fullfile(PathFinder.getWorkingDir(this), 'solved'), 'file');
         end % isSolved
         
         

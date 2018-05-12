@@ -7,7 +7,16 @@ classdef ModelSolver
 methods (Static)
 
     % Solve dynamic model
-    function [save_dir] = solve(scenario, callertag) %#ok<*FXUP>
+    function [save_dir] = solve(scenario, callertag, resolve) %#ok<*FXUP>
+        
+        % Identify working directory
+        save_dir = PathFinder.getWorkingDir(scenario);
+        
+        % Return if scenario already solved and resolve flag not set
+        if scenario.isSolved() && (~exist('resolve', 'var') || isempty(resolve) || ~resolve)
+            fprintf('Scenario already solved.\n');
+            return
+        end
         
         if ~exist('callertag' , 'var'), callertag  = ''; end
         economy = scenario.economy;
@@ -29,9 +38,6 @@ methods (Static)
         prem_legal          = scenario.prem_legal       ;
         amnesty             = scenario.amnesty          ;
         deportation         = scenario.deportation      ;
-        
-        % Identify working directory
-        save_dir = PathFinder.getWorkingDir(scenario);
         
         % Append caller tag to save directory name and generate calling tag
         %   Obviates conflicts between parallel solver calls
@@ -922,8 +928,15 @@ methods (Static)
                 
         end
         
-        % Release MEX file to avoid locks.
-        clear mex;
+        
+        %%
+        
+        % Create completion indicator file
+        fclose(fopen(fullfile(save_dir, 'solved'), 'w'));
+        
+        % Release MEX file to avoid locks
+        clear mex; %#ok<CLMEX>
+        
     end % solve
     
 end % methods
