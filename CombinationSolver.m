@@ -209,7 +209,7 @@ methods (Static)
         map.Properties.RowNames = arrayfun(@(i) sprintf('%05d', i), 1:height(map), 'UniformOutput', false);
         
         outputdir = PathFinder.getDataSeriesOutputDir();
-        if ~exist(outputdir, 'dir'), mkdir(outputdir), end
+        if exist(outputdir, 'dir'), rmdir(outputdir, 's'), end, mkdir(outputdir)
         
         writetable(map, fullfile(outputdir, 'map.csv'), 'WriteRowNames', true);
         
