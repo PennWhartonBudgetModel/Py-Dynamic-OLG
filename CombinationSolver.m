@@ -253,13 +253,13 @@ methods (Static)
                 currentpolicys{i} = scenarios{i};
             else
                 currentpolicys{i} = scenarios{i}.currentPolicy();
-                for j = 1:i-1
-                    if (~isempty(currentpolicys{j}) && currentpolicys{i}.isEquivalent(currentpolicys{j}))
-                        currentpolicys{i} = [];
-                        break;
-                    end
-                end
                 counterfactuals{i} = scenarios{i};
+            end
+            for j = 1:i-1
+                if (~isempty(currentpolicys{j}) && currentpolicys{i}.isEquivalent(currentpolicys{j}))
+                    currentpolicys{i} = [];
+                    break;
+                end
             end
         end
 
