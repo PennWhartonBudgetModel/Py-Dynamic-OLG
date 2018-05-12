@@ -201,8 +201,10 @@ methods (Static)
         
         
         
-        % Generate map file for output scenarios
-        map = struct2table(output_scenarios);
+        % Generate map file for output scenarios, removing duplicates
+        map = unique(struct2table(output_scenarios), 'stable');
+        output_scenarios = table2struct(map);
+        
         map.Properties.DimensionNames = {'id', 'ScenarioParameters'};
         map.Properties.RowNames = arrayfun(@(i) sprintf('%05d', i), 1:height(map), 'UniformOutput', false);
         
