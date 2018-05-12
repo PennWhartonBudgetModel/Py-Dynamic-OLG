@@ -1,5 +1,5 @@
 %%
-% Dynamic model bundle solver and data series output generator.
+% Dynamic model combination solver and data series output generator.
 %
 %%
 classdef CombinationSolver
@@ -22,51 +22,18 @@ methods (Static)
     
     
     
-    % Solve a bundle
-    function [] = solveBundle(bundle_id)
+    % Solve all combinations of inputs and outputs
+    function [] = solveAll(output_parameters, input_parameters)
         
-        [currentpolicys, counterfactuals] = CombinationSolver.generateScenarioSet();
+        if ~exist('output_parameters', 'var'), output_parameters = []; end
+        if ~exist('input_parameters' , 'var'), input_parameters  = []; end
+        
+        [currentpolicys, counterfactuals] = CombinationSolver.generateScenarioSet(output_parameters, input_parameters);
         
         for i = 1:length(currentpolicys ), CombinationSolver.solveCurrentPolicy (i); end
         for i = 1:length(counterfactuals), CombinationSolver.solveCounterfactual(i); end
         
-        CombinationSolver.generateDataSeries(bundle_id);
-        
-    end
-    
-    
-    
-    
-    % Get bundle scenarios
-    function [bundle_scenarios] = readBundle(bundle_id)
-        
-        % Read bundle scenarios file
-        bundle_scenarios = readtable(fullfile(PathFinder.getBundleDir(bundle_id), 'scenarios.csv'));
-        
-        % Filter scenarios for those with dynamic model type
-        bundle_scenarios = bundle_scenarios(strcmp(bundle_scenarios.ModelType, 'D'), :);
-        
-        % Keep only scenario parameters relevant to dynamic model
-        bundle_scenarios = bundle_scenarios(:, {...
-            'UseDynamicBaseline'            , ...
-            'OpenEconomy'                   , ...
-            'LaborElasticity'               , ...
-            'IsLowReturn'                   , ...
-            'ExpenditureShift'              , ...
-            'BaseBrackets'                  , ...
-            'HasBuffetRule'                 , ...
-            'HasDoubleStandardDeduction'    , ...
-            'HasLimitDeductions'            , ...
-            'HasExpandChildCredit'          , ...
-            'NoACAIncomeTax'                , ...
-            'CorporateTaxRate'              , ...
-            'HasSpecialPassThroughRate'     , ...
-            'HasImmediateExpensing'         , ...
-            'HasRepealCorporateExpensing'   ...
-        });
-        
-        % Remove duplicate scenarios
-        bundle_scenarios = unique(bundle_scenarios);
+        CombinationSolver.generateDataSeries();
         
     end
     
@@ -123,10 +90,10 @@ methods (Static)
     %   output_parameters.OpenEconomy     = { 0.0, 0.5, 1.0 };
     %   output_parameters.LaborElasticity = { 0.25, 0.75 };
     % 
-    %   input_filters.TaxCode = { 'CurrentPolicy' };
-    %   input_filters.TaxRate = { 0 };
+    %   input_parameters.TaxCode = { 'CurrentPolicy' };
+    %   input_parameters.TaxRate = { 0 };
     % 
-    function [currentpolicys, counterfactuals] = generateScenarioSet(output_parameters, input_filters)
+    function [currentpolicys, counterfactuals] = generateScenarioSet(output_parameters, input_parameters)
         
         
         % Generate input sets using input interface map files, applying parameter value filters if specified
@@ -139,16 +106,16 @@ methods (Static)
             map_.Properties.VariableNames{idcolumn} = ['id_', tag];
             input_s  = table2struct(map_)';
 
-            if exist('input_filters', 'var') && ~isempty(input_filters)
-                for o_ = fieldnames(input_filters)'
-                    if ischar(input_filters.(o_{1}){1})
+            if exist('input_filters', 'var') && ~isempty(input_parameters)
+                for o_ = fieldnames(input_parameters)'
+                    if ischar(input_parameters.(o_{1}){1})
                         f = @strcmp; g = @cell;
                     else
                         f = @eq; g = @cell2mat;
                     end
                     if isfield(input_s, o_{1})
                         input_s = input_s(arrayfun( ...
-                            @(s) any( f(s.(o_{1}), g(input_filters.(o_{1}))) ), input_s ...
+                            @(s) any( f(s.(o_{1}), g(input_parameters.(o_{1}))) ), input_s ...
                         ));
                     end
                 end
@@ -264,7 +231,7 @@ methods (Static)
                 end
             end
         end
-
+        
         currentpolicys  = compress(currentpolicys );
         counterfactuals = compress(counterfactuals);
         
@@ -369,51 +336,29 @@ methods (Static)
     
     
     
-    % Generate data series output for a bundle
-    function [] = generateDataSeries(bundle_id)
+    % Generate data series output
+    function [] = generateDataSeries()
         
         % Identify data series output directory
         outputdir = PathFinder.getDataSeriesOutputDir();
         
-        % Create output directory if not already present
-        if ~exist(outputdir, 'dir'), mkdir(outputdir), end
-        
-        % Generate interface dependencies file if not already present
-        dependenciesfile = fullfile(outputdir, 'dependencies.csv');
-        if ~exist(dependenciesfile, 'file')
-            fid = fopen(dependenciesfile, 'w');
-            fprintf(fid, 'Component,Interface,Version\n');
-            for r = PathFinder.getInputSet()
-                fprintf(fid, '%s,%s,%s\n', r{1}{1}, r{1}{2}, r{1}{3});
-            end
-            fclose(fid);
+        % Generate interface dependencies file
+        fid = fopen(fullfile(outputdir, 'dependencies.csv'), 'w');
+        fprintf(fid, 'Component,Interface,Version\n');
+        for r = PathFinder.getInputSet()
+            fprintf(fid, '%s,%s,%s\n', r{1}{1}, r{1}{2}, r{1}{3});
         end
+        fclose(fid);
         
         
         
-        % Get bundle scenarios
-        bundle_scenarios = CombinationSolver.readBundle(bundle_id);
+        % Get output scenarios from map file
+        output_scenarios = table2struct(readtable(fullfile(outputdir, 'map.csv')))';
         
-        % Load or initialize output mapping structure
-        %   Inclusion of options structure for readtable required to force interpretation of row names as character arrays
-        mapfile = fullfile(outputdir, 'map.csv');
-        if exist(mapfile, 'file')
-            map = readtable(mapfile, detectImportOptions(mapfile), 'ReadRowNames', true);
-            map(:,1) = [];
-        else
-            map = cell2table(cell(0, size(bundle_scenarios, 2)), 'VariableNames', bundle_scenarios.Properties.VariableNames);
-        end
-        map.Properties.DimensionNames = {'id', 'ScenarioParameters'};
         
-        % Determine number of scenarios already mapped
-        n_mapped = height(map);
-        
-        % Add bundle scenarios to mapping structure, removing duplicates
-        %   Original mapping structure assumed to be free of duplicates
-        map = unique([map; bundle_scenarios], 'stable');
         
         % Define mapping from dynamic model variable names to data series IDs
-        dataseries_ids = struct(...
+        dataseries_ids = struct( ...
             'labpits'           , [102]         , ...
             'ssts'              , [103]         , ...
             'caprevs'           , [110]         , ...
@@ -498,39 +443,32 @@ methods (Static)
         
         
         
-        % Iterate over new bundle scenarios
-        i = n_mapped;
-        n_new = height(map) - n_mapped; n_failed = 0;
-        
-        while i < height(map)
+        % Iterate over output scenarios
+        n_scenarios = length(output_scenarios);
+        n_failed = 0;
+        for output_scenario = output_scenarios
             
-            i = i+1;
-            
-            % Define scenario ID
-            map.Properties.RowNames{i} = sprintf('%05d', i);
-            
-            % Extract bundle scenario and identify corresponding dynamic model scenario
-            bundle_scenario = map(i,:);
-            scenario = CombinationSolver.convertBundleScenario(table2struct(bundle_scenario));
+            % Identify corresponding dynamic model scenario
+            scenario = CombinationSolver.convertOutputScenario(output_scenario);
             
             try
                 
                 % Construct data series, using linear combinations of open and closed economy data series for partially open economy scenarios
-                if (bundle_scenario.OpenEconomy == 0 || bundle_scenario.OpenEconomy == 1)
-                    dataseries = constructDataSeries(scenario, bundle_scenario.UseDynamicBaseline);
+                if (output_scenario.OpenEconomy == 0 || output_scenario.OpenEconomy == 1)
+                    dataseries = constructDataSeries(scenario, output_scenario.UseDynamicBaseline);
                 else
-                    dataseries_open   = constructDataSeries(scenario.open()  , bundle_scenario.UseDynamicBaseline);
-                    dataseries_closed = constructDataSeries(scenario.closed(), bundle_scenario.UseDynamicBaseline);
+                    dataseries_open   = constructDataSeries(scenario.open()  , output_scenario.UseDynamicBaseline);
+                    dataseries_closed = constructDataSeries(scenario.closed(), output_scenario.UseDynamicBaseline);
                     for o = fieldnames(dataseries_ids)'
-                        dataseries.(o{1}) = dataseries_open  .(o{1})*(bundle_scenario.OpenEconomy    ) ...
-                                          + dataseries_closed.(o{1})*(1 - bundle_scenario.OpenEconomy);
+                        dataseries.(o{1}) = dataseries_open  .(o{1})*(output_scenario.OpenEconomy    ) ...
+                                          + dataseries_closed.(o{1})*(1 - output_scenario.OpenEconomy);
                     end
                 end
                 
                 % Write data series to output files
                 for o = fieldnames(dataseries_ids)'
                     for series_id = dataseries_ids.(o{1})
-                        csvfile = fullfile(outputdir, sprintf('%s-%u.csv', map.Properties.RowNames{i}, series_id));
+                        csvfile = fullfile(outputdir, sprintf('%u-%u.csv', output_scenario.id, series_id));
                         fid = fopen(csvfile, 'w'); fprintf(fid, 'Year,Dynamic,Static\n'); fclose(fid);
                         dlmwrite(csvfile, [years, dataseries.(o{1})], '-append')
                     end
@@ -538,10 +476,8 @@ methods (Static)
                 
             catch
                 
-                % Increment failure counter and delete row from mapping structure
-                n_failed = n_failed+1;
-                map(i,:) = [];
-                i = i-1;
+                % Increment failure counter
+                n_failed = n_failed + 1;
                 
             end
             
@@ -549,13 +485,10 @@ methods (Static)
         
         % Report on output generation success
         if ~n_failed
-            fprintf('Successfully completed data series output generation for all %d new scenarios.\n', n_new);
+            fprintf('Successfully completed data series output generation for all %d scenarios.\n', n_scenarios);
         else
-            fprintf('Failed to complete data series output generation for %d of %d new scenarios.\n', n_failed, n_new);
+            fprintf('Failed to complete data series output generation for %d of %d scenarios.\n', n_failed, n_scenarios);
         end
-        
-        % Write mapping structure to output directory
-        if ~isempty(map), writetable(map, fullfile(outputdir, 'map.csv'), 'WriteRowNames', true); end
         
     end
     
