@@ -173,7 +173,7 @@ methods (Static)
         output_scenarios = table2struct(map)';
         
         map.Properties.DimensionNames = {'id', 'ScenarioParameters'};
-        map.Properties.RowNames = arrayfun(@(i) sprintf('%05d', i), 1:height(map), 'UniformOutput', false);
+        map.Properties.RowNames = arrayfun(@(i) sprintf('%u', i), 1:height(map), 'UniformOutput', false);
         
         outputdir = PathFinder.getDataSeriesOutputDir();
         if exist(outputdir, 'dir'), rmdir(outputdir, 's'), end, mkdir(outputdir)
