@@ -106,7 +106,7 @@ methods (Static)
         
         %%  Budget: CBO interest rates, expenditures, and debt
         s = ParamGenerator.budget( scenario );
-        GEXP_by_GDP      = s.GEXP_by_GDP;           % Gvt expenditures as pct GDP
+        GEXP_by_GDP      = s.outlays_by_GDP;        % Gvt expenditures as pct GDP
         debttoout        = s.debttoout;             % Debt/gdp 
         fedgovtnis       = s.fedgovtnis;            % Gvt net interest surplus (deficit)
         debtrates        = s.debtrates;             % Interest rates on gvt debt 

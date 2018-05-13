@@ -561,16 +561,11 @@ methods (Static)
         % Consumption good price index
         s.CPI = (projections_series.ChainedCPIU / projections_series.ChainedCPIU(1))'; % normalize to 1 for first_year
 
-        % Unmodeled g'vt spending as percent GDP (for expenditure shifting)
-        GEXP_by_GDP     = noninterestspending                           ./100    ...
-                        - oasicalculator_series.OutlaysSocialSecurity   ./100    ...
-                        - projections_series.OutlaysMedicare            ./100    ...
-                    ;
-        s.GEXP_by_GDP   = GEXP_by_GDP';
+        % TAX REVENUE AND EXPENDITURE TARGETS           
+        s.tax_revenue_by_GDP = (revenues            ./ projections_series.GDP_FY)';
+        s.outlays_by_GDP     = (noninterestspending ./ projections_series.GDP_FY)';
         
         
-        % TAX REVENUE TARGETS           
-        s.tax_revenue_by_GDP = (revenues ./ projections_series.GDP_FY)';
         
         % WARNINGS if parameters are outside expectations
         if( any( abs(s.debtrates) > 0.05 ) )
