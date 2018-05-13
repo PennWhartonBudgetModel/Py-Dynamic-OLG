@@ -106,12 +106,10 @@ methods (Static)
         
         %%  Budget: CBO interest rates, expenditures, and debt
         s = ParamGenerator.budget( scenario );
-        GEXP_by_GDP      = s.outlays_by_GDP;        % Gvt expenditures as pct GDP
-        debttoout        = s.debttoout;             % Debt/gdp 
-        fedgovtnis       = s.fedgovtnis;            % Gvt net interest surplus (deficit)
-        debtrates        = s.debtrates;             % Interest rates on gvt debt 
-        % Tax revenue targets (for Ttilde), depend on tax plan
-        tax_revenue_by_GDP = s.tax_revenue_by_GDP;
+        debttoout          = s.debttoout;             % Debt/gdp 
+        debtrates          = s.debtrates;             % Interest rates on gvt debt 
+        tax_revenue_by_GDP = s.tax_revenue_by_GDP;    % Tax revenue targets, depend on tax plan
+        outlays_by_GDP     = s.outlays_by_GDP;        % Gvt expenditure targets
         
         %% Tax parameters
         %    rem: all US dollars have been converted to modelunit_dollars
@@ -495,8 +493,10 @@ methods (Static)
                     % Calculate government expenditure adjustments
                     Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
                     
-                    Gtilde = Dynamic_base.Gtilde + expenditure_shift*GEXP_by_GDP(1:T_model).*Dynamic_base.outs;
-                    Ttilde = tax_revenue_by_GDP.*Dynamic_base.outs - Static.pits - Static.ssts - Static.cits;
+                    Gtilde = outlays_by_GDP     .* Dynamic_base.outs            ...
+                             - Static.bens;
+                    Ttilde = tax_revenue_by_GDP .* Dynamic_base.outs            ...
+                             - Static.pits - Static.ssts - Static.cits - Static.corpTaxs; 
                     
                 end
                 
@@ -735,8 +735,10 @@ methods (Static)
                                               - (1 - depreciation) * [Dynamic.caps_foreign(1:T_model-1) Dynamic.caps_foreign(T_model-1)];
                     
                     if isbase
-                        Gtilde = (tax_revenue_by_GDP - fedgovtnis).*Dynamic.outs - Dynamic.bens;
-                        Ttilde = tax_revenue_by_GDP.*Dynamic.outs - Dynamic.pits - Dynamic.ssts - Dynamic.cits;
+                        Gtilde = outlays_by_GDP     .*Dynamic.outs              ...
+                                 - Dynamic.bens;
+                        Ttilde = tax_revenue_by_GDP .*Dynamic.outs              ...
+                                 - Dynamic.pits - Dynamic.ssts - Dynamic.cits - Dynamic.corpTaxs;
                     end
                     
                     Dynamic.debts = [debttoout*Dynamic0.outs, zeros(1,T_model-1)];
