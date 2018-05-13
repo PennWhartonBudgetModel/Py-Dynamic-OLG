@@ -163,8 +163,13 @@ classdef Scenario
                 end
                 this.counterdeftag = Scenario.compactifyTag( tag );
             end
-            this.comparisontag = strcat( this.basedeftag, this.counterdeftag );
             this.economytag    = this.economy;
+
+            this.comparisontag = strcat( this.basedeftag   , this.counterdeftag );
+            this.comparisontag = strcat( this.comparisontag, this.economy );
+            
+            % Length of transition is only important for transition path
+            % economies
             if( ~strcmp( this.economy, 'steady' ) )
                 addyear             = num2str( this.TransitionLastYear );
                 this.economytag     = strcat( this.economytag   , addyear );
