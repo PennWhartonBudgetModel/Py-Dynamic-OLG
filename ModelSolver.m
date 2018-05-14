@@ -709,6 +709,8 @@ methods (Static)
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.caprates .* Dynamic.caps;
+                    capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
+                    Dynamic.GNP     = Dynamic.outs - capincs_foreign;
                     
                     % Proxy for gross investment in physical capital
                     DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
@@ -761,6 +763,8 @@ methods (Static)
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.caprates .* Dynamic.caps;
+                    capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
+                    Dynamic.GNP     = Dynamic.outs - capincs_foreign;
                     
                     % Gross investment in physical capital
                     %   T_model investment converges to final steady
@@ -813,6 +817,8 @@ methods (Static)
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.caprates .* Dynamic.caps;
+                    capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
+                    Dynamic.GNP     = Dynamic.outs - capincs_foreign;
                     
                     % Gross investment in physical capital
                     %   T_model investment eventually converges to final steady
