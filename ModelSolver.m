@@ -105,11 +105,7 @@ methods (Static)
         % NOTE: Social Security benefits are calculated per cohort
         
         %%  Budget: CBO interest rates, expenditures, and debt
-        s = ParamGenerator.budget( scenario );
-        debttoout          = s.debttoout;             % Debt/gdp 
-        debtrates          = s.debtrates;             % Interest rates on gvt debt 
-        tax_revenue_by_GDP = s.tax_revenue_by_GDP;    % Tax revenue targets, depend on tax plan
-        outlays_by_GDP     = s.outlays_by_GDP;        % Gvt expenditure targets
+        budget = ParamGenerator.budget( scenario );
         
         %% Tax parameters
         %    rem: all US dollars have been converted to modelunit_dollars
@@ -424,7 +420,7 @@ methods (Static)
             for year = 1:T_model-1
                 Static.debts(year+1)    = Static.Gtilde(year) + Static.bens(year)   ...
                                         - Static.Ttilde(year) - Static.revs(year)   ...
-                                        + Static.debts(year)*(1 + debtrates(year));
+                                        + Static.debts(year)*(1 + budget.debtrates(year));
             end
 
             % Total assets
@@ -452,13 +448,13 @@ methods (Static)
                 Dynamic0.caps       = 12.20; 
                 captoout            = Dynamic0.caps / Dynamic0.outs;
                 
-                Market0.beqs        = 0.1662;                           % beqs are results from previous runs.
-                Market0.capshares_0 = captoout / (captoout+debttoout);  % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                Market0.capshares_1 = Market0.capshares_0;              % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                Market0.rhos        = 7.0652;                           % rhos are results from previous runs.
-                Market0.invtocaps   = 0.0078 + depreciation;            % I/K = pop growth rate 0.0078 + depreciation
+                Market0.beqs        = 0.1662;                                   % beqs are results from previous runs.
+                Market0.capshares_0 = captoout / (captoout + budget.debttoout); % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                Market0.capshares_1 = Market0.capshares_0;                      % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                Market0.rhos        = 7.0652;                                   % rhos are results from previous runs.
+                Market0.invtocaps   = 0.0078 + depreciation;                    % I/K = pop growth rate 0.0078 + depreciation
 
-                Dynamic0.debts      = Dynamic0.outs * debttoout;
+                Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
                 Dynamic0.assets_0   = theFirm.priceCapital*Dynamic0.caps + Dynamic0.debts;
                 Dynamic0.assets_1   = Dynamic0.assets_0;
                 Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
@@ -493,9 +489,9 @@ methods (Static)
                     % Calculate government expenditure adjustments
                     Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
                     
-                    Gtilde = outlays_by_GDP     .* Dynamic_base.outs            ...
+                    Gtilde = budget.outlays_by_GDP     .* Dynamic_base.outs            ...
                              - Static.bens;
-                    Ttilde = tax_revenue_by_GDP .* Dynamic_base.outs            ...
+                    Ttilde = budget.tax_revenue_by_GDP .* Dynamic_base.outs            ...
                              - Static.pits - Static.ssts - Static.cits - Static.corpTaxs; 
                     
                 end
@@ -612,7 +608,7 @@ methods (Static)
                         %       Seems like yes.
                 end
                 
-                Market.debtrates = debtrates;
+                Market.debtrates = budget.debtrates;
                 Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) ); % This is just for reporting
             
             % end initial loop iteration
@@ -663,7 +659,7 @@ methods (Static)
             
             Market.bondFundPrice0       = 1;
             Market.bondFundPrices       = ones(1,T_model);
-            Market.bondFundDividends    = debtrates; %rem: dividendrate is per $ of assets
+            Market.bondFundDividends    = budget.debtrates; %rem: dividendrate is per $ of assets
             
             
             % Generate dynamic aggregates
@@ -686,7 +682,7 @@ methods (Static)
                     
                     % Calculate debt, capital, and output
                     % (Numerical solver used due to absence of closed form solution)
-                    f_debts = @(outs ) debttoout*outs;
+                    f_debts = @(outs ) budget.debttoout*outs;
                     f_caps  = @(debts) (Dynamic.assets_1 - debts) ./ theFirm.priceCapital;
                     f_outs  = @(caps ) A*(max(caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     x_ = fsolve(@(x) x - [f_debts(x(3)); f_caps(x(1)); f_outs(x(2))], zeros(3,1), optimoptions('fsolve', 'Display', 'none'));
@@ -735,17 +731,17 @@ methods (Static)
                                               - (1 - depreciation) * [Dynamic.caps_foreign(1:T_model-1) Dynamic.caps_foreign(T_model-1)];
                     
                     if isbase
-                        Gtilde = outlays_by_GDP     .*Dynamic.outs              ...
+                        Gtilde = budget.outlays_by_GDP     .*Dynamic.outs              ...
                                  - Dynamic.bens;
-                        Ttilde = tax_revenue_by_GDP .*Dynamic.outs              ...
+                        Ttilde = budget.tax_revenue_by_GDP .*Dynamic.outs              ...
                                  - Dynamic.pits - Dynamic.ssts - Dynamic.cits - Dynamic.corpTaxs;
                     end
                     
-                    Dynamic.debts = [debttoout*Dynamic0.outs, zeros(1,T_model-1)];
+                    Dynamic.debts = [budget.debttoout*Dynamic0.outs, zeros(1,T_model-1)];
                     for year = 1:T_model-1
                         Dynamic.debts(year+1) = Gtilde(year) + Dynamic.bens(year)   ...
                                                 - Ttilde(year) - Dynamic.revs(year) ...
-                                                + Dynamic.debts(year)*(1 + debtrates(year));
+                                                + Dynamic.debts(year)*(1 + budget.debtrates(year));
                     end
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
@@ -789,11 +785,11 @@ methods (Static)
 
                 case 'closed'
                     
-                    Dynamic.debts = [debttoout*Dynamic0.outs, zeros(1,T_model-1)];
+                    Dynamic.debts = [budget.debttoout*Dynamic0.outs, zeros(1,T_model-1)];
                     for year = 1:T_model-1
                         Dynamic.debts(year+1) = Gtilde(year) + Dynamic.bens(year)   ...
                                                 - Ttilde(year) - Dynamic.revs(year) ...
-                                                + Dynamic.debts(year)*(1 + debtrates(year));
+                                                + Dynamic.debts(year)*(1 + budget.debtrates(year));
                     end
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
