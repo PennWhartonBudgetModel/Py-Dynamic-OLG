@@ -363,30 +363,13 @@ methods (Static)
         
         
         
-        % Define mapping from dynamic model variable names to data series IDs
-        dataseries_ids = struct( ...
-            'labpits'           , [102]         , ...
-            'ssts'              , [103]         , ...
-            'caprevs'           , [110]         , ...
-            'outs'              , [6, 199]      , ...
-            'bens'              , [202]         , ...
-            'caps'              , [1]           , ...
-            'labeffs'           , [24]          , ...
-            'lfprs'             , [25]          , ...
-            'labincs'           , [28]          , ...
-            'capincs'           , [29]          , ...
-            'nonindexed'        , [299]         ...
-        ); %#ok<NBRAK>
+        % Define mapping from series names to dynamic model variable names and static series sources
+        series_names = struct( ...
+            'GDP_FY', struct('var_name', 'outs', 'static_source', 'projections') ...
+        );
         
-        
-        
-        % Specify standard data series years
-        first_year  = 2017;
-        last_year   = 2090;
-        years       = (first_year : last_year)';
-        
-        % Define function to construct data series aligned to standard years for a specific scenario
-        function dataseries = constructDataSeries(scenario, useDynamicBaseline)
+        % Define function to construct dynamic scaling series for a specific scenario
+        function scaling_series = constructScalingSeries(scenario, useDynamicBaseline)
             
             % Identify scenario working directory
             workingdir = PathFinder.getWorkingDir(scenario);
@@ -399,18 +382,6 @@ methods (Static)
                 Static = load(fullfile(workingdir, 'statics.mat'));
             end
             
-            % Determine timing parameters
-            timing      = ParamGenerator.timing(scenario);
-            
-            % Determine number of years to pre-pad variable values
-            nprepad     = timing.TransitionFirstYear - first_year;
-            
-            % Determine number of variable values to be trimmed or post-padded
-            T_model     = timing.T_model;
-            nextra      = nprepad + T_model - length(years);
-            ntrim       = +max(nextra, 0);
-            npostpad    = -min(nextra, 0);
-            
             % Load additional variables if performing dynamic baseline scaling
             if useDynamicBaseline
                 Dynamic_currentPolicyOpen   = load(fullfile(PathFinder.getWorkingDir(scenario.currentPolicy().open()  ), 'dynamics.mat'));
@@ -420,34 +391,36 @@ methods (Static)
                 Dynamic_currentPolicyClosed = {};
             end
             
-            % Construct data series
-            for o_ = fieldnames(dataseries_ids)'
+            % Iterate over series names
+            for o_ = fieldnames(series_names)'
+                
+                series_name = o_{1};
+                var_name = series_names.(series_name).var_name;
                 
                 % Extract dynamic and static variable values and handle special series
-                switch o_{1}
+                switch var_name
                     case 'nonindexed'
-                        v_Dynamic = [ones(1,10), Dynamic.outs(11:T_model)]; 
-                        v_Static  = [ones(1,10), Dynamic.outs(11:T_model)]; 
+                        v_Dynamic = [ones(1,10), Dynamic.outs(11:end)];
+                        v_Static  = [ones(1,10), Dynamic.outs(11:end)];
                     otherwise
-                        v_Dynamic = Dynamic.(o_{1});
-                        v_Static  = Static. (o_{1});
+                        v_Dynamic = Dynamic.(var_name);
+                        v_Static  = Static. (var_name);
                 end
                 
                 % Scale static variable values if performing dynamic baseline scaling
                 if useDynamicBaseline
-                    v_Static = v_Static .* Dynamic_currentPolicyOpen.(o_{1}) ./ Dynamic_currentPolicyClosed.(o_{1});
+                    v_Static = v_Static .* Dynamic_currentPolicyOpen.(var_name) ./ Dynamic_currentPolicyClosed.(var_name);
                     v_Static(isnan(v_Static)) = 0;
                 end
                 
-                % Consolidate, shift, trim, and pad dynamic and static variable values to form data series
-                dataseries.(o_{1}) = [ ones(1, nprepad), v_Dynamic(1:end-ntrim), ones(1, npostpad) ;
-                                       ones(1, nprepad), v_Static( 1:end-ntrim), ones(1, npostpad) ]';
+                % Calculate and store dynamic scaling series
+                v_scale = v_Dynamic ./ v_Static;
+                v_scale(isnan(v_scale)) = 1;
+                scaling_series.(series_name) = v_scale';
                 
             end
             
         end
-        
-        
         
         % Iterate over output scenarios
         n_scenarios = length(output_scenarios);
@@ -459,26 +432,51 @@ methods (Static)
             
             try
                 
-                % Construct data series, using linear combinations of open and closed economy data series for partially open economy scenarios
+                % Construct dynamic scaling series, using convex combinations of open and closed economy series for partially open economy scenarios
                 if (output_scenario.OpenEconomy == 0 || output_scenario.OpenEconomy == 1)
-                    dataseries = constructDataSeries(scenario, output_scenario.UseDynamicBaseline);
+                    scaling_series = constructScalingSeries(scenario, output_scenario.UseDynamicBaseline);
                 else
-                    dataseries_open   = constructDataSeries(scenario.open()  , output_scenario.UseDynamicBaseline);
-                    dataseries_closed = constructDataSeries(scenario.closed(), output_scenario.UseDynamicBaseline);
-                    for o = fieldnames(dataseries_ids)'
-                        dataseries.(o{1}) = dataseries_open  .(o{1})*(output_scenario.OpenEconomy    ) ...
-                                          + dataseries_closed.(o{1})*(1 - output_scenario.OpenEconomy);
+                    scaling_series_open   = constructScalingSeries(scenario.open()  , output_scenario.UseDynamicBaseline);
+                    scaling_series_closed = constructScalingSeries(scenario.closed(), output_scenario.UseDynamicBaseline);
+                    for o = fieldnames(series_names)'
+                        scaling_series.(o{1}) = scaling_series_open  .(o{1})*(0 + output_scenario.OpenEconomy) ...
+                                              + scaling_series_closed.(o{1})*(1 - output_scenario.OpenEconomy);
                     end
                 end
                 
-                % Write data series to output files
-                for o = fieldnames(dataseries_ids)'
-                    for series_id = dataseries_ids.(o{1})
-                        csvfile = fullfile(outputdir, sprintf('%u-%u.csv', output_scenario.id, series_id));
-                        fid = fopen(csvfile, 'w'); fprintf(fid, 'Year,Dynamic,Static\n'); fclose(fid);
-                        dlmwrite(csvfile, [years, dataseries.(o{1})], '-append')
-                    end
+                
+                % Read static series from input interfaces
+                c = fieldnames(series_names);
+                first_year = scenario.TransitionFirstYear;
+                last_year  = first_year + length(scaling_series.(c{1})) - 1;
+                
+                projections_file = fullfile(PathFinder.getProjectionsInputDir(), 'Projections.csv');
+                static_series.projections = InputReader.read_series(projections_file, 'Year', first_year, last_year);
+                
+                taxcalculator_id = InputReader.find_policy_id(fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv'), scenario, {'TaxCode'}, 'ID');
+                taxcalculator_file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('Aggregates_', taxcalculator_id, '.csv'));
+                static_series.taxcalculator = InputReader.read_series(taxcalculator_file, 'Year', first_year, last_year);
+                
+                oasicalculator_id = InputReader.find_policy_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario, {
+                    'TaxRate', 'TaxMax', 'DonutHole', 'COLA', 'PIA', 'NRA', 'CreditEarningsAboveTaxMax', 'FirstYear', 'GradualChange'
+                }, 'id_OASIcalculator');
+                oasicalculator_file = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('aggregate_', oasicalculator_id, '.csv'));
+                static_series.oasicalculator = InputReader.read_series(oasicalculator_file, 'year', first_year, last_year);
+                
+                
+                % Scale static series with scaling series to generate dynamic series
+                for o = fieldnames(series_names)'
+                    dynamic_series.(o{1}) = static_series.(series_names.(o{1}).static_source).(o{1}) .* scaling_series.(o{1});
                 end
+                
+                
+                % Write series to file
+                series_table = struct2table(dynamic_series);
+                
+                series_table.Properties.DimensionNames = {'Year', 'Series'};
+                series_table.Properties.RowNames = arrayfun(@(t) sprintf('%u', t), first_year:last_year, 'UniformOutput', false);
+                
+                writetable(series_table, fullfile(outputdir, sprintf('series_%u.csv', output_scenario.id)), 'WriteRowNames', true);
                 
             catch
                 
