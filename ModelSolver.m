@@ -616,7 +616,7 @@ methods (Static)
                 end
                 
                 Market.debtrates = budget.debtrates;
-                Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) ); % This is just for reporting
+                Market.MPKs      = A*alpha*( Market.rhos.^(alpha-1) ); % This is just for reporting
             
             % end initial loop iteration
             else  
@@ -626,7 +626,7 @@ methods (Static)
                 Market.capshares_0 = damper.capshares*Market.capshares_0 + (1-damper.capshares)*capshares_0;
                 Market.capshares_1 = damper.capshares*Market.capshares_1 + (1-damper.capshares)*capshares_1;
                 
-                Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) );
+                Market.MPKs      = A*alpha*( Market.rhos.^(alpha-1) );
                 Market.invtocaps = invtocaps;
                 
                 switch economy
@@ -708,7 +708,7 @@ methods (Static)
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = Market.caprates .* Dynamic.caps;
+                    Dynamic.capincs = Market.MPKs .* Dynamic.caps;
                     capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
                     Dynamic.GNP     = Dynamic.outs - capincs_foreign;
                     
@@ -762,7 +762,7 @@ methods (Static)
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = Market.caprates .* Dynamic.caps;
+                    Dynamic.capincs = Market.MPKs .* Dynamic.caps;
                     capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
                     Dynamic.GNP     = Dynamic.outs - capincs_foreign;
                     
@@ -816,7 +816,7 @@ methods (Static)
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
-                    Dynamic.capincs = Market.caprates .* Dynamic.caps;
+                    Dynamic.capincs = Market.MPKs .* Dynamic.caps;
                     capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
                     Dynamic.GNP     = Dynamic.outs - capincs_foreign;
                     

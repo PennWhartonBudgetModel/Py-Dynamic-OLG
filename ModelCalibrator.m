@@ -281,7 +281,7 @@ methods (Static)
         
         % Make structure for results 
         %   targets has been passed in (or set to default)
-        model_results = {'r'          , s_markets.caprates;
+        model_results = {'r'          , s_markets.MPKs;
                          'PIT'        , s_dynamics.pits/gdp;
                          'SSTax'      , s_dynamics.ssts/gdp;
                          'KbyY'       , s_paramsTargets.captoout;
