@@ -64,10 +64,11 @@ methods (Static, Access = private )
     
     function [] = runTest( scenario, testset_names )
         PathFinder.setToTestingMode();
-        save_dir = ModelSolver.solve(scenario);
+        save_dir = ModelSolver.solve(scenario, '', true);
         test_output(save_dir, testset_names);
         PathFinder.setToDevelopmentMode();
     end
+    
 end
 
 end
