@@ -24,7 +24,6 @@ methods (Static)
         isbase = scenario.isCurrentPolicy();
         
         % Unpack parameters from filled counterfactual definition
-        expenditure_shift   = scenario.ExpenditureShift;
         legal_scale         = scenario.legal_scale      ;
         prem_legal          = scenario.prem_legal       ;
         amnesty             = scenario.amnesty          ;
