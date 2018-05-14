@@ -707,9 +707,6 @@ methods (Static)
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.caprates .* Dynamic.caps;
                     
-                    Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
-                    Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
-                    
                     % Proxy for gross investment in physical capital
                     DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
                     assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.K, [], T_model), 1), 3);
@@ -762,9 +759,6 @@ methods (Static)
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.caprates .* Dynamic.caps;
                     
-                    Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
-                    Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
-                    
                     % Gross investment in physical capital
                     %   T_model investment converges to final steady
                     %   state investment, K_ss*(pop_growth + depreciation).
@@ -816,9 +810,6 @@ methods (Static)
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.caprates .* Dynamic.caps;
-                    
-                    Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
-                    Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Gross investment in physical capital
                     %   T_model investment eventually converges to final steady
