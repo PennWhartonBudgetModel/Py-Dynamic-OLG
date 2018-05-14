@@ -103,14 +103,12 @@ methods (Static)
         
         
         % Generate input sets using input interface map files, applying parameter value filters if specified
-        taxcalculator_s  = generateInputSet(fullfile(PathFinder.getTaxCalculatorInputDir() , 'Map.csv'), 'ID'               , 'taxcalculator' );
-        oasicalculator_s = generateInputSet(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), 'id_OASIcalculator', 'oasicalculator');
+        taxcalculator_s  = generateInputSet(fullfile(PathFinder.getTaxCalculatorInputDir() , 'Map.csv'));
+        oasicalculator_s = generateInputSet(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'));
         
-        function [input_s] = generateInputSet(mapfile, idcolumn, tag)
+        function [input_s] = generateInputSet(mapfile)
             
-            map_ = readtable(mapfile);
-            map_.Properties.VariableNames{idcolumn} = ['id_', tag];
-            input_s  = table2struct(map_)';
+            input_s  = table2struct(readtable(mapfile, 'ReadRowNames', true))';
             
             if exist('input_filters', 'var') && ~isempty(input_parameters)
                 for o_ = fieldnames(input_parameters)'
