@@ -111,13 +111,7 @@ methods (Static)
         % NOTE: Social Security benefits are calculated per cohort
         
         %%  Budget: CBO interest rates, expenditures, and debt
-        s = ParamGenerator.budget( scenario );
-        GEXP_by_GDP      = s.GEXP_by_GDP;           % Gvt expenditures as pct GDP
-        debttoout        = s.debttoout;             % Debt/gdp 
-        fedgovtnis       = s.fedgovtnis;            % Gvt net interest surplus (deficit)
-        debtrates        = s.debtrates;             % Interest rates on gvt debt 
-        % Tax revenue targets (for Ttilde), depend on tax plan
-        tax_revenue_by_GDP = s.tax_revenue_by_GDP;
+        budget = ParamGenerator.budget( scenario );
         
         %% Tax parameters
         %    rem: all US dollars have been converted to modelunit_dollars
@@ -155,20 +149,21 @@ methods (Static)
         
         %% Aggregate generation function
         
-        function [Aggregate, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, LABs_static, DIST_static)
+        function [Aggregate, LABs, savings, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, LABs_static, savings_static, DIST_static)
             
             % Define dynamic aggregate generation flag
-            isdynamic = isempty(LABs_static) || isempty(DIST_static);
+            isdynamic = isempty(DIST_static) || isempty(LABs_static) || isempty(savings_static);
             
             % Set static optimal decision values to empty values for dynamic aggregate generation
-            if isdynamic, LABs_static = cell(nstartyears); end
+            if isdynamic, LABs_static = cell(nstartyears); savings_static = cell(nstartyears); end
             
             % Initialize optimal decision value arrays
             os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN', 'CON', 'V'};
             for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model); end
             
             % Initialize array of cohort optimal labor values
-            LABs = cell(nstartyears);
+            LABs    = cell(nstartyears);
+            savings = cell(nstartyears);
             
             % Initialize population distribution array
             DIST = zeros(nz,nk,nb,T_life,ng,T_model);
@@ -192,9 +187,9 @@ methods (Static)
                                             , Market.priceindices );            
 
             % Package fixed dynamic optimization arguments into anonymous function
-            solve_cohort_ = @(V0, LAB_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes) ...
+            solve_cohort_ = @(V0, LAB_static, saving_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes) ...
                 solve_cohort( ...
-                    V0, LAB_static, isdynamic, ...
+                    V0, LAB_static, saving_static, isdynamic, ...
                     nz, nk, nb, T_past, T_shift, T_active, T_works, T_model, ...
                     zs, transz, kv, bv, scenario.beta, scenario.gamma, scenario.sigma, surv, ...
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
@@ -206,7 +201,7 @@ methods (Static)
                     pit.rateCapGain, ...
                     Market.beqs, ...
                     Market.wages, ...
-                    Market.capshares, zeros(1,T_model), ... % portfolio allocations
+                    Market.capshares_0, zeros(1,T_model), ... % portfolio allocations
                     zeros(1,T_model), zeros(1,T_model), 0,  ... % pass-through prices
                     Market.equityFundDividends, Market.equityFundPrices, Market.equityFundPrice0, ... % Equity returns and prices
                     Market.bondFundDividends, Market.bondFundPrices, Market.bondFundPrice0  ... % Bond returns and prices
@@ -229,7 +224,7 @@ methods (Static)
 
                 % Solve dynamic optimization
                 % (Note that active time is set to full lifetime)
-                OPT = solve_cohort_(V0s(:,:,:,T_life), [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits, Market.priceindices.cohort_wages(:,end));
+                OPT = solve_cohort_(V0s(:,:,:,T_life), [], [], T_pasts(end), T_shifts(end), T_life, T_works(end), ssbenefits, Market.priceindices.cohort_wages(:,end));
 
                 % Define series of terminal utility values
                 V0s(:,:,:,1:T_life-1) = OPT.V(:,:,:,2:T_life);
@@ -243,7 +238,8 @@ methods (Static)
 
                     % Store optimal decision values
                     for o = os, OPTs.(o{1})(:,:,:,:,1) = OPT.(o{1}); end
-                    LABs{1} = OPT.LAB;
+                    LABs{1}    = OPT.LAB;
+                    savings{1} = OPT.K;
 
                 case {'open', 'closed'}
 
@@ -263,9 +259,10 @@ methods (Static)
                                         ,   bv, T_model );
 
                         % Solve dynamic optimization
-                        OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, Market.priceindices.cohort_wages(:,i));
+                        OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i}, savings_static{i}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, Market.priceindices.cohort_wages(:,i));
 
-                        LABs{i} = OPTs_cohort{i}.LAB;
+                        LABs{i}    = OPTs_cohort{i}.LAB;
+                        savings{i} = OPTs_cohort{i}.K  ;
 
                     end
 
@@ -372,10 +369,9 @@ methods (Static)
             Aggregate.cits     = f(OPTs.CIT);                                                                            % Capital income tax
             Aggregate.bens     = f(OPTs.BEN);                                                                            % Social Security benefits
             Aggregate.cons     = f(OPTs.CON);                                                                            % Consumption
-            Aggregate.assets   = f(repmat(reshape(kv, [1,nk,1,1,1]), [nz, 1,nb,T_life,T_model])) .* ...
-                                  (ones(1,T_model) + Market.capshares.*Market.capgains');                                % Assets
-            % Note: This definition of assets corresponds to beginning of period assets at
-            %       new policy prices, that is, accounting for eventual capital gains.
+            Aggregate.assets_0 = f(repmat(reshape(kv, [1,nk,1,1,1]), [nz, 1,nb,T_life,T_model]));                        % Assets before re-pricing
+            Aggregate.assets_1 = Aggregate.assets_0 .* (ones(1,T_model) + Market.capgains') ...                          % Assets after re-pricing            
+                                    .* (Market.capshares_0./Market.capshares_1);                                         % Note: The definition of assets_1 corresponds to beginning of period assets at new policy prices, that is, accounting for eventual capital gains.
             
         end
         
@@ -393,7 +389,8 @@ methods (Static)
             Market = hardyload('market.mat'      , base_generator, base_dir);
             
             s      = hardyload('decisions.mat'   , base_generator, base_dir);
-            LABs_static = s.LABs;
+            LABs_static    = s.LABs;
+            savings_static = s.savings;
             
             s      = hardyload('distribution.mat', base_generator, base_dir);
             DIST_static = s.DIST;
@@ -401,8 +398,8 @@ methods (Static)
             
             % Generate static aggregates
             % (Intermediary structure used to filter out extraneous fields)
-            [Static, ~, Static_DIST, Static_OPTs, ~] = ...
-                generate_aggregates(Market, {}, LABs_static, DIST_static);
+            [Static, ~, ~, Static_DIST, Static_OPTs, ~] = ...
+                generate_aggregates(Market, {}, LABs_static, savings_static, DIST_static);
             
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
@@ -414,9 +411,7 @@ methods (Static)
             % Calculate static budgetary aggregate variables
             Static.revs          = Static.pits + Static.ssts        ... 
                                     + Static.cits + Static.corpTaxs ...
-                                    - Static.bens;            
-            Static.labpits       = Static.pits .* Static.labincs ./ Static.incs;
-            Static.caprevs       = Static.cits + Static.pits - Static.labpits;
+                                    ;            
             
             % In general, we have:
             % Static.debts = Static.debts_domestic + Static.debts_foreign;
@@ -429,13 +424,15 @@ methods (Static)
 
             Static.debts = [Dynamic_base.debts(1), zeros(1,T_model-1)];
             for year = 1:T_model-1
-                Static.debts(year+1) = Static.Gtilde(year) - Static.Ttilde(year) - Static.revs(year) + Static.debts(year)*(1 + debtrates(year));
+                Static.debts(year+1)    = Static.Gtilde(year) + Static.bens(year)   ...
+                                        - Static.Ttilde(year) - Static.revs(year)   ...
+                                        + Static.debts(year)*(1 + budget.debtrates(year));
             end
 
             % Total assets
             % Note: tot_assets is a sum of choice variables, those are constant at baseline values
-            Static.tot_assets = theFirm.priceCapital' .* Static.caps + ...
-                                Static.debts_domestic + Static.debts_foreign;
+            Static.tot_assets_1 = theFirm.priceCapital' .* Static.caps + ...
+                                  Static.debts_domestic + Static.debts_foreign;
                         
             % Save static aggregates
             save(fullfile(save_dir, 'statics.mat')              , '-struct', 'Static')
@@ -457,13 +454,15 @@ methods (Static)
                 Dynamic0.caps       = 12.20; 
                 captoout            = Dynamic0.caps / Dynamic0.outs;
                 
-                Market0.beqs        = 0.1662;                           % beqs are results from previous runs.
-                Market0.capshares   = captoout / (captoout+debttoout);  % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                Market0.rhos        = 7.0652;                           % rhos are results from previous runs.
-                Market0.invtocaps   = 0.0078 + depreciation;            % I/K = pop growth rate 0.0078 + depreciation
+                Market0.beqs        = 0.1662;                                   % beqs are results from previous runs.
+                Market0.capshares_0 = captoout / (captoout + budget.debttoout); % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                Market0.capshares_1 = Market0.capshares_0;                      % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                Market0.rhos        = 7.0652;                                   % rhos are results from previous runs.
+                Market0.invtocaps   = 0.0078 + depreciation;                    % I/K = pop growth rate 0.0078 + depreciation
 
-                Dynamic0.debts      = Dynamic0.outs * debttoout;
-                Dynamic0.assets     = Dynamic0.caps + Dynamic0.debts;
+                Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
+                Dynamic0.assets_0   = theFirm.priceCapital*Dynamic0.caps + Dynamic0.debts;
+                Dynamic0.assets_1   = Dynamic0.assets_0;
                 Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
                 Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
                 
@@ -496,8 +495,10 @@ methods (Static)
                     % Calculate government expenditure adjustments
                     Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
                     
-                    Gtilde = Dynamic_base.Gtilde + expenditure_shift*GEXP_by_GDP(1:T_model).*Dynamic_base.outs;
-                    Ttilde = tax_revenue_by_GDP.*Dynamic_base.outs - Static.pits - Static.ssts - Static.cits;
+                    Gtilde = budget.outlays_by_GDP     .* Dynamic_base.outs            ...
+                             - Static.bens;
+                    Ttilde = budget.tax_revenue_by_GDP .* Dynamic_base.outs            ...
+                             - Static.pits - Static.ssts - Static.cits - Static.corpTaxs; 
                     
                 end
                 
@@ -526,17 +527,18 @@ methods (Static)
         tolerance.invtocaps = 5e-4;
         isConverged         = false;
         
-        % Set damper to update guesses - 0 means not
-        % dampened and 1 means fully dampened
+        % Set damper to update guesses
+        %    0 = not dampened, i.e., completely updated to new value
+        % 	 1 = fully dampened, i.e., stays the same
         switch economy
             case 'steady'
                 damper.rhos      = 0.5;
                 damper.beqs      = 0.5;
                 damper.capshares = 0.5;
             case 'open'
-                damper.rhos      = 1.0;      % Fully update to Market.rhos (rhos carries the old value in the open economy)
+                damper.rhos      = 1.0;      % In open economy, it's set by theFirm.calculateKLRatio function.
                 damper.beqs      = 0.0;
-                damper.capshares = 1.0;      % Never update
+                damper.capshares = 0.0;
             case 'closed'
                 damper.rhos      = 0.0;
                 damper.beqs      = 0.0;
@@ -570,11 +572,13 @@ methods (Static)
 
             % Define market conditions in the first iteration
             if isinitial
-                Market.beqs      = Market0.beqs     *ones(1,T_model);
-                Market.capshares = Market0.capshares*ones(1,T_model);
-                Market.invtocaps = Market0.invtocaps*ones(1,T_model);
+                Market.beqs        = Market0.beqs       *ones(1,T_model);
+                Market.capshares_0 = Market0.capshares_0*ones(1,T_model);
+                Market.capshares_1 = Market0.capshares_1*ones(1,T_model);
+                Market.invtocaps   = Market0.invtocaps  *ones(1,T_model);
                 
-                Dynamic.assets      = Dynamic0.assets       *ones(1,T_model);
+                Dynamic.assets_0    = Dynamic0.assets_0     *ones(1,T_model);
+                Dynamic.assets_1    = Dynamic0.assets_1     *ones(1,T_model);
                 Dynamic.debts       = Dynamic0.debts        *ones(1,T_model);
                 Dynamic.caps        = Dynamic0.caps         *ones(1,T_model); 
                 Dynamic.labeffs     = Dynamic0.labeffs      *ones(1,T_model);
@@ -591,9 +595,9 @@ methods (Static)
                         % Rem: Returns are fixed to match steady-state in
                         % open economy. That is, after-tax returns for
                         % capital are fixed, including cap gains.
-                        %   NOTE: Assumes cap gains are fixed (which is
-                        %   true until priceCapital is allowed to change)
                         % 
+                        % First period capital (inherited from steady state)
+                        Dynamic.caps(1) = Market0.capshares_0 * Dynamic0.assets_0;
                         % Define the pre-tax returns necessary to return
                         % the world rate from steady-state.
                         effectiveDividendRate = ( Market0.equityFundDividends*(1 - sstax.rateForeignCorpIncome) ...
@@ -610,15 +614,16 @@ methods (Static)
                         %       Seems like yes.
                 end
                 
-                Market.debtrates = debtrates;
+                Market.debtrates = budget.debtrates;
                 Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) ); % This is just for reporting
             
             % end initial loop iteration
             else  
                 
-                Market.beqs      = damper.beqs*Market.beqs + (1 - damper.beqs)*beqs;
-                Market.rhos      = damper.rhos*Market.rhos + (1-damper.rhos)*rhos;
-                Market.capshares = damper.capshares*Market.capshares + (1-damper.capshares)*capshares;
+                Market.beqs        = damper.beqs*Market.beqs + (1 - damper.beqs)*beqs;
+                Market.rhos        = damper.rhos*Market.rhos + (1-damper.rhos)*rhos;
+                Market.capshares_0 = damper.capshares*Market.capshares_0 + (1-damper.capshares)*capshares_0;
+                Market.capshares_1 = damper.capshares*Market.capshares_1 + (1-damper.capshares)*capshares_1;
                 
                 Market.caprates  = A*alpha*( Market.rhos.^(alpha-1) );
                 Market.invtocaps = invtocaps;
@@ -630,7 +635,8 @@ methods (Static)
                         % because the portfolio allocation is fixed by steady-state
                         % and we do not allow it to change even as the economy's 
                         % mix of capital vs. debt changes.
-
+                        % Overwrite the first period capital
+                        Dynamic.caps(1) = Market.capshares_0(1) * Dynamic.assets_0(1);
                         klRatio     = theFirm.calculateKLRatio( effectiveDividendRate   , ...
                                                                 Dynamic.caps'           , ...
                                                                 Dynamic.labeffs'        , ...
@@ -659,11 +665,11 @@ methods (Static)
             
             Market.bondFundPrice0       = 1;
             Market.bondFundPrices       = ones(1,T_model);
-            Market.bondFundDividends    = debtrates; %rem: dividendrate is per $ of assets
+            Market.bondFundDividends    = budget.debtrates; %rem: dividendrate is per $ of assets
             
             
             % Generate dynamic aggregates
-            [Dynamic, LABs, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {});
+            [Dynamic, LABs, savings, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {}, {});
             
 
             % Calculate additional dynamic aggregates
@@ -674,7 +680,7 @@ methods (Static)
             Dynamic.corpTaxs    = corpTaxs';
             Dynamic.revs        = Dynamic.pits + Dynamic.ssts           ...
                                   + Dynamic.cits + Dynamic.corpTaxs     ...
-                                  - Dynamic.bens;
+                                  ;
                     
             switch economy
                 
@@ -682,8 +688,8 @@ methods (Static)
                     
                     % Calculate debt, capital, and output
                     % (Numerical solver used due to absence of closed form solution)
-                    f_debts = @(outs ) debttoout*outs;
-                    f_caps  = @(debts) (Dynamic.assets - debts) ./ theFirm.priceCapital;
+                    f_debts = @(outs ) budget.debttoout*outs;
+                    f_caps  = @(debts) (Dynamic.assets_1 - debts) ./ theFirm.priceCapital;
                     f_outs  = @(caps ) A*(max(caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     x_ = fsolve(@(x) x - [f_debts(x(3)); f_caps(x(1)); f_outs(x(2))], zeros(3,1), optimoptions('fsolve', 'Display', 'none'));
                     Dynamic.debts = x_(1);
@@ -694,7 +700,9 @@ methods (Static)
                     Dynamic.debts_foreign  = zeros(1,T_model);
                     Dynamic.caps_domestic  = Dynamic.caps;
                     Dynamic.caps_foreign   = zeros(1,T_model);
-                    Dynamic.tot_assets     = Dynamic.assets;
+                    Dynamic.invest_foreign = zeros(1,T_model);
+                    Dynamic.tot_assets_0   = Dynamic.assets_0;
+                    Dynamic.tot_assets_1   = Dynamic.assets_1;
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
@@ -706,14 +714,15 @@ methods (Static)
                     % Proxy for gross investment in physical capital
                     DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
                     assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.K, [], T_model), 1), 3);
-                    Dynamic.investment = (Market.capshares * (assets_tomorrow - Dynamic.bequests))./ theFirm.priceCapital' ...
+                    Dynamic.investment = (Market.capshares_1 * (assets_tomorrow - Dynamic.bequests))./ theFirm.priceCapital' ...
                                          - (1 - depreciation) * Dynamic.caps;
                                      
                     % Update guesses
                     rhos      = Dynamic.caps / Dynamic.labeffs;
                     beqs      = Dynamic.bequests / sum(DIST_trans(:));          % Note: capgains is zero in steady state, so bequests don't need to be changed
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
-                    capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
+                    capshares_0 = (Dynamic.assets_0 - Dynamic.debts) ./ Dynamic.assets_0;
+                    capshares_1 = (Dynamic.assets_1 - Dynamic.debts) ./ Dynamic.assets_1;
 
                 case 'open'
                     
@@ -721,25 +730,34 @@ methods (Static)
                     Dynamic.caps = Market.rhos .* Dynamic.labeffs;
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
-                    Dynamic.caps_domestic = (Market.capshares .* Dynamic.assets) ./ theFirm.priceCapital';
-                    Dynamic.caps_foreign  = Dynamic.caps - Dynamic.caps_domestic;
-                    % Note: Dynamic.assets represents current assets at new prices.
+                    % Note: Dynamic.assets_0 represents current assets at old prices.
+                    Dynamic.caps_domestic  =  (Market.capshares_1 .* Dynamic.assets_1) ./ theFirm.priceCapital';
+                    Dynamic.caps_foreign   = Dynamic.caps - Dynamic.caps_domestic;
+                    Dynamic.invest_foreign = [Dynamic.caps_foreign(2:T_model) Dynamic.caps_foreign(T_model)] ...
+                                              - (1 - depreciation) * [Dynamic.caps_foreign(1:T_model-1) Dynamic.caps_foreign(T_model-1)];
                     
                     if isbase
-                        Gtilde = (tax_revenue_by_GDP - fedgovtnis).*Dynamic.outs - Dynamic.bens;
-                        Ttilde = tax_revenue_by_GDP.*Dynamic.outs - Dynamic.pits - Dynamic.ssts - Dynamic.cits;
+                        Gtilde = budget.outlays_by_GDP     .*Dynamic.outs              ...
+                                 - Dynamic.bens;
+                        Ttilde = budget.tax_revenue_by_GDP .*Dynamic.outs              ...
+                                 - Dynamic.pits - Dynamic.ssts - Dynamic.cits - Dynamic.corpTaxs;
                     end
                     
-                    Dynamic.debts = [debttoout*Dynamic0.outs, zeros(1,T_model-1)];
+                    Dynamic.debts = [budget.debttoout*Dynamic0.outs, zeros(1,T_model-1)];
                     for year = 1:T_model-1
-                        Dynamic.debts(year+1) = Gtilde(year) - Ttilde(year) - Dynamic.revs(year) + Dynamic.debts(year)*(1 + debtrates(year));
+                        Dynamic.debts(year+1) = Gtilde(year) + Dynamic.bens(year)   ...
+                                                - Ttilde(year) - Dynamic.revs(year) ...
+                                                + Dynamic.debts(year)*(1 + budget.debtrates(year));
                     end
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
                     
-                    Dynamic.debts_domestic = (1 - Market.capshares) .* Dynamic.assets;
+                    Dynamic.debts_domestic = (1 - Market.capshares_1) .* Dynamic.assets_1;
                     Dynamic.debts_foreign  = Dynamic.debts - Dynamic.debts_domestic;
-                    Dynamic.tot_assets     = theFirm.priceCapital' .* Dynamic.caps + Dynamic.debts;
+                    
+                    Dynamic.tot_assets_0   = [theFirm.priceCapital0 theFirm.priceCapital(1:T_model-1)'] ...
+                                               .* Dynamic.caps + Dynamic.debts;
+                    Dynamic.tot_assets_1   = theFirm.priceCapital' .* Dynamic.caps + Dynamic.debts;
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
@@ -764,17 +782,20 @@ methods (Static)
                     %       government yesterday after some people died, but redistributed today
                     %       after the new policy took place.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    beqs      = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
-                                 Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
+                    beqs      = [Dynamic0.bequests * (1 + Market0.capshares_1 * Market.capgains(1)), ...
+                                 Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares_1(1:T_model-1) .* Market.capgains(2:T_model)') ...
                                 ] ./ Dynamic.pops;
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
-                    capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
+                    capshares_0 = (Dynamic.assets_0 - Dynamic.debts) ./ Dynamic.assets_0;
+                    capshares_1 = (Dynamic.assets_1 - Dynamic.debts) ./ Dynamic.assets_1;
 
                 case 'closed'
                     
-                    Dynamic.debts = [debttoout*Dynamic0.outs, zeros(1,T_model-1)];
+                    Dynamic.debts = [budget.debttoout*Dynamic0.outs, zeros(1,T_model-1)];
                     for year = 1:T_model-1
-                        Dynamic.debts(year+1) = Gtilde(year) - Ttilde(year) - Dynamic.revs(year) + Dynamic.debts(year)*(1 + debtrates(year));
+                        Dynamic.debts(year+1) = Gtilde(year) + Dynamic.bens(year)   ...
+                                                - Ttilde(year) - Dynamic.revs(year) ...
+                                                + Dynamic.debts(year)*(1 + budget.debtrates(year));
                     end
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
@@ -784,12 +805,14 @@ methods (Static)
                     
                     % Calculate capital and output
                     % Note: Dynamic.assets represents current assets at new prices.
-                    Dynamic.caps = (Dynamic.assets - Dynamic.debts) ./ theFirm.priceCapital';
+                    Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theFirm.priceCapital';
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     Dynamic.caps_domestic  = Dynamic.caps;
                     Dynamic.caps_foreign   = zeros(1,T_model);
-                    Dynamic.tot_assets     = Dynamic.assets;
+                    Dynamic.invest_foreign = zeros(1,T_model);
+                    Dynamic.tot_assets_0   = Dynamic.assets_0;
+                    Dynamic.tot_assets_1   = Dynamic.assets_1;
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
@@ -812,11 +835,12 @@ methods (Static)
                     %       Bequests should also be priced according to the new policy.
                     %       So we apply today's prices to yesterday's bequests and capshares.
                     rhos      = Dynamic.caps ./ Dynamic.labeffs;
-                    beqs      = [Dynamic0.bequests * (1 + Market0.capshares * Market.capgains(1)), ...
-                                 Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares(1:T_model-1) .* Market.capgains(2:T_model)') ...
+                    beqs      = [Dynamic0.bequests * (1 + Market0.capshares_1 * Market.capgains(1)), ...
+                                 Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares_1(1:T_model-1) .* Market.capgains(2:T_model)') ...
                                 ] ./ Dynamic.pops;
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
-                    capshares = (Dynamic.assets - Dynamic.debts) ./ Dynamic.assets;
+                    capshares_0 = (Dynamic.assets_0 - Dynamic.debts) ./ Dynamic.assets_0;
+                    capshares_1 = (Dynamic.assets_1 - Dynamic.debts) ./ Dynamic.assets_1;
 
             end
             
@@ -824,7 +848,7 @@ methods (Static)
             clearing.rhos      = max(abs((Market.rhos      - rhos)      ./ rhos     ));
             clearing.beqs      = max(abs((Market.beqs      - beqs)      ./ beqs     ));
             clearing.invtocaps = max(abs((Market.invtocaps - invtocaps) ./ invtocaps));
-            clearing.capshares = max(abs((Market.capshares - capshares) ./ capshares));
+            clearing.capshares = max(abs((Market.capshares_1 - capshares_1) ./ capshares_1));
                     
             % Check convergence
             isConverged = (clearing.rhos      < tolerance.rhos     ) && ...
@@ -850,7 +874,7 @@ methods (Static)
         % Save market conditions, HH policies, and dynamic aggregates
         save(fullfile(save_dir, 'market.mat'   )    , '-struct', 'Market' )
         save(fullfile(save_dir, 'dynamics.mat' )    , '-struct', 'Dynamic')
-        save(fullfile(save_dir, 'decisions.mat')    , 'OPTs', 'LABs')
+        save(fullfile(save_dir, 'decisions.mat')    , 'OPTs', 'LABs', 'savings')
         switch economy
             case 'steady'
                 DIST = struct('DIST', DIST, 'DIST_trans', DIST_trans);
@@ -866,7 +890,7 @@ methods (Static)
             case 'steady'
                 
                 % Calculate capital to output ratio
-                captoout = (Dynamic.assets - Dynamic.debts) / Dynamic.outs;
+                captoout = (Dynamic.assets_1 - Dynamic.debts) / Dynamic.outs;
                 
                 
                 % Calculate labor elasticity
@@ -891,10 +915,10 @@ methods (Static)
                 Market_dev.equityFundDividends = Market.equityFundDividends * (1 + ratedev);
                 Market_dev.bondFundDividends   = Market.bondFundDividends   * (1 + ratedev);
                 
-                [Dynamic_dev] = generate_aggregates(Market_dev, {}, {}, {});
+                [Dynamic_dev] = generate_aggregates(Market_dev, {}, {}, {}, {});
                 
-                savelas = (Dynamic_dev.assets - Dynamic.assets) / (Dynamic.assets * ratedev);
-
+                savelas = (Dynamic_dev.assets_1 - Dynamic.assets_1) / (Dynamic.assets_1 * ratedev);
+                
                 % Calculate $GDP/HH
                 outperHH = (Dynamic.outs./Dynamic.pops)./scenario.modelunit_dollar;
                 

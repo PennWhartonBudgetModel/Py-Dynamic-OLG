@@ -525,10 +525,6 @@ methods (Static)
         end
         s.debttoout     = debt(end) / projections_series.GDP_FY(1);
         
-        % Calculate deficit/GDP for time of model
-        s.fedgovtnis    = (revenues - noninterestspending) ./ projections_series.GDP_FY;
-        s.fedgovtnis    = s.fedgovtnis';
-        
         % Rates
         %    For interest rate in steady-state, we use avg. rate across all data
         %    NOTE: EffectiveInterestRateOnDebt is in NOMINAL terms and we
@@ -557,16 +553,11 @@ methods (Static)
         % Consumption good price index
         s.CPI = (projections_series.ChainedCPIU / projections_series.ChainedCPIU(1))'; % normalize to 1 for first_year
 
-        % Unmodeled g'vt spending as percent GDP (for expenditure shifting)
-        GEXP_by_GDP     = noninterestspending                           ./100    ...
-                        - oasicalculator_series.OutlaysSocialSecurity   ./100    ...
-                        - projections_series.OutlaysMedicare            ./100    ...
-                    ;
-        s.GEXP_by_GDP   = GEXP_by_GDP';
+        % TAX REVENUE AND EXPENDITURE TARGETS           
+        s.tax_revenue_by_GDP = (revenues            ./ projections_series.GDP_FY)';
+        s.outlays_by_GDP     = (noninterestspending ./ projections_series.GDP_FY)';
         
         
-        % TAX REVENUE TARGETS           
-        s.tax_revenue_by_GDP = (revenues ./ projections_series.GDP_FY)';
         
         % WARNINGS if parameters are outside expectations
         if( any( abs(s.debtrates) > 0.05 ) )
@@ -574,9 +565,6 @@ methods (Static)
         end
         if( (s.debttoout < 0.6) || (s.debttoout > 1.0) )
             fprintf( 'WARNING! debttoout=%f outside expectations.\n', debttoout );
-        end
-        if( any(abs(s.fedgovtnis) > 0.1 ) )
-            fprintf( 'WARNING! fedgovtnis outside expectations.\n' );
         end
         for t = 2:T_model
             if( abs((s.CPI(t)/s.CPI(t-1))-1 > 0.05 ) )

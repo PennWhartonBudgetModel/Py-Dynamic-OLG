@@ -69,11 +69,11 @@ s_closed = load(fullfile(closed_dir, 'statics.mat' ), ...
             'debts', 'revs', 'outs', 'caps', 'caps_foreign', 'labs', 'labeffs', 'labincs', 'assets', 'pops', 'cons', 'labpits', 'caprevs', 'cits', 'pits', 'ssts', 'bens', 'investment', 'corpTaxs');
 
 % Import variables in market file
-m_steady  = load(fullfile(steady_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices', 'capshares');
-m_open    = load(fullfile(open_dir  , 'market.mat'  ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices', 'capshares');
-mb_open   = load(fullfile(bopen_dir  , 'market.mat' ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices', 'capshares');
-m_closed  = load(fullfile(closed_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices', 'capshares');
-mb_closed = load(fullfile(bclosed_dir, 'market.mat' ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices', 'capshares');
+m_steady  = load(fullfile(steady_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices', 'capshares_1');
+m_open    = load(fullfile(open_dir  , 'market.mat'  ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices', 'capshares_1');
+mb_open   = load(fullfile(bopen_dir  , 'market.mat' ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices', 'capshares_1');
+m_closed  = load(fullfile(closed_dir, 'market.mat'  ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices', 'capshares_1');
+mb_closed = load(fullfile(bclosed_dir, 'market.mat' ), 'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices', 'capshares_1');
 
 % Include steady state year in all series
 include_ss = @(x, xss) [xss x];
@@ -86,7 +86,7 @@ for o = os
     s_closed.(o{1}) = include_ss(s_closed.(o{1}), d_steady.(o{1}));
     b_closed.(o{1}) = include_ss(b_closed.(o{1}), d_steady.(o{1}));
 end
-os = {'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices', 'capshares'};
+os = {'caprates', 'wages', 'rhos', 'debtrates', 'equityFundDividends', 'equityFundPrices', 'capshares_1'};
 for o = os
     m_open.(o{1})    = include_ss(m_open.(o{1})  , m_steady.(o{1}));
     mb_open.(o{1})   = include_ss(mb_open.(o{1})  , m_steady.(o{1}));
@@ -96,10 +96,10 @@ end
 
 % Create new variables
 
-m_open.totrates = m_open.capshares .* m_open.equityFundDividends + (1 - m_open.capshares) .* m_open.debtrates;
-mb_open.totrates = mb_open.capshares .* mb_open.equityFundDividends + (1 - mb_open.capshares) .* mb_open.debtrates;
-m_closed.totrates = m_closed.capshares .* m_closed.equityFundDividends + (1 - m_closed.capshares) .* m_closed.debtrates;
-mb_closed.totrates = mb_closed.capshares .* mb_closed.equityFundDividends + (1 - mb_closed.capshares) .* mb_closed.debtrates;
+m_open.totrates = m_open.capshares_1 .* m_open.equityFundDividends + (1 - m_open.capshares_1) .* m_open.debtrates;
+mb_open.totrates = mb_open.capshares_1 .* mb_open.equityFundDividends + (1 - mb_open.capshares_1) .* mb_open.debtrates;
+m_closed.totrates = m_closed.capshares_1 .* m_closed.equityFundDividends + (1 - m_closed.capshares_1) .* m_closed.debtrates;
+mb_closed.totrates = mb_closed.capshares_1 .* mb_closed.equityFundDividends + (1 - mb_closed.capshares_1) .* mb_closed.debtrates;
 
 for var_name = {'tax', 'totinc', 'totincwss'}
     d_open.(var_name{1})   = build_var(var_name{1}, d_open, m_open, sc_open, 0);
