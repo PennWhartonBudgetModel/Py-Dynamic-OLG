@@ -1,10 +1,10 @@
 #!/bin/bash
-#$ -N define
+#$ -N generate
 #$ -q short.q
 #$ -j y
 #$ -o /dev/null
 
-# Build mex functions and define scenarios for specified bundle ($1)
+# Build mex functions and generate scenarios
 matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), MexBuilder.all(), CombinationSolver.generateScenarios();"
 
 # Clear or create log directory
