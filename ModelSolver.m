@@ -491,7 +491,7 @@ methods (Static)
                     Gtilde = budget.outlays_by_GDP     .* Dynamic_base.outs            ...
                              - Static.bens;
                     Ttilde = budget.tax_revenue_by_GDP .* Dynamic_base.outs            ...
-                             - Static.pits - Static.ssts - Static.cits - Static.corpTaxs; 
+                             - Static.revs; 
                     
                 end
                 
@@ -733,7 +733,7 @@ methods (Static)
                         Gtilde = budget.outlays_by_GDP     .*Dynamic.outs              ...
                                  - Dynamic.bens;
                         Ttilde = budget.tax_revenue_by_GDP .*Dynamic.outs              ...
-                                 - Dynamic.pits - Dynamic.ssts - Dynamic.cits - Dynamic.corpTaxs;
+                                 - Dynamic.revs;
                     end
                     
                     Dynamic.debts = [budget.debttoout*Dynamic0.outs, zeros(1,T_model-1)];
