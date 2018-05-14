@@ -147,29 +147,33 @@ classdef Scenario
             %   1. Make string of concatenated params
             %   2. Hash the string down to 120 chars
             % NOTE: comparisontag is built for isEquivalent 
-            tag         = ''; 
+            tag = '';
             for o = Scenario.req_params'
-                if( ~strcmp( o{1}, 'economy' ) && ~strcmp( o{1}, 'TransitionLastYear' ) ) 
-                    tag = strcat( tag, '_', num2str( this.(o{1})) );
+                if ~any(strcmp(o{1}, {'economy', 'TransitionLastYear'}))
+                    tag = strcat(tag, '_', num2str(this.(o{1})));
                 end
             end
-            this.basedeftag = Scenario.compactifyTag( tag );
+            this.basedeftag = Scenario.compactifyTag(tag);
+            
             if this.isCurrentPolicy()
                 this.counterdeftag = 'currentpolicy';
             else
                 tag = '';
                 for o = fieldnames(Scenario.def_params)'
-                    tag = strcat( tag, '_', num2str(this.(o{1})) );
+                    tag = strcat(tag, '_', num2str(this.(o{1})));
                 end
-                this.counterdeftag = Scenario.compactifyTag( tag );
+                this.counterdeftag = Scenario.compactifyTag(tag);
             end
-            this.comparisontag = strcat( this.basedeftag, this.counterdeftag, this.economy );
-            this.economytag    = this.economy;
-            if( ~strcmp( this.economy, 'steady' ) )
-                addyear             = num2str( this.TransitionLastYear );
-                this.economytag     = strcat( this.economytag   , addyear );
-                this.comparisontag  = strcat( this.comparisontag, addyear );
+            
+            tag = this.economy;
+            if ~strcmp(this.economy, 'steady')
+                tag = strcat(tag, num2str(this.TransitionLastYear));
             end
+            this.economytag = tag;
+            
+            this.comparisontag = strcat(this.basedeftag, this.counterdeftag, this.economytag);
+            
+            
         end % Scenario constructor
         
         
