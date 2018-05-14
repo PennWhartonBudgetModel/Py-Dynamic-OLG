@@ -529,10 +529,6 @@ methods (Static)
         end
         s.debttoout     = debt(end) / projections_series.GDP_FY(1);
         
-        % Calculate deficit/GDP for time of model
-        s.fedgovtnis    = (revenues - noninterestspending) ./ projections_series.GDP_FY;
-        s.fedgovtnis    = s.fedgovtnis';
-        
         % Rates
         %    For interest rate in steady-state, we use avg. rate across all data
         %    NOTE: EffectiveInterestRateOnDebt is in NOMINAL terms and we
@@ -573,9 +569,6 @@ methods (Static)
         end
         if( (s.debttoout < 0.6) || (s.debttoout > 1.0) )
             fprintf( 'WARNING! debttoout=%f outside expectations.\n', debttoout );
-        end
-        if( any(abs(s.fedgovtnis) > 0.1 ) )
-            fprintf( 'WARNING! fedgovtnis outside expectations.\n' );
         end
         for t = 2:T_model
             if( abs((s.CPI(t)/s.CPI(t-1))-1 > 0.05 ) )
