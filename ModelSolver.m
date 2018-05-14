@@ -151,7 +151,7 @@ methods (Static)
             if isdynamic, LABs_static = cell(nstartyears); savings_static = cell(nstartyears); end
             
             % Initialize optimal decision value arrays
-            os = {'K', 'LAB', 'B', 'INC', 'PIT', 'SST', 'CIT', 'BEN', 'CON', 'V'};
+            os = {'V', 'LABOR', 'SAVINGS', 'CONSUMPTION', 'AVG_EARNINGS', 'TAXABLE_INC', 'OASI_BENEFITS', 'ORD_LIABILITY', 'PAYROLL_LIABILITY', 'PREF_LIABILITY'};
             for o = os, OPTs.(o{1}) = zeros(nz,nk,nb,T_life,T_model); end
             
             % Initialize array of cohort optimal labor values
@@ -231,8 +231,8 @@ methods (Static)
 
                     % Store optimal decision values
                     for o = os, OPTs.(o{1})(:,:,:,:,1) = OPT.(o{1}); end
-                    LABs{1}    = OPT.LAB;
-                    savings{1} = OPT.K;
+                    LABs{1}    = OPT.LABOR;
+                    savings{1} = OPT.SAVINGS;
 
                 case {'open', 'closed'}
 
@@ -254,8 +254,8 @@ methods (Static)
                         % Solve dynamic optimization
                         OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i}, savings_static{i}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, Market.priceindices.cohort_wages(:,i));
 
-                        LABs{i}    = OPTs_cohort{i}.LAB;
-                        savings{i} = OPTs_cohort{i}.K  ;
+                        LABs{i}    = OPTs_cohort{i}.LABOR;
+                        savings{i} = OPTs_cohort{i}.SAVINGS;
 
                     end
 
@@ -305,8 +305,8 @@ methods (Static)
                     DIST(:,:,:,:,:,min(year, T_model)) = DIST_year;
 
                     % Extract optimal decision values for current year
-                    K = OPTs.K(:,:,:,:,min(year, T_model));
-                    B = OPTs.B(:,:,:,:,min(year, T_model));
+                    K = OPTs.SAVINGS     (:,:,:,:,min(year, T_model));
+                    B = OPTs.AVG_EARNINGS(:,:,:,:,min(year, T_model));
 
                     % Define population growth distribution
                     DIST_grow = zeros(nz,nk,nb,T_life,ng);
@@ -352,16 +352,16 @@ methods (Static)
             f = @(F) sum(sum(reshape(DIST_gs .* F, [], T_model), 1), 3);
             
             Aggregate.pops     = f(1);                                                                                   % Population
-            Aggregate.bequests = f(OPTs.K .* repmat(reshape(1-surv, [1,1,1,T_life,1]), [nz,nk,nb,1,T_model]));           % Bequests
-            Aggregate.labs     = f(OPTs.LAB);                                                                            % Labor
-            Aggregate.labeffs  = f(OPTs.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]));             % Effective labor
-            Aggregate.lfprs    = f(OPTs.LAB > 0.01) ./ f(1);                                                             % Labor force participation rate
-            Aggregate.incs     = f(OPTs.INC);                                                                            % Income
-            Aggregate.pits     = f(OPTs.PIT);                                                                            % Personal income tax
-            Aggregate.ssts     = f(OPTs.SST);                                                                            % Social Security tax
-            Aggregate.cits     = f(OPTs.CIT);                                                                            % Capital income tax
-            Aggregate.bens     = f(OPTs.BEN);                                                                            % Social Security benefits
-            Aggregate.cons     = f(OPTs.CON);                                                                            % Consumption
+            Aggregate.bequests = f(OPTs.SAVINGS .* repmat(reshape(1-surv, [1,1,1,T_life,1]), [nz,nk,nb,1,T_model]));     % Bequests
+            Aggregate.labs     = f(OPTs.LABOR);                                                                          % Labor
+            Aggregate.labeffs  = f(OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]));           % Effective labor
+            Aggregate.lfprs    = f(OPTs.LABOR > 0.01) ./ f(1);                                                           % Labor force participation rate
+            Aggregate.incs     = f(OPTs.TAXABLE_INC);                                                                    % Income
+            Aggregate.pits     = f(OPTs.ORD_LIABILITY);                                                                  % Personal income tax
+            Aggregate.ssts     = f(OPTs.PAYROLL_LIABILITY);                                                              % Social Security tax
+            Aggregate.cits     = f(OPTs.PREF_LIABILITY);                                                                 % Capital income tax
+            Aggregate.bens     = f(OPTs.OASI_BENEFITS);                                                                  % Social Security benefits
+            Aggregate.cons     = f(OPTs.CONSUMPTION);                                                                    % Consumption
             Aggregate.assets_0 = f(repmat(reshape(kv, [1,nk,1,1,1]), [nz, 1,nb,T_life,T_model]));                        % Assets before re-pricing
             Aggregate.assets_1 = Aggregate.assets_0 .* (ones(1,T_model) + Market.capgains') ...                          % Assets after re-pricing            
                                     .* (Market.capshares_0./Market.capshares_1);                                         % Note: The definition of assets_1 corresponds to beginning of period assets at new policy prices, that is, accounting for eventual capital gains.
@@ -707,7 +707,7 @@ methods (Static)
                     
                     % Proxy for gross investment in physical capital
                     DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
-                    assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.K, [], T_model), 1), 3);
+                    assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.SAVINGS, [], T_model), 1), 3);
                     Dynamic.investment = (Market.capshares_1 * (assets_tomorrow - Dynamic.bequests))./ theFirm.priceCapital' ...
                                          - (1 - depreciation) * Dynamic.caps;
                                      

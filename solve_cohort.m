@@ -99,20 +99,18 @@ assert( isa(bondfund_price0          , 'double'  ) && (size(bondfund_price0     
 %% Dynamic optimization
 
 % Initialize utility and optimal decision value arrays
-OPT.V   = zeros(nz,ns,nb,T_active);   % Utility
+OPT.V   = zeros(nz,ns,nb,T_active);                 % Utility
 
-OPT.K   = zeros(nz,ns,nb,T_active);   % Savings
-OPT.LAB = zeros(nz,ns,nb,T_active);   % Labor level
-OPT.B   = zeros(nz,ns,nb,T_active);   % Average earnings
+OPT.LABOR         = zeros(nz,ns,nb,T_active);       % Labor level
+OPT.SAVINGS       = zeros(nz,ns,nb,T_active);       % Savings
+OPT.CONSUMPTION   = zeros(nz,ns,nb,T_active);       % Consumption
+OPT.AVG_EARNINGS  = zeros(nz,ns,nb,T_active);       % Average earnings
+OPT.TAXABLE_INC   = zeros(nz,ns,nb,T_active);       % Taxable income
+OPT.OASI_BENEFITS = zeros(nz,ns,nb,T_active);       % Social Security benefits
 
-OPT.INC = zeros(nz,ns,nb,T_active);   % Taxable income
-OPT.PIT = zeros(nz,ns,nb,T_active);   % Personal income tax
-OPT.SST = zeros(nz,ns,nb,T_active);   % Social Security tax
-OPT.CIT = zeros(nz,ns,nb,T_active);   % Capital income tax
-OPT.BEN = zeros(nz,ns,nb,T_active);   % Social Security benefits
-OPT.CON = zeros(nz,ns,nb,T_active);   % Consumption
-
-OPT.SAVINGS = zeros(nz,ns,nb,T_active); % Savings in dollars
+OPT.ORD_LIABILITY     = zeros(nz,ns,nb,T_active);   % Personal income liability at ordinary rates
+OPT.PREF_LIABILITY    = zeros(nz,ns,nb,T_active);   % Personal income liability at preferred rates
+OPT.PAYROLL_LIABILITY = zeros(nz,ns,nb,T_active);   % Payroll tax liability
 
 % Initialize forward-looking utility values
 V_step = V0;
@@ -253,19 +251,16 @@ for t = T_active:-1:1
                 end
                 
                 % Record utility, decisions, and other values
-                OPT.V      (:,is,ib,t)  = v;
-                OPT.K      (:,is,ib,t)  = s;
-                OPT.SAVINGS(:,is,ib,t)  = s;
-
-                OPT.LAB(:,is,ib,t)      = lab;
-                OPT.B  (:,is,ib,t)      = bv(ib);
-                
-                OPT.INC(:,is,ib,t)      = inc   ;
-                OPT.PIT(:,is,ib,t)      = pit   ;
-                OPT.SST(:,is,ib,t)      = sst   ;
-                OPT.CIT(:,is,ib,t)      = cit   ;
-                OPT.BEN(:,is,ib,t)      = ssinc ;
-                OPT.CON(:,is,ib,t)      = resources - s; 
+                OPT.V                (:,is,ib,t) = v;
+                OPT.LABOR            (:,is,ib,t) = lab;
+                OPT.SAVINGS          (:,is,ib,t) = s;
+                OPT.CONSUMPTION      (:,is,ib,t) = resources - s; 
+                OPT.AVG_EARNINGS     (:,is,ib,t) = bv(ib);
+                OPT.TAXABLE_INC      (:,is,ib,t) = inc   ;
+                OPT.OASI_BENEFITS    (:,is,ib,t) = ssinc ;
+                OPT.ORD_LIABILITY    (:,is,ib,t) = pit   ;
+                OPT.PREF_LIABILITY   (:,is,ib,t) = cit   ;
+                OPT.PAYROLL_LIABILITY(:,is,ib,t) = sst   ;
                 
             else
                 % Working age person
@@ -352,19 +347,16 @@ for t = T_active:-1:1
                     [resources, inc, pit, sst, cit] = calculate_resources_(labinc);
 
                     % Record utility, decisions, and other values
-                    OPT.V      (iz,is,ib,t) = v;
-                    OPT.K      (iz,is,ib,t) = s;
-                    OPT.SAVINGS(iz,is,ib,t) = s;
-
-                    OPT.LAB(iz,is,ib,t)     = lab;
-                    OPT.B  (iz,is,ib,t)     = calculate_b_(labinc);
-                    
-                    OPT.INC(iz,is,ib,t)     = inc;
-                    OPT.PIT(iz,is,ib,t)     = pit;
-                    OPT.SST(iz,is,ib,t)     = sst;
-                    OPT.CIT(iz,is,ib,t)     = cit;
-                    OPT.BEN(iz,is,ib,t)     = 0  ;
-                    OPT.CON(iz,is,ib,t)     = resources - s; 
+                    OPT.V                (iz,is,ib,t) = v;
+                    OPT.LABOR            (iz,is,ib,t) = lab;
+                    OPT.SAVINGS          (iz,is,ib,t) = s;
+                    OPT.CONSUMPTION      (iz,is,ib,t) = resources - s; 
+                    OPT.AVG_EARNINGS     (iz,is,ib,t) = calculate_b_(labinc);                    
+                    OPT.TAXABLE_INC      (iz,is,ib,t) = inc;
+                    OPT.OASI_BENEFITS    (iz,is,ib,t) = 0  ;
+                    OPT.ORD_LIABILITY    (iz,is,ib,t) = pit;
+                    OPT.PREF_LIABILITY   (iz,is,ib,t) = cit;
+                    OPT.PAYROLL_LIABILITY(iz,is,ib,t) = sst;
                     
                 end
                 
@@ -537,7 +529,8 @@ function [resources, pit_inc, pit, sst, cit] ...
     capgain_taxrate = 0;
     prefinc = captax_share * equityfund_dividend;
     preftax = find_tax_liability( prefinc, cappref_brackets, cappref_burdens, cappref_rates );
-    cit     =  preftax + equitycapgain * capgain_taxrate;
+    cit     =  preftax;
+    % Since capgain_taxrate = 0, we don't add capgain_liability to cit series (capgain_liability = equitycapgain * capgain_taxrate)
 
     % Calculate available resources
     resources = equityfund_value + bondfund_value + passfund_value ...

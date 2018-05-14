@@ -444,14 +444,14 @@ classdef Scenario
             % in steady state, no time dimension and there are 4 columns
             % on transition path, a time dimension, and 5 columns
             if scenario.isSteady()
-                [productivity_index, savings_index, earnings_index, age_index] = ind2sub(size(OPTs.K), (1:numel(OPTs.K))');
+                [productivity_index, savings_index, earnings_index, age_index] = ind2sub(size(OPTs.SAVINGS), (1:numel(OPTs.SAVINGS))');
                 decision_index = [productivity_index, savings_index, earnings_index, age_index, zeros(size(age_index))];
             else
-                [productivity_index, savings_index, earnings_index, age_index, time_index] = ind2sub(size(OPTs.K), (1:numel(OPTs.K))');
+                [productivity_index, savings_index, earnings_index, age_index, time_index] = ind2sub(size(OPTs.SAVINGS), (1:numel(OPTs.SAVINGS))');
                 decision_index = [productivity_index, savings_index, earnings_index, age_index, time_index];
             end
 
-            decision_rules = [OPTs.CON(:), OPTs.K(:), OPTs.LAB(:), OPTs.B(:), OPTs.INC(:)];
+            decision_rules = [OPTs.CONSUMPTION(:), OPTs.SAVINGS(:), OPTs.LABOR(:), OPTs.AVG_EARNINGS(:), OPTs.TAXABLE_INC(:)];
 
             % melt productivity values
             productivity_values = ParamGenerator.grids(scenario).zs;

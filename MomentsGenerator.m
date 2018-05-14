@@ -74,17 +74,17 @@ classdef MomentsGenerator
             f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model]), [1,1,1,1,ng,1]);
             if ~exist('OPTs','var') || isempty(OPTs)
                 s        = load( fullfile(save_dir, 'decisions.mat' ) ); s = s.OPTs;
-                labinc   = f(s.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1]),[1,nk,nb,1,ng,T_model]) * wages;
-                k        = f(s.K);
-                this.ben = f(s.BEN);
-                this.lab = f(s.LAB);
-                this.con = f(s.CON);
+                labinc   = f(s.LABOR) .* repmat(reshape(zs, [nz,1,1,T_life,1,1]),[1,nk,nb,1,ng,T_model]) * wages;
+                k        = f(s.SAVINGS);
+                this.ben = f(s.OASI_BENEFITS);
+                this.lab = f(s.LABOR);
+                this.con = f(s.CONSUMPTION);
             else
-                labinc   = f(OPTs.LAB) .* repmat(reshape(zs, [nz,1,1,T_life,1,1]),[1,nk,nb,1,ng,T_model]) * wages;
-                k        = f(OPTs.K);
-                this.ben = f(OPTs.BEN);
-                this.lab = f(OPTs.LAB);
-                this.con = f(OPTs.CON);
+                labinc   = f(OPTs.LABOR) .* repmat(reshape(zs, [nz,1,1,T_life,1,1]),[1,nk,nb,1,ng,T_model]) * wages;
+                k        = f(OPTs.SAVINGS);
+                this.ben = f(OPTs.OASI_BENEFITS);
+                this.lab = f(OPTs.LABOR);
+                this.con = f(OPTs.CONSUMPTION);
             end
             labinc = labinc(:);  % Labor income
             k      = k     (:);  % Asset holdings for tomorrow (k')
