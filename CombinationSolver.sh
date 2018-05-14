@@ -5,7 +5,7 @@
 #$ -o /dev/null
 
 # Build mex functions and generate scenarios
-matlab -nodesktop -nosplash -r "PathFinder.setToProductionMode(), MexBuilder.all(), CombinationSolver.generateScenarios();"
+matlab -nodesktop -nosplash -r "MexBuilder.all(), PathFinder.setToProductionMode(), CombinationSolver.generateScenarios();"
 
 # Clear or create log directory
 LOGDIR='./Logs'
