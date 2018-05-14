@@ -224,7 +224,7 @@ methods (Static, Access = public)
     
     % Get output directory
     function [outputdir] = getCalibrationOutputDir()        , outputdir = PathFinder.getOutputDir('calibration' ); end
-    function [outputdir] = getDataSeriesOutputDir()         , outputdir = PathFinder.getOutputDir('dataseries'  ); end
+    function [outputdir] = getSeriesOutputDir()             , outputdir = PathFinder.getOutputDir('series'      ); end
     function [outputdir] = getTransitionMatrixOutputDir()   , outputdir = PathFinder.getOutputDir('transition'  ); end
     
     

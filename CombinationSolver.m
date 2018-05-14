@@ -1,5 +1,5 @@
 %%
-% Dynamic model combination solver and data series output generator.
+% Dynamic model combination solver and dynamic series generator.
 %
 %%
 classdef CombinationSolver
@@ -35,7 +35,7 @@ methods (Static)
         
         CombinationSolver.checkTerminations();
         
-        CombinationSolver.generateDataSeries();
+        CombinationSolver.generateSeries();
         
     end
     
@@ -181,7 +181,7 @@ methods (Static)
         map.Properties.DimensionNames = {'id', 'ScenarioParameters'};
         map.Properties.RowNames = arrayfun(@(i) sprintf('%u', i), 1:height(map), 'UniformOutput', false);
         
-        outputdir = PathFinder.getDataSeriesOutputDir();
+        outputdir = PathFinder.getSeriesOutputDir();
         if exist(outputdir, 'dir'), rmdir(outputdir, 's'), end, mkdir(outputdir)
         
         writetable(map, fullfile(outputdir, 'map.csv'), 'WriteRowNames', true);
@@ -342,11 +342,11 @@ methods (Static)
     
     
     
-    % Generate data series output
-    function [] = generateDataSeries()
+    % Generate dynamic series
+    function [] = generateSeries()
         
         % Identify data series output directory
-        outputdir = PathFinder.getDataSeriesOutputDir();
+        outputdir = PathFinder.getSeriesOutputDir();
         
         % Generate interface dependencies file
         fid = fopen(fullfile(outputdir, 'dependencies.csv'), 'w');
