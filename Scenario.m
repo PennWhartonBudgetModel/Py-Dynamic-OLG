@@ -163,7 +163,7 @@ classdef Scenario
                 end
                 this.counterdeftag = Scenario.compactifyTag( tag );
             end
-            this.comparisontag = strcat( this.basedeftag, this.counterdeftag );
+            this.comparisontag = strcat( this.basedeftag, this.counterdeftag, this.economy );
             this.economytag    = this.economy;
             if( ~strcmp( this.economy, 'steady' ) )
                 addyear             = num2str( this.TransitionLastYear );
