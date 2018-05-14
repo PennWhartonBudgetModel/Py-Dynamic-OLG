@@ -12,8 +12,8 @@ LOGDIR='./Logs'
 rm -rf ${LOGDIR}
 mkdir -p ${LOGDIR}
 
-# Specify bundle solution job execution queue, checking for presence of --aws flag ($2)
-QUEUE=$([ $# -gt 1 ] && [ $2 = "--aws" ]               \
+# Specify scenario job execution queue, checking for presence of --aws flag ($1)
+QUEUE=$([ $# -gt 0 ] && [ $1 = "--aws" ]               \
         && echo 'aws-ppi.q -l aws_ppi -P bepp_ppi_aws' \
         || echo 'short.q'                              )
 
