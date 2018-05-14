@@ -28,7 +28,7 @@ methods (Static)
         if ~exist('output_parameters', 'var'), output_parameters = []; end
         if ~exist('input_parameters' , 'var'), input_parameters  = []; end
         
-        [currentpolicys, counterfactuals] = CombinationSolver.generateScenarioSet(output_parameters, input_parameters);
+        [currentpolicys, counterfactuals] = CombinationSolver.generateScenarios(output_parameters, input_parameters);
         
         for i = 1:length(currentpolicys ), CombinationSolver.solveCurrentPolicy (i); end
         for i = 1:length(counterfactuals), CombinationSolver.solveCounterfactual(i); end
@@ -99,7 +99,7 @@ methods (Static)
     %     input_parameters.TaxCode = { 'CurrentPolicy' };
     %     input_parameters.TaxRate = { 0 };
     % 
-    function [currentpolicys, counterfactuals] = generateScenarioSet(output_parameters, input_parameters)
+    function [currentpolicys, counterfactuals] = generateScenarios(output_parameters, input_parameters)
         
         
         % Generate input sets using input interface map files, applying parameter value filters if specified
