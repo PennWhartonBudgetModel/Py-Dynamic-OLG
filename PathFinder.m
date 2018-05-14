@@ -228,14 +228,6 @@ methods (Static, Access = public)
     function [outputdir] = getTransitionMatrixOutputDir()   , outputdir = PathFinder.getOutputDir('transition'  ); end
     
     
-    
-    
-    % Get bundle directory
-    function [bundledir] = getBundleDir(bundle)
-        bundledir = fullfile(PathFinder.getComponentRootDir('Bundler'), 'Bundles', bundle);
-    end
-    
-    
 end
 
 
