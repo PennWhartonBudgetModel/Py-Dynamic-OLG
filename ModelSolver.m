@@ -402,10 +402,11 @@ methods (Static)
             end
             
             % Calculate static budgetary aggregate variables
-            [~, corpTaxs]  = theFirm.dividends( Static.caps', Static.investment', ...
-                                                Market.rhos', Market.wages'       ...
-                                               );
-            Static.corpTaxs = corpTaxs';
+            [corpDividends, corpTaxs]  = theFirm.dividends( Static.caps', Static.investment', ...
+                                                            Market.rhos', Market.wages'       ...
+                                                           );
+            Static.corpTaxs  = corpTaxs';
+            Static.dividends = corpDividends';
             Static.revs = Static.pits + Static.ssts + Static.cits + Static.corpTaxs;            
             
             % In general, we have:
@@ -671,10 +672,11 @@ methods (Static)
             % while closed economy requires the reverse)
             
             % Taxes
-            Dynamic.corpTaxs    = corpTaxs';
-            Dynamic.revs        = Dynamic.pits + Dynamic.ssts           ...
-                                  + Dynamic.cits + Dynamic.corpTaxs     ...
-                                  ;
+            Dynamic.corpDividends = corpDividends';
+            Dynamic.corpTaxs      = corpTaxs';
+            Dynamic.revs          = Dynamic.pits + Dynamic.ssts      ...
+                                  + Dynamic.cits + Dynamic.corpTaxs  ...
+                                   ;
                     
             switch economy
                 
