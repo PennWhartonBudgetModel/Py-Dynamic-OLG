@@ -397,14 +397,16 @@ methods (Static)
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
             
-            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'investment', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde', 'corpTaxs' }
+            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'investment', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde' }
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
-
+            
             % Calculate static budgetary aggregate variables
-            Static.revs          = Static.pits + Static.ssts        ... 
-                                    + Static.cits + Static.corpTaxs ...
-                                    ;            
+            [~, corpTaxs]  = theFirm.dividends( Static.caps', Static.investment', ...
+                                                Market.rhos', Market.wages'       ...
+                                               );
+            Static.corpTaxs = corpTaxs';
+            Static.revs = Static.pits + Static.ssts + Static.cits + Static.corpTaxs;            
             
             % In general, we have:
             % Static.debts = Static.debts_domestic + Static.debts_foreign;
@@ -414,7 +416,6 @@ methods (Static)
             % tax policy, which implies the equality above no longer holds.
             % Notice that debts is a combination of the actual static debts and
             % the residual mismatch from markets not clearing
-
             Static.debts = [Dynamic_base.debts(1), zeros(1,T_model-1)];
             for year = 1:T_model-1
                 Static.debts(year+1)    = Static.Gtilde(year) + Static.bens(year)   ...
