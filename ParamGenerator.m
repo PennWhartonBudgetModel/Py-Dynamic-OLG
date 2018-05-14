@@ -75,7 +75,7 @@ methods (Static)
         
         % Life-cycle productivity from Conesa et al. 2017 - average for healthy workers
         filename  = fullfile(PathFinder.getMicrosimInputDir(), 'ConesaEtAl_WageAgeProfile.csv' );
-        series    = read_series(filename, 'Age', 1 + timing.realage_entry, []);
+        series    = InputReader.read_series(filename, 'Age', 1 + timing.realage_entry, []);
         zage      = series.Wage;
         
         % Calculate total productivity
@@ -207,8 +207,8 @@ methods (Static)
         
         % Find tax plan ID corresponding to scenario tax parameters
         taxplanmapfile = fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv');
-        taxplanid   = find_policy_id(taxplanmapfile, scenario                         , {'TaxCode'}, 'ID');
-        sstaxplanid = find_policy_id(taxplanmapfile, scenario.steady().currentPolicy(), {'TaxCode'}, 'ID');
+        taxplanid   = InputReader.find_policy_id(taxplanmapfile, scenario                         , {'TaxCode'}, 'ID');
+        sstaxplanid = InputReader.find_policy_id(taxplanmapfile, scenario.steady().currentPolicy(), {'TaxCode'}, 'ID');
                 
         T_model                 = timing.T_model;
         switch scenario.economy
@@ -221,7 +221,7 @@ methods (Static)
         end    
         
         file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('OrdinaryRates_', taxplanid, '.csv' ));
-        [brackets, rates] = read_brackets_rates_indices(file, first_year, T_model);
+        [brackets, rates] = InputReader.read_brackets_rates_indices(file, first_year, T_model);
         
         % TBD: This should be done in ModelSolver as for SocialSecurity
         % Calculate cumulative tax burdens along brackets dimension
@@ -236,7 +236,7 @@ methods (Static)
         % Get the capital and tax treatment allocation params. 
         %    Rem: These are time-varying, so read results are vectors.
         file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('CapitalTaxes_', taxplanid, '.csv'));
-        tax_vars = read_series(file, 'year', first_year, last_year);
+        tax_vars = InputReader.read_series(file, 'year', first_year, last_year);
         
         % Portion of corporate income taxed at preferred rates
         %   TBD: Fix this when John R. gives new inputs
@@ -253,7 +253,7 @@ methods (Static)
         
         % Read Preferred Rates
         file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('PreferredRates_', taxplanid, '.csv'));
-        [brackets, rates] = read_brackets_rates_indices(file, first_year, T_model);
+        [brackets, rates] = InputReader.read_brackets_rates_indices(file, first_year, T_model);
         
         % TBD: This should be done in ModelSolver as for SocialSecurity
         % Calculate cumulative tax burdens along brackets dimension
@@ -283,7 +283,7 @@ methods (Static)
             otherwise
                 % Read tax params from steady-state, current-policy to make t=0 values
                 file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('CapitalTaxes_', sstaxplanid, '.csv'));
-                sstax_vars = read_series(file, 'year', first_year - 1, first_year - 1);
+                sstax_vars = InputReader.read_series(file, 'year', first_year - 1, first_year - 1);
 
                 s.qtobin0   = 1 - sstax_vars.shareCapitalExpensing(1) * sstax_vars.rateCorporate(1);
                 s.qtobin    = 1 - tax_vars.shareCapitalExpensing .* s.rateCorporate;
@@ -325,14 +325,14 @@ methods (Static)
         timing    = ParamGenerator.timing( scenario );
         
         filename  = fullfile( PathFinder.getMicrosimInputDir(), 'SurvivalProbability.csv' );
-        series    = read_series( filename, 'Age', 1 + timing.realage_entry, [] );
+        series    = InputReader.read_series( filename, 'Age', 1 + timing.realage_entry, [] );
         survival  = series.SurvivalProbability;
         if( length(survival) ~= timing.T_life )
             throw(MException('timing:survival','Survival probabilities must exist for every age.'));
         end
         
         filename  = fullfile( PathFinder.getMicrosimInputDir(), 'ImmigrantAgeDistribution.csv' );
-        series    = read_series( filename, 'Age', 1 + timing.realage_entry, [] );
+        series    = InputReader.read_series( filename, 'Age', 1 + timing.realage_entry, [] );
         imm_age   = series.ImmigrantAgeDistribution;
         if( length(imm_age) ~= timing.T_life )
             throw(MException('timing:imm_age','Immigrant age distributions must exist for every age.'));
@@ -382,7 +382,7 @@ methods (Static)
         s.taxcredit = 0.15;     % Benefit tax credit percentage
 
         % Get OASIcalculator scenario ID
-        id = find_policy_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario, {
+        id = InputReader.find_policy_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario, {
             'TaxRate', 'TaxMax', 'DonutHole', 'COLA', 'PIA', 'NRA', 'CreditEarningsAboveTaxMax', 'FirstYear', 'GradualChange'
         }, 'id_OASIcalculator');
         
@@ -393,13 +393,13 @@ methods (Static)
             case 'steady'
                 first_year   = first_transition_year - 1;
                 survivalprob = ParamGenerator.demographics(scenario).surv;
-                series       = read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry), [] );
+                series       = InputReader.read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry), [] );
                 T_works      = round(series.NRA);
                 mass         = ones(T_life,1); for i = 2:T_life; mass(i) = mass(i-1)*survivalprob(i-1); end
                 T_works      = round(sum((mass.*T_works(1:T_life))/sum(mass))) - realage_entry;
             case {'open', 'closed'}
                 first_year   = first_transition_year;
-                series       = read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry), [] );
+                series       = InputReader.read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry), [] );
                 T_works      = round(series.NRA);
                 T_works      = T_works(1:nstartyears) - realage_entry;
         end
@@ -417,7 +417,7 @@ methods (Static)
         %   Calculate cumulative liability to speed up calculation 
         %   Convert from US dollars to modelunit dollars
         file = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('TaxParameters_', id, '.csv' ));
-        [brackets, rates, indices] = read_brackets_rates_indices(file, first_year, T_model);
+        [brackets, rates, indices] = InputReader.read_brackets_rates_indices(file, first_year, T_model);
         
         if( size(indices,2) ~= size(brackets,2) )
             throw(MException('social_security:TAXBRACKETS','SSTaxBrackets and BracketsIndexes must have same number of brackets.'));
@@ -431,7 +431,7 @@ methods (Static)
         
         % Get range of income which is credited toward benefit calculation
         file = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('BenefitParameters_', id, '.csv' ));
-        [brackets] = read_brackets_rates_indices(file, first_year, T_model);
+        [brackets] = InputReader.read_brackets_rates_indices(file, first_year, T_model);
         
         s.ssincmins = (brackets(:, 1) * scenario.modelunit_dollar)';
         s.ssincmaxs = (brackets(:, 2) * scenario.modelunit_dollar)';
@@ -442,7 +442,7 @@ methods (Static)
         first_birthyear = first_year - (T_life + realage_entry);
         
         file = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('PIAParameters_', id, '.csv' ));
-        [brackets, rates] = read_brackets_rates_indices(file, first_birthyear, nstartyears);
+        [brackets, rates] = InputReader.read_brackets_rates_indices(file, first_birthyear, nstartyears);
         
         s.startyear_benefitbrackets   = 12*scenario.modelunit_dollar*brackets;
         s.startyear_benefitrates      = rates;
@@ -469,22 +469,22 @@ methods (Static)
         
         
         projections_file = fullfile(PathFinder.getProjectionsInputDir(), 'Projections.csv');
-        projections_series      = read_series(projections_file, 'Year', first_year               , last_year                );
-        projections_past_series = read_series(projections_file, 'Year', first_transition_year - 1, first_year               );
-        projections_debt_series = read_series(projections_file, 'Year', first_transition_year - 1, first_transition_year - 1);
-        projections_full_series = read_series(projections_file, 'Year', first_year               , []                       );
+        projections_series      = InputReader.read_series(projections_file, 'Year', first_year               , last_year                );
+        projections_past_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, first_year               );
+        projections_debt_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, first_transition_year - 1);
+        projections_full_series = InputReader.read_series(projections_file, 'Year', first_year               , []                       );
         
-        taxcalculator_id = find_policy_id(fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv'), scenario, {'TaxCode'}, 'ID');
+        taxcalculator_id = InputReader.find_policy_id(fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv'), scenario, {'TaxCode'}, 'ID');
         taxcalculator_file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('Aggregates_', taxcalculator_id, '.csv'));
-        taxcalculator_series      = read_series(taxcalculator_file, 'Year', first_year               , last_year );
-        taxcalculator_past_series = read_series(taxcalculator_file, 'Year', first_transition_year - 1, first_year);
+        taxcalculator_series      = InputReader.read_series(taxcalculator_file, 'Year', first_year               , last_year );
+        taxcalculator_past_series = InputReader.read_series(taxcalculator_file, 'Year', first_transition_year - 1, first_year);
         
-        oasicalculator_id = find_policy_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario, {
+        oasicalculator_id = InputReader.find_policy_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario, {
             'TaxRate', 'TaxMax', 'DonutHole', 'COLA', 'PIA', 'NRA', 'CreditEarningsAboveTaxMax', 'FirstYear', 'GradualChange'
         }, 'id_OASIcalculator');
         oasicalculator_file = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('aggregate_', oasicalculator_id, '.csv'));
-        oasicalculator_series      = read_series(oasicalculator_file, 'year', first_year               , last_year );
-        oasicalculator_past_series = read_series(oasicalculator_file, 'year', first_transition_year - 1, first_year);
+        oasicalculator_series      = InputReader.read_series(oasicalculator_file, 'year', first_year               , last_year );
+        oasicalculator_past_series = InputReader.read_series(oasicalculator_file, 'year', first_transition_year - 1, first_year);
         
         f_revenues = @(t, o) ...
             ...
@@ -679,163 +679,4 @@ end % methods
 end % class ParamGenerator
 
 
-
-%%
-%  Helper function to find a policy ID corresponding to a given scenario's parameter values
-%        mapfile     : Name of map file mapping parameter values to policy IDs
-%        scenario    : Scenario of interest
-%        matchparams : Cell array of parameter names identifying parameters to use for matching
-%        idcolumn    : Name of map file column containing policy IDs
-function [id] = find_policy_id(mapfile, scenario, matchparams, idcolumn)
-    
-    % Load plan ID map from input directory
-    map = table2struct(readtable(mapfile));
-    
-    % Identify policies with parameter values matching scenario parameter values
-    match = arrayfun( ...
-        @(row) all(cellfun( ...
-            @(param) isequal(scenario.(param), row.(param)), ...
-            matchparams) ...
-        ), ...
-        map ...
-    );
-    
-    % Check for singular match
-    assert(sum(match) > 0, 'No ID found with parameter values matching scenario parameter values.'           );
-    assert(sum(match) < 2, 'More than one ID found with parameter values matching scenario parameter values.');
-    
-    % Extract ID of matching plan
-    id = num2str(map(match).(idcolumn));
-    
-end %find_policy_id
-
-
-%%
-%  Helper function to read CSV file with format:
-%     Header has variable names, then one row of values
-function [vars] = read_vars( filename )
-
-    warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
-    warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
-    
-    if ~exist(filename, 'file')
-        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
-        throw(MException('read_vars:FILENAME', err_msg ));
-    end;
-        
-    T           = readtable( filename );
-    vars        = table2struct(T);
-
-end % read_vars()
-
-
-%%
-%  Helper function to read CSV files with format: 
-%    (Year), (Bracket1), ... (BracketN), (Rate1), ... (RateN)
-%    filename     : fullfile of CSV to read
-%    first_year   : don't read years before this param
-%    T_years      : read this many years 
-function [brackets, rates, indices] = read_brackets_rates_indices(filename, first_year, T_years)
-
-    warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
-    warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
-
-    if ~exist(filename, 'file')
-        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
-        throw(MException('read_brackets_rates:FILENAME', err_msg ));
-    end
-        
-    T = readtable(filename);
-    
-    % Find first year
-    years       = table2array(T(:,1));
-    year_start  = find( years == first_year, 1);
-    if( isempty(year_start) )
-        throw(MException('read_brackets_rates:FIRSTINDEX','Cannot find first index (%u) in file (%s).', first_year, filename));
-    end    
-    
-    % Find all brackets, rates, and indices
-    brackets = table2array(T(year_start:end, contains(T.Properties.VariableNames, 'Bracket')));
-    rates    = table2array(T(year_start:end, contains(T.Properties.VariableNames, 'Rate'   )));
-    indices  = table2array(T(1             , contains(T.Properties.VariableNames, 'Index'  )));
-    
-    % Enforce that first bracket must be zero.
-    % If there are no brackets, make all zeros brackets
-    if( isempty(brackets) )
-        brackets = zeros(size(rates));
-    end
-    if( all(brackets(:,1)) > 0 )
-        err_msg = strcat('First bracket must be 0 in file ', strrep(filepath, '\', '\\'));
-        throw(MException('read_brackets_rates:BRACKET0', err_msg ));
-    end
-    
-    % Pad brackets and rates if not long enough, truncate if too long
-    num_years = size(brackets,1);
-    if( T_years - num_years <= 0 )
-        brackets    = brackets(1:T_years,:);
-        rates       = rates(1:T_years,:);
-    else
-        brackets    = [brackets; ...
-            repmat(brackets(end,:)  , [T_years-num_years, 1])   ];
-        rates       = [rates; ...
-            repmat(rates(end,:)     , [T_years-num_years, 1])   ];
-    end
-    
-end % read_brackets_rates_indices()
-
-
-%%
-% Read a CSV file in format
-%    header: IndexName, VarName1, VarName2, ... VarNameN
-%    data  : (Index)  , (Value1), (Value2), ... (ValueN)
-%       index_name      : string name of index variable -- i.e. IndexName
-%       first_index     : first index to read (previous part of file is ignored
-%       last_index      : (optional) If given, copy the last available
-%                       value so that series goes from first_index ...
-%                       last_index. If the original series is too long,
-%                       truncate.
-%    For time series, (Index) is (Year), 
-function [series] = read_series(filename, index_name, first_index, last_index )
-
-    warning( 'off', 'MATLAB:table:ModifiedVarnames' );          % for 2016b
-    warning( 'off', 'MATLAB:table:ModifiedAndSavedVarnames' );  % for 2017a
- 
-    % Check if file exists 
-    if ~exist(filename, 'file')
-        err_msg = strcat('Cannot find file = ', strrep(filename, '\', '\\'));
-        throw(MException('read_series:FILENAME', err_msg ));
-    end
-        
-    T = readtable(filename, 'TreatAsEmpty', {'NA'});
-    
-    idx_drop    = ( T.(index_name) < first_index );
-    if( all(idx_drop) )
-        throw(MException('read_series:FIRSTINDEX','Cannot find first index in file.'));
-    end
-    
-    % Remove unused table rows
-    T( idx_drop, : ) = [];
-    
-    if( ~isempty(last_index) )
-        % Truncate if needed
-        idx_drop = ( T.(index_name) > last_index );
-        T( idx_drop, : ) = [];
-        
-        % Pad if needed 
-        num_add  = last_index - T.(index_name)(end);
-        if( num_add > 0 )
-            T    = [T; repmat(T(end,:), [num_add, 1])];
-        end
-    end
-    
-    series = table2struct( T, 'ToScalar', true );
-    
-    % Do not return index column
-    series = rmfield( series, index_name );
- 
-end % read_series
-
-
-
 %%  END FILE
-
