@@ -7,7 +7,16 @@ classdef ModelSolver
 methods (Static)
 
     % Solve dynamic model
-    function [save_dir] = solve(scenario, callertag) %#ok<*FXUP>
+    function [save_dir] = solve(scenario, callertag, resolve) %#ok<*FXUP>
+        
+        % Identify working directory
+        save_dir = PathFinder.getWorkingDir(scenario);
+        
+        % Return if scenario already solved and resolve flag not set
+        if scenario.isSolved() && (~exist('resolve', 'var') || isempty(resolve) || ~resolve)
+            fprintf('Scenario already solved.\n');
+            return
+        end
         
         if ~exist('callertag' , 'var'), callertag  = ''; end
         economy = scenario.economy;
@@ -28,9 +37,6 @@ methods (Static)
         prem_legal          = scenario.prem_legal       ;
         amnesty             = scenario.amnesty          ;
         deportation         = scenario.deportation      ;
-        
-        % Identify working directory
-        save_dir = PathFinder.getWorkingDir(scenario);
         
         % Append caller tag to save directory name and generate calling tag
         %   Obviates conflicts between parallel solver calls
@@ -493,7 +499,7 @@ methods (Static)
                     Gtilde = budget.outlays_by_GDP     .* Dynamic_base.outs            ...
                              - Static.bens;
                     Ttilde = budget.tax_revenue_by_GDP .* Dynamic_base.outs            ...
-                             - Static.pits - Static.ssts - Static.cits - Static.corpTaxs; 
+                             - Static.revs; 
                     
                 end
                 
@@ -704,9 +710,6 @@ methods (Static)
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.caprates .* Dynamic.caps;
                     
-                    Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
-                    Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
-                    
                     % Proxy for gross investment in physical capital
                     DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
                     assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.SAVINGS, [], T_model), 1), 3);
@@ -736,7 +739,7 @@ methods (Static)
                         Gtilde = budget.outlays_by_GDP     .*Dynamic.outs              ...
                                  - Dynamic.bens;
                         Ttilde = budget.tax_revenue_by_GDP .*Dynamic.outs              ...
-                                 - Dynamic.pits - Dynamic.ssts - Dynamic.cits - Dynamic.corpTaxs;
+                                 - Dynamic.revs;
                     end
                     
                     Dynamic.debts = [budget.debttoout*Dynamic0.outs, zeros(1,T_model-1)];
@@ -758,9 +761,6 @@ methods (Static)
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.caprates .* Dynamic.caps;
-                    
-                    Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
-                    Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Gross investment in physical capital
                     %   T_model investment converges to final steady
@@ -813,9 +813,6 @@ methods (Static)
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.caprates .* Dynamic.caps;
-                    
-                    Dynamic.labpits = Dynamic.pits .* Dynamic.labincs ./ Dynamic.incs;
-                    Dynamic.caprevs = Dynamic.cits + Dynamic.pits - Dynamic.labpits;
                     
                     % Gross investment in physical capital
                     %   T_model investment eventually converges to final steady
@@ -948,8 +945,15 @@ methods (Static)
                 
         end
         
-        % Release MEX file to avoid locks.
-        clear mex;
+        
+        %%
+        
+        % Create completion indicator file
+        fclose(fopen(fullfile(save_dir, 'solved'), 'w'));
+        
+        % Release MEX file to avoid locks
+        clear mex; %#ok<CLMEX>
+        
     end % solve
     
 end % methods
