@@ -3,33 +3,39 @@ classdef InputReader
 methods (Static)
     
     %%
-    %  Helper function to find a policy ID corresponding to a given scenario's parameter values
-    %        mapfile     : Name of map file mapping parameter values to policy IDs
-    %        scenario    : Scenario of interest
-    %        matchparams : Cell array of parameter names identifying parameters to use for matching
-    %        idcolumn    : Name of map file column containing policy IDs
-    function [id] = find_policy_id(mapfile, scenario, matchparams, idcolumn)
+    %  Helper function to find input scenario ID corresponding to dynamic model scenario
+    function [id] = find_input_scenario_id(mapfile, dynamic_model_scenario)
         
-        % Load plan ID map from input directory
-        map = table2struct(readtable(mapfile));
+        % Load mapping table from file
+        map = readtable(mapfile, 'ReadRowNames', true);
         
-        % Identify policies with parameter values matching scenario parameter values
+        % Specify input parameters to use for matching
+        %   Assumes a 1-to-1 relationship between input parameters and identically named dynamic model scenario properties
+        matchparams = { ...
+            'TaxCode', ...
+            'TaxRate', 'TaxMax', 'DonutHole', 'COLA', 'PIA', 'NRA', 'CreditEarningsAboveTaxMax', 'FirstYear', 'GradualChange' ...
+        };
+        
+        % Filter input parameters for those present in mapping table
+        matchparams = matchparams(cellfun(@(param) any(strcmp(param, map.Properties.VariableNames)), matchparams));
+        
+        % Identify matching input scenarios
         match = arrayfun( ...
-            @(row) all(cellfun( ...
-                @(param) isequal(scenario.(param), row.(param)), ...
-                matchparams) ...
-            ), ...
-            map ...
+            @(input_scenario) all(cellfun( ...
+                @(param) isequal(dynamic_model_scenario.(param), input_scenario.(param)), ...
+                matchparams ...
+            )), ...
+            table2struct(map) ...
         );
         
         % Check for singular match
-        assert(sum(match) > 0, 'No ID found with parameter values matching scenario parameter values.'           );
-        assert(sum(match) < 2, 'More than one ID found with parameter values matching scenario parameter values.');
-
-        % Extract ID of matching plan
-        id = num2str(map(match).(idcolumn));
+        assert(sum(match) > 0, 'No input scenario found corresponding to dynamic model scenario.'           );
+        assert(sum(match) < 2, 'More than one input scenario found corresponding to dynamic model scenario.');
         
-    end %find_policy_id
+        % Extract ID of matching input scenario
+        id = map.Properties.RowNames{match};
+        
+    end
     
     
     %%

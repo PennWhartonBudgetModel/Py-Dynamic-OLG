@@ -207,8 +207,8 @@ methods (Static)
         
         % Find tax plan ID corresponding to scenario tax parameters
         taxplanmapfile = fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv');
-        taxplanid   = InputReader.find_policy_id(taxplanmapfile, scenario                         , {'TaxCode'}, 'ID');
-        sstaxplanid = InputReader.find_policy_id(taxplanmapfile, scenario.steady().currentPolicy(), {'TaxCode'}, 'ID');
+        taxplanid   = InputReader.find_input_scenario_id(taxplanmapfile, scenario                         );
+        sstaxplanid = InputReader.find_input_scenario_id(taxplanmapfile, scenario.steady().currentPolicy());
                 
         T_model                 = timing.T_model;
         switch scenario.economy
@@ -382,9 +382,7 @@ methods (Static)
         s.taxcredit = 0.15;     % Benefit tax credit percentage
 
         % Get OASIcalculator scenario ID
-        id = InputReader.find_policy_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario, {
-            'TaxRate', 'TaxMax', 'DonutHole', 'COLA', 'PIA', 'NRA', 'CreditEarningsAboveTaxMax', 'FirstYear', 'GradualChange'
-        }, 'id_OASIcalculator');
+        id = InputReader.find_input_scenario_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario);
         
         % Get T_works (retirement ages)
         nrafile = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('retirementAges_', id, '.csv'));
@@ -474,14 +472,12 @@ methods (Static)
         projections_debt_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, first_transition_year - 1);
         projections_full_series = InputReader.read_series(projections_file, 'Year', first_year               , []                       );
         
-        taxcalculator_id = InputReader.find_policy_id(fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv'), scenario, {'TaxCode'}, 'ID');
+        taxcalculator_id = InputReader.find_input_scenario_id(fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv'), scenario);
         taxcalculator_file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('Aggregates_', taxcalculator_id, '.csv'));
         taxcalculator_series      = InputReader.read_series(taxcalculator_file, 'Year', first_year               , last_year );
         taxcalculator_past_series = InputReader.read_series(taxcalculator_file, 'Year', first_transition_year - 1, first_year);
         
-        oasicalculator_id = InputReader.find_policy_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario, {
-            'TaxRate', 'TaxMax', 'DonutHole', 'COLA', 'PIA', 'NRA', 'CreditEarningsAboveTaxMax', 'FirstYear', 'GradualChange'
-        }, 'id_OASIcalculator');
+        oasicalculator_id = InputReader.find_input_scenario_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario);
         oasicalculator_file = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('aggregate_', oasicalculator_id, '.csv'));
         oasicalculator_series      = InputReader.read_series(oasicalculator_file, 'year', first_year               , last_year );
         oasicalculator_past_series = InputReader.read_series(oasicalculator_file, 'year', first_transition_year - 1, first_year);

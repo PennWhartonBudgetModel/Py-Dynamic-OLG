@@ -451,13 +451,11 @@ methods (Static)
                 projections_file = fullfile(PathFinder.getProjectionsInputDir(), 'Projections.csv');
                 static_series.projections = InputReader.read_series(projections_file, 'Year', first_year, last_year);
                 
-                taxcalculator_id = InputReader.find_policy_id(fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv'), scenario, {'TaxCode'}, 'ID');
+                taxcalculator_id = InputReader.find_input_scenario_id(fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv'), scenario);
                 taxcalculator_file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('Aggregates_', taxcalculator_id, '.csv'));
                 static_series.taxcalculator = InputReader.read_series(taxcalculator_file, 'Year', first_year, last_year);
                 
-                oasicalculator_id = InputReader.find_policy_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario, {
-                    'TaxRate', 'TaxMax', 'DonutHole', 'COLA', 'PIA', 'NRA', 'CreditEarningsAboveTaxMax', 'FirstYear', 'GradualChange'
-                }, 'id_OASIcalculator');
+                oasicalculator_id = InputReader.find_input_scenario_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario);
                 oasicalculator_file = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('aggregate_', oasicalculator_id, '.csv'));
                 static_series.oasicalculator = InputReader.read_series(oasicalculator_file, 'year', first_year, last_year);
                 
