@@ -189,7 +189,7 @@ for t = T_active:-1:1
             if (age > T_work)
                 
                 % Labor and income
-                lab     = 0;
+                labor   = 0;
                 labinc  = 0;
                 ssinc   = ssbenefit(ib);
                 
@@ -203,7 +203,7 @@ for t = T_active:-1:1
                 bondfund_dividend   = bondfund_value    * bondfund_dividendrate;
                 
                 % Calculate available resources and tax terms
-                [resources, inc, pit, sst, cit] = calculate_resources( ...
+                [resources, taxable_inc, ord_liability, payroll_liability, pref_liability] = calculate_resources( ...
                     labinc, ssinc, ...
                     passfund_value, equityfund_value, bondfund_value, ...
                     passfund_dividend, equityfund_dividend, bondfund_dividend, ...
@@ -243,24 +243,24 @@ for t = T_active:-1:1
                     
                 else % STATIC
                     
-                    s   = saving_static(1,is,ib,t);  % First dimension is productivity shock (doesn't matter for retirees)
-                    lab = 0;
-                    v   = NaN;                       % Utility is not properly defined since consumption can be negative
+                    s     = saving_static(1,is,ib,t);  % First dimension is productivity shock (doesn't matter for retirees)
+                    labor = 0;
+                    v     = NaN;                       % Utility is not properly defined since consumption can be negative
                     
                     
                 end
                 
                 % Record utility, decisions, and other values
                 OPT.V                (:,is,ib,t) = v;
-                OPT.LABOR            (:,is,ib,t) = lab;
+                OPT.LABOR            (:,is,ib,t) = labor;
                 OPT.SAVINGS          (:,is,ib,t) = s;
                 OPT.CONSUMPTION      (:,is,ib,t) = resources - s; 
                 OPT.AVG_EARNINGS     (:,is,ib,t) = bv(ib);
-                OPT.TAXABLE_INC      (:,is,ib,t) = inc   ;
+                OPT.TAXABLE_INC      (:,is,ib,t) = taxable_inc;
                 OPT.OASI_BENEFITS    (:,is,ib,t) = ssinc ;
-                OPT.ORD_LIABILITY    (:,is,ib,t) = pit   ;
-                OPT.PREF_LIABILITY   (:,is,ib,t) = cit   ;
-                OPT.PAYROLL_LIABILITY(:,is,ib,t) = sst   ;
+                OPT.ORD_LIABILITY    (:,is,ib,t) = ord_liability   ;
+                OPT.PREF_LIABILITY   (:,is,ib,t) = pref_liability   ;
+                OPT.PAYROLL_LIABILITY(:,is,ib,t) = payroll_liability   ;
                 
             else
                 % Working age person
@@ -309,8 +309,8 @@ for t = T_active:-1:1
                         EV = surv(age)*beta*reshape(sum(repmat(transz(iz,:,age)', [1,ns,nb]) .* V_step, 1), [ns,nb]);
                         
                         % Solve dynamic optimization subproblem
-                        lab0 = 0.5;
-                        s0   = max(sv(is), min(sv(end), 0.1 * wage_eff * lab0));   % Assumes taxation will not exceed 90% of labor income and at the same time forces k to be in the grid
+                        labor0 = 0.5;
+                        s0   = max(sv(is), min(sv(end), 0.1 * wage_eff * labor0));   % Assumes taxation will not exceed 90% of labor income and at the same time forces k to be in the grid
                         
                         [x, v] = fminsearch( ...
                             @(x) value_working( ...
@@ -319,11 +319,11 @@ for t = T_active:-1:1
                                 bequest_p_1, bequest_p_2, bequest_p_3, ...
                                 sigma, gamma, ...
                                 calculate_b_, calculate_resources_ ...
-                            ), [s0, lab0], optim_options ...
+                            ), [s0, labor0], optim_options ...
                         );
                         
-                        s   = x(1);
-                        lab = x(2);       
+                        s     = x(1);
+                        labor = x(2);       
                         
                         % Checks -> only work in the absence of mex file!
                         assert( ~isinf(v)   , 'v is inf')
@@ -336,27 +336,27 @@ for t = T_active:-1:1
                         
                     else   % STATIC
                         
-                        s   = saving_static(iz,is,ib,t);
-                        lab = LAB_static(iz,is,ib,t);
-                        v   = NaN;                       % Utility is not properly defined since consumption can be negative
+                        s     = saving_static(iz,is,ib,t);
+                        labor = LAB_static(iz,is,ib,t);
+                        v     = NaN;                       % Utility is not properly defined since consumption can be negative
                         
                     end
                     
                     % Calculate resources
-                    labinc      = wage_eff * lab;
-                    [resources, inc, pit, sst, cit] = calculate_resources_(labinc);
+                    labinc      = wage_eff * labor;
+                    [resources, taxable_inc, ord_liability, payroll_liability, pref_liability] = calculate_resources_(labinc);
 
                     % Record utility, decisions, and other values
                     OPT.V                (iz,is,ib,t) = v;
-                    OPT.LABOR            (iz,is,ib,t) = lab;
+                    OPT.LABOR            (iz,is,ib,t) = labor;
                     OPT.SAVINGS          (iz,is,ib,t) = s;
                     OPT.CONSUMPTION      (iz,is,ib,t) = resources - s; 
                     OPT.AVG_EARNINGS     (iz,is,ib,t) = calculate_b_(labinc);                    
-                    OPT.TAXABLE_INC      (iz,is,ib,t) = inc;
+                    OPT.TAXABLE_INC      (iz,is,ib,t) = taxable_inc;
                     OPT.OASI_BENEFITS    (iz,is,ib,t) = 0  ;
-                    OPT.ORD_LIABILITY    (iz,is,ib,t) = pit;
-                    OPT.PREF_LIABILITY   (iz,is,ib,t) = cit;
-                    OPT.PAYROLL_LIABILITY(iz,is,ib,t) = sst;
+                    OPT.ORD_LIABILITY    (iz,is,ib,t) = ord_liability;
+                    OPT.PREF_LIABILITY   (iz,is,ib,t) = pref_liability;
+                    OPT.PAYROLL_LIABILITY(iz,is,ib,t) = payroll_liability;
                     
                 end
                 
@@ -491,7 +491,7 @@ end
 
 
 % Resource and tax calculation function
-function [resources, pit_inc, pit, sst, cit] ...
+function [resources, pit_inc, ord_liability, payroll_liability, pref_liability] ...
     = calculate_resources( ...
         labinc, ssinc, ...
         passfund_value, equityfund_value, bondfund_value, ...
@@ -520,24 +520,25 @@ function [resources, pit_inc, pit, sst, cit] ...
           + (1 - pit_sscredit)*ssinc ...
           + labinc ...
           );
-    pit = find_tax_liability( pit_inc, pit_brackets, pit_burdens, pit_rates );
+    ord_liability = find_tax_liability( pit_inc, pit_brackets, pit_burdens, pit_rates );
 
     % Calculate Social Security tax from wage income
-    sst = find_tax_liability( labinc, sst_brackets, sst_burdens, sst_rates );
+    payroll_liability = find_tax_liability( labinc, sst_brackets, sst_burdens, sst_rates );
 
     % Calculate preferred rates tax 
     capgain_taxrate = 0;
     prefinc = captax_share * equityfund_dividend;
     preftax = find_tax_liability( prefinc, cappref_brackets, cappref_burdens, cappref_rates );
-    cit     =  preftax;
-    % Since capgain_taxrate = 0, we don't add capgain_liability to cit series (capgain_liability = equitycapgain * capgain_taxrate)
+    pref_liability     =  preftax;
+    % Since capgain_taxrate = 0, we don't add capgain_liability to any liability series
+    % capgain_liability = equitycapgain * capgain_taxrate
 
     % Calculate available resources
     resources = equityfund_value + bondfund_value + passfund_value ...
                 + equitycapgain ...
                 + equityfund_dividend + bondfund_dividend + passfund_dividend ...
                 + labinc + ssinc ...
-                - (pit + sst + cit) ...
+                - (ord_liability + payroll_liability + pref_liability) ...
                 + beq;
 
 end
