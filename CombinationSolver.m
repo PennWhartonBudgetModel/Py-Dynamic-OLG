@@ -42,7 +42,7 @@ methods (Static)
     
     
     
-    % Convert an output scenario, represented as a structure, into a dynamic model scenario
+    % Convert an output scenario, represented as a structure, into an executable scenario
     function [scenario] = convertOutputScenario(s)
         
         % Identify economy openness, specifying closed economy for partially open economies to generate both open and closed economies
@@ -87,13 +87,17 @@ methods (Static)
     
     
     
-    % Generate set of executable scenarios
+    % Generate output scenarios and executable scenarios
     % 
-    %   output_parameters.OpenEconomy     = { 0.0, 0.5, 1.0 };
-    %   output_parameters.LaborElasticity = { 0.25, 0.75 };
+    %   output_parameters specify scenario combinatorics to be applied by DynamicModel
     % 
-    %   input_parameters.TaxCode = { 'CurrentPolicy' };
-    %   input_parameters.TaxRate = { 0 };
+    %     output_parameters.OpenEconomy     = { 0.0, 0.5, 1.0 };
+    %     output_parameters.LaborElasticity = { 0.25, 0.75 };
+    % 
+    %   input_parameters specify filtering on scenario combinatorics provided by input interfaces
+    % 
+    %     input_parameters.TaxCode = { 'CurrentPolicy' };
+    %     input_parameters.TaxRate = { 0 };
     % 
     function [currentpolicys, counterfactuals] = generateScenarioSet(output_parameters, input_parameters)
         
@@ -107,7 +111,7 @@ methods (Static)
             map_ = readtable(mapfile);
             map_.Properties.VariableNames{idcolumn} = ['id_', tag];
             input_s  = table2struct(map_)';
-
+            
             if exist('input_filters', 'var') && ~isempty(input_parameters)
                 for o_ = fieldnames(input_parameters)'
                     if ischar(input_parameters.(o_{1}){1})
@@ -187,7 +191,7 @@ methods (Static)
         % Define function to remove empty entries from a cell array
         compress = @(c) c(~cellfun(@isempty, c));
                 
-        % Convert output scenarios to dynamic model scenarios
+        % Convert output scenarios to executable scenarios
         scenarios = arrayfun(@CombinationSolver.convertOutputScenario, output_scenarios, 'UniformOutput', false);
         
         % Remove duplicate scenarios
@@ -450,7 +454,7 @@ methods (Static)
         n_failed = 0;
         for output_scenario = output_scenarios
             
-            % Identify corresponding dynamic model scenario
+            % Identify corresponding executable scenario
             scenario = CombinationSolver.convertOutputScenario(output_scenario);
             
             try
