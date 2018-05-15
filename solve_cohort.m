@@ -257,10 +257,10 @@ for t = T_active:-1:1
                 OPT.CONSUMPTION      (:,is,ib,t) = resources - s; 
                 OPT.AVG_EARNINGS     (:,is,ib,t) = bv(ib);
                 OPT.TAXABLE_INC      (:,is,ib,t) = taxable_inc;
-                OPT.OASI_BENEFITS    (:,is,ib,t) = ssinc ;
-                OPT.ORD_LIABILITY    (:,is,ib,t) = ord_liability   ;
-                OPT.PREF_LIABILITY   (:,is,ib,t) = pref_liability   ;
-                OPT.PAYROLL_LIABILITY(:,is,ib,t) = payroll_liability   ;
+                OPT.OASI_BENEFITS    (:,is,ib,t) = ssinc;
+                OPT.ORD_LIABILITY    (:,is,ib,t) = ord_liability;
+                OPT.PREF_LIABILITY   (:,is,ib,t) = pref_liability;
+                OPT.PAYROLL_LIABILITY(:,is,ib,t) = payroll_liability;
                 
             else
                 % Working age person
@@ -353,7 +353,7 @@ for t = T_active:-1:1
                     OPT.CONSUMPTION      (iz,is,ib,t) = resources - s; 
                     OPT.AVG_EARNINGS     (iz,is,ib,t) = calculate_b_(labinc);                    
                     OPT.TAXABLE_INC      (iz,is,ib,t) = taxable_inc;
-                    OPT.OASI_BENEFITS    (iz,is,ib,t) = 0  ;
+                    OPT.OASI_BENEFITS    (iz,is,ib,t) = 0;
                     OPT.ORD_LIABILITY    (iz,is,ib,t) = ord_liability;
                     OPT.PREF_LIABILITY   (iz,is,ib,t) = pref_liability;
                     OPT.PAYROLL_LIABILITY(iz,is,ib,t) = payroll_liability;
