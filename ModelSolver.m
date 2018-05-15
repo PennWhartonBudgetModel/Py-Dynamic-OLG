@@ -19,10 +19,21 @@ methods (Static)
         end
         
         if ~exist('callertag' , 'var'), callertag  = ''; end
-        economy = scenario.economy;
         
-        %% Initialization
+        % Append caller tag to save directory name and generate calling tag
+        %   Obviates conflicts between parallel solver calls
+        save_dir   = [save_dir                                                      , callertag];
+        callingtag = [sprintf('^%s_%s', scenario.counterdeftag, scenario.economytag), callertag];
         
+        % Clear or create save directory
+        if exist(save_dir, 'dir'), rmdir(save_dir, 's'), end, mkdir(save_dir)
+        
+        
+        
+        %% PARAMETERS
+        
+        economy             = scenario.economy;
+                
         % Unpack parameters from baseline definition
         beta                = scenario.beta ;
         gamma               = scenario.gamma;
@@ -32,24 +43,12 @@ methods (Static)
         % Identify baseline run 
         isbase = scenario.isCurrentPolicy();
         
-        % Unpack parameters from filled counterfactual definition
+        % Immigration policies
         legal_scale         = scenario.legal_scale      ;
         prem_legal          = scenario.prem_legal       ;
         amnesty             = scenario.amnesty          ;
         deportation         = scenario.deportation      ;
-        
-        % Append caller tag to save directory name and generate calling tag
-        %   Obviates conflicts between parallel solver calls
-        save_dir   = [save_dir                                          , callertag];
-        callingtag = [sprintf('^%s_%s', scenario.counterdeftag, economy), callertag];
-        
-        % Clear or create save directory
-        if exist(save_dir, 'dir'), rmdir(save_dir, 's'), end, mkdir(save_dir)
-        
-        
-        
-        %% PARAMETERS
-        
+
         % Define time constants
         s = ParamGenerator.timing(scenario);
         first_transition_year   = s.TransitionFirstYear;    % map model inputs (or outputs) to actual years
