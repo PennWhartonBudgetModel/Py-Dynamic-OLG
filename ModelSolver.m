@@ -402,7 +402,7 @@ methods (Static)
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
             
-            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'investment', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde' }
+            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'investment', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde', 'Ctilde' }
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
             
@@ -499,7 +499,7 @@ methods (Static)
                              - Static.bens;
                     Ttilde = budget.tax_revenue_by_GDP .* Dynamic_base.outs            ...
                              - Static.revs; 
-                    
+                    Ctilde = zeros(1,T_model);
                 end
                 
             case 'closed'
@@ -514,7 +514,8 @@ methods (Static)
                 
                 Gtilde = Dynamic_open.Gtilde;
                 Ttilde = Dynamic_open.Ttilde;
-                
+                % TBD: Calculate Ctilde
+                Ctilde = Dynamic_open.Ctilde;
         end
         
         
@@ -741,6 +742,7 @@ methods (Static)
                                  - Dynamic.bens;
                         Ttilde = budget.tax_revenue_by_GDP .*Dynamic.outs              ...
                                  - Dynamic.revs;
+                        Ctilde = zeros(1,T_model);
                     end
                     
                     Dynamic.debts = [budget.debttoout*Dynamic0.outs, zeros(1,T_model-1)];
@@ -751,6 +753,7 @@ methods (Static)
                     end
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
+                    Dynamic.Ctilde = Ctilde;
                     
                     Dynamic.debts_domestic = (1 - Market.capshares_1) .* Dynamic.assets_1;
                     Dynamic.debts_foreign  = Dynamic.debts - Dynamic.debts_domestic;
@@ -798,6 +801,7 @@ methods (Static)
                     end
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
+                    Dynamic.Ctilde = Ctilde;
                     
                     Dynamic.debts_domestic = Dynamic.debts;
                     Dynamic.debts_foreign  = zeros(1,T_model);

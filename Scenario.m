@@ -33,6 +33,10 @@ classdef Scenario
         TransitionFirstYear;
         TransitionLastYear;
         
+        % Closure rule (for closed economy)
+        ClosureYear;
+
+
 
         % OPTIONAL policy parameters
         
@@ -48,7 +52,6 @@ classdef Scenario
         % Government expenditures
         OutlaysPolicy;
         
-
         % Social Security parameters
         TaxRate;
         TaxMax;
@@ -75,7 +78,8 @@ classdef Scenario
             'modelunit_dollar'      ;
             'IsLowReturn'           ;
             'TransitionFirstYear'   ;
-            'TransitionLastYear'    ;   
+            'TransitionLastYear'    ; 
+            'ClosureYear'           ;
             };
         
         % Specify default values for optional parameters
