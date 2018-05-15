@@ -324,9 +324,8 @@ classdef Scenario
 
             Dynamic.outvars = struct( ...
             'ssts'              , 'PayrollTax'              , ...
-            'caprevs'           , 'CapitalTax'              , ...
+            'corpTaxs'          , 'CapitalTax'              , ...
             'cits'              , 'HH_PreferredRatesTax'    , ...
-            'corpTaxs'          , 'CorporateTax'            , ...
             'caps_domestic'     , 'Capital_Domestic'        , ...
             'caps_foreign'      , 'Capital_Foreign'         , ...
             'debts_domestic'    , 'Debt_Domestic'           , ...
@@ -351,10 +350,10 @@ classdef Scenario
             StaticMarket.outvars = Market.outvars;
         
             % Prepare file to which to write
-            if( ~exist( PathFinder.getDataSeriesOutputDir(), 'dir' ) )
-                mkdir( PathFinder.getDataSeriesOutputDir() );
+            if( ~exist( PathFinder.getSeriesOutputDir(), 'dir' ) )
+                mkdir( PathFinder.getSeriesOutputDir() );
             end
-            outputfilename  = fullfile(PathFinder.getDataSeriesOutputDir(), strcat(tag, '.csv'));
+            outputfilename  = fullfile(PathFinder.getSeriesOutputDir(), strcat(tag, '.csv'));
             fid             = fopen(outputfilename, 'w');
             if( fid == -1 )
                 throw(MException('Scenario:export','Cannot open file (%s) for output.', outputfilename ));
@@ -391,7 +390,7 @@ classdef Scenario
                 switch outvar
                     case 'labeffs'  
                     case 'labs'     
-                    case 'caprates'
+                    case 'MPKs'
                     case 'wages'
                     case 'equityFundDividends'
                     case 'bondFundDividends'

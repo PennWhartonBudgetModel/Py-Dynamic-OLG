@@ -545,8 +545,8 @@ methods (Static)
         end
         
         % Initialize iteration count and set maximum number of iterations
-        iter    =  0;
-        itermax = 60;
+        iter    =   0;
+        itermax = 100;
         
         % Create file for logging iterations
         % (Note that this should be done after any parallel pool is started to avoid file access issues)
