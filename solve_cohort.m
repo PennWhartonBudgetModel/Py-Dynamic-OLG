@@ -527,9 +527,9 @@ function [resources, pit_inc, ord_liability, payroll_liability, pref_liability] 
 
     % Calculate preferred rates tax 
     capgain_taxrate = 0;
-    prefinc = captax_share * equityfund_dividend;
-    preftax = find_tax_liability( prefinc, cappref_brackets, cappref_burdens, cappref_rates );
-    pref_liability     =  preftax;
+    prefinc         = max(0, captax_share * equityfund_dividend);
+    pref_liability  = find_tax_liability( prefinc, cappref_brackets, cappref_burdens, cappref_rates );
+    
     % Since capgain_taxrate = 0, we don't add capgain_liability to any liability series
     % capgain_liability = equitycapgain * capgain_taxrate
 
