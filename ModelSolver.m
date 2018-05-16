@@ -381,19 +381,18 @@ methods (Static)
         %% Helper function to calculate debt
         %     Inputs: (1) Aggregate (Static or Dynamic), 
         %             (2) Current iteration residuals: Gtilde, Ctilde, Ttilde
-        %             (3) Initial debt
+        %             (3) Initial debt -- i.e. t=1 debt
         %             (4) Rates on debt
         %             (5) T_model
         %     Outputs: None, but side-effect --> revised Aggregate which includes debts series
-        function [debts] = calculate_debts(Aggregate, Gtilde, Ctilde, Ttilde, debt_0, debtrates, T_model) 
-            debts = [debt_0 zeros(1,T_model)];
-            for t = 2:T_model
+        function [debts] = calculate_debts(Aggregate, Gtilde, Ctilde, Ttilde, debt_1, debtrates, T_model) 
+            debts = [debt_1 zeros(1,T_model-1)];
+            for t = 1:T_model-1
                 debts(t+1) = Gtilde(t) - Ctilde(t) + Aggregate.bens(t)  ...
                              - Ttilde(t) - Aggregate.revs(t)               ...
                              + debts(t)*(1 + debtrates(t))                 ...
                              ;
             end
-            debts = debts(2:T_model+1);
         end
 
         
@@ -436,13 +435,6 @@ methods (Static)
             Static.dividends = corpDividends';
             Static.revs = Static.pits + Static.ssts + Static.cits + Static.corpTaxs;            
             
-            % Fetch debt from steady state; this should always be a file
-            % load, since baseline has already been hardyloaded
-            steadyScenario   = scenario.currentPolicy().steady();
-            steady_generator = @() ModelSolver.solve(steadyScenario, callingtag);
-            steady_dir       = PathFinder.getWorkingDir(steadyScenario);
-            Dynamic_steady   = hardyload('dynamics.mat', steady_generator, steady_dir);
-            
             % In general, we have:
             % Static.debts = Static.debts_domestic + Static.debts_foreign;
             % But this is not true in the static economies.
@@ -451,7 +443,9 @@ methods (Static)
             % tax policy, which implies the equality above no longer holds.
             % Notice that debts is a combination of the actual static debts and
             % the residual mismatch from markets not clearing
-            Static.debts = calculate_debts( Static, Static.Gtilde, Static.Ctilde, Static.Ttilde, Dynamic_steady.debts(1), budget.debtrates, T_model); 
+            %    Rem: Dynamic_base(1) is supposed to be D' debt carried
+            %    from steady state (before policy change)
+            Static.debts = calculate_debts( Static, Static.Gtilde, Static.Ctilde, Static.Ttilde, Dynamic_base.debts(1), budget.debtrates, T_model); 
 
             % Total assets
             % Note: tot_assets is a sum of choice variables, those are constant at baseline values
@@ -613,6 +607,7 @@ methods (Static)
                     case {'steady', 'closed'}
 
                         Market.rhos      = Market0.rhos*ones(1,T_model);
+                        outs             = Dynamic0.outs;
                         
                     case 'open'
 
@@ -768,7 +763,11 @@ methods (Static)
                         Ctilde = zeros(1,T_model);
                     end
                     
-                    Dynamic.debts = calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, Dynamic0.debts(1), budget.debtrates, T_model);
+                    % Rem: debts(1) is an exogenous calculation: (D/Y) * Y
+                    % for t=1 where D/Y is from data.
+                    % Debt should be D' from steady state, but that is not right to
+                    % calibrate to real world
+                    Dynamic.debts = calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, budget.debttoout * Dynamic.outs(1), budget.debtrates, T_model);
 
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
@@ -818,7 +817,11 @@ methods (Static)
                     %cont_Ctilde       = (cont_debttoout - closure_debttoout) .* Dynamic.outs(closure_year:T_model);
                     %tmpCtilde         = [zeros(1:closure_year) cont_Ctilde]
 
-                    Dynamic.debts = calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, Dynamic0.debts(1), budget.debtrates, T_model);
+                    % Rem: debts(1) is an exogenous calculation: (D/Y) * Y
+                    % for t=1 where D/Y is from data.
+                    % Debt should be D' from steady state, but that is not right to
+                    % calibrate to real world
+                    Dynamic.debts = calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, budget.debttoout * outs(1), budget.debtrates, T_model);
 
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
@@ -830,7 +833,8 @@ methods (Static)
                     % Calculate capital and output
                     % Note: Dynamic.assets represents current assets at new prices.
                     Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theFirm.priceCapital';
-                    Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
+                    outs         = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
+                    Dynamic.outs = outs;  % outs var is used to keep last iteration values
                     
                     Dynamic.caps_domestic  = Dynamic.caps;
                     Dynamic.caps_foreign   = zeros(1,T_model);
