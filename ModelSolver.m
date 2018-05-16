@@ -40,6 +40,8 @@ methods (Static)
         sigma               = scenario.sigma;
         modelunit_dollar    = scenario.modelunit_dollar;
         
+        closure_year        = scenario.ClosureYear - scenario.TransitionFirstYear;
+        
         % Identify baseline run 
         isbase = scenario.isCurrentPolicy();
         
@@ -375,6 +377,25 @@ methods (Static)
         
         
         
+        
+        %% Helper function to calculate debt
+        %     Inputs: (1) Aggregate (Static or Dynamic), 
+        %             (2) Current iteration residuals: Gtilde, Ctilde, Ttilde
+        %             (3) Initial debt
+        %             (4) Rates on debt
+        %             (5) T_model
+        %     Outputs: None, but side-effect --> revised Aggregate which includes debts series
+        function debts = calculate_debts(Aggregate, Gtilde, Ctilde, Ttilde, debt_0, debtrates, T_model) 
+            debts = [debt_0, zeros(1,T_model-1)];
+            for year = 1:T_model-1, ...
+                debts(year+1) = Gtilde(year) - Ctilde(year) + Aggregate.bens(year)  ...
+                                - Ttilde(year) - Aggregate.revs(year)               ...
+                                + debts(year)*(1 + debtrates(year))                 ...
+                                ;
+            end
+        end
+
+        
         %% Static aggregate generation
         
         if ~isbase && ~strcmp(economy, 'steady')
@@ -422,12 +443,7 @@ methods (Static)
             % tax policy, which implies the equality above no longer holds.
             % Notice that debts is a combination of the actual static debts and
             % the residual mismatch from markets not clearing
-            Static.debts = [Dynamic_base.debts(1), zeros(1,T_model-1)];
-            for year = 1:T_model-1
-                Static.debts(year+1)    = Static.Gtilde(year) - Static.Ctilde(year) + Static.bens(year)   ...
-                                        - Static.Ttilde(year) - Static.revs(year)   ...
-                                        + Static.debts(year)*(1 + budget.debtrates(year));
-            end
+            Static.debts = calculate_debts( Static, Static.Gtilde, Static.Ctilde, Static.Ttilde, Dynamic_base.debts(1), budget.debtrates, T_model); 
 
             % Total assets
             % Note: tot_assets is a sum of choice variables, those are constant at baseline values
@@ -514,7 +530,6 @@ methods (Static)
                 
                 Gtilde = Dynamic_open.Gtilde;
                 Ttilde = Dynamic_open.Ttilde;
-                % TBD: Calculate Ctilde
                 Ctilde = Dynamic_open.Ctilde;
         end
         
@@ -683,7 +698,7 @@ methods (Static)
             Dynamic.revs          = Dynamic.pits + Dynamic.ssts      ...
                                   + Dynamic.cits + Dynamic.corpTaxs  ...
                                    ;
-                    
+            
             switch economy
                 
                 case 'steady'
@@ -744,13 +759,9 @@ methods (Static)
                                  - Dynamic.revs;
                         Ctilde = zeros(1,T_model);
                     end
-                    
-                    Dynamic.debts = [budget.debttoout*Dynamic0.outs, zeros(1,T_model-1)];
-                    for year = 1:T_model-1
-                        Dynamic.debts(year+1) = Gtilde(year) - Ctilde(year) + Dynamic.bens(year)   ...
-                                                - Ttilde(year) - Dynamic.revs(year) ...
-                                                + Dynamic.debts(year)*(1 + budget.debtrates(year));
-                    end
+                    % TBD: Fix debt_0 = Dynamic0.debts(1)
+                    Dynamic.debts = calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, budget.debttoout*Dynamic0.outs(1), budget.debtrates, T_model);
+
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
                     Dynamic.Ctilde = Ctilde;
@@ -792,13 +803,16 @@ methods (Static)
                     capshares_1 = (Dynamic.assets_1 - Dynamic.debts) ./ Dynamic.assets_1;
 
                 case 'closed'
-                    
-                    Dynamic.debts = [budget.debttoout*Dynamic0.outs, zeros(1,T_model-1)];
-                    for year = 1:T_model-1
-                        Dynamic.debts(year+1) = Gtilde(year) - Ctilde(year) + Dynamic.bens(year)   ...
-                                                - Ttilde(year) - Dynamic.revs(year) ...
-                                                + Dynamic.debts(year)*(1 + budget.debtrates(year));
-                    end
+                                    
+                    % Calculate Ctilde to close debt growth
+                    %closure_debttoout = Dynamic.debts(closure_year)/Dynamic.outs(closure_year);
+                    %cont_debttoout    = Dynamic.debts(closure_year:T_model) ./ Dynamic.outs(closure_year:T_model);
+                    %cont_Ctilde       = (cont_debttoout - closure_debttoout) .* Dynamic.outs(closure_year:T_model);
+                    %tmpCtilde         = [zeros(1:closure_year) cont_Ctilde]
+
+                    % TBD: Fix debt_0 = Dynamic0.debts(1)
+                    Dynamic.debts = calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, budget.debttoout*Dynamic0.outs(1), budget.debtrates, T_model);
+
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
                     Dynamic.Ctilde = Ctilde;
