@@ -385,14 +385,15 @@ methods (Static)
         %             (4) Rates on debt
         %             (5) T_model
         %     Outputs: None, but side-effect --> revised Aggregate which includes debts series
-        function debts = calculate_debts(Aggregate, Gtilde, Ctilde, Ttilde, debt_0, debtrates, T_model) 
-            debts = [debt_0, zeros(1,T_model-1)];
-            for year = 1:T_model-1, ...
-                debts(year+1) = Gtilde(year) - Ctilde(year) + Aggregate.bens(year)  ...
-                                - Ttilde(year) - Aggregate.revs(year)               ...
-                                + debts(year)*(1 + debtrates(year))                 ...
-                                ;
+        function [debts] = calculate_debts(Aggregate, Gtilde, Ctilde, Ttilde, debt_0, debtrates, T_model) 
+            debts = [debt_0 zeros(1,T_model)];
+            for t = 2:T_model
+                debts(t+1) = Gtilde(t) - Ctilde(t) + Aggregate.bens(t)  ...
+                             - Ttilde(t) - Aggregate.revs(t)               ...
+                             + debts(t)*(1 + debtrates(t))                 ...
+                             ;
             end
+            debts = debts(2:T_model+1);
         end
 
         
@@ -435,6 +436,13 @@ methods (Static)
             Static.dividends = corpDividends';
             Static.revs = Static.pits + Static.ssts + Static.cits + Static.corpTaxs;            
             
+            % Fetch debt from steady state; this should always be a file
+            % load, since baseline has already been hardyloaded
+            steadyScenario   = scenario.currentPolicy().steady();
+            steady_generator = @() ModelSolver.solve(steadyScenario, callingtag);
+            steady_dir       = PathFinder.getWorkingDir(steadyScenario);
+            Dynamic_steady   = hardyload('dynamics.mat', steady_generator, steady_dir);
+            
             % In general, we have:
             % Static.debts = Static.debts_domestic + Static.debts_foreign;
             % But this is not true in the static economies.
@@ -443,7 +451,7 @@ methods (Static)
             % tax policy, which implies the equality above no longer holds.
             % Notice that debts is a combination of the actual static debts and
             % the residual mismatch from markets not clearing
-            Static.debts = calculate_debts( Static, Static.Gtilde, Static.Ctilde, Static.Ttilde, Dynamic_base.debts(1), budget.debtrates, T_model); 
+            Static.debts = calculate_debts( Static, Static.Gtilde, Static.Ctilde, Static.Ttilde, Dynamic_steady.debts(1), budget.debtrates, T_model); 
 
             % Total assets
             % Note: tot_assets is a sum of choice variables, those are constant at baseline values
@@ -759,8 +767,8 @@ methods (Static)
                                  - Dynamic.revs;
                         Ctilde = zeros(1,T_model);
                     end
-                    % TBD: Fix debt_0 = Dynamic0.debts(1)
-                    Dynamic.debts = calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, budget.debttoout*Dynamic0.outs(1), budget.debtrates, T_model);
+                    
+                    Dynamic.debts = calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, Dynamic0.debts(1), budget.debtrates, T_model);
 
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
@@ -810,8 +818,7 @@ methods (Static)
                     %cont_Ctilde       = (cont_debttoout - closure_debttoout) .* Dynamic.outs(closure_year:T_model);
                     %tmpCtilde         = [zeros(1:closure_year) cont_Ctilde]
 
-                    % TBD: Fix debt_0 = Dynamic0.debts(1)
-                    Dynamic.debts = calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, budget.debttoout*Dynamic0.outs(1), budget.debtrates, T_model);
+                    Dynamic.debts = calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, Dynamic0.debts(1), budget.debtrates, T_model);
 
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
