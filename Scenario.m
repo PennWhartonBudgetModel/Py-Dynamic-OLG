@@ -319,7 +319,7 @@ classdef Scenario
                 case 'steady'
                     years = [this.TransitionFirstYear - 1];
                 otherwise
-                    years  = (this.TransitionFirstYear : this.TransitionLastYear-1)';
+                    years = (this.TransitionFirstYear - 1 : this.TransitionLastYear-1)';
             end
 
             Dynamic.outvars = struct( ...
@@ -349,6 +349,26 @@ classdef Scenario
             Static.outvars       = Dynamic.outvars;
             StaticMarket.outvars = Market.outvars;
         
+            if ~strcmp(this.economy, 'steady')
+                
+                % Load steady state variables
+                Dynamic_steady = load(fullfile(PathFinder.getWorkingDir(this.currentPolicy().steady()), 'dynamics.mat'));
+                Market_steady  = load(fullfile(PathFinder.getWorkingDir(this.currentPolicy().steady()), 'market.mat'));
+                
+                % Append steady state variables
+                dynamicFields = fieldnames(Dynamic.outvars)';                
+                marketFields  = fieldnames(Market.outvars)';
+                for o = dynamicFields
+                    Dynamic.(o{1}) = [Dynamic_steady.(o{1}) Dynamic.(o{1})];
+                    Static.(o{1})  = [Dynamic_steady.(o{1}) Static.(o{1})];
+                end
+                for o = marketFields
+                    Market.(o{1})       = [Market_steady.(o{1}) Market.(o{1})];
+                    StaticMarket.(o{1}) = [Market_steady.(o{1}) StaticMarket.(o{1})];
+                end
+                
+            end            
+
             % Prepare file to which to write
             if( ~exist( PathFinder.getSeriesOutputDir(), 'dir' ) )
                 mkdir( PathFinder.getSeriesOutputDir() );
