@@ -893,9 +893,10 @@ methods (Static)
             
         end % GE loop
         
-        fprintf('\n')
         fclose(iterlog);
         
+        fprintf( '\nFinished at: %s\n', datetime );
+
         Dynamic.is_converged = isConverged;
         % Issue warning if did not converge
         if (~Dynamic.is_converged)
@@ -963,7 +964,6 @@ methods (Static)
                     , 'beta', 'gamma', 'sigma', 'modelunit_dollar', 'bequest_phi_1' );
                 
                 fprintf( '\n' );
-                fprintf( 'Finished at: %s\n', datetime );
                 for label = { {'Beta'          , beta              } , ...
                               {'Gamma'         , gamma             } , ...
                               {'Sigma'         , sigma             } , ...
