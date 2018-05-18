@@ -717,6 +717,11 @@ methods (Static)
                     Dynamic.investment = (Market.capshares_1 * (assets_tomorrow - Dynamic.bequests))./ theFirm.priceCapital' ...
                                          - (1 - depreciation) * Dynamic.caps;
                                      
+                    % Include transition path series for symmetry
+                    Dynamic.Ttilde = 0;
+                    Dynamic.Gtilde = 0;
+                    Dynamic.Ctilde = 0;
+
                     % Update guesses
                     rhos      = Dynamic.caps / Dynamic.labeffs;
                     beqs      = Dynamic.bequests / sum(DIST_trans(:));          % Note: capgains is zero in steady state, so bequests don't need to be changed
