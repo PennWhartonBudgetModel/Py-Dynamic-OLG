@@ -378,24 +378,6 @@ methods (Static)
         
         
         
-        %% Helper function to calculate debt
-        %     Inputs: (1) Aggregate (Static or Dynamic), 
-        %             (2) Current iteration residuals: Gtilde, Ctilde, Ttilde
-        %             (3) Initial debt -- i.e. t=1 debt
-        %             (4) Rates on debt
-        %             (5) T_model
-        %     Outputs: None, but side-effect --> revised Aggregate which includes debts series
-        function [debts] = calculate_debts(Aggregate, Gtilde, Ctilde, Ttilde, debt_1, debtrates, T_model) 
-            debts = [debt_1 zeros(1,T_model-1)];
-            for t = 1:T_model-1
-                debts(t+1) = Gtilde(t) - Ctilde(t) + Aggregate.bens(t)  ...
-                             - Ttilde(t) - Aggregate.revs(t)               ...
-                             + debts(t)*(1 + debtrates(t))                 ...
-                             ;
-            end
-        end
-
-        
         %% Static aggregate generation
         
         if ~isbase && ~strcmp(economy, 'steady')
@@ -445,7 +427,7 @@ methods (Static)
             % the residual mismatch from markets not clearing
             %    Rem: Dynamic_base(1) is supposed to be D' debt carried
             %    from steady state (before policy change)
-            Static.debts = calculate_debts( Static, Static.Gtilde, Static.Ctilde, Static.Ttilde, Dynamic_base.debts(1), budget.debtrates, T_model); 
+            Static.debts = ModelSolver.calculate_debts( Static, Static.Gtilde, Static.Ctilde, Static.Ttilde, Dynamic_base.debts(1), budget.debtrates, T_model); 
 
             % Total assets
             % Note: tot_assets is a sum of choice variables, those are constant at baseline values
@@ -767,7 +749,7 @@ methods (Static)
                     % for t=1 where D/Y is from data.
                     % Debt should be D' from steady state, but that is not right to
                     % calibrate to real world
-                    Dynamic.debts = calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, budget.debttoout * Dynamic.outs(1), budget.debtrates, T_model);
+                    Dynamic.debts = ModelSolver.calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, budget.debttoout * Dynamic.outs(1), budget.debtrates, T_model);
 
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
@@ -811,17 +793,46 @@ methods (Static)
 
                 case 'closed'
                                     
-                    % Calculate Ctilde to close debt growth
-                    %closure_debttoout = Dynamic.debts(closure_year)/Dynamic.outs(closure_year);
-                    %cont_debttoout    = Dynamic.debts(closure_year:T_model) ./ Dynamic.outs(closure_year:T_model);
-                    %cont_Ctilde       = (cont_debttoout - closure_debttoout) .* Dynamic.outs(closure_year:T_model);
-                    %tmpCtilde         = [zeros(1:closure_year) cont_Ctilde]
-
                     % Rem: debts(1) is an exogenous calculation: (D/Y) * Y
                     % for t=1 where D/Y is from data.
                     % Debt should be D' from steady state, but that is not right to
                     % calibrate to real world
-                    Dynamic.debts = calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, budget.debttoout * outs(1), budget.debtrates, T_model);
+                    debt_1  = budget.debttoout * outs(1);
+                    [Dynamic.debts, deficits] = ModelSolver.calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, debt_1, budget.debtrates, T_model);
+
+                    % Calculate capital and output
+                    % Note: Dynamic.assets_1 represents current assets at new prices.
+                    Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theFirm.priceCapital';
+                    outs         = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
+                    Dynamic.outs = outs;  % outs var is used to keep last iteration values
+
+                    % Converge to find Ctilde which closes the D/Y ratio
+                    Ctilde_error = Inf;
+                    while( Ctilde_error > 1e-13 )
+                        
+                        % Calculate Ctilde to close debt growth
+                        % Rem: This effects outs, so need to converge
+                        closure_debttoout   = Dynamic.debts(closure_year)/Dynamic.outs(closure_year);
+                        cont_Ctilde         = ModelSolver.calculate_fixed_debts(closure_debttoout                       ...
+                                                                            ,   deficits(closure_year:T_model)          ...
+                                                                            ,   Dynamic.outs(closure_year:T_model)      ...
+                                                                            ,   budget.debtrates(closure_year:T_model)  ...
+                                                                            );
+                        Ctilde            = [zeros(1, closure_year-1) cont_Ctilde];
+                        
+                        % Recalculate debt and check if D/Y has been fixed
+                        %   Note: D/Y for t=ClosureYear is unchanged by Ctilde
+                        Dynamic.debts = ModelSolver.calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, debt_1, budget.debtrates, T_model);
+                        
+                        % Re-calculate capital and output
+                        Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theFirm.priceCapital';
+                        outs         = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
+                        Dynamic.outs = outs;  % outs var is used to keep last iteration values
+                    
+                        cont_debttoout    = Dynamic.debts(closure_year:T_model) ./ Dynamic.outs(closure_year:T_model);
+                        Ctilde_error      = max(abs(cont_debttoout - closure_debttoout));
+                    
+                    end % Ctilde convergence
 
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
@@ -829,13 +840,6 @@ methods (Static)
                     
                     Dynamic.debts_domestic = Dynamic.debts;
                     Dynamic.debts_foreign  = zeros(1,T_model);
-                    
-                    % Calculate capital and output
-                    % Note: Dynamic.assets represents current assets at new prices.
-                    Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theFirm.priceCapital';
-                    outs         = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
-                    Dynamic.outs = outs;  % outs var is used to keep last iteration values
-                    
                     Dynamic.caps_domestic  = Dynamic.caps;
                     Dynamic.caps_foreign   = zeros(1,T_model);
                     Dynamic.invest_foreign = zeros(1,T_model);
@@ -1124,6 +1128,41 @@ methods (Static, Access = private )
         index.cohort_wages    = ones(T_model, nstartyears);            % Time- and cohort-varying indexes
     
     end % generate_index
+
+    
+    %% Helper function to calculate debt
+    %     Inputs: (1) Aggregate (Static or Dynamic), 
+    %             (2) Current iteration residuals: Gtilde, Ctilde, Ttilde
+    %             (3) Initial debt -- i.e. t=1 debt
+    %             (4) Rates on debt
+    %             (5) T_model
+    %     Outputs: new debts, and 'pure' deficits (excluding Ctilde)
+    function [debts, deficits] = calculate_debts(Aggregate, Gtilde, Ctilde, Ttilde, debt_1, debtrates, T_model) 
+        debts       = [debt_1 zeros(1,T_model-1)];
+        deficits    = Gtilde + Aggregate.bens        ...
+                    - Ttilde - Aggregate.revs;
+        for t = 1:T_model-1
+            debts(t+1) = debts(t)*(1 + debtrates(t)) + deficits(t) - Ctilde(t); 
+        end
+    end % calculate_debt
+
+    %% Helper function to calculate residual needed to fix D/Y 
+    %     Inputs: (1) D/Y ratio to target
+    %             (2) NIS (as deficit)
+    %             (3) outputs (Y)
+    %             (4) Rates on debt
+    %     Outputs: Residual to be subtracted from debt to make D/Y match
+    function [residual] = calculate_fixed_debts(DY_ratio, deficits, outs, debtrates) 
+        T               = length(deficits);
+        new_debts       = DY_ratio * outs;  % fix the D/Y ratio
+        for t = 1:T-1
+            % NOTICE new_debt(t+1) = new_debts(t)*(1+debtrates(t)) + deficit - residual
+            residual(t)     = new_debts(t)*(1+debtrates(t)) + deficits(t) - new_debts(t+1);
+        end
+        residual(T) = DY_ratio*outs(T) - new_debts(T); 
+        
+    end
+        
 
     
 end % private methods
