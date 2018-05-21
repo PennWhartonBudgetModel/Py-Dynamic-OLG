@@ -132,7 +132,7 @@ for t = T_active:-1:1
     % Social security for current year 
     ssincmax    = ssincmaxs    (year);
     ssincmin    = ssincmins    (year);
-    sswageindex = 1; % TBD: substitute by sswageindexes(year);
+	sswageindex = sswageindexes(year);
     ssbenefit   = ssbenefits   (year, :);
     
     % Asset params for current year

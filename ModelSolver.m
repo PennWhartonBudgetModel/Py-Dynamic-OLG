@@ -1093,10 +1093,6 @@ methods (Static, Access = private )
             index.cohort_wages(:,i) = Market_wages(year_turn60)./Market_wages(:);
         end
 
-        % TBD: Erase these couple lines when the time comes to implement the policies above
-        index.wage_inflations = ones(size(Market_wages));              % Time-varying indexes
-        index.cohort_wages    = ones(T_model, nstartyears);            % Time- and cohort-varying indexes
-    
     end % generate_index
 
     
