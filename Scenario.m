@@ -33,6 +33,10 @@ classdef Scenario
         TransitionFirstYear;
         TransitionLastYear;
         
+        % Closure rule (for closed economy)
+        ClosureYear;
+
+
 
         % OPTIONAL policy parameters
         
@@ -48,7 +52,6 @@ classdef Scenario
         % Government expenditures
         OutlaysPolicy;
         
-
         % Social Security parameters
         TaxRate;
         TaxMax;
@@ -75,7 +78,8 @@ classdef Scenario
             'modelunit_dollar'      ;
             'IsLowReturn'           ;
             'TransitionFirstYear'   ;
-            'TransitionLastYear'    ;   
+            'TransitionLastYear'    ; 
+            'ClosureYear'           ;
             };
         
         % Specify default values for optional parameters
@@ -150,7 +154,7 @@ classdef Scenario
             % NOTE: comparisontag is built for isEquivalent 
             tag = '';
             for o = Scenario.req_params'
-                if ~any(strcmp(o{1}, {'economy', 'TransitionLastYear'}))
+                if ~any(strcmp(o{1}, {'economy', 'TransitionLastYear', 'ClosureYear'}))
                     tag = strcat(tag, '_', num2str(this.(o{1})));
                 end
             end
@@ -166,14 +170,18 @@ classdef Scenario
                 this.counterdeftag = Scenario.compactifyTag(tag);
             end
             
-            tag = this.economy;
-            if ~strcmp(this.economy, 'steady')
-                tag = strcat(tag, num2str(this.TransitionLastYear));
+            switch (this.economy)
+                case 'steady'
+                    this.economytag = this.economy;
+                otherwise 
+                    this.economytag = strcat( this.economy                      ...
+                                            , num2str(this.TransitionLastYear)  ...
+                                            , '_'                               ...
+                                            , num2str(this.ClosureYear)         ...
+                                            );
             end
-            this.economytag = tag;
             
             this.comparisontag = strcat(this.basedeftag, this.counterdeftag, this.economytag);
-            
             
         end % Scenario constructor
         

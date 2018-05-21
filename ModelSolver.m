@@ -19,29 +19,11 @@ methods (Static)
         end
         
         if ~exist('callertag' , 'var'), callertag  = ''; end
-        economy = scenario.economy;
-        
-        %% Initialization
-        
-        % Unpack parameters from baseline definition
-        beta                = scenario.beta ;
-        gamma               = scenario.gamma;
-        sigma               = scenario.sigma;
-        modelunit_dollar    = scenario.modelunit_dollar;
-        
-        % Identify baseline run 
-        isbase = scenario.isCurrentPolicy();
-        
-        % Unpack parameters from filled counterfactual definition
-        legal_scale         = scenario.legal_scale      ;
-        prem_legal          = scenario.prem_legal       ;
-        amnesty             = scenario.amnesty          ;
-        deportation         = scenario.deportation      ;
         
         % Append caller tag to save directory name and generate calling tag
         %   Obviates conflicts between parallel solver calls
-        save_dir   = [save_dir                                          , callertag];
-        callingtag = [sprintf('^%s_%s', scenario.counterdeftag, economy), callertag];
+        save_dir   = [save_dir                                                      , callertag];
+        callingtag = [sprintf('^%s_%s', scenario.counterdeftag, scenario.economytag), callertag];
         
         % Clear or create save directory
         if exist(save_dir, 'dir'), rmdir(save_dir, 's'), end, mkdir(save_dir)
@@ -50,6 +32,25 @@ methods (Static)
         
         %% PARAMETERS
         
+        economy             = scenario.economy;
+                
+        % Unpack parameters from baseline definition
+        beta                = scenario.beta ;
+        gamma               = scenario.gamma;
+        sigma               = scenario.sigma;
+        modelunit_dollar    = scenario.modelunit_dollar;
+        
+        closure_year        = scenario.ClosureYear - scenario.TransitionFirstYear;
+        
+        % Identify baseline run 
+        isbase = scenario.isCurrentPolicy();
+        
+        % Immigration policies
+        legal_scale         = scenario.legal_scale      ;
+        prem_legal          = scenario.prem_legal       ;
+        amnesty             = scenario.amnesty          ;
+        deportation         = scenario.deportation      ;
+
         % Define time constants
         s = ParamGenerator.timing(scenario);
         first_transition_year   = s.TransitionFirstYear;    % map model inputs (or outputs) to actual years
@@ -376,6 +377,7 @@ methods (Static)
         
         
         
+        
         %% Static aggregate generation
         
         if ~isbase && ~strcmp(economy, 'steady')
@@ -403,7 +405,7 @@ methods (Static)
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
             
-            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'investment', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde' }
+            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'investment', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde', 'Ctilde' }
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
             
@@ -423,12 +425,9 @@ methods (Static)
             % tax policy, which implies the equality above no longer holds.
             % Notice that debts is a combination of the actual static debts and
             % the residual mismatch from markets not clearing
-            Static.debts = [Dynamic_base.debts(1), zeros(1,T_model-1)];
-            for year = 1:T_model-1
-                Static.debts(year+1)    = Static.Gtilde(year) + Static.bens(year)   ...
-                                        - Static.Ttilde(year) - Static.revs(year)   ...
-                                        + Static.debts(year)*(1 + budget.debtrates(year));
-            end
+            %    Rem: Dynamic_base(1) is supposed to be D' debt carried
+            %    from steady state (before policy change)
+            Static.debts = ModelSolver.calculate_debts( Static, Static.Gtilde, Static.Ctilde, Static.Ttilde, Dynamic_base.debts(1), budget.debtrates, T_model); 
 
             % Total assets
             % Note: tot_assets is a sum of choice variables, those are constant at baseline values
@@ -500,7 +499,7 @@ methods (Static)
                              - Static.bens;
                     Ttilde = budget.tax_revenue_by_GDP .* Dynamic_base.outs            ...
                              - Static.revs; 
-                    
+                    Ctilde = zeros(1,T_model);
                 end
                 
             case 'closed'
@@ -515,7 +514,7 @@ methods (Static)
                 
                 Gtilde = Dynamic_open.Gtilde;
                 Ttilde = Dynamic_open.Ttilde;
-                
+                Ctilde = Dynamic_open.Ctilde;
         end
         
         
@@ -590,6 +589,7 @@ methods (Static)
                     case {'steady', 'closed'}
 
                         Market.rhos      = Market0.rhos*ones(1,T_model);
+                        outs             = Dynamic0.outs;
                         
                     case 'open'
 
@@ -683,7 +683,7 @@ methods (Static)
             Dynamic.revs          = Dynamic.pits + Dynamic.ssts      ...
                                   + Dynamic.cits + Dynamic.corpTaxs  ...
                                    ;
-                    
+            
             switch economy
                 
                 case 'steady'
@@ -709,7 +709,8 @@ methods (Static)
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.MPKs .* Dynamic.caps;
-                    Dynamic.GNP     = Dynamic.outs - Market.MPKs .* Dynamic.caps_foreign;
+                    capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
+                    Dynamic.GNP     = Dynamic.outs - capincs_foreign;
                     
                     % Proxy for gross investment in physical capital
                     DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
@@ -746,16 +747,18 @@ methods (Static)
                                  - Dynamic.bens;
                         Ttilde = budget.tax_revenue_by_GDP .*Dynamic.outs              ...
                                  - Dynamic.revs;
+                        Ctilde = zeros(1,T_model);
                     end
                     
-                    Dynamic.debts = [budget.debttoout*Dynamic0.outs, zeros(1,T_model-1)];
-                    for year = 1:T_model-1
-                        Dynamic.debts(year+1) = Gtilde(year) + Dynamic.bens(year)   ...
-                                                - Ttilde(year) - Dynamic.revs(year) ...
-                                                + Dynamic.debts(year)*(1 + budget.debtrates(year));
-                    end
+                    % Rem: debts(1) is an exogenous calculation: (D/Y) * Y
+                    % for t=1 where D/Y is from data.
+                    % Debt should be D' from steady state, but that is not right to
+                    % calibrate to real world
+                    Dynamic.debts = ModelSolver.calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, budget.debttoout * Dynamic.outs(1), budget.debtrates, T_model);
+
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
+                    Dynamic.Ctilde = Ctilde;
                     
                     Dynamic.debts_domestic = (1 - Market.capshares_1) .* Dynamic.assets_1;
                     Dynamic.debts_foreign  = Dynamic.debts - Dynamic.debts_domestic;
@@ -767,7 +770,8 @@ methods (Static)
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.MPKs .* Dynamic.caps;
-                    Dynamic.GNP     = Dynamic.outs - Market.MPKs .* Dynamic.caps_foreign;
+                    capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
+                    Dynamic.GNP     = Dynamic.outs - capincs_foreign;
                     
                     % Gross investment in physical capital
                     %   T_model investment converges to final steady
@@ -793,24 +797,54 @@ methods (Static)
                     capshares_1 = (Dynamic.assets_1 - Dynamic.debts) ./ Dynamic.assets_1;
 
                 case 'closed'
+                                    
+                    % Rem: debts(1) is an exogenous calculation: (D/Y) * Y
+                    % for t=1 where D/Y is from data.
+                    % Debt should be D' from steady state, but that is not right to
+                    % calibrate to real world
+                    debt_1  = budget.debttoout * outs(1);
+                    [Dynamic.debts, deficits] = ModelSolver.calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, debt_1, budget.debtrates, T_model);
+
+                    % Calculate capital and output
+                    % Note: Dynamic.assets_1 represents current assets at new prices.
+                    Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theFirm.priceCapital';
+                    outs         = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
+                    Dynamic.outs = outs;  % outs var is used to keep last iteration values
+
+                    % Converge to find Ctilde which closes the D/Y ratio
+                    Ctilde_error = Inf;
+                    while( Ctilde_error > 1e-13 )
+                        
+                        % Calculate Ctilde to close debt growth
+                        % Rem: This effects outs, so need to converge
+                        closure_debttoout   = Dynamic.debts(closure_year)/Dynamic.outs(closure_year);
+                        cont_Ctilde         = ModelSolver.calculate_fixed_debts(closure_debttoout                       ...
+                                                                            ,   deficits(closure_year:T_model)          ...
+                                                                            ,   Dynamic.outs(closure_year:T_model)      ...
+                                                                            ,   budget.debtrates(closure_year:T_model)  ...
+                                                                            );
+                        Ctilde            = [zeros(1, closure_year-1) cont_Ctilde];
+                        
+                        % Recalculate debt and check if D/Y has been fixed
+                        %   Note: D/Y for t=ClosureYear is unchanged by Ctilde
+                        Dynamic.debts = ModelSolver.calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, debt_1, budget.debtrates, T_model);
+                        
+                        % Re-calculate capital and output
+                        Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theFirm.priceCapital';
+                        outs         = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
+                        Dynamic.outs = outs;  % outs var is used to keep last iteration values
                     
-                    Dynamic.debts = [budget.debttoout*Dynamic0.outs, zeros(1,T_model-1)];
-                    for year = 1:T_model-1
-                        Dynamic.debts(year+1) = Gtilde(year) + Dynamic.bens(year)   ...
-                                                - Ttilde(year) - Dynamic.revs(year) ...
-                                                + Dynamic.debts(year)*(1 + budget.debtrates(year));
-                    end
+                        cont_debttoout    = Dynamic.debts(closure_year:T_model) ./ Dynamic.outs(closure_year:T_model);
+                        Ctilde_error      = max(abs(cont_debttoout - closure_debttoout));
+                    
+                    end % Ctilde convergence
+
                     Dynamic.Gtilde = Gtilde;
                     Dynamic.Ttilde = Ttilde;
+                    Dynamic.Ctilde = Ctilde;
                     
                     Dynamic.debts_domestic = Dynamic.debts;
                     Dynamic.debts_foreign  = zeros(1,T_model);
-                    
-                    % Calculate capital and output
-                    % Note: Dynamic.assets represents current assets at new prices.
-                    Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theFirm.priceCapital';
-                    Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
-                    
                     Dynamic.caps_domestic  = Dynamic.caps;
                     Dynamic.caps_foreign   = zeros(1,T_model);
                     Dynamic.invest_foreign = zeros(1,T_model);
@@ -820,7 +854,8 @@ methods (Static)
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.MPKs .* Dynamic.caps;
-                    Dynamic.GNP     = Dynamic.outs - Market.MPKs .* Dynamic.caps_foreign;
+                    capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
+                    Dynamic.GNP     = Dynamic.outs - capincs_foreign;
                     
                     % Gross investment in physical capital
                     %   T_model investment eventually converges to final steady
@@ -863,9 +898,10 @@ methods (Static)
             
         end % GE loop
         
-        fprintf('\n')
         fclose(iterlog);
         
+        fprintf( '\nFinished at: %s\n', datetime );
+
         Dynamic.is_converged = isConverged;
         % Issue warning if did not converge
         if (~Dynamic.is_converged)
@@ -933,7 +969,6 @@ methods (Static)
                     , 'beta', 'gamma', 'sigma', 'modelunit_dollar', 'bequest_phi_1' );
                 
                 fprintf( '\n' );
-                fprintf( 'Finished at: %s\n', datetime );
                 for label = { {'Beta'          , beta              } , ...
                               {'Gamma'         , gamma             } , ...
                               {'Sigma'         , sigma             } , ...
@@ -1094,6 +1129,41 @@ methods (Static, Access = private )
         end
 
     end % generate_index
+
+    
+    %% Helper function to calculate debt
+    %     Inputs: (1) Aggregate (Static or Dynamic), 
+    %             (2) Current iteration residuals: Gtilde, Ctilde, Ttilde
+    %             (3) Initial debt -- i.e. t=1 debt
+    %             (4) Rates on debt
+    %             (5) T_model
+    %     Outputs: new debts, and 'pure' deficits (excluding Ctilde)
+    function [debts, deficits] = calculate_debts(Aggregate, Gtilde, Ctilde, Ttilde, debt_1, debtrates, T_model) 
+        debts       = [debt_1 zeros(1,T_model-1)];
+        deficits    = Gtilde + Aggregate.bens        ...
+                    - Ttilde - Aggregate.revs;
+        for t = 1:T_model-1
+            debts(t+1) = debts(t)*(1 + debtrates(t)) + deficits(t) - Ctilde(t); 
+        end
+    end % calculate_debt
+
+    %% Helper function to calculate residual needed to fix D/Y 
+    %     Inputs: (1) D/Y ratio to target
+    %             (2) NIS (as deficit)
+    %             (3) outputs (Y)
+    %             (4) Rates on debt
+    %     Outputs: Residual to be subtracted from debt to make D/Y match
+    function [residual] = calculate_fixed_debts(DY_ratio, deficits, outs, debtrates) 
+        T               = length(deficits);
+        new_debts       = DY_ratio * outs;  % fix the D/Y ratio
+        for t = 1:T-1
+            % NOTICE new_debt(t+1) = new_debts(t)*(1+debtrates(t)) + deficit - residual
+            residual(t)     = new_debts(t)*(1+debtrates(t)) + deficits(t) - new_debts(t+1);
+        end
+        residual(T) = DY_ratio*outs(T) - new_debts(T); 
+        
+    end
+        
 
     
 end % private methods
