@@ -745,6 +745,11 @@ methods (Static)
                     Dynamic.investment = (Market.capshares_1 * (assets_tomorrow - Dynamic.bequests))./ theFirm.priceCapital' ...
                                          - (1 - depreciation) * Dynamic.caps;
                                      
+                    % Include transition path series for symmetry
+                    Dynamic.Ttilde = 0;
+                    Dynamic.Gtilde = 0;
+                    Dynamic.Ctilde = 0;
+
                     % Update guesses
                     rhos      = Dynamic.caps / Dynamic.labeffs;
                     beqs      = Dynamic.bequests / sum(DIST_trans(:));          % Note: capgains is zero in steady state, so bequests don't need to be changed
@@ -1150,10 +1155,6 @@ methods (Static, Access = private )
             index.cohort_wages(:,i) = Market_wages(year_turn60)./Market_wages(:);
         end
 
-        % TBD: Erase these couple lines when the time comes to implement the policies above
-        index.wage_inflations = ones(size(Market_wages));              % Time-varying indexes
-        index.cohort_wages    = ones(T_model, nstartyears);            % Time- and cohort-varying indexes
-    
     end % generate_index
 
     

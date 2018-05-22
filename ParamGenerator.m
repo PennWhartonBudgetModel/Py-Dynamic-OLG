@@ -558,7 +558,6 @@ methods (Static)
         s.outlays_by_GDP     = (noninterestspending ./ projections_series.GDP_FY)';
         
         
-        
         % WARNINGS if parameters are outside expectations
         if( any( abs(s.debtrates) > 0.05 ) )
             fprintf( 'WARNING! debtrates outside expectations.\n' );
@@ -571,6 +570,14 @@ methods (Static)
                 fprintf( 'WARNING! cpi outside expectations. \n' );
             end
         end
+        
+        % Check if all entries are numerical
+        fields = fieldnames(s);
+        for i = 1:size(fields,1)
+            assert( ~any( isnan( s.(fields{i}) ) ), ...
+                   'Series %s contains NaN elements.', fields{i});
+        end
+                
     end % budget
     
     
