@@ -538,7 +538,7 @@ methods (Static)
             case 'open'
                 damper.rhos      = 1.0;      % In open economy, it's set by theFirm.calculateKLRatio function.
                 damper.beqs      = 0.0;
-                damper.capshares = 0.0;
+                damper.capshares = 1.0;
             case 'closed'
                 damper.rhos      = 0.0;
                 damper.beqs      = 0.0;
