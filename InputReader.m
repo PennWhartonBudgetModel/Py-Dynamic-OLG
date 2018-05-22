@@ -29,8 +29,21 @@ methods (Static)
         );
         
         % Check for singular match
-        assert(sum(match) > 0, 'No input scenario found corresponding to dynamic model scenario.'           );
-        assert(sum(match) < 2, 'More than one input scenario found corresponding to dynamic model scenario.');
+        if( sum(match) < 1 )
+            error( 'No input scenario found corresponding to dynamic model scenario. Mapfile %s', mapfile );
+        else
+            if( sum(match) > 1)
+                fprintf( '\nDuplicate ids: ');
+                for i = 1:length(match)
+                    if( match(i) )
+                        s = map.Properties.RowNames(i);
+                        fprintf( ' %s ', char(s) );
+                    end
+                end
+                fprintf('\n');
+                error( 'More than one input scenario found corresponding to dynamic model scenario. Mapfile %s', mapfile);
+            end
+        end
         
         % Extract ID of matching input scenario
         id = map.Properties.RowNames{match};
@@ -74,7 +87,7 @@ methods (Static)
             brackets = zeros(size(rates));
         end
         if( all(brackets(:,1)) > 0 )
-            err_msg = strcat('First bracket must be 0 in file ', strrep(filepath, '\', '\\'));
+            err_msg = strcat('First bracket must be 0 in file ', strrep(filename, '\', '\\'));
             throw(MException('read_brackets_rates:BRACKET0', err_msg ));
         end
         

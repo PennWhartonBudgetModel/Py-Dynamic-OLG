@@ -376,15 +376,27 @@ methods (Static)
         end
         
         
+        %% Define special Scenarios and their generators
         
+        % Scenario for current policy, steady state. 
+        steadyBaseScenario = scenario.currentPolicy().steady();
+        steady_generator = @() ModelSolver.solve(steadyBaseScenario, callingtag);
+        steady_dir = PathFinder.getWorkingDir(steadyBaseScenario);
         
-        %% Static aggregate generation
-        
-        if ~isbase && ~strcmp(economy, 'steady')
-            
+        % Scenario for the baseline transition path
+        if( ~strcmp(scenario.economy, 'steady') )
             baselineScenario = scenario.currentPolicy();
             base_generator = @() ModelSolver.solve(baselineScenario, callingtag);
             base_dir = PathFinder.getWorkingDir(baselineScenario);
+        else
+            baselineScenario = []; base_generator = []; base_dir = [];
+        end
+            
+        
+        
+        %% Static aggregate generation
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        if ~isbase && ~strcmp(economy, 'steady')
             
             % Load baseline market conditions, optimal labor values, and population distribution
             Market = hardyload('market.mat'      , base_generator, base_dir);
@@ -444,7 +456,9 @@ methods (Static)
         
         
         %% Dynamic aggregate generation
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
+        % Set initial guesses
         switch economy
             
             case 'steady'
@@ -466,31 +480,19 @@ methods (Static)
                 Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
                 Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
                 
-                DIST_steady = {};
-                
-            case {'open', 'closed'}
-                
-                % Make Scenario for current policy, steady state. 
-                steadyBaseScenario = scenario.currentPolicy().steady();
-                steady_generator = @() ModelSolver.solve(steadyBaseScenario, callingtag);
-                steady_dir = PathFinder.getWorkingDir(steadyBaseScenario);
-                
-                % Load steady state market conditions and dynamic aggregates
-                Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
-                Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
-                
-                % Load steady state population distribution
-                s = hardyload('distribution.mat', steady_generator, steady_dir);
-                DIST_steady = s.DIST_trans;
-                
-        end
-        
-        
-        switch economy
-            
             case 'open'
                 
-                if ~isbase
+                if( isbase )
+                    % Load steady state market conditions and dynamic aggregates
+                    Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
+                    Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
+
+                else
+                    
+                    % TBD: Make guess from open_base
+                    % Load steady state market conditions and dynamic aggregates
+                    Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
+                    Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
                     
                     % Calculate government expenditure adjustments
                     Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
@@ -502,24 +504,49 @@ methods (Static)
                     Ctilde = zeros(1,T_model);
                 end
                 
-            case 'closed'
+             case 'closed'
                 
+                if( isbase )
+                    % Load steady state market conditions and dynamic aggregates
+                    Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
+                    Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
+
+                else
+                    % TBD: Make guess from closed_base
+                    % Load steady state market conditions and dynamic aggregates
+                    Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
+                    Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
+
+                    % Make Scenario for the open economy. 
+                    openScenario = scenario.open();
+                    open_generator = @() ModelSolver.solve(openScenario, callingtag);
+                    open_dir = PathFinder.getWorkingDir(openScenario);
+                    
+                end
                 % Make Scenario for the open economy. 
                 openScenario = scenario.open();
                 open_generator = @() ModelSolver.solve(openScenario, callingtag);
                 open_dir = PathFinder.getWorkingDir(openScenario);
-                
+
                 % Load government expenditure adjustments
                 Dynamic_open = hardyload('dynamics.mat', open_generator, open_dir);
-                
+
                 Gtilde = Dynamic_open.Gtilde;
                 Ttilde = Dynamic_open.Ttilde;
-                Ctilde = Dynamic_open.Ctilde;
+                Ctilde = Dynamic_open.Ctilde;                
+
         end
         
+        % Load population 
+        if( ~strcmp( scenario.economy, 'steady' ) )
+            % Load steady state population distribution
+            s = hardyload('distribution.mat', steady_generator, steady_dir);
+            DIST_steady = s.DIST_trans;
+        else
+            DIST_steady = [];
+        end
         
-        
-        
+               
         %%
         % Define marketing clearing tolerance and initialize error term
         tolerance.rhos      = 1e-5;
@@ -532,9 +559,9 @@ methods (Static)
         % 	 1 = fully dampened, i.e., stays the same
         switch economy
             case 'steady'
-                damper.rhos      = 0.5;
-                damper.beqs      = 0.5;
-                damper.capshares = 0.5;
+                damper.rhos      = 0.75;
+                damper.beqs      = 0.75;
+                damper.capshares = 0.75;
             case 'open'
                 damper.rhos      = 1.0;      % In open economy, it's set by theFirm.calculateKLRatio function.
                 damper.beqs      = 0.0;
