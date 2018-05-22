@@ -236,7 +236,7 @@ methods (Static)
         % Get the capital and tax treatment allocation params. 
         %    Rem: These are time-varying, so read results are vectors.
         file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('CapitalTaxes_', taxplanid, '.csv'));
-        tax_vars = InputReader.read_series(file, 'year', first_year, last_year);
+        tax_vars = InputReader.read_series(file, 'Year', first_year, last_year);
         
         % Portion of corporate income taxed at preferred rates
         %   TBD: Fix this when John R. gives new inputs
@@ -283,7 +283,7 @@ methods (Static)
             otherwise
                 % Read tax params from steady-state, current-policy to make t=0 values
                 file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('CapitalTaxes_', sstaxplanid, '.csv'));
-                sstax_vars = InputReader.read_series(file, 'year', first_year - 1, first_year - 1);
+                sstax_vars = InputReader.read_series(file, 'Year', first_year - 1, first_year - 1);
 
                 s.qtobin0   = 1 - sstax_vars.shareCapitalExpensing(1) * sstax_vars.rateCorporate(1);
                 s.qtobin    = 1 - tax_vars.shareCapitalExpensing .* s.rateCorporate;
@@ -478,7 +478,7 @@ methods (Static)
         taxcalculator_past_series = InputReader.read_series(taxcalculator_file, 'Year', first_transition_year - 1, first_year);
         
         oasicalculator_id = InputReader.find_input_scenario_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario);
-        oasicalculator_file = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('aggregate_', oasicalculator_id, '.csv'));
+        oasicalculator_file = fullfile(PathFinder.getOASIcalculatorInputDir(), strcat('aggregates_', oasicalculator_id, '.csv'));
         oasicalculator_series      = InputReader.read_series(oasicalculator_file, 'year', first_year               , last_year );
         oasicalculator_past_series = InputReader.read_series(oasicalculator_file, 'year', first_transition_year - 1, first_year);
         

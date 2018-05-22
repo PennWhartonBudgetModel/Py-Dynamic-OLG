@@ -559,9 +559,9 @@ methods (Static)
         % 	 1 = fully dampened, i.e., stays the same
         switch economy
             case 'steady'
-                damper.rhos      = 0.5;
-                damper.beqs      = 0.5;
-                damper.capshares = 0.5;
+                damper.rhos      = 0.75;
+                damper.beqs      = 0.75;
+                damper.capshares = 0.75;
             case 'open'
                 damper.rhos      = 1.0;      % In open economy, it's set by theFirm.calculateKLRatio function.
                 damper.beqs      = 0.0;

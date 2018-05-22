@@ -18,7 +18,7 @@ properties (Constant)
     ,   'TransitionLastYear'    , (2018+7)                  ...
     ,   'ClosureYear'           , (2018+5)                  ...
     ... % POLICY PARAMS %
-    ,   'TaxCode'               , 'PermanentTCJA'           );
+    ,   'TaxCode'               , 'TopRate'           );
 
 end
 
