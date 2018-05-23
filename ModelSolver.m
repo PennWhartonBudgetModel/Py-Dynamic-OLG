@@ -464,14 +464,14 @@ methods (Static)
             case 'steady'
                 
                 % Load initial guesses
-                Dynamic0.outs       = 3.35;
-                Dynamic0.caps       = 12.20; 
+                Dynamic0.outs       = 3.1980566;
+                Dynamic0.caps       = 9.1898354; 
                 captoout            = Dynamic0.caps / Dynamic0.outs;
                 
-                Market0.beqs        = 0.1662;                                   % beqs are results from previous runs.
+                Market0.beqs        = 0.153155;                                   % beqs are results from previous runs.
                 Market0.capshares_0 = captoout / (captoout + budget.debttoout); % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
                 Market0.capshares_1 = Market0.capshares_0;                      % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                Market0.rhos        = 7.0652;                                   % rhos are results from previous runs.
+                Market0.rhos        = 4.94974;                                   % rhos are results from previous runs.
                 Market0.invtocaps   = 0.0078 + depreciation;                    % I/K = pop growth rate 0.0078 + depreciation
 
                 Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
