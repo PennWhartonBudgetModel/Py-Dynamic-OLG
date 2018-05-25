@@ -364,9 +364,8 @@ methods (Static)
             Aggregate.labeffs  = f(OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]));           % Effective labor
             Aggregate.lfprs    = f(OPTs.LABOR > 0.01) ./ f(1);                                                           % Labor force participation rate
             Aggregate.incs     = f(OPTs.TAXABLE_INC);                                                                    % Income
-            Aggregate.pits     = f(OPTs.ORD_LIABILITY);                                                                  % Personal income tax
-            Aggregate.ssts     = f(OPTs.PAYROLL_LIABILITY);                                                              % Social Security tax
-            Aggregate.cits     = f(OPTs.PREF_LIABILITY);                                                                 % Capital income tax
+            Aggregate.pits     = f(OPTs.ORD_LIABILITY + OPTs.PREF_LIABILITY);                                                                  % Personal income tax
+            Aggregate.ssts     = f(OPTs.PAYROLL_LIABILITY);                                                              % Capital income tax
             Aggregate.bens     = f(OPTs.OASI_BENEFITS);                                                                  % Social Security benefits
             Aggregate.cons     = f(OPTs.CONSUMPTION);                                                                    % Consumption
             Aggregate.assets_0 = f(repmat(reshape(kv, [1,nk,1,1,1]), [nz, 1,nb,T_life,T_model]));                        % Assets before re-pricing
@@ -427,7 +426,7 @@ methods (Static)
                                                            );
             Static.corpTaxs  = corpTaxs';
             Static.dividends = corpDividends';
-            Static.revs = Static.pits + Static.ssts + Static.cits + Static.corpTaxs;            
+            Static.revs = Static.pits + Static.ssts + Static.corpTaxs;            
             
             % In general, we have:
             % Static.debts = Static.debts_domestic + Static.debts_foreign;
@@ -707,9 +706,7 @@ methods (Static)
             % Taxes
             Dynamic.corpDividends = corpDividends';
             Dynamic.corpTaxs      = corpTaxs';
-            Dynamic.revs          = Dynamic.pits + Dynamic.ssts      ...
-                                  + Dynamic.cits + Dynamic.corpTaxs  ...
-                                   ;
+            Dynamic.revs          = Dynamic.pits + Dynamic.ssts + Dynamic.corpTaxs;
             
             switch economy
                 
