@@ -416,7 +416,7 @@ methods (Static)
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
             
-            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'investment', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde', 'Ctilde' }
+            for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'GNP', 'investment', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde', 'Ctilde' }
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
             
