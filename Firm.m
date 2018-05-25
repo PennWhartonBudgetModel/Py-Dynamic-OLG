@@ -19,6 +19,7 @@ classdef Firm
         
         expensingRate       ;           % phi_exp
         corpTaxRate         ;           % tax on corp. profits
+        interestDeduction   ;           % phi_int
         
         priceCapital        ;           % See documentation. This is p_K
         priceCapital0 = 1   ;
@@ -36,15 +37,16 @@ classdef Firm
                 throw(MException('Firm:firmType','firmType must be SingleFirm or PassThrough'));
             end
             
-            prod                    = ParamGenerator.production( scenario );
+            prod = ParamGenerator.production( scenario );
             this.TFP                = prod.A;
             this.capitalShare       = prod.alpha;
             this.depreciationRate   = prod.depreciation;
             this.riskPremium        = prod.risk_premium;
             
-            tax                 = ParamGenerator.tax( scenario );
-            this.expensingRate  = tax.shareCapitalExpensing;        
-        	this.corpTaxRate    = tax.rateCorporate;     
+            tax = ParamGenerator.tax( scenario );
+            this.expensingRate      = tax.shareCapitalExpensing;        
+        	this.corpTaxRate        = tax.rateCorporate;   
+            this.interestDeduction  = 1;   % TEMP
             
             % Calculate the price of capital (p_K, see docs)
             this.priceCapital   = this.priceCapital0 * (tax.qtobin ./ tax.qtobin0);
@@ -227,6 +229,19 @@ classdef Firm
             tempCaps = caps(1:T_model);
         end % calculateKLRatio
 
+        
+        %% 
+        % Calculate optimal debt from
+        % optimal B? from ?/?B (???B) = ?/?B (?(B/K)*B)
+        % ?() = 1/? (B/K)^?, so ?' = (B/K)^(?-1) and the RHS is
+        % ?'B + ?
+        function [debt] = calculateDebt( this, interestRate, capital, leverageCost )
+            
+            c       = (1/(capital.^leverageCost) + 1/(capital.^(leverageCost-1)));
+            x       = leverageCost .* (this.interestDeduction .* this.corpTaxRate .* interestRate) ./ c;
+            debt    = x .^ (1./leverageCost);
+            
+        end % calculateDebt
         
     end % instance methods
     
