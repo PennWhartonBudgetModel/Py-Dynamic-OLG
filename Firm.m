@@ -233,13 +233,13 @@ classdef Firm
         %% 
         % Calculate optimal debt from
         % optimal B? from ?/?B (???B) = ?/?B (?(B/K)*B)
-        % ?() = 1/? (B/K)^?, so ?' = (B/K)^(?-1) and the RHS is
-        % ?'B + ?
+        % ?() = 1/? (B/K)^?, so ?/?B (?(B/K)*B) is
+        % (B/K)^(?)* (1/(?+1)) 
         function [debt] = calculateDebt( this, interestRate, capital, leverageCost )
             
-            c       = (1/(capital.^leverageCost) + 1/(capital.^(leverageCost-1)));
-            x       = leverageCost .* (this.interestDeduction .* this.corpTaxRate .* interestRate) ./ c;
-            debt    = x .^ (1./leverageCost);
+            a       = (leverageCost + 1) .* capital.^leverageCost;
+            b       = (this.interestDeduction .* this.corpTaxRate .* interestRate) .* a;
+            debt    = b .^ (1./leverageCost);
             
         end % calculateDebt
         
