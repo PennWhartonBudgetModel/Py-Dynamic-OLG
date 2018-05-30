@@ -131,10 +131,10 @@ methods (Static)
         
         
         % Define default output parameter value sets
-        output_parameters0.OpenEconomy          = {0, 1};
+        output_parameters0.OpenEconomy          = {0, 0.4, 0.7, 1};
         output_parameters0.UseDynamicBaseline   = {true, false};
         output_parameters0.LaborElasticity      = {0.5};
-        output_parameters0.IsLowReturn          = {true};
+        output_parameters0.IsLowReturn          = {true, false};
         
         % Identify output parameter value sets, applying defaults where unspecified
         if exist('output_parameters', 'var') && ~isempty(output_parameters)
