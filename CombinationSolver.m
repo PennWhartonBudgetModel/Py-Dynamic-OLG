@@ -134,7 +134,7 @@ methods (Static)
         output_parameters0.OpenEconomy          = {0, 0.4, 0.7, 1};
         output_parameters0.UseDynamicBaseline   = {true, false};
         output_parameters0.LaborElasticity      = {0.5};
-        output_parameters0.IsLowReturn          = {true, false};
+        output_parameters0.IsLowReturn          = {false};
         
         % Identify output parameter value sets, applying defaults where unspecified
         if exist('output_parameters', 'var') && ~isempty(output_parameters)
