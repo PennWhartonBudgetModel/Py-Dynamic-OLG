@@ -241,21 +241,39 @@ classdef Firm
         
         %% 
         % Calculate optimal debt from
-        % optimal B? from d/dB (phi*tau*pi*B) = d/dB (nu(B/K)*B)
-        % nu() = 1/nu (B/K)^nu, so d/dB (nu(B/K)*B) is
-        % (nu+1)/nu * (B/K)^nu 
+        % optimal B* from either (a) d/dB (phi*tau*pi*B) = d/dB (nu(B/K)*B)
+        %                     or (b) d/dB (phi*tau*pi*B) = d/dB (nu(B/K)*K)
+        % nu() = 1/nu (B/K)^nu 
         function [debt, debtCost, taxBenefit] = calculateDebt( this, interestRate, capital )
             
             taxBenefitRate = (this.interestDeduction .* this.corpTaxRate .* interestRate);
+            nu             = this.leverageCost;
             
-            nu      = this.leverageCost;
-            a       = taxBenefitRate .* ( (nu ./ (nu + 1)) .* capital.^nu );
-            debt    = a .^ (1./nu);
+            % This is (a) nu(B/K)*B approach
+            % debt        = (taxBenefitRate .* ( (nu ./ (nu + 1)) ) .^ (1./nu) .* capital;
+            
+            debt        = (taxBenefitRate .^ (nu-1)) .* capital;
             
             debtCost    = debt .* (1./nu) .* (debt ./ capital) .^ nu;
             taxBenefit  = debt .* taxBenefitRate;
             
         end % calculateDebt
+        
+        
+        %% 
+        % Calculate leverageCost from K/B ratio target
+        %   Use leverage total cost function nu(B/K)*K 
+        %    because it has analytic solution for nu
+        function [nu] = calculateLeverageCost( this, interestRate, debt, capital)
+            
+            taxBenefitRate = (this.interestDeduction .* this.corpTaxRate .* interestRate);
+            
+            logBK = log( debt ./ capital );
+            nu    = 1 + log(taxBenefitRate) ./ logBK;
+            
+        end % calculateLeverageCost
+
+
         
     end % instance methods
     
