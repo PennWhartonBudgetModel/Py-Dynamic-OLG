@@ -20,6 +20,7 @@ classdef Firm
         expensingRate       ;           % phi_exp
         corpTaxRate         ;           % tax on corp. profits
         interestDeduction   ;           % phi_int
+        leverageCost        ;           % nu
         
         priceCapital        ;           % See documentation. This is p_K
         priceCapital0 = 1   ;
@@ -47,6 +48,7 @@ classdef Firm
             this.expensingRate      = tax.shareCapitalExpensing;        
         	this.corpTaxRate        = tax.rateCorporate;   
             this.interestDeduction  = 1;   % TEMP
+            this.leverageCost       = 2;
             
             % Calculate the price of capital (p_K, see docs)
             this.priceCapital   = this.priceCapital0 * (tax.qtobin ./ tax.qtobin0);
@@ -54,7 +56,7 @@ classdef Firm
         
         
         %%
-        function [divs, cits] = dividends( this, capital, investment, klRatio, wage )
+        function [divs, cits, debts] = dividends( this, capital, investment, klRatio, wage )
             % Inputs : capital
             %          investment = GROSS physical investment --> K' - (1-d)K
             %          klRatio & wage (which are consistent in the current iteration)
@@ -79,9 +81,15 @@ classdef Firm
             % Investment expensing 'subsidy'
             expensing    = this.expensingRate .* investment .* this.priceCapital;
             
+            % Find optimal debt, interest tax benefit, and leverage cost
+            bondRate     = 0.03; % TEMP -- this should be theFirm.dividends
+                                 %         we converge on a fixed point
+            [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( bondRate, capital );
+            
             % Combine to get net tax
             if( this.firmType == Firm.SINGLEFIRM )
-                cits  = (y - wagesPaid - expensing) .* this.corpTaxRate;
+                cits  = (y - wagesPaid - expensing) .* this.corpTaxRate  ...
+                        - debtTaxBenefit;
             else
                 cits  = 0;
             end
@@ -91,6 +99,7 @@ classdef Firm
                   - wagesPaid                           ... % labor costs
                   - depreciation                        ... % replace depreciated capital
                   - risk                                ... % discount money lost due to risk
+                  - debtCost                            ... % Cost of leverage
                   - cits;                                   % net taxes
                   
         end % dividends
@@ -232,14 +241,19 @@ classdef Firm
         
         %% 
         % Calculate optimal debt from
-        % optimal B? from ?/?B (???B) = ?/?B (?(B/K)*B)
-        % ?() = 1/? (B/K)^?, so ?/?B (?(B/K)*B) is
-        % (B/K)^(?)* (1/(?+1)) 
-        function [debt] = calculateDebt( this, interestRate, capital, leverageCost )
+        % optimal B? from d/dB (phi*tau*pi*B) = d/dB (nu(B/K)*B)
+        % nu() = 1/nu (B/K)^nu, so d/dB (nu(B/K)*B) is
+        % (nu+1)/nu * (B/K)^nu 
+        function [debt, debtCost, taxBenefit] = calculateDebt( this, interestRate, capital )
             
-            a       = (leverageCost + 1) .* capital.^leverageCost;
-            b       = (this.interestDeduction .* this.corpTaxRate .* interestRate) .* a;
-            debt    = b .^ (1./leverageCost);
+            taxBenefitRate = (this.interestDeduction .* this.corpTaxRate .* interestRate);
+            
+            nu      = this.leverageCost;
+            a       = taxBenefitRate .* ( (nu ./ (nu + 1)) .* capital.^nu );
+            debt    = a .^ (1./nu);
+            
+            debtCost    = debt .* (1./nu) .* (debt ./ capital) .^ nu;
+            taxBenefit  = debt .* taxBenefitRate;
             
         end % calculateDebt
         
