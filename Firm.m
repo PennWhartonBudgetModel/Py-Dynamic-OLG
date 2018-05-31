@@ -18,7 +18,8 @@ classdef Firm
         riskPremium         ;           % for high/low return
         
         expensingRate       ;           % phi_exp
-        corpTaxRate         ;           % tax on corp. profits
+        effectiveTaxRate    ;           % effective tax on profits
+        statutoryTaxRate    ;           % statutory tax rate on profits
         interestDeduction   ;           % phi_int
         leverageCost        ;           % nu
         
@@ -39,25 +40,28 @@ classdef Firm
             end
             
             prod = ParamGenerator.production( scenario );
+            tax  = ParamGenerator.tax( scenario );
+
             this.TFP                = prod.A;
             this.capitalShare       = prod.alpha;
             this.depreciationRate   = prod.depreciation;
             this.riskPremium        = prod.risk_premium;
             
-            tax = ParamGenerator.tax( scenario );
-            this.expensingRate      = tax.shareCapitalExpensing;        
-        	this.corpTaxRate        = tax.rateCorporate;   
-            this.interestDeduction  = 1;   % TEMP: Should come from params file
-            
             % TEMP:
             % The interest rate should be endogenous.
             switch this.firmType
                 case Firm.SINGLEFIRM
-                    leverageRatio = prod.initialCorpLeverage;
+                    this.effectiveTaxRate   = tax.rateCorporate;
+                    this.statutoryTaxRate   = tax.rateCorporateStatutory;
+                    this.expensingRate      = tax.shareCapitalExpensing; % REVISE W/ new interface
+                    this.interestDeduction  = 1;   % TEMP: Should come from params file
+                    leverageRatio           = prod.initialCorpLeverage;
                 case Firm.PASSTHROUGH
-                    leverageRatio = prod.initialPassThroughLeverage;
-                otherwise
-                    error( 'FirmType not supported.' );
+                    this.effectiveTaxRate   = 0;  % TEMP: Should come from ParamGenerator
+                    this.statutoryTaxRate   = 0;  % TEMP: Verify this.
+                    this.expensingRate      = tax.shareCapitalExpensing; % REVISE W/ new interface
+                    this.interestDeduction  = 1;   % TEMP: Should come from params file
+                    leverageRatio           = prod.initialPassThroughLeverage;
             end
             % Rem: the leverage cost is size invariant, so set capital=1
             this.leverageCost = this.calculateLeverageCost( 0.04, leverageRatio, 1);
@@ -100,7 +104,8 @@ classdef Firm
             
             % Combine to get net tax
             if( this.firmType == Firm.SINGLEFIRM )
-                cits  = (y - wagesPaid - expensing) .* this.corpTaxRate  ...
+                cits  = (y - wagesPaid) .* this.effectiveTaxRate  ...
+                        - expensing .* this.statutoryTaxRate      ...
                         - debtTaxBenefit;
             else
                 cits  = 0;
@@ -258,7 +263,7 @@ classdef Firm
         % nu() = 1/nu (B/hK)^nu , where h=100
         function [debt, debtCost, taxBenefit] = calculateDebt( this, interestRate, capital )
             
-            taxBenefitRate = (this.interestDeduction .* this.corpTaxRate .* interestRate);
+            taxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* interestRate);
             nu             = this.leverageCost;
             
             % For (a) nu(B/K)*B approach
@@ -278,7 +283,7 @@ classdef Firm
         %    because it has analytic solution for nu
         function [nu] = calculateLeverageCost( this, interestRate, debt, capital)
             
-            taxBenefitRate = (this.interestDeduction .* this.corpTaxRate .* interestRate);
+            taxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* interestRate);
             
             logBK = log( debt ./ (capital*100) );
             nu    = 1 + log(taxBenefitRate) ./ logBK;

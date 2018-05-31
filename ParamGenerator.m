@@ -246,10 +246,12 @@ methods (Static)
         % Capital gains tax == zero for now
         s.rateCapGain   = zeros(T_model,1);
         
-        % Pass along all CIT parameters 
+        % Pass along all capital tax parameters 
         for f = fieldnames(tax_vars)'
             s.(f{1}) = tax_vars.(f{1});
         end
+        % TEMP: This needs to come from file
+        s.rateCorporateStatutory = 0.21;
         
         % Read Preferred Rates
         file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('PreferredRates_', taxplanid, '.csv'));
