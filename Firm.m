@@ -32,42 +32,43 @@ classdef Firm
     
     methods
         
-        function [this] = Firm( scenario, firmType )
+        %%
+        %  Constructor
+        %     INPUTS:   paramsTax = ParamGenerator.tax()
+        %               paramsProduction = ParamGenerator.production()
+        function [this] = Firm( paramsTax, paramsProduction, firmType )
             
             this.firmType           = firmType;   
             if( ~(firmType == Firm.SINGLEFIRM || firmType == Firm.PASSTHROUGH) )
                 throw(MException('Firm:firmType','firmType must be SingleFirm or PassThrough'));
             end
             
-            prod = ParamGenerator.production( scenario );
-            tax  = ParamGenerator.tax( scenario );
-
-            this.TFP                = prod.A;
-            this.capitalShare       = prod.alpha;
-            this.depreciationRate   = prod.depreciation;
-            this.riskPremium        = prod.risk_premium;
+            this.TFP                = paramsProduction.A;
+            this.capitalShare       = paramsProduction.alpha;
+            this.depreciationRate   = paramsProduction.depreciation;
+            this.riskPremium        = paramsProduction.risk_premium;
             
             % TEMP:
             % The interest rate should be endogenous.
             switch this.firmType
                 case Firm.SINGLEFIRM
-                    this.effectiveTaxRate   = tax.rateCorporate;
-                    this.statutoryTaxRate   = tax.rateCorporateStatutory;
-                    this.expensingRate      = tax.shareCapitalExpensing; % REVISE W/ new interface
+                    this.effectiveTaxRate   = paramsTax.rateCorporate;
+                    this.statutoryTaxRate   = paramsTax.rateCorporateStatutory;
+                    this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
                     this.interestDeduction  = 1;   % TEMP: Should come from params file
-                    leverageRatio           = prod.initialCorpLeverage;
+                    leverageRatio           = paramsProduction.initialCorpLeverage;
                 case Firm.PASSTHROUGH
                     this.effectiveTaxRate   = 0;  % TEMP: Should come from ParamGenerator as top marginal PIT rate
                     this.statutoryTaxRate   = this.effectiveTaxRate;
-                    this.expensingRate      = tax.shareCapitalExpensing; % REVISE W/ new interface
+                    this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
                     this.interestDeduction  = 1;   % TEMP: Should come from params file
-                    leverageRatio           = prod.initialPassThroughLeverage;
+                    leverageRatio           = paramsProduction.initialPassThroughLeverage;
             end
             % Rem: the leverage cost is size invariant, so set capital=1
             this.leverageCost   = this.calculateLeverageCost( 0.04, leverageRatio, 1);
             
             % Calculate the price of capital (p_K, see docs)
-            this.priceCapital   = this.priceCapital0 * (tax.qtobin ./ tax.qtobin0);
+            this.priceCapital   = this.priceCapital0 * (paramsTax.qtobin ./ paramsTax.qtobin0);
         end % constructor
         
         

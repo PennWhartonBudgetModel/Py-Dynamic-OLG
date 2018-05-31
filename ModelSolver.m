@@ -83,10 +83,10 @@ methods (Static)
         bv     = s.bv;        % avg. earnings grid
         
         % Load production parameters
-        s = ParamGenerator.production( scenario );
-        A               = s.A;              % Total factor productivity
-        alpha           = s.alpha;          % Capital share of output
-        depreciation    = s.depreciation;   % Depreciation rate
+        production = ParamGenerator.production( scenario );
+        A               = production.A;              % Total factor productivity
+        alpha           = production.alpha;          % Capital share of output
+        depreciation    = production.depreciation;   % Depreciation rate
         
         % Load population growth parameters
         % Load age-dependent parameters
@@ -141,10 +141,10 @@ methods (Static)
         bequest_phi_3 = s.phi3;                 % phi3 is the relative risk aversion coefficient
 
         % Instantiate a Firm (SingleFirm)
-        theFirm       = Firm( scenario, Firm.SINGLEFIRM );
+        theFirm       = Firm( tax, production, Firm.SINGLEFIRM );
         
         % Instantiate the Pass-Through Firm
-        thePassThrough  = Firm( scenario, Firm.PASSTHROUGH );
+        thePassThrough  = Firm( tax, production, Firm.PASSTHROUGH );
         
         
         %% Aggregate generation function
