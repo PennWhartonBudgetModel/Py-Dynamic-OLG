@@ -47,8 +47,20 @@ classdef Firm
             tax = ParamGenerator.tax( scenario );
             this.expensingRate      = tax.shareCapitalExpensing;        
         	this.corpTaxRate        = tax.rateCorporate;   
-            this.interestDeduction  = 1;   % TEMP
-            this.leverageCost       = 2;
+            this.interestDeduction  = 1;   % TEMP: Should come from params file
+            
+            % TEMP:
+            % The interest rate should be endogenous.
+            switch this.firmType
+                case Firm.SINGLEFIRM
+                    leverageRatio = prod.initialCorpLeverage;
+                case Firm.PASSTHROUGH
+                    leverageRatio = prod.initialPassThroughLeverage;
+                otherwise
+                    error( 'FirmType not supported.' );
+            end
+            % Rem: the leverage cost is size invariant, so set capital=1
+            this.leverageCost = this.calculateLeverageCost( 0.04, leverageRatio, 1);
             
             % Calculate the price of capital (p_K, see docs)
             this.priceCapital   = this.priceCapital0 * (tax.qtobin ./ tax.qtobin0);
@@ -243,16 +255,16 @@ classdef Firm
         % Calculate optimal debt from
         % optimal B* from either (a) d/dB (phi*tau*pi*B) = d/dB (nu(B/K)*B)
         %                     or (b) d/dB (phi*tau*pi*B) = d/dB (nu(B/K)*K)
-        % nu() = 1/nu (B/K)^nu 
+        % nu() = 1/nu (B/hK)^nu , where h=100
         function [debt, debtCost, taxBenefit] = calculateDebt( this, interestRate, capital )
             
             taxBenefitRate = (this.interestDeduction .* this.corpTaxRate .* interestRate);
             nu             = this.leverageCost;
             
-            % This is (a) nu(B/K)*B approach
+            % For (a) nu(B/K)*B approach
             % debt        = (taxBenefitRate .* ( (nu ./ (nu + 1)) ) .^ (1./nu) .* capital;
             
-            debt        = (taxBenefitRate .^ (nu-1)) .* capital;
+            debt        = (taxBenefitRate .^ (nu-1)) .* capital * 100;
             
             debtCost    = debt .* (1./nu) .* (debt ./ capital) .^ nu;
             taxBenefit  = debt .* taxBenefitRate;
@@ -268,7 +280,7 @@ classdef Firm
             
             taxBenefitRate = (this.interestDeduction .* this.corpTaxRate .* interestRate);
             
-            logBK = log( debt ./ capital );
+            logBK = log( debt ./ (capital*100) );
             nu    = 1 + log(taxBenefitRate) ./ logBK;
             
         end % calculateLeverageCost
