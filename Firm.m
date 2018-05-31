@@ -57,14 +57,14 @@ classdef Firm
                     this.interestDeduction  = 1;   % TEMP: Should come from params file
                     leverageRatio           = prod.initialCorpLeverage;
                 case Firm.PASSTHROUGH
-                    this.effectiveTaxRate   = 0;  % TEMP: Should come from ParamGenerator
-                    this.statutoryTaxRate   = 0;  % TEMP: Verify this.
+                    this.effectiveTaxRate   = 0;  % TEMP: Should come from ParamGenerator as top marginal PIT rate
+                    this.statutoryTaxRate   = this.effectiveTaxRate;
                     this.expensingRate      = tax.shareCapitalExpensing; % REVISE W/ new interface
                     this.interestDeduction  = 1;   % TEMP: Should come from params file
                     leverageRatio           = prod.initialPassThroughLeverage;
             end
             % Rem: the leverage cost is size invariant, so set capital=1
-            this.leverageCost = this.calculateLeverageCost( 0.04, leverageRatio, 1);
+            this.leverageCost   = this.calculateLeverageCost( 0.04, leverageRatio, 1);
             
             % Calculate the price of capital (p_K, see docs)
             this.priceCapital   = this.priceCapital0 * (tax.qtobin ./ tax.qtobin0);
