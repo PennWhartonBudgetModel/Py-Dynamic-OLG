@@ -364,6 +364,12 @@ methods (Static)
             s.risk_premium  = 0.08 - s.depreciation; % "Depreciation rate" to generate r=risk-free rate         ;
         end
         
+        % Find initial year business debt / capital leverage ratios
+        %   TEMP: This should come from interface
+        %         For now, this is from Alex's spreadsheet for 2016 values
+        s.initialCorpLeverage           = (20846076 / 15247820);
+        s.initialPassThroughLeverage    = (8184598 / 8927226);
+
     end % production
         
     
