@@ -23,6 +23,8 @@ classdef Firm
         interestDeduction   ;           % phi_int
         leverageCost        ;           % nu
         
+        interestRate        ;           % bond rate
+        
         priceCapital        ;           % See documentation. This is p_K
         priceCapital0 = 1   ;
         
@@ -48,6 +50,9 @@ classdef Firm
             this.depreciationRate   = paramsProduction.depreciation;
             this.riskPremium        = paramsProduction.risk_premium;
             
+            % TEMP: Will be passed in
+            this.interestRate       = 0.04;
+            
             % TEMP:
             % The interest rate should be endogenous.
             switch this.firmType
@@ -65,7 +70,7 @@ classdef Firm
                     leverageRatio           = paramsProduction.initialPassThroughLeverage;
             end
             % Rem: the leverage cost is size invariant, so set capital=1
-            this.leverageCost   = this.calculateLeverageCost( 0.04, leverageRatio, 1);
+            this.leverageCost   = this.calculateLeverageCost( leverageRatio, 1);
             
             % Calculate the price of capital (p_K, see docs)
             this.priceCapital   = this.priceCapital0 * (paramsTax.qtobin ./ paramsTax.qtobin0);
@@ -99,9 +104,7 @@ classdef Firm
             expensing    = this.expensingRate .* investment .* this.priceCapital;
             
             % Find optimal debt, interest tax benefit, and leverage cost
-            bondRate     = 0.03; % TEMP -- this should be theFirm.dividends
-                                 %         we converge on a fixed point
-            [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( bondRate, capital );
+            [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( capital );
             
             % Combine to get net tax
             if( this.firmType == Firm.SINGLEFIRM )
@@ -262,9 +265,9 @@ classdef Firm
         % optimal B* from either (a) d/dB (phi*tau*pi*B) = d/dB (nu(B/K)*B)
         %                     or (b) d/dB (phi*tau*pi*B) = d/dB (nu(B/K)*K)
         % nu() = 1/nu (B/hK)^nu , where h=100
-        function [debt, debtCost, taxBenefit] = calculateDebt( this, interestRate, capital )
+        function [debt, debtCost, taxBenefit] = calculateDebt( this, capital )
             
-            taxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* interestRate);
+            taxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* this.interestRate);
             nu             = this.leverageCost;
             
             % For (a) nu(B/K)*B approach
@@ -282,9 +285,9 @@ classdef Firm
         % Calculate leverageCost from K/B ratio target
         %   Use leverage total cost function nu(B/K)*K 
         %    because it has analytic solution for nu
-        function [nu] = calculateLeverageCost( this, interestRate, debt, capital)
+        function [nu] = calculateLeverageCost( this, debt, capital)
             
-            taxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* interestRate);
+            taxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* this.interestRate);
             
             logBK = log( debt ./ (capital*100) );
             nu    = 1 + log(taxBenefitRate) ./ logBK;

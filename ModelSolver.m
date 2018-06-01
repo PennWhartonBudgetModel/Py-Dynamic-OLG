@@ -675,6 +675,9 @@ methods (Static)
                 end
             end
             
+            % Re-instantiate the Firm
+            theFirm         = Firm( tax, production, Firm.SINGLEFIRM );
+            thePassThrough  = Firm( tax, production, Firm.PASSTHROUGH );
             
             % Compute prices
             Market.wages               = A*(1-alpha)*(Market.rhos.^alpha);
