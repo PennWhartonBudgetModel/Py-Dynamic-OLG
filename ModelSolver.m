@@ -115,25 +115,22 @@ methods (Static)
         
         %% Tax parameters
         %    rem: all US dollars have been converted to modelunit_dollars
-        tax = ParamGenerator.tax( scenario );
-        
-        %  TBD: Revise this to clean up. Have separate structs for ordinary
-        %  and preferred HH rates.
+        taxIndividual           = ParamGenerator.tax( scenario );
+        taxBusiness             = ParamGenerator.taxBusiness( scenario );
+        % Tax parameters for current policy, steady-state
+        initialTaxIndividual    = ParamGenerator.tax( scenario.steady().currentPolicy() );  
         
         %  The following brackets, burdens, rates vary by year
-        pit.brackets      = tax.brackets;       % Tax func is linearized, these are income thresholds 
-        pit.burdens       = tax.burdens;        % Tax burden (cumulative tax) at thresholds
-        pit.rates         = tax.rates;          % Effective marginal tax rate between thresholds
-        pit.prefbrackets  = tax.prefbrackets;
-        pit.prefburdens   = tax.prefburdens;
-        pit.prefrates     = tax.prefrates;
-        pit.rateCapGain   = tax.rateCapGain;    % Capital gains tax
+        pit.brackets      = taxIndividual.brackets;       % Tax func is linearized, these are income thresholds 
+        pit.burdens       = taxIndividual.burdens;        % Tax burden (cumulative tax) at thresholds
+        pit.rates         = taxIndividual.rates;          % Effective marginal tax rate between thresholds
+        pit.prefbrackets  = taxIndividual.prefbrackets;
+        pit.prefburdens   = taxIndividual.prefburdens;
+        pit.prefrates     = taxIndividual.prefrates;
+        pit.rateCapGain   = taxIndividual.rateCapGain;    % Capital gains tax
         
-        captaxshares      = tax.captaxshare;    % Portion of capital income taxed at preferred rates
+        captaxshares      = taxIndividual.captaxshare;    % Portion of capital income taxed at preferred rates
 
-        % Tax parameters for current policy, steady-state
-        sstax = ParamGenerator.tax( scenario.steady().currentPolicy() );  
-        
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
         bequest_phi_1 = s.phi1;                 % phi1 reflects parent's concern about leaving bequests to her children (THIS IS THE ONE WE WANT TO CALIBRATE FOR LATER!)
@@ -141,10 +138,10 @@ methods (Static)
         bequest_phi_3 = s.phi3;                 % phi3 is the relative risk aversion coefficient
 
         % Instantiate a Firm (SingleFirm)
-        theFirm       = Firm( tax, production, Firm.SINGLEFIRM );
+        theFirm         = Firm( taxBusiness, production, Firm.SINGLEFIRM );
         
         % Instantiate the Pass-Through Firm
-        thePassThrough  = Firm( tax, production, Firm.PASSTHROUGH );
+        thePassThrough  = Firm( taxBusiness, production, Firm.PASSTHROUGH );
         
         
         %% Aggregate generation function
@@ -627,9 +624,9 @@ methods (Static)
                         Dynamic.caps(1) = Market0.capshares_0 * Dynamic0.assets_0;
                         % Define the pre-tax returns necessary to return
                         % the world rate from steady-state.
-                        effectiveDividendRate = ( Market0.equityFundDividends*(1 - sstax.rateForeignCorpIncome) ...
+                        effectiveDividendRate = ( Market0.equityFundDividends*(1 - initialTaxIndividual.rateForeignCorpIncome) ...
                                                   - Market.capgains ) ...
-                                                ./ (1 - tax.rateForeignCorpIncome);
+                                                ./ (1 - taxIndividual.rateForeignCorpIncome);
                         klRatio = theFirm.calculateKLRatio( effectiveDividendRate   , ... 
                                                             Dynamic.caps'           , ...
                                                             Dynamic.labeffs'        , ...
@@ -676,8 +673,8 @@ methods (Static)
             end
             
             % Re-instantiate the Firm
-            theFirm         = Firm( tax, production, Firm.SINGLEFIRM );
-            thePassThrough  = Firm( tax, production, Firm.PASSTHROUGH );
+            theFirm         = Firm( taxIndividual, production, Firm.SINGLEFIRM );
+            thePassThrough  = Firm( taxIndividual, production, Firm.PASSTHROUGH );
             
             % Compute prices
             Market.wages               = A*(1-alpha)*(Market.rhos.^alpha);
