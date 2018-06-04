@@ -115,22 +115,11 @@ methods (Static)
         
         %% Tax parameters
         %    rem: all US dollars have been converted to modelunit_dollars
-        taxIndividual           = ParamGenerator.tax( scenario );
-        taxBusiness             = ParamGenerator.taxBusiness( scenario );
+        taxIndividual           = ParamGenerator.taxIndividual( scenario );
+        taxBusiness             = ParamGenerator.taxBusiness  ( scenario );
         % Tax parameters for current policy, steady-state
-        initialTaxIndividual    = ParamGenerator.tax( scenario.steady().currentPolicy() );  
+        initialTaxIndividual    = ParamGenerator.taxIndividual( scenario.steady().currentPolicy() );  
         
-        %  The following brackets, burdens, rates vary by year
-        pit.brackets      = taxIndividual.brackets;       % Tax func is linearized, these are income thresholds 
-        pit.burdens       = taxIndividual.burdens;        % Tax burden (cumulative tax) at thresholds
-        pit.rates         = taxIndividual.rates;          % Effective marginal tax rate between thresholds
-        pit.prefbrackets  = taxIndividual.prefbrackets;
-        pit.prefburdens   = taxIndividual.prefburdens;
-        pit.prefrates     = taxIndividual.prefrates;
-        pit.rateCapGain   = taxIndividual.rateCapGain;    % Capital gains tax
-        
-        captaxshares      = taxIndividual.captaxshare;    % Portion of capital income taxed at preferred rates
-
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
         bequest_phi_1 = s.phi1;                 % phi1 reflects parent's concern about leaving bequests to her children (THIS IS THE ONE WE WANT TO CALIBRATE FOR LATER!)
@@ -192,10 +181,10 @@ methods (Static)
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                     ssbenefits, ssincmins_indexed, ssincmaxs_indexed, cohort_wageindexes, ...
                     sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
-                    sstaxcredit, pit.brackets, pit.burdens, pit.rates, ... 
-                    captaxshares, ...
-                    pit.prefbrackets, pit.prefburdens, pit.prefrates, ... 
-                    pit.rateCapGain, ...
+                    sstaxcredit, taxIndividual.brackets, taxIndividual.burdens, taxIndividual.rates, ... 
+                    taxIndividual.captaxshare, ...
+                    taxIndividual.prefbrackets, taxIndividual.prefburdens, taxIndividual.prefrates, ... 
+                    taxIndividual.rateCapGain, ...
                     Market.beqs, ...
                     Market.wages, ...
                     Market.capshares_0, zeros(1,T_model), ... % portfolio allocations
@@ -673,8 +662,8 @@ methods (Static)
             end
             
             % Re-instantiate the Firm
-            theFirm         = Firm( taxIndividual, production, Firm.SINGLEFIRM );
-            thePassThrough  = Firm( taxIndividual, production, Firm.PASSTHROUGH );
+            theFirm         = Firm( taxBusiness, production, Firm.SINGLEFIRM );
+            thePassThrough  = Firm( taxBusiness, production, Firm.PASSTHROUGH );
             
             % Compute prices
             Market.wages               = A*(1-alpha)*(Market.rhos.^alpha);

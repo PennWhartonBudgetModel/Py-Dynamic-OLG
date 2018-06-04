@@ -197,18 +197,17 @@ methods (Static)
     end % grids
     
     
-    %% TAXES
+    %% INDIVIDUAL TAXES
     % 
     % Generate tax policy parameters according to predefined plans.
     % 
-    function s = tax( scenario )
+    function s = taxIndividual( scenario )
         
         timing                  = ParamGenerator.timing(scenario);
         
         % Find tax plan ID corresponding to scenario tax parameters
         taxplanmapfile = fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv');
         taxplanid   = InputReader.find_input_scenario_id(taxplanmapfile, scenario                         );
-        sstaxplanid = InputReader.find_input_scenario_id(taxplanmapfile, scenario.steady().currentPolicy());
                 
         T_model                 = timing.T_model;
         switch scenario.economy
@@ -246,13 +245,6 @@ methods (Static)
         % Capital gains tax == zero for now
         s.rateCapGain   = zeros(T_model,1);
         
-        % Pass along all capital tax parameters 
-        for f = fieldnames(tax_vars)'
-            s.(f{1}) = tax_vars.(f{1});
-        end
-        % TEMP: This needs to come from file
-        s.rateCorporateStatutory = 0.21;
-        
         % Read Preferred Rates
         file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('PreferredRates_', taxplanid, '.csv'));
         [brackets, rates] = InputReader.read_brackets_rates_indices(file, first_year, T_model);
@@ -272,47 +264,15 @@ methods (Static)
         s.rateForeignCorpIncome         = 0.179 ;   % Tax rate on corp. distributions to foreigners
         s.rateForeignPassThroughIncome  = 0.10  ;   % Tax rate on pass-through distributions to foreigners
         
-        % Allocation of capital income between Corp & Pass-Through -- TEMP
-        %   TBD: Read these from file
-        s.shareIncomeCorp               = 1.00;  % Amount of capital to corps
-        s.shareIncomePassThrough        = 1 - s.shareIncomeCorp;
-        
-        % Calculate Q-Tobin
-        switch scenario.economy
-            case 'steady'
-                s.qtobin0   = 1 - tax_vars.shareCapitalExpensing(1) * s.rateCorporate(1);
-                s.qtobin    = s.qtobin0;
-            otherwise
-                % Read tax params from steady-state, current-policy to make t=0 values
-                file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('CapitalTaxes_', sstaxplanid, '.csv'));
-                sstax_vars = InputReader.read_series(file, 'Year', first_year - 1, first_year - 1);
-
-                s.qtobin0   = 1 - sstax_vars.shareCapitalExpensing(1) * sstax_vars.rateCorporate(1);
-                s.qtobin    = 1 - tax_vars.shareCapitalExpensing .* s.rateCorporate;
-        end  
-               
         
         % Warn if parameters are outside expectations
         if( any(s.captaxshare < 0) || any(s.captaxshare > 1) )
             fprintf( 'WARNING! captaxshare outside expecations.\n', s.captaxshare );
         end
-        if( any(s.shareCapitalExpensing < 0) || any(s.shareCapitalExpensing > 1) )
-            fprintf( 'WARNING! shareCapitalExpensing=%f outside expectations.\n', s.shareCapitalExpensing );
-        end
         
         %% TBD: Enlarge the space of error checks
         
-        % Catch fatal errors
-        if( any(s.shareCapitalOrdinary + s.shareCapitalPreferred + s.shareCapitalCorporate) ~= 1 ) 
-            error( 'Capital tax shares must sum to 1.' );
-        end
-        if( any(s.shareLaborOrdinary + s.shareLaborPreferred + s.shareLaborCorporate) ~= 1 )
-            error( 'Labor tax shares must sum to 1.' );
-        end
-        if( any(s.shareLaborOrdinary ~= 1) )
-            error( 'Current model does not handle allocating taxable labor income outside Ordinary rates.' );
-        end
-    end  % tax()
+    end  % taxIndividual()
 
 
     %% BUSINESS TAXES
