@@ -11,7 +11,7 @@ classdef Firm
         MULTIFIRM           = 2;
     end
     
-    properties
+    properties 
         TFP                 ;           % A
         capitalShare        ;           % alpha
         depreciationRate    ;           % delta
@@ -23,7 +23,7 @@ classdef Firm
         interestDeduction   ;           % phi_int
         leverageCost        ;           % nu
         
-        interestRate        ;           % bond rate
+        debtTaxBenefitRate  ;           % pre-calculated tax value of another $1 of debt
         
         priceCapital        ;           % See documentation. This is p_K
         priceCapital0 = 1   ;
@@ -50,9 +50,6 @@ classdef Firm
             this.depreciationRate   = paramsProduction.depreciation;
             this.riskPremium        = paramsProduction.risk_premium;
             
-            % TEMP: Will be passed in
-            this.interestRate       = 0.04;
-            
             % TEMP:
             % The interest rate should be endogenous.
             switch this.firmType
@@ -60,17 +57,21 @@ classdef Firm
                     this.effectiveTaxRate   = paramsTax.rateCorporate;
                     this.statutoryTaxRate   = paramsTax.rateCorporateStatutory;
                     this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
-                    this.interestDeduction  = 1;   % TEMP: Should come from params file
+                    this.interestDeduction  = paramsTax.interestDeduction;
                     leverageRatio           = paramsProduction.initialCorpLeverage;
                 case Firm.PASSTHROUGH
                     this.effectiveTaxRate   = 0;  % TEMP: Should come from ParamGenerator as top marginal PIT rate
                     this.statutoryTaxRate   = this.effectiveTaxRate;
                     this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
-                    this.interestDeduction  = 1;   % TEMP: Should come from params file
+                    this.interestDeduction  = paramsTax.interestDeduction;
                     leverageRatio           = paramsProduction.initialPassThroughLeverage;
             end
+            
+            % TBD. Calculate or use leverage cost
             % Rem: the leverage cost is size invariant, so set capital=1
-            this.leverageCost   = this.calculateLeverageCost( leverageRatio, 1);
+            interestRate = 0.04;
+            this.debtTaxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* interestRate);
+            this.leverageCost       = this.calculateLeverageCost( leverageRatio, 1);
             
             % Calculate the price of capital (p_K, see docs)
             this.priceCapital   = this.priceCapital0 * (paramsTax.qtobin ./ paramsTax.qtobin0);
@@ -267,7 +268,7 @@ classdef Firm
         % nu() = 1/nu (B/hK)^nu , where h=100
         function [debt, debtCost, taxBenefit] = calculateDebt( this, capital )
             
-            taxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* this.interestRate);
+            taxBenefitRate = this.debtTaxBenefitRate;
             nu             = this.leverageCost;
             
             % For (a) nu(B/K)*B approach
@@ -287,10 +288,8 @@ classdef Firm
         %    because it has analytic solution for nu
         function [nu] = calculateLeverageCost( this, debt, capital)
             
-            taxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* this.interestRate);
-            
             logBK = log( debt ./ (capital*100) );
-            nu    = 1 + log(taxBenefitRate) ./ logBK;
+            nu    = 1 + log(this.debtTaxBenefitRate) ./ logBK;
             
         end % calculateLeverageCost
 
