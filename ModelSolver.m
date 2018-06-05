@@ -566,9 +566,9 @@ methods (Static)
                 damper.beqs      = 0.0;
                 damper.capshares = 1.0;
             case 'closed'
-                damper.rhos      = 0.0;
-                damper.beqs      = 0.0;
-                damper.capshares = 0.0; 
+                damper.rhos      = 0.5;
+                damper.beqs      = 0.5;
+                damper.capshares = 0.5; 
         end
         
         % Initialize iteration count and set maximum number of iterations
@@ -687,7 +687,7 @@ methods (Static)
             % 'Price' of assets -- HH own equal shares of both bond & equity funds
             % (equityFund/bondFund)Dividends are actually dividend rates
             Market.equityFundPrice0     = theFirm.priceCapital0;
-            Market.equityFundPrices     = theFirm.priceCapital';  
+            Market.equityFundPrices     = theFirm.priceCapital';
             Market.equityFundDividends  = (corpDividends ./ (Dynamic.caps' .* theFirm.priceCapital))';
             
             Market.bondFundPrice0       = 1;
