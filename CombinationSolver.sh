@@ -13,15 +13,14 @@ rm -rf ${LOGDIR}
 mkdir -p ${LOGDIR}
 
 # Specify scenario job execution queue, checking for presence of --aws flag ($1)
-QUEUE=$([ $# -gt 0 ] && [ $1 = "--aws" ]               \
-        && echo 'aws-ppi.q -l aws_ppi -P bepp_ppi_aws' \
-        || echo 'short.q'                              )
+QUEUE=$([ $# -gt 0 ] && [ $1 = "--aws" ]                               \
+        && echo 'aws-ppi.q -l aws_ppi -P bepp_ppi_aws -pe openmp 6' \
+        || echo 'short.q                              -pe openmp 2' )
 
 # Submit current policy solution task array job
 qsub -N currentpolicy \
      -t 1-$(ls -1 ./Scenarios/currentpolicy*.mat | wc -l) \
      -q ${QUEUE} \
-     -pe openmp 6 \
      -j y -o ${LOGDIR}'/currentpolicy$TASK_ID.log' \
      -b y 'matlab -nodesktop -nosplash -r "parpool_hpcc(), PathFinder.setToProductionMode(), CombinationSolver.solveCurrentPolicy(${SGE_TASK_ID}), delete(gcp)"'
 
@@ -29,7 +28,6 @@ qsub -N currentpolicy \
 qsub -N counterfactual -hold_jid currentpolicy \
      -t 1-$(ls -1 ./Scenarios/counterfactual*.mat | wc -l) \
      -q ${QUEUE} \
-     -pe openmp 6 \
      -j y -o ${LOGDIR}'/counterfactual$TASK_ID.log' \
      -b y 'matlab -nodesktop -nosplash -r "parpool_hpcc(), PathFinder.setToProductionMode(), CombinationSolver.solveCounterfactual(${SGE_TASK_ID}), delete(gcp)"'
 
