@@ -531,10 +531,10 @@ methods (Static)
         %    deflate by GDPPriceIndex
         if( strcmp(scenario.economy, 'steady') )
             gdpPriceIndex   = projections_full_series.ChainedCPIU;
-            interest_rate   = projections_full_series.AverageInterestRateOnDebt / 100;
+            interest_rate   = projections_full_series.AverageInterestRateOnDebt;
         else
             gdpPriceIndex   = projections_series.ChainedCPIU;
-            interest_rate   = projections_series.AverageInterestRateOnDebt / 100;
+            interest_rate   = projections_series.AverageInterestRateOnDebt;
         end
         
         deflator        = zeros(size(gdpPriceIndex));
@@ -561,6 +561,9 @@ methods (Static)
         % WARNINGS if parameters are outside expectations
         if( any( abs(s.debtrates) > 0.05 ) )
             fprintf( 'WARNING! debtrates outside expectations.\n' );
+        end
+        if( any( s.debtrates < -0.01 ) )
+            fprintf( 'WARNING! Some debtrates are < -0.01 \n' );
         end
         if( (s.debttoout < 0.6) || (s.debttoout > 1.0) )
             fprintf( 'WARNING! debttoout=%f outside expectations.\n', debttoout );
