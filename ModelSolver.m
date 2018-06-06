@@ -847,7 +847,8 @@ methods (Static)
                                                                             ,   Dynamic.outs(closure_year:T_model)      ...
                                                                             ,   budget.debtrates(closure_year:T_model)  ...
                                                                             );
-                        Ctilde            = [zeros(1, closure_year-1) cont_Ctilde];
+                        % Ctilde should not be negative (which means debt has dropped). 
+                        Ctilde = [zeros(1, closure_year-1) max(cont_Ctilde,0) ];
                         
                         % Recalculate debt and check if D/Y has been fixed
                         %   Note: D/Y for t=ClosureYear is unchanged by Ctilde
