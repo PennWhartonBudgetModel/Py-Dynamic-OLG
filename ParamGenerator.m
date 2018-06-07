@@ -521,7 +521,7 @@ methods (Static)
         debt            = zeros(size(deficit_nis));
         debt(1)         = projections_debt_series.DebtHeldByThePublic(1);
         for i = 2:size(deficit_nis)
-            debt(i) = debt(i-1)*(1+projections_past_series.AverageInterestRateOnDebt(i)/100.0) - deficit_nis(i);
+            debt(i) = debt(i-1)*(1+projections_past_series.AverageInterestRateOnDebt(i)) - deficit_nis(i);
         end
         s.debttoout     = debt(end) / projections_series.GDP_FY(1);
         
@@ -530,19 +530,19 @@ methods (Static)
         %    NOTE: EffectiveInterestRateOnDebt is in NOMINAL terms and we
         %    deflate by GDPPriceIndex
         if( strcmp(scenario.economy, 'steady') )
-            gdpPriceIndex   = projections_full_series.ChainedCPIU;
+            gdpPriceIndex   = projections_full_series.GDPDeflator;
             interest_rate   = projections_full_series.AverageInterestRateOnDebt;
         else
-            gdpPriceIndex   = projections_series.ChainedCPIU;
+            gdpPriceIndex   = projections_series.GDPDeflator;
             interest_rate   = projections_series.AverageInterestRateOnDebt;
         end
         
-        deflator        = zeros(size(gdpPriceIndex));
-        deflator(1)     = 1.0;
-        for i = 2:size(deflator)
-            deflator(i) = gdpPriceIndex(i)/gdpPriceIndex(i-1);
+        deflator_rate           = zeros(size(gdpPriceIndex));
+        deflator_rate(1)        = 1.0;
+        for i = 2:size(deflator_rate)
+            deflator_rate(i)    = gdpPriceIndex(i)/gdpPriceIndex(i-1);
         end
-        rates_adjusted  = ((1 + interest_rate)./deflator) - 1.0;    
+        rates_adjusted          = ((1 + interest_rate)./deflator_rate) - 1.0;    
         
         if( strcmp(scenario.economy, 'steady') )
             s.debtrates = nanmean( rates_adjusted );
