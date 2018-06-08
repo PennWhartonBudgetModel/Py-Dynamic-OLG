@@ -859,8 +859,11 @@ methods (Static)
                         outs         = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                         Dynamic.outs = outs;  % outs var is used to keep last iteration values
                     
-                        cont_debttoout    = Dynamic.debts(closure_year:T_model) ./ Dynamic.outs(closure_year:T_model);
-                        Ctilde_error      = max(abs(cont_debttoout - closure_debttoout));
+                        % Calculate error = max deviation to the upside of target
+                        %    We allow arbitrary decreases in debt.
+                        debttoout_err   = Dynamic.debts(closure_year:T_model) ./ Dynamic.outs(closure_year:T_model) ...
+                                            - closure_debttoout;
+                        Ctilde_error    = max( debttoout_err .* (debttoout_err > 0) );
                     
                     end % Ctilde convergence
 
@@ -1180,13 +1183,13 @@ methods (Static, Access = private )
     %     Outputs: Residual to be subtracted from debt to make D/Y match
     function [residual] = calculate_fixed_debts(DY_ratio, deficits, outs, debtrates) 
         T               = length(deficits);
-        new_debts       = DY_ratio * outs;  % fix the D/Y ratio
-        for t = 1:T-1
+        % Set debt targets; rem: GDP(T) is not known, so duplicate as kludge
+        new_debts       = DY_ratio .* [outs, outs(T)];  
+        residual        = zeros(1,T);
+        for t = 1:T
             % NOTICE new_debt(t+1) = new_debts(t)*(1+debtrates(t)) + deficit - residual
-            residual(t)     = new_debts(t)*(1+debtrates(t)) + deficits(t) - new_debts(t+1);
+            residual(t) = new_debts(t)*(1+debtrates(t)) + deficits(t) - new_debts(t+1);
         end
-        residual(T) = DY_ratio*outs(T) - new_debts(T); 
-        
     end
         
 
