@@ -50,8 +50,6 @@ classdef Firm
             this.depreciationRate   = paramsProduction.depreciation;
             this.riskPremium        = paramsProduction.risk_premium;
             
-            % TEMP:
-            % The interest rate should be endogenous.
             switch this.firmType
                 case Firm.SINGLEFIRM
                     this.effectiveTaxRate   = paramsTax.rateCorporate;
@@ -264,20 +262,20 @@ classdef Firm
         
         %% 
         % Calculate optimal debt from
-        % optimal B* from either (a) d/dB (phi*tau*pi*B) = d/dB (nu(B/K)*B)
-        %                     or (b) d/dB (phi*tau*pi*B) = d/dB (nu(B/K)*K)
+        % optimal B* from d/dB (phi*tau*pi*B) = d/dB (nu(B/hK)*K)
         % nu() = 1/nu (B/hK)^nu , where h=100
         function [debt, debtCost, taxBenefit] = calculateDebt( this, capital )
             
+            h              = 100;
             taxBenefitRate = this.debtTaxBenefitRate;
             nu             = this.leverageCost;
             
-            % For (a) nu(B/K)*B approach
-            % debt        = (taxBenefitRate .* ( (nu ./ (nu + 1)) ) .^ (1./nu) .* capital;
+            d       = 1 - this.interestDeduction .* this.statutoryTaxRate;  
+            n       = taxBenefitRate * h^nu;
+            x       = 1/(nu-1);
+            debt    = (( n ./ d ) .^ x) .* capital;
             
-            debt        = (taxBenefitRate .^ (nu-1)) .* capital * 100;
-            
-            debtCost    = debt .* (1./nu) .* (debt ./ capital) .^ nu;
+            debtCost    = (1/nu) .* (debt./(h*capital) ) .^ nu;
             taxBenefit  = debt .* taxBenefitRate;
             
         end % calculateDebt
@@ -289,9 +287,12 @@ classdef Firm
         %    because it has analytic solution for nu
         function [nu] = calculateLeverageCost( this, debt, capital)
             
-            logBK = log( debt ./ (capital*100) );
-            nu    = 1 + log(this.debtTaxBenefitRate) ./ logBK;
-            
+            h     = 100;
+            logBK = log( debt ./ (capital*h) );
+            n     = log( this.debtTaxBenefitRate * h ) ...
+                      - log( 1 - this.statutoryTaxRate .* this.interestDeduction );
+            nu    = 1 + n ./ logBK;
+
         end % calculateLeverageCost
 
 
