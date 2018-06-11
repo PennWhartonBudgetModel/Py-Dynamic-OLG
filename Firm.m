@@ -23,6 +23,7 @@ classdef Firm
         interestDeduction   ;           % phi_int
         leverageCost        ;           % nu
         
+        initLeverageRatio   ;           % stored value of initial leverage ratio 
         debtTaxBenefitRate  ;           % pre-calculated tax value of another $1 of debt
         
         priceCapital        ;           % See documentation. This is p_K
@@ -38,7 +39,8 @@ classdef Firm
         %  Constructor
         %     INPUTS:   paramsTax = ParamGenerator.tax()
         %               paramsProduction = ParamGenerator.production()
-        function [this] = Firm( paramsTax, paramsProduction, firmType )
+        %               interestRate = Guess at dividends rate
+        function [this] = Firm( paramsTax, paramsProduction, interestRate, firmType )
             
             this.firmType           = firmType;   
             if( ~(firmType == Firm.SINGLEFIRM || firmType == Firm.PASSTHROUGH) )
@@ -56,24 +58,31 @@ classdef Firm
                     this.statutoryTaxRate   = paramsTax.rateCorporateStatutory;
                     this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
                     this.interestDeduction  = paramsTax.interestDeduction;
-                    leverageRatio           = paramsProduction.initialCorpLeverage;
+                    this.initLeverageRatio  = paramsProduction.initialCorpLeverage;
                 case Firm.PASSTHROUGH
                     this.effectiveTaxRate   = 0;  % TEMP: Should come from ParamGenerator as top marginal PIT rate
                     this.statutoryTaxRate   = this.effectiveTaxRate;
                     this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
                     this.interestDeduction  = paramsTax.interestDeduction;
-                    leverageRatio           = paramsProduction.initialPassThroughLeverage;
+                    this.initLeverageRatio  = paramsProduction.initialPassThroughLeverage;
             end
             
-            % TBD. Calculate or use leverage cost
+            % Calculate or use leverage cost
             % Rem: the leverage cost is size invariant, so set capital=1
-            interestRate = 0.04;
             this.debtTaxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* interestRate);
-            this.leverageCost       = this.calculateLeverageCost( leverageRatio, 1);
+            this.leverageCost       = this.calculateLeverageCost( this.initLeverageRatio, 1);
             
             % Calculate the price of capital (p_K, see docs)
             this.priceCapital   = this.priceCapital0 * (paramsTax.qtobin ./ paramsTax.qtobin0);
         end % constructor
+        
+        
+        %%
+        %  Reset the interest rate and recalculate leverage cost
+        function [this] = resetInterestRate( this, interestRate )
+            this.debtTaxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* interestRate);
+            this.leverageCost       = this.calculateLeverageCost( this.initLeverageRatio, 1);
+        end % resetInterestRate
         
         
         %%

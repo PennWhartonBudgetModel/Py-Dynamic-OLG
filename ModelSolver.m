@@ -127,10 +127,11 @@ methods (Static)
         bequest_phi_3 = s.phi3;                 % phi3 is the relative risk aversion coefficient
 
         % Instantiate a Firm (SingleFirm)
-        theFirm         = Firm( taxBusiness, production, Firm.SINGLEFIRM );
+        %  Guess at interest rate
+        theFirm         = Firm( taxBusiness, production, 0.04, Firm.SINGLEFIRM );
         
         % Instantiate the Pass-Through Firm
-        thePassThrough  = Firm( taxBusiness, production, Firm.PASSTHROUGH );
+        thePassThrough  = Firm( taxBusiness, production, 0.04, Firm.PASSTHROUGH );
         
         
         %% Aggregate generation function
@@ -453,12 +454,14 @@ methods (Static)
                 Dynamic0.caps       = 9.1898354; 
                 captoout            = Dynamic0.caps / Dynamic0.outs;
                 
-                Market0.beqs        = 0.153155;                                   % beqs are results from previous runs.
+                Market0.beqs        = 0.153155;                                 % beqs are results from previous runs.
                 Market0.capshares_0 = captoout / (captoout + budget.debttoout); % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
                 Market0.capshares_1 = Market0.capshares_0;                      % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                Market0.rhos        = 4.94974;                                   % rhos are results from previous runs.
+                Market0.rhos        = 4.94974;                                  % rhos are results from previous runs.
                 Market0.invtocaps   = 0.0078 + depreciation;                    % I/K = pop growth rate 0.0078 + depreciation
-
+                
+                Market0.equityFundDividends = 0.04;                             % Random guess
+                
                 Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
                 Dynamic0.assets_0   = theFirm.priceCapital*Dynamic0.caps + Dynamic0.debts;
                 Dynamic0.assets_1   = Dynamic0.assets_0;
@@ -584,10 +587,11 @@ methods (Static)
 
             % Define market conditions in the first iteration
             if isinitial
-                Market.beqs        = Market0.beqs       *ones(1,T_model);
-                Market.capshares_0 = Market0.capshares_0*ones(1,T_model);
-                Market.capshares_1 = Market0.capshares_1*ones(1,T_model);
-                Market.invtocaps   = Market0.invtocaps  *ones(1,T_model);
+                Market.beqs                 = Market0.beqs                  *ones(1,T_model);
+                Market.capshares_0          = Market0.capshares_0           *ones(1,T_model);
+                Market.capshares_1          = Market0.capshares_1           *ones(1,T_model);
+                Market.invtocaps            = Market0.invtocaps             *ones(1,T_model);
+                Market.equityFundDividends  = Market0.equityFundDividends   *ones(1,T_model);
                 
                 Dynamic.assets_0    = Dynamic0.assets_0     *ones(1,T_model);
                 Dynamic.assets_1    = Dynamic0.assets_1     *ones(1,T_model);
@@ -661,9 +665,10 @@ methods (Static)
                 end
             end
             
-            % Re-instantiate the Firm
-            theFirm         = Firm( taxBusiness, production, Firm.SINGLEFIRM );
-            thePassThrough  = Firm( taxBusiness, production, Firm.PASSTHROUGH );
+            % If steady-state, reset interest rate to calibrate leverage
+            if( strcmp( scenario.economy, 'steady' ) )
+                theFirm = theFirm.resetInterestRate( Market.equityFundDividends );
+            end 
             
             % Compute prices
             Market.wages               = A*(1-alpha)*(Market.rhos.^alpha);
