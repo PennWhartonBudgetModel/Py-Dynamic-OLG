@@ -468,9 +468,10 @@ methods (Static)
         
         projections_file = fullfile(PathFinder.getProjectionsInputDir(), 'Projections.csv');
         projections_series      = InputReader.read_series(projections_file, 'Year', first_year               , last_year                );
+        projections_series_long = InputReader.read_series(projections_file, 'Year', first_year               , last_year + 1            );
         projections_past_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, first_year               );
         projections_debt_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, first_transition_year - 1);
-        projections_full_series = InputReader.read_series(projections_file, 'Year', first_year               , []                       );
+        projections_full_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, []                       );
         
         taxcalculator_id = InputReader.find_input_scenario_id(fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv'), scenario);
         taxcalculator_file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('Aggregates_', taxcalculator_id, '.csv'));
@@ -528,18 +529,24 @@ methods (Static)
         % Rates
         %    For interest rate in steady-state, we use avg. rate across all data
         %    NOTE: EffectiveInterestRateOnDebt is in NOMINAL terms and we
-        %    deflate by GDPPriceIndex
+        %    deflate by GDPDeflator. We therefore need N+1 GDPDeflators to
+        %    match N interest rates.
+        
         if( strcmp(scenario.economy, 'steady') )
-            gdpPriceIndex   = projections_full_series.GDPDeflator;
-            interest_rate   = projections_full_series.AverageInterestRateOnDebt;
+            gdpPriceIndex0  = projections_full_series.GDPDeflator(1);  
+            gdpPriceIndex   = projections_full_series.GDPDeflator(2:end);
+            num_rates       = size(gdpPriceIndex);
+            interest_rate   = projections_full_series.AverageInterestRateOnDebt(1:num_rates);
         else
-            gdpPriceIndex   = projections_series.GDPDeflator;
+            gdpPriceIndex0  = projections_series_long.GDPDeflator(1); 
+            gdpPriceIndex   = projections_series_long.GDPDeflator(2:end);
+            num_rates       = size(gdpPriceIndex);
             interest_rate   = projections_series.AverageInterestRateOnDebt;
         end
         
-        deflator_rate           = zeros(size(gdpPriceIndex));
-        deflator_rate(1)        = 1.0;
-        for i = 2:size(deflator_rate)
+        deflator_rate           = zeros(num_rates);
+        deflator_rate(1)        = gdpPriceIndex(1) / gdpPriceIndex0;
+        for i = 2:num_rates
             deflator_rate(i)    = gdpPriceIndex(i)/gdpPriceIndex(i-1);
         end
         rates_adjusted          = ((1 + interest_rate)./deflator_rate) - 1.0;    
