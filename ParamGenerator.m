@@ -557,7 +557,7 @@ methods (Static)
         debt            = zeros(size(deficit_nis));
         debt(1)         = projections_debt_series.DebtHeldByThePublic(1);
         for i = 2:size(deficit_nis)
-            debt(i) = debt(i-1)*(1+projections_past_series.AverageInterestRateOnDebt(i)/100.0) - deficit_nis(i);
+            debt(i) = debt(i-1)*(1+projections_past_series.AverageInterestRateOnDebt(i)) - deficit_nis(i);
         end
         s.debttoout     = debt(end) / projections_series.GDP_FY(1);
         
@@ -566,19 +566,19 @@ methods (Static)
         %    NOTE: EffectiveInterestRateOnDebt is in NOMINAL terms and we
         %    deflate by GDPPriceIndex
         if( strcmp(scenario.economy, 'steady') )
-            gdpPriceIndex   = projections_full_series.ChainedCPIU;
-            interest_rate   = projections_full_series.AverageInterestRateOnDebt / 100;
+            gdpPriceIndex   = projections_full_series.GDPDeflator;
+            interest_rate   = projections_full_series.AverageInterestRateOnDebt;
         else
-            gdpPriceIndex   = projections_series.ChainedCPIU;
-            interest_rate   = projections_series.AverageInterestRateOnDebt / 100;
+            gdpPriceIndex   = projections_series.GDPDeflator;
+            interest_rate   = projections_series.AverageInterestRateOnDebt;
         end
         
-        deflator        = zeros(size(gdpPriceIndex));
-        deflator(1)     = 1.0;
-        for i = 2:size(deflator)
-            deflator(i) = gdpPriceIndex(i)/gdpPriceIndex(i-1);
+        deflator_rate           = zeros(size(gdpPriceIndex));
+        deflator_rate(1)        = 1.0;
+        for i = 2:size(deflator_rate)
+            deflator_rate(i)    = gdpPriceIndex(i)/gdpPriceIndex(i-1);
         end
-        rates_adjusted  = ((1 + interest_rate)./deflator) - 1.0;    
+        rates_adjusted          = ((1 + interest_rate)./deflator_rate) - 1.0;    
         
         if( strcmp(scenario.economy, 'steady') )
             s.debtrates = nanmean( rates_adjusted );
@@ -597,6 +597,9 @@ methods (Static)
         % WARNINGS if parameters are outside expectations
         if( any( abs(s.debtrates) > 0.05 ) )
             fprintf( 'WARNING! debtrates outside expectations.\n' );
+        end
+        if( any( s.debtrates < -0.01 ) )
+            fprintf( 'WARNING! Some debtrates are < -0.01 \n' );
         end
         if( (s.debttoout < 0.6) || (s.debttoout > 1.0) )
             fprintf( 'WARNING! debttoout=%f outside expectations.\n', debttoout );
@@ -644,11 +647,11 @@ methods (Static)
         %   for now just pick one of two hardcoded targets
         % BEGIN TEMP
         inverse = struct(                                 ...
-                    'beta'              , 0.98000000000000      ...
-             ,      'gamma'             , 0.74500000000000      ...
-             ,      'sigma'             , 1.600000000000000      ...
-             ,      'bequest_phi_1'     , 0                      ...
-             ,      'modelunit_dollar'  , 3.8600000000e-05   ...
+           'beta'               , 0.97500000000000          ...
+    ,      'gamma'              , 0.7500000000000          ...
+    ,      'sigma'              , 1.600000000000000         ...
+    ,      'bequest_phi_1'      , 0                         ...
+    ,      'modelunit_dollar'   , 3.8800000000e-05          ...
             );
 
         if( isfield( targets, 'IsLowReturn' ) )
