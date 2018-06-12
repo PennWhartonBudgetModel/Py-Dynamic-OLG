@@ -54,7 +54,7 @@ classdef Firm
         
         
         %%
-        function [divs, cits] = dividends( this, capital, investment, klRatio, wage )
+        function [divs, cits] = dividends( this, capital, invtocapsT_model, klRatio, wage )
             % Inputs : capital
             %          investment = GROSS physical investment --> K' - (1-d)K
             %          klRatio & wage (which are consistent in the current iteration)
@@ -75,6 +75,10 @@ classdef Firm
             
             % Risk premium (rem: at cost to buy it)
             risk = this.riskPremium .* capital .* this.priceCapital;
+            
+            % Investment
+            investment = [capital(2:end) - (1 - this.depreciationRate)*capital(1:end-1); ...
+                          capital(end)*invtocapsT_model ];
             
             % Investment expensing 'subsidy'
             expensing    = this.expensingRate .* investment .* this.priceCapital;
@@ -126,7 +130,7 @@ classdef Firm
                 K_by_L = caps ./ labor;
                 wage   = this.TFP * (1-this.capitalShare) .* (K_by_L .^ this.capitalShare);
                 
-                divs = this.dividends( caps, investment, K_by_L, wage );
+                divs = this.dividends( caps, invtocapsT_model, K_by_L, wage );
                 divRate = divs ./ (caps .* this.priceCapital);
                 
                 err_div = max(abs((divRate(2:end) - dividendRate(2:end)) ./ dividendRate(2:end)));
