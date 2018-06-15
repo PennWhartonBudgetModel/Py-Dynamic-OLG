@@ -43,7 +43,7 @@ methods (Static)
         closure_year        = scenario.ClosureYear - scenario.TransitionFirstYear;
         
         % Identify baseline run 
-        isbase = scenario.isCurrentPolicy();
+        isbase              = scenario.isCurrentPolicy();
         
         % Immigration policies
         legal_scale         = scenario.legal_scale      ;
@@ -126,13 +126,6 @@ methods (Static)
         bequest_phi_2 = s.phi2;                 % phi2 measures the extent to which bequests are a luxury good
         bequest_phi_3 = s.phi3;                 % phi3 is the relative risk aversion coefficient
 
-        % Instantiate a Firm (SingleFirm)
-        %  Guess at interest rate
-        theFirm         = Firm( taxBusiness, production, 0.04, Firm.SINGLEFIRM );
-        
-        % Instantiate the Pass-Through Firm
-        thePassThrough  = Firm( taxBusiness, production, 0.04, Firm.PASSTHROUGH );
-        
         
         %% Aggregate generation function
         
@@ -369,15 +362,33 @@ methods (Static)
         steady_generator = @() ModelSolver.solve(steadyBaseScenario, callingtag);
         steady_dir = PathFinder.getWorkingDir(steadyBaseScenario);
         
-        % Scenario for the baseline transition path
-        if( ~strcmp(scenario.economy, 'steady') )
-            baselineScenario = scenario.currentPolicy();
-            base_generator = @() ModelSolver.solve(baselineScenario, callingtag);
-            base_dir = PathFinder.getWorkingDir(baselineScenario);
-        else
-            baselineScenario = []; base_generator = []; base_dir = [];
+        % Scenarios for the baseline transition path
+        %    and open economy version for closed
+        switch( scenario.economy )
+            case 'steady'
+                baselineScenario = []; base_generator = []; base_dir = [];
+                openScenario = []; open_generator = []; open_dir = [];
+            case 'open'
+                baselineScenario = scenario.currentPolicy();
+                base_generator = @() ModelSolver.solve(baselineScenario, callingtag);
+                base_dir = PathFinder.getWorkingDir(baselineScenario);
+                openScenario = []; open_generator = []; open_dir = [];
+            case 'closed'
+                baselineScenario = scenario.currentPolicy();
+                base_generator = @() ModelSolver.solve(baselineScenario, callingtag);
+                base_dir = PathFinder.getWorkingDir(baselineScenario);
+
+                openScenario = scenario.open();
+                open_generator = @() ModelSolver.solve(openScenario, callingtag);
+                open_dir = PathFinder.getWorkingDir(openScenario);
         end
-            
+        
+        %%
+        % Instantiate a Firm (SingleFirm)
+        theFirm         = Firm( taxBusiness, production, 0.04, Firm.SINGLEFIRM );
+        
+        % Instantiate the Pass-Through Firm
+        thePassThrough  = Firm( taxBusiness, production, 0.04, Firm.PASSTHROUGH );
         
         
         %% Static aggregate generation
@@ -504,17 +515,7 @@ methods (Static)
                     % Load steady state market conditions and dynamic aggregates
                     Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
                     Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
-
-                    % Make Scenario for the open economy. 
-                    openScenario = scenario.open();
-                    open_generator = @() ModelSolver.solve(openScenario, callingtag);
-                    open_dir = PathFinder.getWorkingDir(openScenario);
-                    
                 end
-                % Make Scenario for the open economy. 
-                openScenario = scenario.open();
-                open_generator = @() ModelSolver.solve(openScenario, callingtag);
-                open_dir = PathFinder.getWorkingDir(openScenario);
 
                 % Load government expenditure adjustments
                 Dynamic_open = hardyload('dynamics.mat', open_generator, open_dir);
