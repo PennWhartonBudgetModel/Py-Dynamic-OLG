@@ -356,38 +356,48 @@ methods (Static)
         
         
         %% Define special Scenarios and their generators
+        steadyBaseScenario = []; steady_generator = []; steady_dir = [];
+        baselineScenario = []; base_generator = []; base_dir = [];
+        openScenario = []; open_generator = []; open_dir = [];
         
-        % Scenario for current policy, steady state. 
-        steadyBaseScenario = scenario.currentPolicy().steady();
-        steady_generator = @() ModelSolver.solve(steadyBaseScenario, callingtag);
-        steady_dir = PathFinder.getWorkingDir(steadyBaseScenario);
+        % Scenario for current policy, steady state.
+        if( ~strcmp( scenario.economy, 'steady' ) )
+            steadyBaseScenario = scenario.currentPolicy().steady();
+            steady_generator = @() ModelSolver.solve(steadyBaseScenario, callingtag);
+            steady_dir = PathFinder.getWorkingDir(steadyBaseScenario);
         
-        % Scenarios for the baseline transition path
-        %    and open economy version for closed
-        switch( scenario.economy )
-            case 'steady'
-                baselineScenario = []; base_generator = []; base_dir = [];
-                openScenario = []; open_generator = []; open_dir = [];
-            case 'open'
-                baselineScenario = scenario.currentPolicy();
-                base_generator = @() ModelSolver.solve(baselineScenario, callingtag);
-                base_dir = PathFinder.getWorkingDir(baselineScenario);
-                openScenario = []; open_generator = []; open_dir = [];
-            case 'closed'
-                baselineScenario = scenario.currentPolicy();
-                base_generator = @() ModelSolver.solve(baselineScenario, callingtag);
-                base_dir = PathFinder.getWorkingDir(baselineScenario);
+            % Scenarios for the baseline transition path
+            %    and open economy version for closed
+            switch( scenario.economy )
+                case 'open'
+                    baselineScenario = scenario.currentPolicy();
+                    base_generator = @() ModelSolver.solve(baselineScenario, callingtag);
+                    base_dir = PathFinder.getWorkingDir(baselineScenario);
+                    openScenario = []; open_generator = []; open_dir = [];
+                case 'closed'
+                    baselineScenario = scenario.currentPolicy();
+                    base_generator = @() ModelSolver.solve(baselineScenario, callingtag);
+                    base_dir = PathFinder.getWorkingDir(baselineScenario);
 
-                openScenario = scenario.open();
-                open_generator = @() ModelSolver.solve(openScenario, callingtag);
-                open_dir = PathFinder.getWorkingDir(openScenario);
+                    openScenario = scenario.open();
+                    open_generator = @() ModelSolver.solve(openScenario, callingtag);
+                    open_dir = PathFinder.getWorkingDir(openScenario);
+            end
+        end % not 'steady'
+        
+        % Load dependent scenarios
+        Dynamic_steady = []; Market_steady = [];
+        if( ~strcmp( scenario.economy, 'steady' ) )
+            % Load baseline market and dynamics conditions
+            Market_steady   = hardyload('market.mat'  , steady_generator, steady_dir);
+            Dynamic_steady  = hardyload('dynamics.mat', steady_generator, steady_dir);
         end
         
         Dynamic_base = []; Market_base = [];
         if( ~isbase )
             % Load baseline market and dynamics conditions
-            Market_base = hardyload('market.mat'      , base_generator, base_dir);
-            Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
+            Market_base     = hardyload('market.mat'  , base_generator, base_dir);
+            Dynamic_base    = hardyload('dynamics.mat', base_generator, base_dir);
         end
         
         %%
@@ -484,16 +494,12 @@ methods (Static)
             case 'open'
                 
                 if( isbase )
-                    % Load steady state market conditions and dynamic aggregates
-                    Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
-                    Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
-
+                    Market0  = Market_steady;
+                    Dynamic0 = Dynamic_steady;
                 else
-                    
                     % TBD: Make guess from open_base
-                    % Load steady state market conditions and dynamic aggregates
-                    Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
-                    Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
+                    Market0  = Market_steady;
+                    Dynamic0 = Dynamic_steady;
                     
                     % Calculate government expenditure adjustments
                     Gtilde = budget.outlays_by_GDP     .* Dynamic_base.outs            ...
@@ -507,14 +513,13 @@ methods (Static)
                 
                 if( isbase )
                     % Load steady state market conditions and dynamic aggregates
-                    Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
-                    Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
+                    Market0  = Market_steady;
+                    Dynamic0 = Dynamic_steady;
 
                 else
                     % TBD: Make guess from closed_base
-                    % Load steady state market conditions and dynamic aggregates
-                    Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
-                    Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
+                    Market0  = Market_steady;
+                    Dynamic0 = Dynamic_steady;
                 end
 
                 % Load government expenditure adjustments
