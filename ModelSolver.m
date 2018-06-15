@@ -356,7 +356,7 @@ methods (Static)
         
         
         %% Define special Scenarios and their generators
-        steadyBaseScenario = []; steady_generator = []; steady_dir = [];
+        steadyBaseScenario = []; steady_generator = []; steady_dir = []; DIST_steady = [];
         baselineScenario = []; base_generator = []; base_dir = [];
         openScenario = []; open_generator = []; open_dir = [];
         
@@ -387,18 +387,32 @@ methods (Static)
         
         % Load dependent scenarios
         Dynamic_steady = []; Market_steady = [];
+        Dynamic_base = []; Market_base = [];
+        Dynamic_open = []; Market_open = [];
+        
         if( ~strcmp( scenario.economy, 'steady' ) )
             % Load baseline market and dynamics conditions
             Market_steady   = hardyload('market.mat'  , steady_generator, steady_dir);
             Dynamic_steady  = hardyload('dynamics.mat', steady_generator, steady_dir);
         end
-        
-        Dynamic_base = []; Market_base = [];
         if( ~isbase )
             % Load baseline market and dynamics conditions
             Market_base     = hardyload('market.mat'  , base_generator, base_dir);
             Dynamic_base    = hardyload('dynamics.mat', base_generator, base_dir);
         end
+        if( strcmp( scenario.economy, 'closed' ) )
+            Market_open     = hardyload('market.mat'  , open_generator, open_dir);
+            Dynamic_open    = hardyload('dynamics.mat', open_generator, open_dir);
+        end
+
+        % Load population 
+        if( ~strcmp( scenario.economy, 'steady' ) )
+            % Load steady state population distribution
+            s = hardyload('distribution.mat', steady_generator, steady_dir);
+            DIST_steady = s.DIST_trans;
+        end
+        
+
         
         %%
         % Instantiate a Firm (SingleFirm)
@@ -523,21 +537,10 @@ methods (Static)
                 end
 
                 % Load government expenditure adjustments
-                Dynamic_open = hardyload('dynamics.mat', open_generator, open_dir);
-
                 Gtilde = Dynamic_open.Gtilde;
                 Ttilde = Dynamic_open.Ttilde;
                 Ctilde = Dynamic_open.Ctilde;                
 
-        end
-        
-        % Load population 
-        if( ~strcmp( scenario.economy, 'steady' ) )
-            % Load steady state population distribution
-            s = hardyload('distribution.mat', steady_generator, steady_dir);
-            DIST_steady = s.DIST_trans;
-        else
-            DIST_steady = [];
         end
         
                
