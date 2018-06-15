@@ -383,6 +383,13 @@ methods (Static)
                 open_dir = PathFinder.getWorkingDir(openScenario);
         end
         
+        Dynamic_base = []; Market_base = [];
+        if( ~isbase )
+            % Load baseline market and dynamics conditions
+            Market_base = hardyload('market.mat'      , base_generator, base_dir);
+            Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
+        end
+        
         %%
         % Instantiate a Firm (SingleFirm)
         theFirm         = Firm( taxBusiness, production, 0.04, Firm.SINGLEFIRM );
@@ -395,9 +402,7 @@ methods (Static)
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         if ~isbase && ~strcmp(economy, 'steady')
             
-            % Load baseline market conditions, optimal labor values, and population distribution
-            Market_base = hardyload('market.mat'      , base_generator, base_dir);
-            
+            % Load baseline optimal decisions and population distribution
             s      = hardyload('decisions.mat'   , base_generator, base_dir);
             LABs_static    = s.LABs;
             savings_static = s.savings;
@@ -405,15 +410,12 @@ methods (Static)
             s      = hardyload('distribution.mat', base_generator, base_dir);
             DIST_static = s.DIST;
             
-            
             % Generate static aggregates
             % (Intermediary structure used to filter out extraneous fields)
             [Static, ~, ~, Static_DIST, Static_OPTs, ~] = ...
                 generate_aggregates(Market_base, {}, LABs_static, savings_static, DIST_static);
             
             % Copy additional static aggregates from baseline aggregates
-            Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
-            
             for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'GNP', 'investment', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde', 'Ctilde' }
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
@@ -494,8 +496,6 @@ methods (Static)
                     Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
                     
                     % Calculate government expenditure adjustments
-                    Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
-                    
                     Gtilde = budget.outlays_by_GDP     .* Dynamic_base.outs            ...
                              - Static.bens;
                     Ttilde = budget.tax_revenue_by_GDP .* Dynamic_base.outs            ...
