@@ -396,7 +396,7 @@ methods (Static)
         if ~isbase && ~strcmp(economy, 'steady')
             
             % Load baseline market conditions, optimal labor values, and population distribution
-            Market = hardyload('market.mat'      , base_generator, base_dir);
+            Market_base = hardyload('market.mat'      , base_generator, base_dir);
             
             s      = hardyload('decisions.mat'   , base_generator, base_dir);
             LABs_static    = s.LABs;
@@ -409,7 +409,7 @@ methods (Static)
             % Generate static aggregates
             % (Intermediary structure used to filter out extraneous fields)
             [Static, ~, ~, Static_DIST, Static_OPTs, ~] = ...
-                generate_aggregates(Market, {}, LABs_static, savings_static, DIST_static);
+                generate_aggregates(Market_base, {}, LABs_static, savings_static, DIST_static);
             
             % Copy additional static aggregates from baseline aggregates
             Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
@@ -420,11 +420,11 @@ methods (Static)
             
             % Calculate static budgetary aggregate variables
             [corpDividends, corpTaxs]  = theFirm.dividends( Static.caps', Static.investment', ...
-                                                            Market.rhos', Market.wages'       ...
+                                                            Market_base.rhos', Market_base.wages'       ...
                                                            );
-            Static.corpTaxs  = corpTaxs';
-            Static.dividends = corpDividends';
-            Static.revs = Static.pits + Static.ssts + Static.corpTaxs;            
+            Static.corpTaxs     = corpTaxs';
+            Static.dividends    = corpDividends';
+            Static.revs         = Static.pits + Static.ssts + Static.corpTaxs;            
             
             % In general, we have:
             % Static.debts = Static.debts_domestic + Static.debts_foreign;
