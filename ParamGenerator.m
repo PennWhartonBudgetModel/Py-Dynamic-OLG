@@ -397,7 +397,7 @@ methods (Static)
                 T_works      = round(sum((mass.*T_works(1:T_life))/sum(mass))) - realage_entry;
             case {'open', 'closed'}
                 first_year   = first_transition_year;
-                series       = InputReader.read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry), [] );
+                series       = InputReader.read_series( nrafile, 'birthYear', 1924, [] );
                 T_works      = round(series.NRA);
                 T_works      = T_works(1:nstartyears) - realage_entry;
         end
@@ -455,6 +455,7 @@ methods (Static)
         timing                  = ParamGenerator.timing( scenario );
         first_transition_year   = timing.TransitionFirstYear;
         T_model                 = timing.T_model;
+        T_life                  = timing.T_life;
         
         switch scenario.economy
             case 'steady'
@@ -472,6 +473,7 @@ methods (Static)
         projections_past_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, first_year               );
         projections_debt_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, first_transition_year - 1);
         projections_full_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, []                       );
+        projections_life_series = InputReader.read_series(projections_file, 'Year', first_year - T_life      , last_year                );
         
         taxcalculator_id = InputReader.find_input_scenario_id(fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv'), scenario);
         taxcalculator_file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('Aggregates_', taxcalculator_id, '.csv'));
@@ -558,7 +560,8 @@ methods (Static)
         end
        
         % Consumption good price index
-        s.CPI = (projections_series.ChainedCPIU / projections_series.ChainedCPIU(1))'; % normalize to 1 for first_year
+        s.CPI     = (projections_series.ChainedCPIU / projections_series.ChainedCPIU(1))'; % normalize to 1 for first_year
+        s.longCPI = (projections_life_series.ChainedCPIU / projections_life_series.ChainedCPIU(T_life + 1))';
 
         % TAX REVENUE AND EXPENDITURE TARGETS           
         s.tax_revenue_by_GDP = (revenues            ./ projections_series.GDP_FY)';

@@ -130,13 +130,19 @@ methods (Static)
         
         T = readtable(filename, 'TreatAsEmpty', {'NA'});
         
+        % Remove unused table rows
         idx_drop    = ( T.(index_name) < first_index );
         if( all(idx_drop) )
             throw(MException('read_series:FIRSTINDEX','Cannot find first index in file.'));
         end
-        
-        % Remove unused table rows
         T( idx_drop, : ) = [];
+        
+        % Pad if needed 
+        num_add  = T.(index_name)(1) - first_index;
+        if( num_add > 0 )
+            T    = [repmat(T(1,:), [num_add, 1]); T];
+        end
+
         
         if( ~isempty(last_index) )
             % Truncate if needed
