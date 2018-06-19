@@ -412,14 +412,63 @@ methods (Static)
             DIST_steady = s.DIST_trans;
         end
         
-
         
         %%
         % Instantiate a Firm (SingleFirm)
-        theFirm         = Firm( taxBusiness, production, 0.04, Firm.SINGLEFIRM );
+        initialInterestRate = 0.04;
+        theFirm         = Firm( taxBusiness, production, initialInterestRate, Firm.SINGLEFIRM );
+        thePassThrough  = Firm( taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
+ 
+        %%
+        % Set initial guesses
+        switch scenario.economy
+            
+            case 'steady'
+            
+                Dynamic0.outs       = 3.1980566;
+                Dynamic0.caps       = 9.1898354; 
+                captoout            = Dynamic0.caps / Dynamic0.outs;
+                
+                Market0.beqs        = 0.153155;                                 % beqs are results from previous runs.
+                Market0.capshares_0 = captoout / (captoout + budget.debttoout); % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                Market0.capshares_1 = Market0.capshares_0;                      % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                Market0.rhos        = 4.94974;                                  % rhos are results from previous runs.
+                Market0.invtocaps   = 0.0078 + depreciation;                    % I/K = pop growth rate 0.0078 + depreciation
+                
+                Market0.equityFundDividends = 0.04;                             % Random guess
+                
+                Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
+                Dynamic0.assets_0   = theFirm.priceCapital*Dynamic0.caps + Dynamic0.debts;
+                Dynamic0.assets_1   = Dynamic0.assets_0;
+                Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
+                Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
+                
+            case 'open'
+                
+                if( isbase )
+                    Market0  = Market_steady;
+                    Dynamic0 = Dynamic_steady;
+                else
+                    % Guess is baseline
+                    Market0  = Market_base;
+                    Dynamic0 = Dynamic_base;
+                end
+                
+             case 'closed'
+                
+                if( isbase )
+                    % Guess is from open_base
+                    Market0  = Market_open;
+                    Dynamic0 = Dynamic_open;
+                else
+                    % Guess from closed_base
+                    Market0  = Market_base;
+                    Dynamic0 = Dynamic_base;
+                end
+        end % end guess initialization
         
-        % Instantiate the Pass-Through Firm
-        thePassThrough  = Firm( taxBusiness, production, 0.04, Firm.PASSTHROUGH );
+             
+        %%
         
         
         %% Static aggregate generation
@@ -481,40 +530,10 @@ methods (Static)
         %% Dynamic aggregate generation
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
-        % Set initial guesses
+        % Set G'vt residuals
         switch economy
-            
-            case 'steady'
-                
-                % Load initial guesses
-                Dynamic0.outs       = 3.1980566;
-                Dynamic0.caps       = 9.1898354; 
-                captoout            = Dynamic0.caps / Dynamic0.outs;
-                
-                Market0.beqs        = 0.153155;                                 % beqs are results from previous runs.
-                Market0.capshares_0 = captoout / (captoout + budget.debttoout); % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                Market0.capshares_1 = Market0.capshares_0;                      % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                Market0.rhos        = 4.94974;                                  % rhos are results from previous runs.
-                Market0.invtocaps   = 0.0078 + depreciation;                    % I/K = pop growth rate 0.0078 + depreciation
-                
-                Market0.equityFundDividends = 0.04;                             % Random guess
-                
-                Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
-                Dynamic0.assets_0   = theFirm.priceCapital*Dynamic0.caps + Dynamic0.debts;
-                Dynamic0.assets_1   = Dynamic0.assets_0;
-                Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
-                Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
-                
             case 'open'
-                
-                if( isbase )
-                    Market0  = Market_steady;
-                    Dynamic0 = Dynamic_steady;
-                else
-                    % TBD: Make guess from open_base
-                    Market0  = Market_steady;
-                    Dynamic0 = Dynamic_steady;
-                    
+                if( ~isbase )
                     % Calculate government expenditure adjustments
                     Gtilde = budget.outlays_by_GDP     .* Dynamic_base.outs            ...
                              - Static.bens;
@@ -524,23 +543,9 @@ methods (Static)
                 end
                 
              case 'closed'
-                
-                if( isbase )
-                    % Load steady state market conditions and dynamic aggregates
-                    Market0  = Market_steady;
-                    Dynamic0 = Dynamic_steady;
-
-                else
-                    % TBD: Make guess from closed_base
-                    Market0  = Market_steady;
-                    Dynamic0 = Dynamic_steady;
-                end
-
-                % Load government expenditure adjustments
                 Gtilde = Dynamic_open.Gtilde;
                 Ttilde = Dynamic_open.Ttilde;
                 Ctilde = Dynamic_open.Ctilde;                
-
         end
         
                
@@ -596,25 +601,25 @@ methods (Static)
 
             % Define market conditions in the first iteration
             if isinitial
-                Market.beqs                 = Market0.beqs                  *ones(1,T_model);
-                Market.capshares_0          = Market0.capshares_0           *ones(1,T_model);
-                Market.capshares_1          = Market0.capshares_1           *ones(1,T_model);
-                Market.invtocaps            = Market0.invtocaps             *ones(1,T_model);
-                Market.equityFundDividends  = Market0.equityFundDividends   *ones(1,T_model);
+                Market.beqs                 = Market0.beqs                  .*ones(1,T_model);
+                Market.capshares_0          = Market0.capshares_0           .*ones(1,T_model);
+                Market.capshares_1          = Market0.capshares_1           .*ones(1,T_model);
+                Market.invtocaps            = Market0.invtocaps             .*ones(1,T_model);
+                Market.equityFundDividends  = Market0.equityFundDividends   .*ones(1,T_model);
                 
-                Dynamic.assets_0    = Dynamic0.assets_0     *ones(1,T_model);
-                Dynamic.assets_1    = Dynamic0.assets_1     *ones(1,T_model);
-                Dynamic.debts       = Dynamic0.debts        *ones(1,T_model);
-                Dynamic.caps        = Dynamic0.caps         *ones(1,T_model); 
-                Dynamic.labeffs     = Dynamic0.labeffs      *ones(1,T_model);
-                Dynamic.investment  = Dynamic0.investment   *ones(1,T_model);
+                Dynamic.assets_0    = Dynamic0.assets_0     .*ones(1,T_model);
+                Dynamic.assets_1    = Dynamic0.assets_1     .*ones(1,T_model);
+                Dynamic.debts       = Dynamic0.debts        .*ones(1,T_model);
+                Dynamic.caps        = Dynamic0.caps         .*ones(1,T_model); 
+                Dynamic.labeffs     = Dynamic0.labeffs      .*ones(1,T_model);
+                Dynamic.investment  = Dynamic0.investment   .*ones(1,T_model);
                 
                 switch economy
 
                     case {'steady', 'closed'}
 
-                        Market.rhos      = Market0.rhos*ones(1,T_model);
-                        outs             = Dynamic0.outs;
+                        Market.rhos      = Market0.rhos     .*ones(1,T_model);
+                        outs             = Dynamic0.outs    .*ones(1,T_model);
                         
                     case 'open'
 
@@ -623,18 +628,18 @@ methods (Static)
                         % capital are fixed, including cap gains.
                         % 
                         % First period capital (inherited from steady state)
-                        Dynamic.caps(1) = Market0.capshares_0 * Dynamic0.assets_0;
+                        Dynamic.caps(1) = Market_steady.capshares_0 * Dynamic_steady.assets_0;
                         % Define the pre-tax returns necessary to return
                         % the world rate from steady-state.
-                        effectiveDividendRate = ( Market0.equityFundDividends*(1 - initialTaxIndividual.rateForeignCorpIncome) ...
+                        effectiveDividendRate = ( Market_steady.equityFundDividends*(1 - initialTaxIndividual.rateForeignCorpIncome) ...
                                                   - Market.capgains ) ...
                                                 ./ (1 - taxIndividual.rateForeignCorpIncome);
                         klRatio = theFirm.calculateKLRatio( effectiveDividendRate   , ... 
                                                             Dynamic.caps'           , ...
                                                             Dynamic.labeffs'        , ...
-                                                            Market0.invtocaps );
+                                                            Market_steady.invtocaps );
                         
-                        rhos        = Market0.rhos*ones(1,T_model);
+                        rhos        = Market_steady.rhos*ones(1,T_model);
                         Market.rhos = klRatio';
                         %% TBD: Do we need to set caps to have foreign investment here?
                         %       Seems like yes.
@@ -666,7 +671,7 @@ methods (Static)
                         klRatio     = theFirm.calculateKLRatio( effectiveDividendRate   , ...
                                                                 Dynamic.caps'           , ...
                                                                 Dynamic.labeffs'        , ...
-                                                                Market0.invtocaps );
+                                                                Market_steady.invtocaps );
 
                         rhos        = Market.rhos;
                         Market.rhos = klRatio';
@@ -810,7 +815,7 @@ methods (Static)
                     %   rate of capital replacement here.
                     Dynamic.investment = [Dynamic.caps(2:T_model)   0] - (1 - depreciation) * ...
                                          [Dynamic.caps(1:T_model-1) 0];
-                    Dynamic.investment(T_model) = Market0.invtocaps * Dynamic.caps(T_model);
+                    Dynamic.investment(T_model) = Market_steady.invtocaps * Dynamic.caps(T_model);
                     
                     % Update guesses
                     % Note: Bequests should be priced according to the new policy because it
@@ -818,7 +823,7 @@ methods (Static)
                     %       government yesterday after some people died, but redistributed today
                     %       after the new policy took place.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    beqs      = [Dynamic0.bequests * (1 + Market0.capshares_1 * Market.capgains(1)), ...
+                    beqs      = [Dynamic_steady.bequests * (1 + Market_steady.capshares_1 * Market.capgains(1)), ...
                                  Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares_1(1:T_model-1) .* Market.capgains(2:T_model)') ...
                                 ] ./ Dynamic.pops;
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
@@ -904,7 +909,7 @@ methods (Static)
                     %       Bequests should also be priced according to the new policy.
                     %       So we apply today's prices to yesterday's bequests and capshares.
                     rhos      = Dynamic.caps ./ Dynamic.labeffs;
-                    beqs      = [Dynamic0.bequests * (1 + Market0.capshares_1 * Market.capgains(1)), ...
+                    beqs      = [Dynamic_steady.bequests * (1 + Market_steady.capshares_1 * Market.capgains(1)), ...
                                  Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares_1(1:T_model-1) .* Market.capgains(2:T_model)') ...
                                 ] ./ Dynamic.pops;
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
