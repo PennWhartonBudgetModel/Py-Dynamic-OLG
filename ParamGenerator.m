@@ -397,7 +397,7 @@ methods (Static)
                 T_works      = round(sum((mass.*T_works(1:T_life))/sum(mass))) - realage_entry;
             case {'open', 'closed'}
                 first_year   = first_transition_year;
-                series       = InputReader.read_series( nrafile, 'birthYear', 1924, [] );
+                series       = InputReader.read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry), [] );
                 T_works      = round(series.NRA);
                 T_works      = T_works(1:nstartyears) - realage_entry;
         end
