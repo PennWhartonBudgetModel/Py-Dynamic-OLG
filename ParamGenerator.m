@@ -446,8 +446,9 @@ methods (Static)
         s.startyear_benefitrates      = rates;
         
         % Deflate nominal brackets
-        cpi     = ParamGenerator.budget( scenario ).CPI;
-        longcpi = ParamGenerator.budget( scenario ).longCPI;
+        budget  = ParamGenerator.budget( scenario );
+        cpi     = budget.CPI;
+        longcpi = budget.longCPI;
         s.ssincmins                 = s.ssincmins                 ./ cpi;
         s.ssincmaxs                 = s.ssincmaxs                 ./ cpi;
         s.taxbrackets               = s.taxbrackets               ./ repmat(cpi,size(s.taxbrackets,2),1)';

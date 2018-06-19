@@ -140,6 +140,7 @@ methods (Static)
         % Pad if needed 
         num_add  = T.(index_name)(1) - first_index;
         if( num_add > 0 )
+            fprintf('WARNING! File %s begins %u periods after %u.\n', filename, num_add, first_index);
             T    = [repmat(T(1,:), [num_add, 1]); T];
         end
 
