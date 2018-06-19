@@ -69,6 +69,8 @@ classdef Firm
             
             % Calculate or use leverage cost
             % Rem: the leverage cost is size invariant, so set capital=1
+            %      also, capital from initLeverageRatio is in $, so already
+            %      scaled
             this.debtTaxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* interestRate);
             this.leverageCost       = this.calculateLeverageCost( this.initLeverageRatio, 1);
             
@@ -270,21 +272,20 @@ classdef Firm
 
         
         %% 
-        % Calculate optimal debt from
-        % optimal B* from d/dB (phi*tau*pi*B) = d/dB (nu(B/hK)*K)
-        % nu() = 1/nu (B/hK)^nu , where h=100
+        % Calculate optimal debt 
+        %   nu() = 1/nu (B/K_s)^nu , where K_s = K h p_K; h=0.1
         function [debt, debtCost, taxBenefit] = calculateDebt( this, capital )
             
             h              = 100;
             taxBenefitRate = this.debtTaxBenefitRate;
             nu             = this.leverageCost;
+            capital_scaled = capital .* this.priceCapital .* h;
             
             d       = 1 - this.interestDeduction .* this.statutoryTaxRate;  
-            n       = taxBenefitRate * h^nu;
             x       = 1/(nu-1);
-            debt    = (( n ./ d ) .^ x) .* capital;
+            debt    = (( taxBenefitRate ./ d ) .^ x) .* capital_scaled;
             
-            debtCost    = (1/nu) .* (debt./(h*capital) ) .^ nu;
+            debtCost    = ((1/nu) .* (debt./capital_scaled ) .^ nu) .* capital_scaled;
             taxBenefit  = debt .* taxBenefitRate;
             
         end % calculateDebt
@@ -292,13 +293,14 @@ classdef Firm
         
         %% 
         % Calculate leverageCost from K/B ratio target
-        %   Use leverage total cost function nu(B/K)*K 
-        %    because it has analytic solution for nu
-        function [nu] = calculateLeverageCost( this, debt, capital)
+        %    Rem: debt and capital_value are in $
+        function [nu] = calculateLeverageCost( this, debt, capital_value )
             
-            h     = 100;
-            logBK = log( debt ./ (capital*h) );
-            n     = log( this.debtTaxBenefitRate * h ) ...
+            h               = 100;
+            capital_scaled  = capital_value .* h;
+            
+            logBK = log( debt ./ capital_scaled );
+            n     = log( this.debtTaxBenefitRate ) ...
                       - log( 1 - this.statutoryTaxRate .* this.interestDeduction );
             nu    = 1 + n ./ logBK;
 
