@@ -414,12 +414,6 @@ methods (Static)
         
         
         %%
-        % Instantiate a Firm (SingleFirm)
-        initialInterestRate = 0.04;
-        theFirm         = Firm( taxBusiness, production, initialInterestRate, Firm.SINGLEFIRM );
-        thePassThrough  = Firm( taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
- 
-        %%
         % Set initial guesses
         switch scenario.economy
             
@@ -438,7 +432,7 @@ methods (Static)
                 Market0.equityFundDividends = 0.04;                             % Random guess
                 
                 Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
-                Dynamic0.assets_0   = theFirm.priceCapital*Dynamic0.caps + Dynamic0.debts;
+                Dynamic0.assets_0   = Dynamic0.caps + Dynamic0.debts;
                 Dynamic0.assets_1   = Dynamic0.assets_0;
                 Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
                 Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
@@ -469,7 +463,17 @@ methods (Static)
         
              
         %%
-        
+        %%
+        % Instantiate a Firm (SingleFirm)
+        if( strcmp( scenario.economy, 'steady') )
+            initialInterestRate = 0.04;
+        else
+            initialInterestRate = Market_steady.equityFundDividends;
+        end
+        theFirm         = Firm( taxBusiness, production, initialInterestRate, Firm.SINGLEFIRM );
+        thePassThrough  = Firm( taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
+ 
+
         
         %% Static aggregate generation
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
