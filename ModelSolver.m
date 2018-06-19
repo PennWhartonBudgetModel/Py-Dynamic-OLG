@@ -58,6 +58,7 @@ methods (Static)
         T_model                 = s.T_model;                % Transition path model years
         startyears              = s.startyears;             % Cohort start years as offsets to year 1
         nstartyears             = length(startyears);
+        realage_entry           = s.realage_entry;          % real age at entry
         
         T_pasts   = max(-startyears, 0);                            % Life years before first model year
         T_shifts  = max(+startyears, 0);                            % Model years before first life year
@@ -174,7 +175,7 @@ methods (Static)
             end
             
             % Calculate indexing vectors
-            Market.priceindices = ModelSolver.generate_index(scenario, Market.wages, nstartyears, T_model, T_life);
+            Market.priceindices = ModelSolver.generate_index(budget, Market.wages, nstartyears, realage_entry, T_model, T_life);
             
             % Calculate indexed policy variables
             ssincmins_indexed   = (ssincmins .* Market.priceindices.wage_inflations)';
@@ -1134,19 +1135,19 @@ methods (Static, Access = private )
     % Create indexes for benefits and taxmax calculations and import CPI index
     %
     %   Inputs:
-    %       scenario     = used to import a couple of variables, 
-    %       Market_wages = T_model-dimension vector, 
-    %       nstartyears  = number of cohorts, 
-    %       startyears   = period of birth of a cohort (first period of transition is t = 0), 
-    %       T_model      = number of periods, 
-    function index = generate_index(scenario, Market_wages, nstartyears, T_model, T_life)
+    %       budget        = used to import CPI, 
+    %       Market_wages  = T_model-dimension vector, 
+    %       nstartyears   = number of cohorts, 
+    %       realage_entry = real age at entry, 
+    %       T_model       = number of periods in model run, 
+    %       T_life        = maximum life spam,
+    function index = generate_index(budget, Market_wages, nstartyears, realage_entry, T_model, T_life)
 
         index.wage_inflations = Market_wages./Market_wages(1);            % Time-varying indexes
         index.cohort_wages    = ones(T_model, nstartyears);               % Time- and cohort-varying indexes
-        index.nominals        = 1./ParamGenerator.budget( scenario ).CPI; % Time-varying reciprocal CPI indexes from CBO
+        index.nominals        = 1./budget.CPI;                            % Time-varying reciprocal CPI indexes from CBO
         index.reals           = ones(size(Market_wages));                 % Vector to 'index' real variables
         
-        realage_entry = ParamGenerator.timing(scenario).realage_entry;
         % Indexes for the boundary cohorts
         cohortage60_at_1      = T_life + 1 - (60 - realage_entry);
         cohortage60_at_Tmodel = cohortage60_at_1 + T_model - 1;
