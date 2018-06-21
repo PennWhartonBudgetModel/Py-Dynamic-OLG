@@ -482,7 +482,9 @@ methods (Static)
         projections_past_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, first_year               );
         projections_debt_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, first_transition_year - 1);
         projections_full_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, []                       );
-        projections_life_series = InputReader.read_series(projections_file, 'Year', first_year - T_life + 1  , last_year                );
+
+        deepHistory_file = fullfile(PathFinder.getProjectionsInputDir(), 'deepHistory.csv');
+        history_series   = InputReader.read_series(deepHistory_file, 'Year', first_year - T_life + 1  , last_year);
         
         taxcalculator_id = InputReader.find_input_scenario_id(fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv'), scenario);
         taxcalculator_file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('Aggregates_', taxcalculator_id, '.csv'));
@@ -570,7 +572,8 @@ methods (Static)
        
         % Personal consumption expenditure price index
         s.deflator     = (projections_series.PCEDeflator / projections_series.PCEDeflator(1))'; % normalize to 1 for first_year
-        s.longDeflator = (projections_life_series.PCEDeflator / projections_life_series.PCEDeflator(T_life))';
+        PCEdeflator    = [ history_series.PCEDeflator(1:end-T_model); projections_series.PCEDeflator ];
+        s.longDeflator = (PCEdeflator / PCEdeflator(T_life))';
 
         % TAX REVENUE AND EXPENDITURE TARGETS           
         s.tax_revenue_by_GDP = (revenues            ./ projections_series.GDP_FY)';
