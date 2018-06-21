@@ -176,7 +176,7 @@ methods (Static)
             end
             
             % Calculate indexing vectors
-            Market.priceindices = ModelSolver.generate_index(budget, Market.wages, nstartyears, realage_entry, T_model, T_life);
+            Market.priceindices = ModelSolver.generate_index(Market.wages, nstartyears, realage_entry, T_model, T_life);
             
             % Calculate indexed policy variables
             ssincmins_indexed   = (ssincmins .* Market.priceindices.wage_inflations)';
@@ -1146,18 +1146,15 @@ methods (Static, Access = private )
     % Create indexes for benefits and taxmax calculations and import CPI index
     %
     %   Inputs:
-    %       budget        = used to import CPI, 
     %       Market_wages  = T_model-dimension vector, 
     %       nstartyears   = number of cohorts, 
     %       realage_entry = real age at entry, 
     %       T_model       = number of periods in model run, 
     %       T_life        = maximum life spam,
-    function index = generate_index(budget, Market_wages, nstartyears, realage_entry, T_model, T_life)
+    function index = generate_index(Market_wages, nstartyears, realage_entry, T_model, T_life)
 
         index.wage_inflations = Market_wages./Market_wages(1);            % Time-varying indexes
         index.cohort_wages    = ones(T_model, nstartyears);               % Time- and cohort-varying indexes
-        index.nominals        = 1./budget.CPI;                            % Time-varying reciprocal CPI indexes from CBO
-        index.reals           = ones(size(Market_wages));                 % Vector to 'index' real variables
         
         % Indexes for the boundary cohorts
         cohortage60_at_1      = T_life + 1 - (60 - realage_entry);
