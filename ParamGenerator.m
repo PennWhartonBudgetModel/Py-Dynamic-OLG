@@ -447,12 +447,12 @@ methods (Static)
         
         % Deflate nominal brackets
         budget  = ParamGenerator.budget( scenario );
-        cpi     = budget.CPI;
-        longcpi = budget.longCPI;
-        s.ssincmins                 = s.ssincmins                 ./ cpi;
-        s.ssincmaxs                 = s.ssincmaxs                 ./ cpi;
-        s.taxbrackets               = s.taxbrackets               ./ repmat(cpi,size(s.taxbrackets,2),1)';
-        s.startyear_benefitbrackets = s.startyear_benefitbrackets ./ repmat(longcpi,size(s.startyear_benefitbrackets,2),1)';
+        deflator     = budget.deflator;
+        longDeflator = budget.longDeflator;
+        s.ssincmins                 = s.ssincmins                 ./ deflator;
+        s.ssincmaxs                 = s.ssincmaxs                 ./ deflator;
+        s.taxbrackets               = s.taxbrackets               ./ repmat(deflator,size(s.taxbrackets,2),1)';
+        s.startyear_benefitbrackets = s.startyear_benefitbrackets ./ repmat(longDeflator,size(s.startyear_benefitbrackets,2),1)';
 
     end % social_security
     
@@ -568,9 +568,9 @@ methods (Static)
             s.debtrates = rates_adjusted';
         end
        
-        % Consumption good price index
-        s.CPI     = (projections_series.ChainedCPIU / projections_series.ChainedCPIU(1))'; % normalize to 1 for first_year
-        s.longCPI = (projections_life_series.ChainedCPIU / projections_life_series.ChainedCPIU(T_life))';
+        % Personal consumption expenditure price index
+        s.deflator     = (projections_series.PCEDeflator / projections_series.PCEDeflator(1))'; % normalize to 1 for first_year
+        s.longDeflator = (projections_life_series.PCEDeflator / projections_life_series.PCEDeflator(T_life))';
 
         % TAX REVENUE AND EXPENDITURE TARGETS           
         s.tax_revenue_by_GDP = (revenues            ./ projections_series.GDP_FY)';
@@ -588,8 +588,8 @@ methods (Static)
             fprintf( 'WARNING! debttoout=%f outside expectations.\n', debttoout );
         end
         for t = 2:T_model
-            if( abs((s.CPI(t)/s.CPI(t-1))-1 > 0.05 ) )
-                fprintf( 'WARNING! cpi outside expectations. \n' );
+            if( abs((s.deflator(t)/s.deflator(t-1))-1 > 0.05 ) )
+                fprintf( 'WARNING! cpe deflator outside expectations. \n' );
             end
         end
         
