@@ -870,6 +870,12 @@ methods (Static)
                         
                         % Re-calculate capital and output
                         Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theFirm.priceCapital';
+                        too_low_caps = find( Dynamic.caps <= 0 );
+                        if( ~isempty(too_low_caps) )
+                            % Ctilde did not fix debt explosion in time
+                            fprintf( 'MODEL ERROR! Capital becomes negative at t=%u \n.', too_low_caps(1) );
+                            error( 'Cannot continue with model convergence.' );
+                        end
                         outs         = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                         Dynamic.outs = outs;  % outs var is used to keep last iteration values
                     
