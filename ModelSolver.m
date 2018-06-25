@@ -175,9 +175,6 @@ methods (Static)
                 DIST_trans = {};
             end
             
-            % Calculate indexing vectors
-            Market.priceindices = ModelSolver.generate_index(Market.wages, nstartyears, realage_entry, T_model, T_life);
-            
             % Calculate indexed policy variables
             ssincmins_indexed   = (ssincmins .* Market.priceindices.wage_inflations)';
             ssincmaxs_indexed   = (ssincmaxs .* Market.priceindices.wage_inflations)';
@@ -680,6 +677,8 @@ methods (Static)
             
             % Compute prices
             Market.wages               = A*(1-alpha)*(Market.rhos.^alpha);
+            % Calculate indexing vectors
+            Market.priceindices = ModelSolver.generate_index(Market.wages, nstartyears, realage_entry, T_model, T_life);            
             [corpDividends, corpTaxs]  = theFirm.dividends( Dynamic.caps'     ...
                                                         ,   Market0.invtocaps ...
                                                         ,   Market.rhos'      ...
