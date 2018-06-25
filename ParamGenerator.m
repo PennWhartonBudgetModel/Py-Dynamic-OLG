@@ -264,10 +264,13 @@ methods (Static)
         s.rateForeignCorpIncome         = 0.179 ;   % Tax rate on corp. distributions to foreigners
         s.rateForeignPassThroughIncome  = 0.10  ;   % Tax rate on pass-through distributions to foreigners
         
+        % Social Security income deductions
+        %   TBD: Read this from file
+        s.sstaxcredit                   = 0.15;
         
         % Warn if parameters are outside expectations
         if( any(s.captaxshare < 0) || any(s.captaxshare > 1) )
-            fprintf( 'WARNING! captaxshare outside expecations.\n', s.captaxshare );
+            fprintf( 'WARNING! ParamGenerator.taxIndividual.captaxshare outside expecations.\n' );
         end
         
         %% TBD: Enlarge the space of error checks
@@ -416,9 +419,6 @@ methods (Static)
         nstartyears             = length(timing.startyears);
         realage_entry           = timing.realage_entry;
         
-        %  OLD STUFF: TBD Revisit and revise
-        s.taxcredit = 0.15;     % Benefit tax credit percentage
-
         % Get OASIcalculator scenario ID
         id = InputReader.find_input_scenario_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario);
         
