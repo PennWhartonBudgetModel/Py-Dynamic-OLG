@@ -67,12 +67,7 @@ classdef Firm
                     this.initLeverageRatio  = paramsProduction.initialPassThroughLeverage;
             end
             
-            % Calculate or use leverage cost
-            % Rem: the leverage cost is size invariant, so set capital=1
-            %      also, capital from initLeverageRatio is in $, so already
-            %      scaled
-            this.debtTaxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* interestRate);
-            this.leverageCost       = this.calculateLeverageCost( this.initLeverageRatio, 1);
+            this = this.findLeverageCost( interestRate );
             
             % Calculate the price of capital (p_K, see docs)
             this.priceCapital   = this.priceCapital0 * (paramsTax.qtobin ./ paramsTax.qtobin0);
@@ -81,14 +76,23 @@ classdef Firm
         
         %%
         %  Reset the interest rate and recalculate leverage cost
-        function [this] = resetInterestRate( this, interestRate )
+        function [this] = findLeverageCost( this, interestRate )
+            
+            if( interestRate <= 0 )
+                throw(MException('LEVERAGE_COST:NOT_POSITIVE','Interest rate must be positive for leverage cost calculation.'));
+            end
+            
+            % Calculate or use leverage cost
+            % Rem: the leverage cost is size invariant, so set capital=1
+            %      also, capital from initLeverageRatio is in $, so already
+            %      scaled
             this.debtTaxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* interestRate);
             this.leverageCost       = this.calculateLeverageCost( this.initLeverageRatio, 1);
         end % resetInterestRate
         
         
         %%
-        function [divs, cits, debts] = dividends( this, capital, investment, klRatio, wage )
+        function [divs, cits, debts] = dividends( this, capital, invtocapsT_model, klRatio, wage )
             % Inputs : capital
             %          investment = GROSS physical investment --> K' - (1-d)K
             %          klRatio & wage (which are consistent in the current iteration)
@@ -109,6 +113,10 @@ classdef Firm
             
             % Risk premium (rem: at cost to buy it)
             risk = this.riskPremium .* capital .* this.priceCapital;
+            
+            % Investment
+            investment = [capital(2:end) - (1 - this.depreciationRate)*capital(1:end-1); ...
+                          capital(end)*invtocapsT_model ];
             
             % Investment expensing 'subsidy'
             expensing    = this.expensingRate .* investment .* this.priceCapital;
@@ -166,7 +174,7 @@ classdef Firm
                 K_by_L = caps ./ labor;
                 wage   = this.TFP * (1-this.capitalShare) .* (K_by_L .^ this.capitalShare);
                 
-                divs = this.dividends( caps, investment, K_by_L, wage );
+                divs = this.dividends( caps, invtocapsT_model, K_by_L, wage );
                 divRate = divs ./ (caps .* this.priceCapital);
                 
                 err_div = max(abs((divRate(2:end) - dividendRate(2:end)) ./ dividendRate(2:end)));

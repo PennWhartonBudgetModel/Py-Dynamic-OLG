@@ -56,8 +56,10 @@ methods (Static)
         first_transition_year   = s.TransitionFirstYear;    % map model inputs (or outputs) to actual years
         T_life                  = s.T_life;                 % Total life years
         T_model                 = s.T_model;                % Transition path model years
+        realage_entry           = s.realage_entry;          % Real age of model age=0
         startyears              = s.startyears;             % Cohort start years as offsets to year 1
         nstartyears             = length(startyears);
+        realage_entry           = s.realage_entry;          % real age at entry
         
         T_pasts   = max(-startyears, 0);                            % Life years before first model year
         T_shifts  = max(+startyears, 0);                            % Model years before first life year
@@ -154,7 +156,7 @@ methods (Static)
             end
             
             % Calculate indexing vectors
-            Market.priceindices = ModelSolver.generate_index(scenario, Market.wages, nstartyears, T_model, T_life);
+            Market.priceindices = ModelSolver.generate_index(Market.wages, nstartyears, realage_entry, T_model, T_life);
             
             % Calculate indexed policy variables
             ssincmins_indexed   = (ssincmins .* Market.priceindices.wage_inflations)';
@@ -193,14 +195,14 @@ methods (Static)
             % Solve steady state / post-transition path cohort
             if isdynamic
 
-                % Note: retire_year = 1 so that ssbenefits is
-                % calculated for T_model = 1
+                % Note: retire_year = 1 so that ssbenefits is calculated 
+                % for T_model = 1 and indexed for first startyear
                 ssbenefits = ModelSolver.calculateSSBenefitForCohort(   ...
                                             socialsecurity.startyear_benefitbrackets(end, :)   ...
                                         ,   socialsecurity.startyear_benefitrates   (end, :)   ...
                                         ,   Market.priceindices                                ...
                                         ,   1                                                  ...
-                                        ,   bv, T_model );
+                                        ,   bv, startyears(1), realage_entry, T_model );
 
                 % Solve dynamic optimization
                 % (Note that active time is set to full lifetime)
@@ -229,14 +231,14 @@ methods (Static)
 
                         % Extract terminal utility values
                         V0 = V0s(:,:,:,T_ends(i)); %#ok<PFBNS>
-
+                        
                         % Calculate cohort-based year-varying benefits policy
                         ssbenefits = ModelSolver.calculateSSBenefitForCohort(   ...
                                             socialsecurity.startyear_benefitbrackets(i, :)  ...
                                         ,   socialsecurity.startyear_benefitrates   (i, :)  ...
                                         ,   Market.priceindices                             ...  
                                         ,   socialsecurity.retire_years(i)                  ...
-                                        ,   bv, T_model );
+                                        ,   bv, startyears(i), realage_entry, T_model );
 
                         % Solve dynamic optimization
                         OPTs_cohort{i} = solve_cohort_(V0, LABs_static{i}, savings_static{i}, T_pasts(i), T_shifts(i), T_actives(i), T_works(i), ssbenefits, Market.priceindices.cohort_wages(:,i));
@@ -498,8 +500,11 @@ methods (Static)
             end
             
             % Calculate static budgetary aggregate variables
-            [corpDividends, corpTaxs]  = theFirm.dividends( Static.caps', Static.investment', ...
-                                                            Market_base.rhos', Market_base.wages'       ...
+            [corpDividends, corpTaxs]  = theFirm.dividends( ...
+                                                            Static.caps',                       ...
+                                                            Market_base.invtocaps(T_model),     ...
+                                                            Market_base.rhos',                  ...
+                                                            Market_base.wages'                  ...
                                                            );
             Static.corpTaxs     = corpTaxs';
             Static.dividends    = corpDividends';
@@ -685,16 +690,16 @@ methods (Static)
             
             % If steady-state, reset interest rate to calibrate leverage
             if( strcmp( scenario.economy, 'steady' ) )
-                theFirm = theFirm.resetInterestRate( Market.equityFundDividends );
+                theFirm = theFirm.findLeverageCost( max(Market.equityFundDividends, 0.01) );
             end 
             
             % Compute prices
             Market.wages               = A*(1-alpha)*(Market.rhos.^alpha);
             [corpDividends, corpTaxs, corpDebts]  = theFirm.dividends( ...
-                                                            Dynamic.caps'           ...
-                                                        ,   Dynamic.investment'     ...
-                                                        ,   Market.rhos'            ...
-                                                        ,   Market.wages'           ...
+                                                            Dynamic.caps'               ...
+                                                        ,   Market.invtocaps(T_model)   ...
+                                                        ,   Market.rhos'                ...
+                                                        ,   Market.wages'               ...
                                                         );
             
             % 'Price' of assets -- HH own equal shares of both bond & equity funds
@@ -1067,31 +1072,41 @@ methods (Static, Access = private )
     %                       used to grow the brackets.
     %       retire_year     : Model year of first year of retirement for this
     %                       cohort.
-    %       bv, T_model     : Benefits discretized grid, and time to end of
-    %                       model run.
+    %       bv              : Benefits discretized grid.
+    %       startyear       : Year cohort is born.
+    %       realage_entry   : Real age upon entry in the model.
+    %       T_model         : Time to end of model run.
     function ssbenefits = calculateSSBenefitForCohort(  brackets                    ...
                                                      ,  rates                       ...
                                                      ,  priceindices                ...
                                                      ,  retire_year                 ...
-                                                     ,  bv, T_model )
+                                                     ,  bv, startyear, realage_entry, T_model )
         
         % Fetch index used to grow brackets
         wage_index = priceindices.wage_inflations;
-                                                 
+        
+        % Year cohort turns 62 = index benefits by wages of that year
+        year62 = max(startyear + (62 - realage_entry), 0);
+        
         % Cohort based benefits by year
         %   REM: Every household is at a grid point, so can 
         %        calculate benefits directly here (outside of
         %        solve_cohort).
-        %    NOTE: We set ssbenefits to -Inf otherwise -- it should not be
-        %    used in solve_cohort (this will blow it up just in case)
+        %   NOTE: We set ssbenefits to -Inf otherwise -- it should not be
+        %   used in solve_cohort (this will blow it up just in case)
         ssbenefits  = ones(T_model, size(bv,1)) .* -Inf;
         
-        % Build indexed bracket cutoffs for each year (for the cohort)
-        bracket_idx = [     wage_index( 1:min(retire_year, T_model) )                           ...
-                        ,   ones(1, T_model - retire_year) ];
-        bracket_idx = bracket_idx(1:min(end,T_model))';
+        % Build cohort-specific bracket cutoffs for each year indexed by
+        % wage_index of when it turns 62
+        %     1. if cohort turns 62 before t=1: index fixed at t=1
+        %     2. if cohort turns 62 after t=T_model: index fixed at t=T_model
+        bracket_idx = wage_index( min(max(year62,1), T_model) ) * ones(T_model,1);
         adjbrackets = repmat(brackets, [T_model, 1])                            ... 
                         .* repmat( bracket_idx, [1, size(brackets,1)] );
+        
+        % A possible step to implement here would be to deflate the adjusted
+        % brackets by another index, e.g. CPI old people,  but currently
+        % it's only deflated by CPI, which is already done in ParamGenerator
         
         % Build benefit replacement rates adjusted by policy
         adjrates    = repmat(rates, [T_model, 1]);
@@ -1154,18 +1169,16 @@ methods (Static, Access = private )
     % Create indexes for benefits and taxmax calculations and import CPI index
     %
     %   Inputs:
-    %       scenario     = used to import a couple of variables, 
-    %       Market_wages = T_model-dimension vector, 
-    %       nstartyears  = number of cohorts, 
-    %       startyears   = period of birth of a cohort (first period of transition is t = 0), 
-    %       T_model      = number of periods, 
-    function index = generate_index(scenario, Market_wages, nstartyears, T_model, T_life)
+    %       Market_wages  = T_model-dimension vector, 
+    %       nstartyears   = number of cohorts, 
+    %       realage_entry = real age at entry, 
+    %       T_model       = number of periods in model run, 
+    %       T_life        = maximum life spam,
+    function index = generate_index(Market_wages, nstartyears, realage_entry, T_model, T_life)
 
         index.wage_inflations = Market_wages./Market_wages(1);            % Time-varying indexes
         index.cohort_wages    = ones(T_model, nstartyears);               % Time- and cohort-varying indexes
-        index.reals           = ones(size(Market_wages));                 % Vector to 'index' real variables
         
-        realage_entry = ParamGenerator.timing(scenario).realage_entry;
         % Indexes for the boundary cohorts
         cohortage60_at_1      = T_life + 1 - (60 - realage_entry);
         cohortage60_at_Tmodel = cohortage60_at_1 + T_model - 1;
