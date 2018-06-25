@@ -333,9 +333,11 @@ methods (Static)
                
         % Warn if parameters are outside expectations
         if( any(s.shareCapitalExpensing < 0) || any(s.shareCapitalExpensing > 1) )
-            fprintf( 'WARNING! shareCapitalExpensing=%f outside expectations.\n', s.shareCapitalExpensing );
+            fprintf( 'WARNING! ParamGenerator.taxBusiness.shareCapitalExpensing outside expectations.\n' );
         end
-        
+        if( any(s.rateCorporate < 0) || any( s.rateCorporate > 1 ) )
+            fprintf( 'WARNING! ParamGenerator.taxBusiness.rateCorporate outside expectations.\n' );
+        end
         %% TBD: Enlarge the space of error checks
         
     end  % taxBusiness()
