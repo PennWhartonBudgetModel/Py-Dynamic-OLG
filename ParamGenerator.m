@@ -481,6 +481,15 @@ methods (Static)
         s.startyear_benefitbrackets   = 12*scenario.modelunit_dollar*brackets;
         s.startyear_benefitrates      = rates;
         
+        % Deflate nominal brackets
+        budget  = ParamGenerator.budget( scenario );
+        deflator     = budget.deflator;
+        longDeflator = budget.longDeflator;
+        s.ssincmins                 = s.ssincmins                 ./ deflator;
+        s.ssincmaxs                 = s.ssincmaxs                 ./ deflator;
+        s.taxbrackets               = s.taxbrackets               ./ repmat(deflator,size(s.taxbrackets,2),1)';
+        s.startyear_benefitbrackets = s.startyear_benefitbrackets ./ repmat(longDeflator,size(s.startyear_benefitbrackets,2),1)';
+
     end % social_security
     
     
@@ -491,6 +500,7 @@ methods (Static)
         timing                  = ParamGenerator.timing( scenario );
         first_transition_year   = timing.TransitionFirstYear;
         T_model                 = timing.T_model;
+        T_life                  = timing.T_life;
         
         switch scenario.economy
             case 'steady'
@@ -504,9 +514,13 @@ methods (Static)
         
         projections_file = fullfile(PathFinder.getProjectionsInputDir(), 'Projections.csv');
         projections_series      = InputReader.read_series(projections_file, 'Year', first_year               , last_year                );
+        projections_series_long = InputReader.read_series(projections_file, 'Year', first_year               , last_year + 1            );
         projections_past_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, first_year               );
         projections_debt_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, first_transition_year - 1);
-        projections_full_series = InputReader.read_series(projections_file, 'Year', first_year               , []                       );
+        projections_full_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, []                       );
+
+        deepHistory_file = fullfile(PathFinder.getProjectionsInputDir(), 'deepHistory.csv');
+        history_series   = InputReader.read_series(deepHistory_file, 'Year', first_year - T_life + 1  , last_year);
         
         taxcalculator_id = InputReader.find_input_scenario_id(fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv'), scenario);
         taxcalculator_file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('Aggregates_', taxcalculator_id, '.csv'));
@@ -564,18 +578,24 @@ methods (Static)
         % Rates
         %    For interest rate in steady-state, we use avg. rate across all data
         %    NOTE: EffectiveInterestRateOnDebt is in NOMINAL terms and we
-        %    deflate by GDPPriceIndex
+        %    deflate by GDPDeflator. We therefore need N+1 GDPDeflators to
+        %    match N interest rates.
+        
         if( strcmp(scenario.economy, 'steady') )
-            gdpPriceIndex   = projections_full_series.GDPDeflator;
-            interest_rate   = projections_full_series.AverageInterestRateOnDebt;
+            gdpPriceIndex0  = projections_full_series.GDPDeflator(1);  
+            gdpPriceIndex   = projections_full_series.GDPDeflator(2:end);
+            num_rates       = size(gdpPriceIndex);
+            interest_rate   = projections_full_series.AverageInterestRateOnDebt(1:num_rates);
         else
-            gdpPriceIndex   = projections_series.GDPDeflator;
+            gdpPriceIndex0  = projections_series_long.GDPDeflator(1); 
+            gdpPriceIndex   = projections_series_long.GDPDeflator(2:end);
+            num_rates       = size(gdpPriceIndex);
             interest_rate   = projections_series.AverageInterestRateOnDebt;
         end
         
-        deflator_rate           = zeros(size(gdpPriceIndex));
-        deflator_rate(1)        = 1.0;
-        for i = 2:size(deflator_rate)
+        deflator_rate           = zeros(num_rates);
+        deflator_rate(1)        = gdpPriceIndex(1) / gdpPriceIndex0;
+        for i = 2:num_rates
             deflator_rate(i)    = gdpPriceIndex(i)/gdpPriceIndex(i-1);
         end
         rates_adjusted          = ((1 + interest_rate)./deflator_rate) - 1.0;    
@@ -586,8 +606,10 @@ methods (Static)
             s.debtrates = rates_adjusted';
         end
        
-        % Consumption good price index
-        s.CPI = (projections_series.ChainedCPIU / projections_series.ChainedCPIU(1))'; % normalize to 1 for first_year
+        % Personal consumption expenditure price index
+        s.deflator     = (projections_series.PCEDeflator / projections_series.PCEDeflator(1))'; % normalize to 1 for first_year
+        PCEdeflator    = [ history_series.PCEDeflator(1:end-T_model); projections_series.PCEDeflator ];
+        s.longDeflator = (PCEdeflator / PCEdeflator(T_life))';
 
         % TAX REVENUE AND EXPENDITURE TARGETS           
         s.tax_revenue_by_GDP = (revenues            ./ projections_series.GDP_FY)';
@@ -605,8 +627,8 @@ methods (Static)
             fprintf( 'WARNING! debttoout=%f outside expectations.\n', debttoout );
         end
         for t = 2:T_model
-            if( abs((s.CPI(t)/s.CPI(t-1))-1 > 0.05 ) )
-                fprintf( 'WARNING! cpi outside expectations. \n' );
+            if( abs((s.deflator(t)/s.deflator(t-1))-1 > 0.05 ) )
+                fprintf( 'WARNING! cpe deflator outside expectations. \n' );
             end
         end
         
