@@ -175,9 +175,6 @@ methods (Static)
                 DIST_trans = {};
             end
             
-            % Calculate indexing vectors
-            Market.priceindices = ModelSolver.generate_index(Market.wages, nstartyears, realage_entry, T_model, T_life);
-            
             % Calculate indexed policy variables
             ssincmins_indexed   = (ssincmins .* Market.priceindices.wage_inflations)';
             ssincmaxs_indexed   = (ssincmaxs .* Market.priceindices.wage_inflations)';
@@ -479,6 +476,7 @@ methods (Static)
                 Dynamic0.assets_0   = theFirm.priceCapital*Dynamic0.caps + Dynamic0.debts;
                 Dynamic0.assets_1   = Dynamic0.assets_0;
                 Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
+                Dynamic0.labs       = 0.5235; 
                 Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
                 
             case 'open'
@@ -610,6 +608,7 @@ methods (Static)
                 Dynamic.debts       = Dynamic0.debts        *ones(1,T_model);
                 Dynamic.caps        = Dynamic0.caps         *ones(1,T_model); 
                 Dynamic.labeffs     = Dynamic0.labeffs      *ones(1,T_model);
+                Dynamic.labs        = Dynamic0.labs         *ones(1,T_model);
                 Dynamic.investment  = Dynamic0.investment   *ones(1,T_model);
                 
                 switch economy
@@ -678,8 +677,13 @@ methods (Static)
             end
             
             
-            % Compute prices
+            % Compute prices and price indices
             Market.wages               = A*(1-alpha)*(Market.rhos.^alpha);
+            Market.priceindices        = ModelSolver.generate_index(Market.wages ...
+                                                        , Dynamic.labs           ...
+                                                        , Dynamic.labeffs        ...
+                                                        , nstartyears            ...
+                                                        , realage_entry, T_model, T_life);
             [corpDividends, corpTaxs]  = theFirm.dividends( Dynamic.caps'     ...
                                                         ,   Market0.invtocaps ...
                                                         ,   Market.rhos'      ...
@@ -1151,9 +1155,10 @@ methods (Static, Access = private )
     %       realage_entry = real age at entry, 
     %       T_model       = number of periods in model run, 
     %       T_life        = maximum life spam,
-    function index = generate_index(Market_wages, nstartyears, realage_entry, T_model, T_life)
+    function index = generate_index(Market_wages, labs, labeffs, nstartyears, realage_entry, T_model, T_life)
 
-        index.wage_inflations = Market_wages./Market_wages(1);            % Time-varying indexes
+        average_wages         = (Market_wages .* labeffs) ./ labs;
+        index.wage_inflations = average_wages./average_wages(1);          % Time-varying indexes
         index.cohort_wages    = ones(T_model, nstartyears);               % Time- and cohort-varying indexes
         
         % Indexes for the boundary cohorts
