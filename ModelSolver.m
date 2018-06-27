@@ -1169,7 +1169,7 @@ methods (Static, Access = private )
         
         for i = cohortage60_at_1:cohortage60_at_Tmodel
             year_turn60 = i - (60 - realage_entry);
-            index.cohort_wages(:,i) = wages(year_turn60)./wages(:);
+            index.cohort_wages(:,i) = average_wages(year_turn60)./average_wages(:);
         end
 
     end % generate_index
