@@ -145,7 +145,12 @@ function [] = test_output(save_dir, setnames)
                         end
                     end
 
-                end              
+                end
+                
+            else
+                
+                fprintf('\tSkipping %s because it is a struct.\n', valuename);
+                
             end
         end
 

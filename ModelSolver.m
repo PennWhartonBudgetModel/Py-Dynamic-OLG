@@ -461,22 +461,22 @@ methods (Static)
             
             case 'steady'
                 
-                % Load initial guesses
+                % Load initial guesses (values come from previous steady state results)
                 Dynamic0.outs       = 3.1980566;
                 Dynamic0.caps       = 9.1898354; 
                 captoout            = Dynamic0.caps / Dynamic0.outs;
                 
-                Market0.beqs        = 0.153155;                                   % beqs are results from previous runs.
+                Market0.beqs        = 0.153155;                                   
                 Market0.capshares_0 = captoout / (captoout + budget.debttoout); % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
                 Market0.capshares_1 = Market0.capshares_0;                      % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                Market0.rhos        = 4.94974;                                   % rhos are results from previous runs.
+                Market0.rhos        = 4.94974;                                  
                 Market0.invtocaps   = 0.0078 + depreciation;                    % I/K = pop growth rate 0.0078 + depreciation
 
                 Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
                 Dynamic0.assets_0   = theFirm.priceCapital*Dynamic0.caps + Dynamic0.debts;
                 Dynamic0.assets_1   = Dynamic0.assets_0;
                 Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
-                Dynamic0.labs       = 0.5235; 
+                Dynamic0.labs       = 0.5235;                                  
                 Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
                 
             case 'open'
@@ -1150,14 +1150,16 @@ methods (Static, Access = private )
     % Create indexes for benefits and taxmax calculations and import CPI index
     %
     %   Inputs:
-    %       Market_wages  = T_model-dimension vector, 
+    %       wages         = T_model-dimension vector, 
+    %       labs          = aggregate hours worked
+    %       labeffs       = aggregate effective labor
     %       nstartyears   = number of cohorts, 
     %       realage_entry = real age at entry, 
     %       T_model       = number of periods in model run, 
     %       T_life        = maximum life spam,
-    function index = generate_index(Market_wages, labs, labeffs, nstartyears, realage_entry, T_model, T_life)
+    function index = generate_index(wages, labs, labeffs, nstartyears, realage_entry, T_model, T_life)
 
-        average_wages         = (Market_wages .* labeffs) ./ labs;
+        average_wages         = (wages .* labeffs) ./ labs;
         index.wage_inflations = average_wages./average_wages(1);          % Time-varying indexes
         index.cohort_wages    = ones(T_model, nstartyears);               % Time- and cohort-varying indexes
         
@@ -1167,7 +1169,7 @@ methods (Static, Access = private )
         
         for i = cohortage60_at_1:cohortage60_at_Tmodel
             year_turn60 = i - (60 - realage_entry);
-            index.cohort_wages(:,i) = Market_wages(year_turn60)./Market_wages(:);
+            index.cohort_wages(:,i) = wages(year_turn60)./wages(:);
         end
 
     end % generate_index
