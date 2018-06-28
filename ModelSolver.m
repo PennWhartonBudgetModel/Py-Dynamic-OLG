@@ -154,9 +154,6 @@ methods (Static)
                 DIST_trans = {};
             end
             
-            % Calculate indexing vectors
-            Market.priceindices = ModelSolver.generate_index(Market.wages, nstartyears, realage_entry, T_model, T_life);
-            
             % Calculate indexed policy variables
             ssincmins_indexed   = (ssincmins .* Market.priceindices.wage_inflations)';
             ssincmaxs_indexed   = (ssincmaxs .* Market.priceindices.wage_inflations)';
@@ -540,6 +537,26 @@ methods (Static)
         
         % Set G'vt residuals
         switch economy
+            case 'steady'
+                
+                % Load initial guesses (values come from previous steady state results)
+                Dynamic0.outs       = 3.1980566;
+                Dynamic0.caps       = 9.1898354; 
+                captoout            = Dynamic0.caps / Dynamic0.outs;
+                
+                Market0.beqs        = 0.153155;                                   
+                Market0.capshares_0 = captoout / (captoout + budget.debttoout); % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                Market0.capshares_1 = Market0.capshares_0;                      % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                Market0.rhos        = 4.94974;                                  
+                Market0.invtocaps   = 0.0078 + depreciation;                    % I/K = pop growth rate 0.0078 + depreciation
+
+                Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
+                Dynamic0.assets_0   = theCorporation.priceCapital*Dynamic0.caps + Dynamic0.debts;
+                Dynamic0.assets_1   = Dynamic0.assets_0;
+                Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
+                Dynamic0.labs       = 0.5235;                                  
+                Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
+                
             case 'open'
                 if( ~isbase )
                     % Calculate government expenditure adjustments
@@ -620,6 +637,7 @@ methods (Static)
                 Dynamic.debts       = Dynamic0.debts        .*ones(1,T_model);
                 Dynamic.caps        = Dynamic0.caps         .*ones(1,T_model); 
                 Dynamic.labeffs     = Dynamic0.labeffs      .*ones(1,T_model);
+                Dynamic.labs        = Dynamic0.labs         .*ones(1,T_model);
                 Dynamic.investment  = Dynamic0.investment   .*ones(1,T_model);
                 
                 switch economy
@@ -692,13 +710,18 @@ methods (Static)
                 theCorporation = theCorporation.findLeverageCost( max(Market.equityFundDividends, 0.01) );
             end 
             
-            % Compute prices
+            % Compute prices and price indices
             Market.wages               = A*(1-alpha)*(Market.rhos.^alpha);
-            [corpDividends, corpTaxs, corpDebts]  = theCorporation.dividends( ...
-                                                            Dynamic.caps'               ...
-                                                        ,   Market.invtocaps(T_model)   ...
-                                                        ,   Market.rhos'                ...
-                                                        ,   Market.wages'               ...
+            Market.priceindices        = ModelSolver.generate_index(Market.wages ...
+                                                        , Dynamic.labs           ...
+                                                        , Dynamic.labeffs        ...
+                                                        , nstartyears            ...
+                                                        , realage_entry, T_model, T_life);
+            [corpDividends, corpTaxs, corpDebts]  = theCorporation.dividends(               ...
+                                                            Dynamic.caps'                   ...
+                                                        ,   Market.invtocaps(T_model)       ...
+                                                        ,   Market.rhos'                    ...
+                                                        ,   Market.wages'                   ...
                                                         );
             
             % 'Price' of assets -- HH own equal shares of both bond & equity funds
@@ -1168,14 +1191,17 @@ methods (Static, Access = private )
     % Create indexes for benefits and taxmax calculations and import CPI index
     %
     %   Inputs:
-    %       Market_wages  = T_model-dimension vector, 
+    %       wages         = T_model-dimension vector, 
+    %       labs          = aggregate hours worked
+    %       labeffs       = aggregate effective labor
     %       nstartyears   = number of cohorts, 
     %       realage_entry = real age at entry, 
     %       T_model       = number of periods in model run, 
     %       T_life        = maximum life spam,
-    function index = generate_index(Market_wages, nstartyears, realage_entry, T_model, T_life)
+    function index = generate_index(wages, labs, labeffs, nstartyears, realage_entry, T_model, T_life)
 
-        index.wage_inflations = Market_wages./Market_wages(1);            % Time-varying indexes
+        average_wages         = (wages .* labeffs) ./ labs;
+        index.wage_inflations = average_wages./average_wages(1);          % Time-varying indexes
         index.cohort_wages    = ones(T_model, nstartyears);               % Time- and cohort-varying indexes
         
         % Indexes for the boundary cohorts
@@ -1184,7 +1210,7 @@ methods (Static, Access = private )
         
         for i = cohortage60_at_1:cohortage60_at_Tmodel
             year_turn60 = i - (60 - realage_entry);
-            index.cohort_wages(:,i) = Market_wages(year_turn60)./Market_wages(:);
+            index.cohort_wages(:,i) = average_wages(year_turn60)./average_wages(:);
         end
 
     end % generate_index

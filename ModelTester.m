@@ -112,37 +112,46 @@ function [] = test_output(save_dir, setnames)
         for j = 1:length(targetvaluenames)
 
             valuename = targetvaluenames{j};
-
+            
             if ~isfield(outputset, valuename)
 
                 % Flag missing value
                 flag('Not found');
+            
+            end
+            
+            if ~( isstruct(outputset.(valuename)) )
+            
+                if any(isnan(outputset.(valuename)(:)))
 
-            elseif any(isnan(outputset.(valuename)(:)))
+                    % Flag NaN value
+                    flag('NaN value');
 
-                % Flag NaN value
-                flag('NaN value');
+                elseif any(size(outputset.(valuename)) ~= size(targetset.(valuename)))
 
-            elseif any(size(outputset.(valuename)) ~= size(targetset.(valuename)))
-                
-                % Flag for size mismatch
-                flag('Size mismatch');
+                    % Flag for size mismatch
+                    flag('Size mismatch');
+
+                else
+
+                    % Identify value deviation
+                    delta = outputset.(valuename)(:) - targetset.(valuename)(:);
+                    if any(delta)
+                        pdev = abs(nanmean(delta*2 ./ (outputset.(valuename)(:) + targetset.(valuename)(:))))*100;
+                        if pdev < 0.01
+                            flag(sprintf('Numerical deviation'));
+                        else
+                            flag(sprintf('%06.2f%% deviation', pdev));
+                        end
+                    end
+
+                end
                 
             else
-
-                % Identify value deviation
-                delta = outputset.(valuename)(:) - targetset.(valuename)(:);
-                if any(delta)
-                    pdev = abs(nanmean(delta*2 ./ (outputset.(valuename)(:) + targetset.(valuename)(:))))*100;
-                    if pdev < 0.01
-                        flag(sprintf('Numerical deviation'));
-                    else
-                        flag(sprintf('%06.2f%% deviation', pdev));
-                    end
-                end
-
+                
+                fprintf('\tSkipping %s because it is a struct.\n', valuename);
+                
             end
-
         end
 
         % Iterate over output values
