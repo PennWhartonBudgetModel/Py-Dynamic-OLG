@@ -300,7 +300,7 @@ classdef Firm
         
         
         %% 
-        % Calculate leverageCost from K/B ratio target
+        % Calculate leverageCost from B/K ratio target
         %    Rem: debt and capital_value are in $
         function [nu] = calculateLeverageCost( this, debt, capital_value )
             
