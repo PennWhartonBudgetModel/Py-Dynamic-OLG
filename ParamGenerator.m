@@ -197,18 +197,17 @@ methods (Static)
     end % grids
     
     
-    %% TAXES
+    %% INDIVIDUAL TAXES
     % 
     % Generate tax policy parameters according to predefined plans.
     % 
-    function s = tax( scenario )
+    function s = taxIndividual( scenario )
         
         timing                  = ParamGenerator.timing(scenario);
         
         % Find tax plan ID corresponding to scenario tax parameters
         taxplanmapfile = fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv');
         taxplanid   = InputReader.find_input_scenario_id(taxplanmapfile, scenario                         );
-        sstaxplanid = InputReader.find_input_scenario_id(taxplanmapfile, scenario.steady().currentPolicy());
                 
         T_model                 = timing.T_model;
         switch scenario.economy
@@ -246,11 +245,6 @@ methods (Static)
         % Capital gains tax == zero for now
         s.rateCapGain   = zeros(T_model,1);
         
-        % Pass along all CIT parameters 
-        for f = fieldnames(tax_vars)'
-            s.(f{1}) = tax_vars.(f{1});
-        end
-        
         % Read Preferred Rates
         file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('PreferredRates_', taxplanid, '.csv'));
         [brackets, rates] = InputReader.read_brackets_rates_indices(file, first_year, T_model);
@@ -269,6 +263,57 @@ methods (Static)
         %   TBD: Read these from file
         s.rateForeignCorpIncome         = 0.179 ;   % Tax rate on corp. distributions to foreigners
         s.rateForeignPassThroughIncome  = 0.10  ;   % Tax rate on pass-through distributions to foreigners
+        
+        % Social Security income deductions
+        %   TBD: Read this from file
+        s.sstaxcredit                   = 0.15;
+        
+        % Warn if parameters are outside expectations
+        if( any(s.captaxshare < 0) || any(s.captaxshare > 1) )
+            fprintf( 'WARNING! ParamGenerator.taxIndividual.captaxshare outside expecations.\n' );
+        end
+        
+        %% TBD: Enlarge the space of error checks
+        
+    end  % taxIndividual()
+
+
+    %% BUSINESS TAXES
+    % 
+    % Generate tax policy parameters according to predefined plans.
+    % 
+    function s = taxBusiness( scenario )
+        
+        timing                  = ParamGenerator.timing(scenario);
+        
+        % Find tax plan ID corresponding to scenario tax parameters
+        taxplanmapfile = fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv');
+        taxplanid   = InputReader.find_input_scenario_id(taxplanmapfile, scenario                         );
+        sstaxplanid = InputReader.find_input_scenario_id(taxplanmapfile, scenario.steady().currentPolicy());
+                
+        T_model                 = timing.T_model;
+        switch scenario.economy
+            case 'steady'
+                first_year      = timing.TransitionFirstYear - 1;
+                last_year       = first_year;
+            otherwise
+                first_year      = timing.TransitionFirstYear;
+                last_year       = timing.TransitionLastYear - 1;
+        end    
+        
+        % Get the capital and tax treatment allocation params. 
+        %    Rem: These are time-varying, so read results are vectors.
+        file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('CapitalTaxes_', taxplanid, '.csv'));
+        tax_vars = InputReader.read_series(file, 'Year', first_year, last_year);
+        
+        % Pass along all capital tax parameters 
+        for f = fieldnames(tax_vars)'
+            s.(f{1}) = tax_vars.(f{1});
+        end
+        
+        % TEMP: This needs to come from file
+        s.rateCorporateStatutory = 0.21;
+        s.interestDeduction      = 1;
         
         % Allocation of capital income between Corp & Pass-Through -- TEMP
         %   TBD: Read these from file
@@ -289,29 +334,19 @@ methods (Static)
                 s.qtobin    = 1 - tax_vars.shareCapitalExpensing .* s.rateCorporate;
         end  
                
-        
         % Warn if parameters are outside expectations
-        if( any(s.captaxshare < 0) || any(s.captaxshare > 1) )
-            fprintf( 'WARNING! captaxshare outside expecations.\n', s.captaxshare );
-        end
         if( any(s.shareCapitalExpensing < 0) || any(s.shareCapitalExpensing > 1) )
-            fprintf( 'WARNING! shareCapitalExpensing=%f outside expectations.\n', s.shareCapitalExpensing );
+            fprintf( 'WARNING! ParamGenerator.taxBusiness.shareCapitalExpensing outside expectations.\n' );
         end
-        
+        if( any(s.rateCorporate < 0) || any( s.rateCorporate > 1 ) )
+            fprintf( 'WARNING! ParamGenerator.taxBusiness.rateCorporate outside expectations.\n' );
+        end
         %% TBD: Enlarge the space of error checks
         
-        % Catch fatal errors
-        if( any(s.shareCapitalOrdinary + s.shareCapitalPreferred + s.shareCapitalCorporate) ~= 1 ) 
-            error( 'Capital tax shares must sum to 1.' );
-        end
-        if( any(s.shareLaborOrdinary + s.shareLaborPreferred + s.shareLaborCorporate) ~= 1 )
-            error( 'Labor tax shares must sum to 1.' );
-        end
-        if( any(s.shareLaborOrdinary ~= 1) )
-            error( 'Current model does not handle allocating taxable labor income outside Ordinary rates.' );
-        end
-    end  % tax()
+    end  % taxBusiness()
 
+    
+    
     
     %% DEMOGRAPHICS
     %     Includes:
@@ -364,6 +399,12 @@ methods (Static)
             s.risk_premium  = 0.08 - s.depreciation; % "Depreciation rate" to generate r=risk-free rate         ;
         end
         
+        % Find initial year business debt / capital leverage ratios
+        %   TEMP: This should come from interface
+        %         For now, this is from Alex's spreadsheet for 2016 values
+        s.initialCorpLeverage           = (20846076 / 15247820);
+        s.initialPassThroughLeverage    = (8184598 / 8927226);
+
     end % production
         
     
@@ -378,9 +419,6 @@ methods (Static)
         nstartyears             = length(timing.startyears);
         realage_entry           = timing.realage_entry;
         
-        %  OLD STUFF: TBD Revisit and revise
-        s.taxcredit = 0.15;     % Benefit tax credit percentage
-
         % Get OASIcalculator scenario ID
         id = InputReader.find_input_scenario_id(fullfile(PathFinder.getOASIcalculatorInputDir(), 'map.csv'), scenario);
         
@@ -632,22 +670,22 @@ methods (Static)
         % TODO -- revisit the Calibration process
         %   for now just pick one of two hardcoded targets
         % BEGIN TEMP
-        inverse = struct(                                 ...
-           'beta'               , 0.97500000000000          ...
+        inverse = struct(           ...
+           'beta'               , 0.9790000000000          ...
     ,      'gamma'              , 0.7500000000000          ...
     ,      'sigma'              , 1.600000000000000         ...
     ,      'bequest_phi_1'      , 0                         ...
-    ,      'modelunit_dollar'   , 3.8800000000e-05          ...
+    ,      'modelunit_dollar'   , 3.840000000e-05          ...
             );
 
         if( isfield( targets, 'IsLowReturn' ) )
             if ( targets.IsLowReturn ) 
                 inverse = struct(                               ...
-                    'beta'              , 0.9980000000000          ...
-                ,   'gamma'             , 0.7050000000000          ...
-                ,   'sigma'             , 1.500000000000000         ...
-                ,   'bequest_phi_1'     , 0                         ...
-                ,   'modelunit_dollar'  , 3.815000000e-05          ...
+           'beta'               , 0.997800000000            ...
+    ,      'gamma'              , 0.71300000000000          ...
+    ,      'sigma'              , 1.600000000000000         ...
+    ,      'bequest_phi_1'      , 0                         ...
+    ,      'modelunit_dollar'   , 3.790000000e-05           ...
                );
             end
         end

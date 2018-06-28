@@ -11,15 +11,20 @@ classdef Firm
         MULTIFIRM           = 2;
     end
     
-    properties
+    properties 
         TFP                 ;           % A
         capitalShare        ;           % alpha
         depreciationRate    ;           % delta
         riskPremium         ;           % for high/low return
         
         expensingRate       ;           % phi_exp
-        corpTaxRate         ;           % tax on corp. profits
+        effectiveTaxRate    ;           % effective tax on profits
+        statutoryTaxRate    ;           % statutory tax rate on profits
         interestDeduction   ;           % phi_int
+        leverageCost        ;           % nu
+        
+        initLeverageRatio   ;           % stored value of initial leverage ratio 
+        debtTaxBenefitRate  ;           % pre-calculated tax value of another $1 of debt
         
         priceCapital        ;           % See documentation. This is p_K
         priceCapital0 = 1   ;
@@ -30,31 +35,64 @@ classdef Firm
     
     methods
         
-        function [this] = Firm( scenario, firmType )
+        %%
+        %  Constructor
+        %     INPUTS:   paramsTax = ParamGenerator.tax()
+        %               paramsProduction = ParamGenerator.production()
+        %               interestRate = Guess at dividends rate
+        function [this] = Firm( paramsTax, paramsProduction, interestRate, firmType )
             
             this.firmType           = firmType;   
             if( ~(firmType == Firm.SINGLEFIRM || firmType == Firm.PASSTHROUGH) )
                 throw(MException('Firm:firmType','firmType must be SingleFirm or PassThrough'));
             end
             
-            prod = ParamGenerator.production( scenario );
-            this.TFP                = prod.A;
-            this.capitalShare       = prod.alpha;
-            this.depreciationRate   = prod.depreciation;
-            this.riskPremium        = prod.risk_premium;
+            this.TFP                = paramsProduction.A;
+            this.capitalShare       = paramsProduction.alpha;
+            this.depreciationRate   = paramsProduction.depreciation;
+            this.riskPremium        = paramsProduction.risk_premium;
             
-            tax = ParamGenerator.tax( scenario );
-            this.expensingRate      = tax.shareCapitalExpensing;        
-        	this.corpTaxRate        = tax.rateCorporate;   
-            this.interestDeduction  = 1;   % TEMP
+            switch this.firmType
+                case Firm.SINGLEFIRM
+                    this.effectiveTaxRate   = paramsTax.rateCorporate;
+                    this.statutoryTaxRate   = paramsTax.rateCorporateStatutory;
+                    this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
+                    this.interestDeduction  = paramsTax.interestDeduction;
+                    this.initLeverageRatio  = paramsProduction.initialCorpLeverage;
+                case Firm.PASSTHROUGH
+                    this.effectiveTaxRate   = 0;  % TEMP: Should come from ParamGenerator as top marginal PIT rate
+                    this.statutoryTaxRate   = this.effectiveTaxRate;
+                    this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
+                    this.interestDeduction  = paramsTax.interestDeduction;
+                    this.initLeverageRatio  = paramsProduction.initialPassThroughLeverage;
+            end
+            
+            this = this.findLeverageCost( interestRate );
             
             % Calculate the price of capital (p_K, see docs)
-            this.priceCapital   = this.priceCapital0 * (tax.qtobin ./ tax.qtobin0);
+            this.priceCapital   = this.priceCapital0 * (paramsTax.qtobin ./ paramsTax.qtobin0);
         end % constructor
         
         
         %%
-        function [divs, cits] = dividends( this, capital, invtocapsT_model, klRatio, wage )
+        %  Reset the interest rate and recalculate leverage cost
+        function [this] = findLeverageCost( this, interestRate )
+            
+            if( interestRate <= 0 )
+                throw(MException('LEVERAGE_COST:NOT_POSITIVE','Interest rate must be positive for leverage cost calculation.'));
+            end
+            
+            % Calculate or use leverage cost
+            % Rem: the leverage cost is size invariant, so set capital=1
+            %      also, capital from initLeverageRatio is in $, so already
+            %      scaled
+            this.debtTaxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* interestRate);
+            this.leverageCost       = this.calculateLeverageCost( this.initLeverageRatio, 1);
+        end % resetInterestRate
+        
+        
+        %%
+        function [divs, cits, debts] = dividends( this, capital, invtocapsT_model, klRatio, wage )
             % Inputs : capital
             %          investment = GROSS physical investment --> K' - (1-d)K
             %          klRatio & wage (which are consistent in the current iteration)
@@ -83,9 +121,14 @@ classdef Firm
             % Investment expensing 'subsidy'
             expensing    = this.expensingRate .* investment .* this.priceCapital;
             
+            % Find optimal debt, interest tax benefit, and leverage cost
+            [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( capital );
+            
             % Combine to get net tax
             if( this.firmType == Firm.SINGLEFIRM )
-                cits  = (y - wagesPaid - expensing) .* this.corpTaxRate;
+                cits  = (y - wagesPaid) .* this.effectiveTaxRate  ...
+                        - expensing .* this.statutoryTaxRate      ...
+                        - debtTaxBenefit;
             else
                 cits  = 0;
             end
@@ -95,6 +138,7 @@ classdef Firm
                   - wagesPaid                           ... % labor costs
                   - depreciation                        ... % replace depreciated capital
                   - risk                                ... % discount money lost due to risk
+                  - debtCost                            ... % Cost of leverage
                   - cits;                                   % net taxes
                   
         end % dividends
@@ -236,17 +280,41 @@ classdef Firm
 
         
         %% 
-        % Calculate optimal debt from
-        % optimal B? from ?/?B (???B) = ?/?B (?(B/K)*B)
-        % ?() = 1/? (B/K)^?, so ?/?B (?(B/K)*B) is
-        % (B/K)^(?)* (1/(?+1)) 
-        function [debt] = calculateDebt( this, interestRate, capital, leverageCost )
+        % Calculate optimal debt 
+        %   nu() = 1/nu (B/K_s)^nu , where K_s = K h p_K; h=0.1
+        function [debt, debtCost, taxBenefit] = calculateDebt( this, capital )
             
-            a       = (leverageCost + 1) .* capital.^leverageCost;
-            b       = (this.interestDeduction .* this.corpTaxRate .* interestRate) .* a;
-            debt    = b .^ (1./leverageCost);
+            h              = 100;
+            taxBenefitRate = this.debtTaxBenefitRate;
+            nu             = this.leverageCost;
+            capital_scaled = capital .* this.priceCapital .* h;
+            
+            d       = 1 - this.interestDeduction .* this.statutoryTaxRate;  
+            x       = 1/(nu-1);
+            debt    = (( taxBenefitRate ./ d ) .^ x) .* capital_scaled;
+            
+            debtCost    = ((1/nu) .* (debt./capital_scaled ) .^ nu) .* capital_scaled;
+            taxBenefit  = debt .* taxBenefitRate;
             
         end % calculateDebt
+        
+        
+        %% 
+        % Calculate leverageCost from B/K ratio target
+        %    Rem: debt and capital_value are in $
+        function [nu] = calculateLeverageCost( this, debt, capital_value )
+            
+            h               = 100;
+            capital_scaled  = capital_value .* h;
+            
+            logBK = log( debt ./ capital_scaled );
+            n     = log( this.debtTaxBenefitRate ) ...
+                      - log( 1 - this.statutoryTaxRate .* this.interestDeduction );
+            nu    = 1 + n ./ logBK;
+
+        end % calculateLeverageCost
+
+
         
     end % instance methods
     

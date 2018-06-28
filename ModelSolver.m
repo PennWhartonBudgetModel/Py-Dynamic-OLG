@@ -43,7 +43,7 @@ methods (Static)
         closure_year        = scenario.ClosureYear - scenario.TransitionFirstYear;
         
         % Identify baseline run 
-        isbase = scenario.isCurrentPolicy();
+        isbase              = scenario.isCurrentPolicy();
         
         % Immigration policies
         legal_scale         = scenario.legal_scale      ;
@@ -85,10 +85,10 @@ methods (Static)
         bv     = s.bv;        % avg. earnings grid
         
         % Load production parameters
-        s = ParamGenerator.production( scenario );
-        A               = s.A;              % Total factor productivity
-        alpha           = s.alpha;          % Capital share of output
-        depreciation    = s.depreciation;   % Depreciation rate
+        production = ParamGenerator.production( scenario );
+        A               = production.A;              % Total factor productivity
+        alpha           = production.alpha;          % Capital share of output
+        depreciation    = production.depreciation;   % Depreciation rate
         
         % Load population growth parameters
         % Load age-dependent parameters
@@ -106,7 +106,6 @@ methods (Static)
         sstax_brackets  = socialsecurity.taxbrackets ;    % Payroll tax brackets (currentlaw is 0 to taxmax)
         sstax_rates     = socialsecurity.taxrates    ;    % Payroll tax rates (currentlaw is 12.4%)
         sstax_indices   = socialsecurity.taxindices  ;    % Type of index to use on tax bracket
-        sstaxcredit     = socialsecurity.taxcredit   ;    % Benefit tax credit percentage
         ssincmaxs       = socialsecurity.ssincmaxs   ;    % Maximum wage allowed for benefit calculation
         ssincmins       = socialsecurity.ssincmins   ;    % Minimum wage allowed for benefit calculation
         
@@ -117,24 +116,10 @@ methods (Static)
         
         %% Tax parameters
         %    rem: all US dollars have been converted to modelunit_dollars
-        tax = ParamGenerator.tax( scenario );
-        
-        %  TBD: Revise this to clean up. Have separate structs for ordinary
-        %  and preferred HH rates.
-        
-        %  The following brackets, burdens, rates vary by year
-        pit.brackets      = tax.brackets;       % Tax func is linearized, these are income thresholds 
-        pit.burdens       = tax.burdens;        % Tax burden (cumulative tax) at thresholds
-        pit.rates         = tax.rates;          % Effective marginal tax rate between thresholds
-        pit.prefbrackets  = tax.prefbrackets;
-        pit.prefburdens   = tax.prefburdens;
-        pit.prefrates     = tax.prefrates;
-        pit.rateCapGain   = tax.rateCapGain;    % Capital gains tax
-        
-        captaxshares      = tax.captaxshare;    % Portion of capital income taxed at preferred rates
-
+        taxIndividual           = ParamGenerator.taxIndividual( scenario );
+        taxBusiness             = ParamGenerator.taxBusiness  ( scenario );
         % Tax parameters for current policy, steady-state
-        sstax = ParamGenerator.tax( scenario.steady().currentPolicy() );  
+        initialTaxIndividual    = ParamGenerator.taxIndividual( scenario.steady().currentPolicy() );  
         
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
@@ -142,12 +127,6 @@ methods (Static)
         bequest_phi_2 = s.phi2;                 % phi2 measures the extent to which bequests are a luxury good
         bequest_phi_3 = s.phi3;                 % phi3 is the relative risk aversion coefficient
 
-        % Instantiate a Firm (SingleFirm)
-        theFirm       = Firm( scenario, Firm.SINGLEFIRM );
-        
-        % Instantiate the Pass-Through Firm
-        thePassThrough  = Firm( scenario, Firm.PASSTHROUGH );
-        
         
         %% Aggregate generation function
         
@@ -194,10 +173,10 @@ methods (Static)
                     bequest_phi_1, bequest_phi_2, bequest_phi_3, ...
                     ssbenefits, ssincmins_indexed, ssincmaxs_indexed, cohort_wageindexes, ...
                     sstax_brackets_indexed, sstax_burdens_indexed, sstax_rates_indexed, ...
-                    sstaxcredit, pit.brackets, pit.burdens, pit.rates, ... 
-                    captaxshares, ...
-                    pit.prefbrackets, pit.prefburdens, pit.prefrates, ... 
-                    pit.rateCapGain, ...
+                    taxIndividual.sstaxcredit, taxIndividual.brackets, taxIndividual.burdens, taxIndividual.rates, ... 
+                    taxIndividual.captaxshare, ...
+                    taxIndividual.prefbrackets, taxIndividual.prefburdens, taxIndividual.prefrates, ... 
+                    taxIndividual.rateCapGain, ...
                     Market.beqs, ...
                     Market.wages, ...
                     Market.capshares_0, zeros(1,T_model), ... % portfolio allocations
@@ -375,30 +354,130 @@ methods (Static)
         
         
         %% Define special Scenarios and their generators
+        steadyBaseScenario = []; steady_generator = []; steady_dir = []; DIST_steady = [];
+        baselineScenario = []; base_generator = []; base_dir = [];
+        openScenario = []; open_generator = []; open_dir = [];
         
-        % Scenario for current policy, steady state. 
-        steadyBaseScenario = scenario.currentPolicy().steady();
-        steady_generator = @() ModelSolver.solve(steadyBaseScenario, callingtag);
-        steady_dir = PathFinder.getWorkingDir(steadyBaseScenario);
+        % Scenario for current policy, steady state.
+        if( ~strcmp( scenario.economy, 'steady' ) )
+            steadyBaseScenario = scenario.currentPolicy().steady();
+            steady_generator = @() ModelSolver.solve(steadyBaseScenario, callingtag);
+            steady_dir = PathFinder.getWorkingDir(steadyBaseScenario);
         
-        % Scenario for the baseline transition path
-        if( ~strcmp(scenario.economy, 'steady') )
-            baselineScenario = scenario.currentPolicy();
-            base_generator = @() ModelSolver.solve(baselineScenario, callingtag);
-            base_dir = PathFinder.getWorkingDir(baselineScenario);
-        else
-            baselineScenario = []; base_generator = []; base_dir = [];
+            % Scenarios for the baseline transition path
+            %    and open economy version for closed
+            switch( scenario.economy )
+                case 'open'
+                    baselineScenario = scenario.currentPolicy();
+                    base_generator = @() ModelSolver.solve(baselineScenario, callingtag);
+                    base_dir = PathFinder.getWorkingDir(baselineScenario);
+                    openScenario = []; open_generator = []; open_dir = [];
+                case 'closed'
+                    baselineScenario = scenario.currentPolicy();
+                    base_generator = @() ModelSolver.solve(baselineScenario, callingtag);
+                    base_dir = PathFinder.getWorkingDir(baselineScenario);
+
+                    openScenario = scenario.open();
+                    open_generator = @() ModelSolver.solve(openScenario, callingtag);
+                    open_dir = PathFinder.getWorkingDir(openScenario);
+            end
+        end % not 'steady'
+        
+        % Load dependent scenarios
+        Dynamic_steady = []; Market_steady = [];
+        Dynamic_base = []; Market_base = [];
+        Dynamic_open = []; Market_open = [];
+        
+        if( ~strcmp( scenario.economy, 'steady' ) )
+            % Load baseline market and dynamics conditions
+            Market_steady   = hardyload('market.mat'  , steady_generator, steady_dir);
+            Dynamic_steady  = hardyload('dynamics.mat', steady_generator, steady_dir);
         end
-            
+        if( ~isbase )
+            % Load baseline market and dynamics conditions
+            Market_base     = hardyload('market.mat'  , base_generator, base_dir);
+            Dynamic_base    = hardyload('dynamics.mat', base_generator, base_dir);
+        end
+        if( strcmp( scenario.economy, 'closed' ) )
+            Market_open     = hardyload('market.mat'  , open_generator, open_dir);
+            Dynamic_open    = hardyload('dynamics.mat', open_generator, open_dir);
+        end
+
+        % Load population 
+        if( ~strcmp( scenario.economy, 'steady' ) )
+            % Load steady state population distribution
+            s = hardyload('distribution.mat', steady_generator, steady_dir);
+            DIST_steady = s.DIST_trans;
+        end
         
+        
+        %%
+        % Set initial guesses
+        switch scenario.economy
+            
+            case 'steady'
+            
+                Dynamic0.outs       = 3.1980566;
+                Dynamic0.caps       = 9.1898354; 
+                captoout            = Dynamic0.caps / Dynamic0.outs;
+                
+                Market0.beqs        = 0.153155;                                 % beqs are results from previous runs.
+                Market0.capshares_0 = captoout / (captoout + budget.debttoout); % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                Market0.capshares_1 = Market0.capshares_0;                      % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+                Market0.rhos        = 4.94974;                                  % rhos are results from previous runs.
+                Market0.invtocaps   = 0.0078 + depreciation;                    % I/K = pop growth rate 0.0078 + depreciation
+                
+                Market0.equityFundDividends = 0.04;                             % Random guess
+                
+                Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
+                Dynamic0.assets_0   = Dynamic0.caps + Dynamic0.debts;
+                Dynamic0.assets_1   = Dynamic0.assets_0;
+                Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
+                Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
+                
+            case 'open'
+                
+                if( isbase )
+                    Market0  = Market_steady;
+                    Dynamic0 = Dynamic_steady;
+                else
+                    % Guess is baseline
+                    Market0  = Market_base;
+                    Dynamic0 = Dynamic_base;
+                end
+                
+             case 'closed'
+                
+                if( isbase )
+                    % Guess is from open_base
+                    Market0  = Market_open;
+                    Dynamic0 = Dynamic_open;
+                else
+                    % Guess from closed_base
+                    Market0  = Market_base;
+                    Dynamic0 = Dynamic_base;
+                end
+        end % end guess initialization
+        
+             
+        %%
+        %%
+        % Instantiate a Firm (SingleFirm)
+        if( strcmp( scenario.economy, 'steady') )
+            initialInterestRate = 0.04;
+        else
+            initialInterestRate = Market_steady.equityFundDividends;
+        end
+        theCorporation  = Firm( taxBusiness, production, initialInterestRate, Firm.SINGLEFIRM );
+        thePassThrough  = Firm( taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
+ 
+
         
         %% Static aggregate generation
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         if ~isbase && ~strcmp(economy, 'steady')
             
-            % Load baseline market conditions, optimal labor values, and population distribution
-            Market = hardyload('market.mat'      , base_generator, base_dir);
-            
+            % Load baseline optimal decisions and population distribution
             s      = hardyload('decisions.mat'   , base_generator, base_dir);
             LABs_static    = s.LABs;
             savings_static = s.savings;
@@ -406,26 +485,26 @@ methods (Static)
             s      = hardyload('distribution.mat', base_generator, base_dir);
             DIST_static = s.DIST;
             
-            
             % Generate static aggregates
             % (Intermediary structure used to filter out extraneous fields)
             [Static, ~, ~, Static_DIST, Static_OPTs, ~] = ...
-                generate_aggregates(Market, {}, LABs_static, savings_static, DIST_static);
+                generate_aggregates(Market_base, {}, LABs_static, savings_static, DIST_static);
             
             % Copy additional static aggregates from baseline aggregates
-            Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
-            
             for series = {'caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'GNP', 'investment', 'debts_domestic', 'debts_foreign', 'Gtilde', 'Ttilde', 'Ctilde' }
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
             
             % Calculate static budgetary aggregate variables
-            [corpDividends, corpTaxs]  = theFirm.dividends( Static.caps', Market.invtocaps(T_model), ...
-                                                            Market.rhos', Market.wages'              ...
+            [corpDividends, corpTaxs]  = theCorporation.dividends( ...
+                                                            Static.caps',                       ...
+                                                            Market_base.invtocaps(T_model),     ...
+                                                            Market_base.rhos',                  ...
+                                                            Market_base.wages'                  ...
                                                            );
-            Static.corpTaxs  = corpTaxs';
-            Static.dividends = corpDividends';
-            Static.revs = Static.pits + Static.ssts + Static.corpTaxs;            
+            Static.corpTaxs     = corpTaxs';
+            Static.dividends    = corpDividends';
+            Static.revs         = Static.pits + Static.ssts + Static.corpTaxs;            
             
             % In general, we have:
             % Static.debts = Static.debts_domestic + Static.debts_foreign;
@@ -441,7 +520,7 @@ methods (Static)
 
             % Total assets
             % Note: tot_assets is a sum of choice variables, those are constant at baseline values
-            Static.tot_assets_1 = theFirm.priceCapital' .* Static.caps + ...
+            Static.tot_assets_1 = theCorporation.priceCapital' .* Static.caps + ...
                                   Static.debts_domestic + Static.debts_foreign;
                         
             % Save static aggregates
@@ -456,9 +535,8 @@ methods (Static)
         %% Dynamic aggregate generation
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
-        % Set initial guesses
+        % Set G'vt residuals
         switch economy
-            
             case 'steady'
                 
                 % Load initial guesses (values come from previous steady state results)
@@ -473,29 +551,15 @@ methods (Static)
                 Market0.invtocaps   = 0.0078 + depreciation;                    % I/K = pop growth rate 0.0078 + depreciation
 
                 Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
-                Dynamic0.assets_0   = theFirm.priceCapital*Dynamic0.caps + Dynamic0.debts;
+                Dynamic0.assets_0   = theCorporation.priceCapital*Dynamic0.caps + Dynamic0.debts;
                 Dynamic0.assets_1   = Dynamic0.assets_0;
                 Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
                 Dynamic0.labs       = 0.5235;                                  
                 Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
                 
             case 'open'
-                
-                if( isbase )
-                    % Load steady state market conditions and dynamic aggregates
-                    Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
-                    Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
-
-                else
-                    
-                    % TBD: Make guess from open_base
-                    % Load steady state market conditions and dynamic aggregates
-                    Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
-                    Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
-                    
+                if( ~isbase )
                     % Calculate government expenditure adjustments
-                    Dynamic_base = hardyload('dynamics.mat', base_generator, base_dir);
-                    
                     Gtilde = budget.outlays_by_GDP     .* Dynamic_base.outs            ...
                              - Static.bens;
                     Ttilde = budget.tax_revenue_by_GDP .* Dynamic_base.outs            ...
@@ -504,45 +568,9 @@ methods (Static)
                 end
                 
              case 'closed'
-                
-                if( isbase )
-                    % Load steady state market conditions and dynamic aggregates
-                    Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
-                    Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
-
-                else
-                    % TBD: Make guess from closed_base
-                    % Load steady state market conditions and dynamic aggregates
-                    Market0  = hardyload('market.mat'      , steady_generator, steady_dir);
-                    Dynamic0 = hardyload('dynamics.mat'    , steady_generator, steady_dir);
-
-                    % Make Scenario for the open economy. 
-                    openScenario = scenario.open();
-                    open_generator = @() ModelSolver.solve(openScenario, callingtag);
-                    open_dir = PathFinder.getWorkingDir(openScenario);
-                    
-                end
-                % Make Scenario for the open economy. 
-                openScenario = scenario.open();
-                open_generator = @() ModelSolver.solve(openScenario, callingtag);
-                open_dir = PathFinder.getWorkingDir(openScenario);
-
-                % Load government expenditure adjustments
-                Dynamic_open = hardyload('dynamics.mat', open_generator, open_dir);
-
                 Gtilde = Dynamic_open.Gtilde;
                 Ttilde = Dynamic_open.Ttilde;
                 Ctilde = Dynamic_open.Ctilde;                
-
-        end
-        
-        % Load population 
-        if( ~strcmp( scenario.economy, 'steady' ) )
-            % Load steady state population distribution
-            s = hardyload('distribution.mat', steady_generator, steady_dir);
-            DIST_steady = s.DIST_trans;
-        else
-            DIST_steady = [];
         end
         
                
@@ -591,32 +619,33 @@ methods (Static)
             isinitial = iter == 1;
             
             % Capital prices
-            Market.capgains(1,1) = (theFirm.priceCapital(1) - theFirm.priceCapital0)/theFirm.priceCapital0;
+            Market.capgains(1,1) = (theCorporation.priceCapital(1) - theCorporation.priceCapital0)/theCorporation.priceCapital0;
             for t = 2:T_model
-               Market.capgains(t,1) = (theFirm.priceCapital(t) - theFirm.priceCapital(t-1))/theFirm.priceCapital(t-1);
+               Market.capgains(t,1) = (theCorporation.priceCapital(t) - theCorporation.priceCapital(t-1))/theCorporation.priceCapital(t-1);
             end
 
             % Define market conditions in the first iteration
             if isinitial
-                Market.beqs        = Market0.beqs       *ones(1,T_model);
-                Market.capshares_0 = Market0.capshares_0*ones(1,T_model);
-                Market.capshares_1 = Market0.capshares_1*ones(1,T_model);
-                Market.invtocaps   = Market0.invtocaps  *ones(1,T_model);
+                Market.beqs                 = Market0.beqs                  .*ones(1,T_model);
+                Market.capshares_0          = Market0.capshares_0           .*ones(1,T_model);
+                Market.capshares_1          = Market0.capshares_1           .*ones(1,T_model);
+                Market.invtocaps            = Market0.invtocaps             .*ones(1,T_model);
+                Market.equityFundDividends  = Market0.equityFundDividends   .*ones(1,T_model);
                 
-                Dynamic.assets_0    = Dynamic0.assets_0     *ones(1,T_model);
-                Dynamic.assets_1    = Dynamic0.assets_1     *ones(1,T_model);
-                Dynamic.debts       = Dynamic0.debts        *ones(1,T_model);
-                Dynamic.caps        = Dynamic0.caps         *ones(1,T_model); 
-                Dynamic.labeffs     = Dynamic0.labeffs      *ones(1,T_model);
-                Dynamic.labs        = Dynamic0.labs         *ones(1,T_model);
-                Dynamic.investment  = Dynamic0.investment   *ones(1,T_model);
+                Dynamic.assets_0    = Dynamic0.assets_0     .*ones(1,T_model);
+                Dynamic.assets_1    = Dynamic0.assets_1     .*ones(1,T_model);
+                Dynamic.debts       = Dynamic0.debts        .*ones(1,T_model);
+                Dynamic.caps        = Dynamic0.caps         .*ones(1,T_model); 
+                Dynamic.labeffs     = Dynamic0.labeffs      .*ones(1,T_model);
+                Dynamic.labs        = Dynamic0.labs         .*ones(1,T_model);
+                Dynamic.investment  = Dynamic0.investment   .*ones(1,T_model);
                 
                 switch economy
 
                     case {'steady', 'closed'}
 
-                        Market.rhos      = Market0.rhos*ones(1,T_model);
-                        outs             = Dynamic0.outs;
+                        Market.rhos      = Market0.rhos     .*ones(1,T_model);
+                        outs             = Dynamic0.outs    .*ones(1,T_model);
                         
                     case 'open'
 
@@ -625,18 +654,18 @@ methods (Static)
                         % capital are fixed, including cap gains.
                         % 
                         % First period capital (inherited from steady state)
-                        Dynamic.caps(1) = Market0.capshares_0 * Dynamic0.assets_0;
+                        Dynamic.caps(1) = Market_steady.capshares_0 * Dynamic_steady.assets_0;
                         % Define the pre-tax returns necessary to return
                         % the world rate from steady-state.
-                        effectiveDividendRate = ( Market0.equityFundDividends*(1 - sstax.rateForeignCorpIncome) ...
+                        effectiveDividendRate = ( Market_steady.equityFundDividends*(1 - initialTaxIndividual.rateForeignCorpIncome) ...
                                                   - Market.capgains ) ...
-                                                ./ (1 - tax.rateForeignCorpIncome);
-                        klRatio = theFirm.calculateKLRatio( effectiveDividendRate   , ... 
+                                                ./ (1 - taxIndividual.rateForeignCorpIncome);
+                        klRatio = theCorporation.calculateKLRatio( effectiveDividendRate   , ... 
                                                             Dynamic.caps'           , ...
                                                             Dynamic.labeffs'        , ...
-                                                            Market0.invtocaps );
+                                                            Market_steady.invtocaps );
                         
-                        rhos        = Market0.rhos*ones(1,T_model);
+                        rhos        = Market_steady.rhos*ones(1,T_model);
                         Market.rhos = klRatio';
                         %% TBD: Do we need to set caps to have foreign investment here?
                         %       Seems like yes.
@@ -665,10 +694,10 @@ methods (Static)
                         % mix of capital vs. debt changes.
                         % Overwrite the first period capital
                         Dynamic.caps(1) = Market.capshares_0(1) * Dynamic.assets_0(1);
-                        klRatio     = theFirm.calculateKLRatio( effectiveDividendRate   , ...
+                        klRatio     = theCorporation.calculateKLRatio( effectiveDividendRate   , ...
                                                                 Dynamic.caps'           , ...
                                                                 Dynamic.labeffs'        , ...
-                                                                Market0.invtocaps );
+                                                                Market_steady.invtocaps );
 
                         rhos        = Market.rhos;
                         Market.rhos = klRatio';
@@ -676,6 +705,10 @@ methods (Static)
                 end
             end
             
+            % If steady-state, reset interest rate to calibrate leverage
+            if( strcmp( scenario.economy, 'steady' ) )
+                theCorporation = theCorporation.findLeverageCost( max(Market.equityFundDividends, 0.01) );
+            end 
             
             % Compute prices and price indices
             Market.wages               = A*(1-alpha)*(Market.rhos.^alpha);
@@ -684,17 +717,19 @@ methods (Static)
                                                         , Dynamic.labeffs        ...
                                                         , nstartyears            ...
                                                         , realage_entry, T_model, T_life);
-            [corpDividends, corpTaxs]  = theFirm.dividends( Dynamic.caps'     ...
-                                                        ,   Market0.invtocaps ...
-                                                        ,   Market.rhos'      ...
-                                                        ,   Market.wages'     ...
+            [corpDividends, corpTaxs, corpDebts]  = theCorporation.dividends(               ...
+                                                            Dynamic.caps'                   ...
+                                                        ,   Market.invtocaps(T_model)       ...
+                                                        ,   Market.rhos'                    ...
+                                                        ,   Market.wages'                   ...
                                                         );
             
             % 'Price' of assets -- HH own equal shares of both bond & equity funds
             % (equityFund/bondFund)Dividends are actually dividend rates
-            Market.equityFundPrice0     = theFirm.priceCapital0;
-            Market.equityFundPrices     = theFirm.priceCapital';
-            Market.equityFundDividends  = (corpDividends ./ (Dynamic.caps' .* theFirm.priceCapital))';
+            Market.equityFundPrice0     = theCorporation.priceCapital0;
+            Market.equityFundPrices     = theCorporation.priceCapital';
+            Market.equityFundDividends  = (corpDividends ./ (Dynamic.caps' .* theCorporation.priceCapital))';
+            Market.corpDebts            = corpDebts';
             
             Market.bondFundPrice0       = 1;
             Market.bondFundPrices       = ones(1,T_model);
@@ -721,7 +756,7 @@ methods (Static)
                     % Calculate debt, capital, and output
                     % (Numerical solver used due to absence of closed form solution)
                     f_debts = @(outs ) budget.debttoout*outs;
-                    f_caps  = @(debts) (Dynamic.assets_1 - debts) ./ theFirm.priceCapital;
+                    f_caps  = @(debts) (Dynamic.assets_1 - debts) ./ theCorporation.priceCapital;
                     f_outs  = @(caps ) A*(max(caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     x_ = fsolve(@(x) x - [f_debts(x(3)); f_caps(x(1)); f_outs(x(2))], zeros(3,1), optimoptions('fsolve', 'Display', 'none'));
                     Dynamic.debts = x_(1);
@@ -745,7 +780,7 @@ methods (Static)
                     % Proxy for gross investment in physical capital
                     DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
                     assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.SAVINGS, [], T_model), 1), 3);
-                    Dynamic.investment = (Market.capshares_1 * (assets_tomorrow - Dynamic.bequests))./ theFirm.priceCapital' ...
+                    Dynamic.investment = (Market.capshares_1 * (assets_tomorrow - Dynamic.bequests))./ theCorporation.priceCapital' ...
                                          - (1 - depreciation) * Dynamic.caps;
                                      
                     % Include transition path series for symmetry
@@ -767,7 +802,7 @@ methods (Static)
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     % Note: Dynamic.assets_0 represents current assets at old prices.
-                    Dynamic.caps_domestic  =  (Market.capshares_1 .* Dynamic.assets_1) ./ theFirm.priceCapital';
+                    Dynamic.caps_domestic  =  (Market.capshares_1 .* Dynamic.assets_1) ./ theCorporation.priceCapital';
                     Dynamic.caps_foreign   = Dynamic.caps - Dynamic.caps_domestic;
                     Dynamic.invest_foreign = [Dynamic.caps_foreign(2:T_model) Dynamic.caps_foreign(T_model)] ...
                                               - (1 - depreciation) * [Dynamic.caps_foreign(1:T_model-1) Dynamic.caps_foreign(T_model-1)];
@@ -793,9 +828,9 @@ methods (Static)
                     Dynamic.debts_domestic = (1 - Market.capshares_1) .* Dynamic.assets_1;
                     Dynamic.debts_foreign  = Dynamic.debts - Dynamic.debts_domestic;
                     
-                    Dynamic.tot_assets_0   = [theFirm.priceCapital0 theFirm.priceCapital(1:T_model-1)'] ...
+                    Dynamic.tot_assets_0   = [theCorporation.priceCapital0 theCorporation.priceCapital(1:T_model-1)'] ...
                                                .* Dynamic.caps + Dynamic.debts;
-                    Dynamic.tot_assets_1   = theFirm.priceCapital' .* Dynamic.caps + Dynamic.debts;
+                    Dynamic.tot_assets_1   = theCorporation.priceCapital' .* Dynamic.caps + Dynamic.debts;
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
@@ -811,7 +846,7 @@ methods (Static)
                     %   rate of capital replacement here.
                     Dynamic.investment = [Dynamic.caps(2:T_model)   0] - (1 - depreciation) * ...
                                          [Dynamic.caps(1:T_model-1) 0];
-                    Dynamic.investment(T_model) = Market0.invtocaps * Dynamic.caps(T_model);
+                    Dynamic.investment(T_model) = Market_steady.invtocaps * Dynamic.caps(T_model);
                     
                     % Update guesses
                     % Note: Bequests should be priced according to the new policy because it
@@ -819,7 +854,7 @@ methods (Static)
                     %       government yesterday after some people died, but redistributed today
                     %       after the new policy took place.
                     %       So we apply today's prices to yesterday's bequests and capshares.
-                    beqs      = [Dynamic0.bequests * (1 + Market0.capshares_1 * Market.capgains(1)), ...
+                    beqs      = [Dynamic_steady.bequests * (1 + Market_steady.capshares_1 * Market.capgains(1)), ...
                                  Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares_1(1:T_model-1) .* Market.capgains(2:T_model)') ...
                                 ] ./ Dynamic.pops;
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
@@ -837,7 +872,7 @@ methods (Static)
 
                     % Calculate capital and output
                     % Note: Dynamic.assets_1 represents current assets at new prices.
-                    Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theFirm.priceCapital';
+                    Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theCorporation.priceCapital';
                     outs         = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     Dynamic.outs = outs;  % outs var is used to keep last iteration values
 
@@ -861,7 +896,13 @@ methods (Static)
                         Dynamic.debts = ModelSolver.calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, debt_1, budget.debtrates, T_model);
                         
                         % Re-calculate capital and output
-                        Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theFirm.priceCapital';
+                        Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theCorporation.priceCapital';
+                        too_low_caps = find( Dynamic.caps <= 0 );
+                        if( ~isempty(too_low_caps) )
+                            % Ctilde did not fix debt explosion in time
+                            fprintf( 'MODEL ERROR! Capital becomes negative at t=%u \n.', too_low_caps(1) );
+                            error( 'Cannot continue with model convergence.' );
+                        end
                         outs         = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                         Dynamic.outs = outs;  % outs var is used to keep last iteration values
                     
@@ -905,7 +946,7 @@ methods (Static)
                     %       Bequests should also be priced according to the new policy.
                     %       So we apply today's prices to yesterday's bequests and capshares.
                     rhos      = Dynamic.caps ./ Dynamic.labeffs;
-                    beqs      = [Dynamic0.bequests * (1 + Market0.capshares_1 * Market.capgains(1)), ...
+                    beqs      = [Dynamic_steady.bequests * (1 + Market_steady.capshares_1 * Market.capgains(1)), ...
                                  Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares_1(1:T_model-1) .* Market.capgains(2:T_model)') ...
                                 ] ./ Dynamic.pops;
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
