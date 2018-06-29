@@ -353,7 +353,10 @@ methods (Static)
         end
         
         
-        %% Define special Scenarios and their generators
+        %% 
+        % Define special Scenarios and their generators
+        %  then load them
+        
         steadyBaseScenario = []; steady_generator = []; steady_dir = []; DIST_steady = [];
         baselineScenario = []; base_generator = []; base_dir = [];
         openScenario = []; open_generator = []; open_dir = [];
@@ -416,21 +419,23 @@ methods (Static)
         switch scenario.economy
             
             case 'steady'
-            
+                
+                % Load initial guesses (values come from previous steady state results)
                 Dynamic0.outs       = 3.1980566;
                 Dynamic0.caps       = 9.1898354; 
+                Dynamic0.labs       = 0.5235;                                  
                 captoout            = Dynamic0.caps / Dynamic0.outs;
                 
-                Market0.beqs        = 0.153155;                                 % beqs are results from previous runs.
+                Market0.beqs        = 0.153155;                                   
                 Market0.capshares_0 = captoout / (captoout + budget.debttoout); % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
                 Market0.capshares_1 = Market0.capshares_0;                      % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                Market0.rhos        = 4.94974;                                  % rhos are results from previous runs.
+                Market0.rhos        = 4.94974;                                  
                 Market0.invtocaps   = 0.0078 + depreciation;                    % I/K = pop growth rate 0.0078 + depreciation
                 
-                Market0.equityFundDividends = 0.04;                             % Random guess
+                Market0.equityFundDividends = 0.05;
                 
                 Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
-                Dynamic0.assets_0   = Dynamic0.caps + Dynamic0.debts;
+                Dynamic0.assets_0   = Dynamic0.caps + Dynamic0.debts;           % Assume p_K(0)=1
                 Dynamic0.assets_1   = Dynamic0.assets_0;
                 Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
                 Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
@@ -461,8 +466,7 @@ methods (Static)
         
              
         %%
-        %%
-        % Instantiate a Firm (SingleFirm)
+        % Instantiate Firms
         if( strcmp( scenario.economy, 'steady') )
             initialInterestRate = 0.04;
         else
@@ -496,7 +500,7 @@ methods (Static)
             end
             
             % Calculate static budgetary aggregate variables
-            [corpDividends, corpTaxs]  = theCorporation.dividends( ...
+            [corpDividends, corpTaxs, corpDebts]  = theCorporation.dividends( ...
                                                             Static.caps',                       ...
                                                             Market_base.invtocaps(T_model),     ...
                                                             Market_base.rhos',                  ...
@@ -504,6 +508,7 @@ methods (Static)
                                                            );
             Static.corpTaxs     = corpTaxs';
             Static.dividends    = corpDividends';
+            Static.corpDebts    = corpDebts';
             Static.revs         = Static.pits + Static.ssts + Static.corpTaxs;            
             
             % In general, we have:
@@ -537,26 +542,7 @@ methods (Static)
         
         % Set G'vt residuals
         switch economy
-            case 'steady'
-                
-                % Load initial guesses (values come from previous steady state results)
-                Dynamic0.outs       = 3.1980566;
-                Dynamic0.caps       = 9.1898354; 
-                captoout            = Dynamic0.caps / Dynamic0.outs;
-                
-                Market0.beqs        = 0.153155;                                   
-                Market0.capshares_0 = captoout / (captoout + budget.debttoout); % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                Market0.capshares_1 = Market0.capshares_0;                      % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                Market0.rhos        = 4.94974;                                  
-                Market0.invtocaps   = 0.0078 + depreciation;                    % I/K = pop growth rate 0.0078 + depreciation
 
-                Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
-                Dynamic0.assets_0   = theCorporation.priceCapital*Dynamic0.caps + Dynamic0.debts;
-                Dynamic0.assets_1   = Dynamic0.assets_0;
-                Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
-                Dynamic0.labs       = 0.5235;                                  
-                Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
-                
             case 'open'
                 if( ~isbase )
                     % Calculate government expenditure adjustments
@@ -729,7 +715,6 @@ methods (Static)
             Market.equityFundPrice0     = theCorporation.priceCapital0;
             Market.equityFundPrices     = theCorporation.priceCapital';
             Market.equityFundDividends  = (corpDividends ./ (Dynamic.caps' .* theCorporation.priceCapital))';
-            Market.corpDebts            = corpDebts';
             
             Market.bondFundPrice0       = 1;
             Market.bondFundPrices       = ones(1,T_model);
@@ -740,15 +725,15 @@ methods (Static)
             [Dynamic, LABs, savings, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {}, {});
             
 
-            % Calculate additional dynamic aggregates
+            % Calculate and record additional dynamic aggregates
             % (Note that open economy requires capital calculation before debt calculation 
             % while closed economy requires the reverse)
             
-            % Taxes
             Dynamic.corpDividends = corpDividends';
             Dynamic.corpTaxs      = corpTaxs';
             Dynamic.revs          = Dynamic.pits + Dynamic.ssts + Dynamic.corpTaxs;
-            
+            Dynamic.corpDebts     = corpDebts';
+
             switch economy
                 
                 case 'steady'

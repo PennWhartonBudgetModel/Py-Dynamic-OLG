@@ -113,55 +113,55 @@ function [] = test_output(save_dir, setnames)
 
             valuename = targetvaluenames{j};
             
-            if ~isfield(outputset, valuename)
+            if (~isfield(outputset, valuename) )
 
                 % Flag missing value
                 flag('Not found');
-            
+                continue;
             end
             
-            if ~( isstruct(outputset.(valuename)) )
-            
-                if any(isnan(outputset.(valuename)(:)))
-
-                    % Flag NaN value
-                    flag('NaN value');
-
-                elseif any(size(outputset.(valuename)) ~= size(targetset.(valuename)))
-
-                    % Flag for size mismatch
-                    flag('Size mismatch');
-
-                else
-
-                    % Identify value deviation
-                    delta = outputset.(valuename)(:) - targetset.(valuename)(:);
-                    if any(delta)
-                        pdev = abs(nanmean(delta*2 ./ (outputset.(valuename)(:) + targetset.(valuename)(:))))*100;
-                        if pdev < 0.01
-                            flag(sprintf('Numerical deviation'));
-                        else
-                            flag(sprintf('%06.2f%% deviation', pdev));
-                        end
-                    end
-
-                end
+            if ( isstruct( outputset.(valuename) ) )
                 
-            else
-                
+                % Skip checking of structs -- it is currently just
+                % priceindex which does not need to be checked
                 fprintf('\tSkipping %s because it is a struct.\n', valuename);
-                
+                continue;
             end
-        end
+                
+            if any(isnan(outputset.(valuename)(:)))
 
-        % Iterate over output values
+                % Flag NaN value
+                flag('NaN value');
+                continue;
+            end
+            
+            if any(size(outputset.(valuename)) ~= size(targetset.(valuename)))
+
+                % Flag for size mismatch
+                flag('Size mismatch');
+                continue;
+            end
+            
+            % Identify value deviation
+            delta = outputset.(valuename)(:) - targetset.(valuename)(:);
+            if any(delta)
+                pdev = abs(nanmean(delta*2 ./ (outputset.(valuename)(:) + targetset.(valuename)(:))))*100;
+                if pdev < 0.01
+                    flag(sprintf('Numerical deviation'));
+                else
+                    flag(sprintf('%06.2f%% deviation', pdev));
+                end
+            end
+            
+        end % end field loop
+
+        % Identify new values, if any
         outputvaluenames = fieldnames(outputset);
 
         for j = 1:length(outputvaluenames)
 
             valuename = outputvaluenames{j};
 
-            % Identify new value
             if ~isfield(targetset, valuename)
                 flag('New');
             end
