@@ -693,7 +693,7 @@ methods (Static)
             
             % If steady-state, reset interest rate to calibrate leverage
             if( strcmp( scenario.economy, 'steady' ) )
-                theCorporation = theCorporation.findLeverageCost( max(Market.equityFundDividends, 0.01) );
+                theCorporation.findLeverageCost( max(Market.equityFundDividends, 0.01) );
             end 
             
             % Compute prices and price indices

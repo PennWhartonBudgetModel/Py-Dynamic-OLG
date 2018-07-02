@@ -3,7 +3,7 @@
 %    -- currently contains only Single Firm production
 %
 
-classdef Firm
+classdef Firm < handle
     
     properties (Constant)
         SINGLEFIRM          = 0;
@@ -67,7 +67,7 @@ classdef Firm
                     this.initLeverageRatio  = paramsProduction.initialPassThroughLeverage;
             end
             
-            this = this.findLeverageCost( interestRate );
+            this.findLeverageCost( interestRate );
             
             % Calculate the price of capital (p_K, see docs)
             this.priceCapital   = this.priceCapital0 * (paramsTax.qtobin ./ paramsTax.qtobin0);
@@ -76,7 +76,7 @@ classdef Firm
         
         %%
         %  Reset the interest rate and recalculate leverage cost
-        function [this] = findLeverageCost( this, interestRate )
+        function findLeverageCost( this, interestRate )
             
             if( interestRate <= 0 )
                 throw(MException('LEVERAGE_COST:NOT_POSITIVE','Interest rate must be positive for leverage cost calculation.'));
