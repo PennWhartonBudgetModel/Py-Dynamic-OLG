@@ -391,13 +391,14 @@ methods (Static)
             % Load baseline market and dynamics conditions
             Market_steady   = hardyload('market.mat'  , steady_generator, steady_dir);
             Dynamic_steady  = hardyload('dynamics.mat', steady_generator, steady_dir);
-        else % for steady, try to load previous, if they exist
-            if( exist(fullfile(steady_dir, 'market.mat'), 'file') == 2 )
-                Market_steady   = load(fullfile(steady_dir, 'market.mat'));
+        else % for steady, load initial guess
+            guess_file = fullfile( PathFinder.getSourceDir(), 'InitialGuess.mat' );
+            if( exist(guess_file, 'file') ~= 2 )
+                error( 'InitialGuess.mat file is required. Run ModelSolver.makeInitialGuess() to generate' );
             end
-            if( exist(fullfile(steady_dir, 'dynamics.mat'), 'file') == 2 )
-                Dynamic_steady  = load(fullfile(steady_dir, 'dynamics.mat'));
-            end
+            s = load( guess_file );
+            Market_steady   = s.Market0;
+            Dynamic_steady  = s.Dynamic0;
         end
         if( ~isbase )
             % Load baseline market and dynamics conditions
@@ -422,33 +423,11 @@ methods (Static)
         switch scenario.economy
             
             case 'steady'
-                
+                % steadys are from guess file
                 Market0     = Market_steady;
                 Dynamic0    = Dynamic_steady;
-                if( isempty(Market_steady) || isempty(Dynamic_steady) )
-                    % Load initial guesses (values come from previous steady state results)
-                    Dynamic0.outs       = 3.1980566;
-                    Dynamic0.caps       = 9.1898354; 
-                    Dynamic0.labs       = 0.5235;                                  
-                    captoout            = Dynamic0.caps / Dynamic0.outs;
 
-                    Market0.beqs        = 0.153155;                                   
-                    Market0.capshares_0 = captoout / (captoout + budget.debttoout); % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                    Market0.capshares_1 = Market0.capshares_0;                      % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
-                    Market0.rhos        = 4.94974;                                  
-                    Market0.invtocaps   = 0.0078 + depreciation;                    % I/K = pop growth rate 0.0078 + depreciation
-
-                    Market0.equityFundDividends = 0.05;
-
-                    Dynamic0.debts      = Dynamic0.outs * budget.debttoout;
-                    Dynamic0.assets_0   = Dynamic0.caps + Dynamic0.debts;           % Assume p_K(0)=1
-                    Dynamic0.assets_1   = Dynamic0.assets_0;
-                    Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
-                    Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
-                end
-                
             case 'open'
-                
                 if( isbase )
                     Market0  = Market_steady;
                     Dynamic0 = Dynamic_steady;
@@ -1072,7 +1051,56 @@ methods (Static)
         
     end % solve
     
-end % methods
+    
+    
+    %%
+    % Create a MAT file for the initial guess for steady-state
+    % Inputs:  Scenario (which will be turned to current policy, steady) on
+    %          which to base guess.
+    %          If the Scenario has not been solved, then make pre-defined
+    %          guess.
+    function makeInitialGuess( scenario )
+        
+        Market0 = []; Dynamic0 = [];
+        steadyScenario  = scenario.currentPolicy().steady();
+        steady_dir      = PathFinder.getWorkingDir(steadyScenario);
+        
+        if( exist(fullfile(steady_dir, 'market.mat'), 'file') == 2 )
+            Market0   = load(fullfile(steady_dir, 'market.mat'));
+        end
+        if( exist(fullfile(steady_dir, 'dynamics.mat'), 'file') == 2 )
+            Dynamic0  = load(fullfile(steady_dir, 'dynamics.mat'));
+        end
+        
+        if( isempty(Market0) || isempty(Dynamic0) )
+            % Load initial guesses (values come from some steady state results)
+            Dynamic0.outs       = 3.1980566;
+            Dynamic0.caps       = 9.1898354; 
+            Dynamic0.labs       = 0.5235;                                  
+            captoout            = Dynamic0.caps / Dynamic0.outs;
+            debttoout           = 0.75;
+
+            Market0.beqs        = 0.153155;                                   
+            Market0.capshares_0 = captoout / (captoout + debttoout);        % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+            Market0.capshares_1 = Market0.capshares_0;                      % capshare = (K/Y / (K/Y + D/Y)), where K/Y = captoout = 3 and D/Y = debttoout.
+            Market0.rhos        = 4.94974;                                  
+            Market0.invtocaps   = 0.0078 + 0.056;                           % I/K = pop growth rate 0.0078 + depreciation
+
+            Market0.equityFundDividends = 0.05;
+
+            Dynamic0.debts      = Dynamic0.outs * debttoout;
+            Dynamic0.assets_0   = Dynamic0.caps + Dynamic0.debts;           % Assume p_K(0)=1
+            Dynamic0.assets_1   = Dynamic0.assets_0;
+            Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
+            Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
+        end % hardcoded guess
+        
+        % Guesses are loaded, save to special guess file
+        save_path = fullfile( PathFinder.getSourceDir(), 'InitialGuess.mat' );
+        save( save_path, 'Market0', 'Dynamic0' );
+         
+    end % makeInitialGuess
+end % public methods
 
 
 
