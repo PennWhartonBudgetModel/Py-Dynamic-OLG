@@ -498,10 +498,15 @@ methods (Static)
                                                             Market_base.rhos',                  ...
                                                             Market_base.wages'                  ...
                                                            );
-            Static.corpTaxs     = corpTaxs';
-            Static.dividends    = corpDividends';
-            Static.corpDebts    = corpDebts';
-            Static.revs         = Static.pits + Static.ssts + Static.corpTaxs;            
+                                                       
+            capincs_foreign         = Market_base.equityFundDividends .* Static.caps_foreign;
+            Static.foreignCorpTaxs  = capincs_foreign .* taxIndividual.rateForeignCorpIncome;
+            
+            Static.corpTaxs         = corpTaxs';
+            Static.dividends        = corpDividends';
+            Static.corpDebts        = corpDebts';
+            
+            Static.revs             = Static.pits + Static.ssts + Static.corpTaxs + Static.foreignCorpTaxs;            
             
             % In general, we have:
             % Static.debts = Static.debts_domestic + Static.debts_foreign;
@@ -610,13 +615,15 @@ methods (Static)
                 Market.invtocaps            = Market0.invtocaps             .*ones(1,T_model);
                 Market.equityFundDividends  = Market0.equityFundDividends   .*ones(1,T_model);
                 
-                Dynamic.assets_0    = Dynamic0.assets_0     .*ones(1,T_model);
-                Dynamic.assets_1    = Dynamic0.assets_1     .*ones(1,T_model);
-                Dynamic.debts       = Dynamic0.debts        .*ones(1,T_model);
-                Dynamic.caps        = Dynamic0.caps         .*ones(1,T_model); 
-                Dynamic.labeffs     = Dynamic0.labeffs      .*ones(1,T_model);
-                Dynamic.labs        = Dynamic0.labs         .*ones(1,T_model);
-                Dynamic.investment  = Dynamic0.investment   .*ones(1,T_model);
+                Dynamic.assets_0        = Dynamic0.assets_0     .*ones(1,T_model);
+                Dynamic.assets_1        = Dynamic0.assets_1     .*ones(1,T_model);
+                Dynamic.debts           = Dynamic0.debts        .*ones(1,T_model);
+                Dynamic.caps            = Dynamic0.caps         .*ones(1,T_model); 
+                Dynamic.labeffs         = Dynamic0.labeffs      .*ones(1,T_model);
+                Dynamic.labs            = Dynamic0.labs         .*ones(1,T_model);
+                Dynamic.investment      = Dynamic0.investment   .*ones(1,T_model);
+                
+                Dynamic.caps_foreign    = Dynamic0.caps_foreign .*ones(1,T_model);
                 
                 switch economy
 
@@ -710,19 +717,28 @@ methods (Static)
             Market.bondFundPrices       = ones(1,T_model);
             Market.bondFundDividends    = budget.debtrates; %rem: dividendrate is per $ of assets
             
+            % TEMP: Need to figure out how to handle successive iterations.
+            %   FOR NOW, rewrite caps_foreign
+            caps_foreign = Dynamic.caps_foreign;
             
             % Generate dynamic aggregates
             [Dynamic, LABs, savings, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {}, {});
             
+            % TEMP: See above
+            Dynamic.caps_foreign = caps_foreign;
 
             % Calculate and record additional dynamic aggregates
             % (Note that open economy requires capital calculation before debt calculation 
             % while closed economy requires the reverse)
             
-            Dynamic.corpDividends = corpDividends';
-            Dynamic.corpTaxs      = corpTaxs';
-            Dynamic.revs          = Dynamic.pits + Dynamic.ssts + Dynamic.corpTaxs;
-            Dynamic.corpDebts     = corpDebts';
+            capincs_foreign         = Market.equityFundDividends .* Dynamic.caps_foreign;
+            Dynamic.foreignCorpTaxs = capincs_foreign .* taxIndividual.rateForeignCorpIncome;
+                    
+            Dynamic.corpDividends   = corpDividends';
+            Dynamic.corpTaxs        = corpTaxs';
+            Dynamic.corpDebts       = corpDebts';
+
+            Dynamic.revs            = Dynamic.pits + Dynamic.ssts + Dynamic.corpTaxs + Dynamic.foreignCorpTaxs;
 
             switch economy
                 
@@ -749,12 +765,8 @@ methods (Static)
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.MPKs .* Dynamic.caps;
-                    capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
                     Dynamic.GNP     = Dynamic.outs - capincs_foreign;
                     
-                    % Foreign taxes
-                    Dynamic.foreignCorpTaxs     = capincs_foreign .* taxIndividual.rateForeignCorpIncome;
-
                     % Proxy for gross investment in physical capital
                     DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
                     assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.SAVINGS, [], T_model), 1), 3);
@@ -780,7 +792,7 @@ methods (Static)
                     Dynamic.outs = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     
                     % Note: Dynamic.assets_0 represents current assets at old prices.
-                    Dynamic.caps_domestic  =  (Market.capshares_1 .* Dynamic.assets_1) ./ theCorporation.priceCapital';
+                    Dynamic.caps_domestic  = (Market.capshares_1 .* Dynamic.assets_1) ./ theCorporation.priceCapital';
                     Dynamic.caps_foreign   = Dynamic.caps - Dynamic.caps_domestic;
                     Dynamic.invest_foreign = [Dynamic.caps_foreign(2:T_model) Dynamic.caps_foreign(T_model)] ...
                                               - (1 - depreciation) * [Dynamic.caps_foreign(1:T_model-1) Dynamic.caps_foreign(T_model-1)];
@@ -813,11 +825,7 @@ methods (Static)
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.MPKs .* Dynamic.caps;
-                    capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
                     Dynamic.GNP     = Dynamic.outs - capincs_foreign;
-                    
-                    % Foreign taxes
-                    Dynamic.foreignCorpTaxs     = capincs_foreign .* taxIndividual.rateForeignCorpIncome;
                     
                     % Gross investment in physical capital
                     %   T_model investment converges to final steady
@@ -910,12 +918,8 @@ methods (Static)
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
                     Dynamic.capincs = Market.MPKs .* Dynamic.caps;
-                    capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
                     Dynamic.GNP     = Dynamic.outs - capincs_foreign;
                     
-                    % Foreign taxes
-                    Dynamic.foreignCorpTaxs     = capincs_foreign .* taxIndividual.rateForeignCorpIncome;
-
                     % Gross investment in physical capital
                     %   T_model investment eventually converges to final steady
                     %   state investment, K_ss*(pop_growth + depreciation),
@@ -1100,6 +1104,8 @@ methods (Static)
             Dynamic0.assets_1   = Dynamic0.assets_0;
             Dynamic0.labeffs    = Dynamic0.caps / Market0.rhos; 
             Dynamic0.investment = Dynamic0.caps * Market0.invtocaps;
+            
+            Dynamic0.caps_foreign = 0;
         end % hardcoded guess
         
         % Guesses are loaded, save to special guess file
