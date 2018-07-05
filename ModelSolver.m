@@ -645,8 +645,6 @@ methods (Static)
                         
                         rhos        = Market_steady.rhos*ones(1,T_model);
                         Market.rhos = klRatio';
-                        %% TBD: Do we need to set caps to have foreign investment here?
-                        %       Seems like yes.
                 end
                 
                 Market.debtrates = budget.debtrates;
@@ -754,6 +752,9 @@ methods (Static)
                     capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
                     Dynamic.GNP     = Dynamic.outs - capincs_foreign;
                     
+                    % Foreign taxes
+                    Dynamic.foreignCorpTaxs     = capincs_foreign .* taxIndividual.rateForeignCorpIncome;
+
                     % Proxy for gross investment in physical capital
                     DIST_gs            = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
                     assets_tomorrow    = sum(sum(reshape(DIST_gs .* OPTs.SAVINGS, [], T_model), 1), 3);
@@ -814,6 +815,9 @@ methods (Static)
                     Dynamic.capincs = Market.MPKs .* Dynamic.caps;
                     capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
                     Dynamic.GNP     = Dynamic.outs - capincs_foreign;
+                    
+                    % Foreign taxes
+                    Dynamic.foreignCorpTaxs     = capincs_foreign .* taxIndividual.rateForeignCorpIncome;
                     
                     % Gross investment in physical capital
                     %   T_model investment converges to final steady
@@ -909,6 +913,9 @@ methods (Static)
                     capincs_foreign = Market.equityFundDividends .* Dynamic.caps_foreign;
                     Dynamic.GNP     = Dynamic.outs - capincs_foreign;
                     
+                    % Foreign taxes
+                    Dynamic.foreignCorpTaxs     = capincs_foreign .* taxIndividual.rateForeignCorpIncome;
+
                     % Gross investment in physical capital
                     %   T_model investment eventually converges to final steady
                     %   state investment, K_ss*(pop_growth + depreciation),
