@@ -658,6 +658,18 @@ methods (Static)
     end % bequest_motive
         
     
+    %%
+    %  OPENESS OF ECONOMY AND INTERNATIONAL STUFF
+    function s = international( scenario )
+        
+        T_model = ParamGenerator.timing(scenario).T_model;
+        
+        if( scenario.IsPartiallyOpen )
+            s.debtTakeUp = 0.4 .* ones(1,T_model);
+        else
+            s.debtTakeUp = 0.0 .* ones(1,T_model);
+        end
+    end
 
     
     %% ELASTICITY INVERSION
