@@ -663,7 +663,9 @@ methods (Static)
     function s = international( scenario )
         
         T_model = ParamGenerator.timing(scenario).T_model;
-        
+        % The debtTakeUp is the percentage of 'optimal' debt that is
+        % acquired by foreigners. The 'optimal' debt is the residual of
+        % U.S. household debt demand.
         if( scenario.IsPartiallyOpen )
             s.debtTakeUp = 0.4 .* ones(1,T_model);
         else

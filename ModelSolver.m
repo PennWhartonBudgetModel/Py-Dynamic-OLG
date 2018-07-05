@@ -119,6 +119,9 @@ methods (Static)
         % Tax parameters for current policy, steady-state
         initialTaxIndividual    = ParamGenerator.taxIndividual( scenario.steady().currentPolicy() );  
         
+        % International and economy openess
+        international           = ParamGenerator.international( scenario );
+        
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
         bequest_phi_1 = s.phi1;                 % phi1 reflects parent's concern about leaving bequests to her children (THIS IS THE ONE WE WANT TO CALIBRATE FOR LATER!)
@@ -907,13 +910,17 @@ methods (Static)
                     Dynamic.Ttilde = Ttilde;
                     Dynamic.Ctilde = Ctilde;
                     
-                    Dynamic.debts_domestic = Dynamic.debts;
-                    Dynamic.debts_foreign  = zeros(1,T_model);
+                    % Calculate foreign debt holdings 
+                    %   Idea here is to maintain the household's desired
+                    %   portfolio allocation from Steady-State.
+                    domestic_debt_demand   = Dynamic.assets_1 .* ( 1-Market_steady.capshares_1);
+                    Dynamic.debts_foreign  = international.debtTakeUp .* (Dynamic.debts - domestic_debt_demand);
+                    Dynamic.debts_domestic = Dynamic.debts - Dynamic.debts_foreign;
                     Dynamic.caps_domestic  = Dynamic.caps;
                     Dynamic.caps_foreign   = zeros(1,T_model);
                     Dynamic.invest_foreign = zeros(1,T_model);
-                    Dynamic.tot_assets_0   = Dynamic.assets_0;
-                    Dynamic.tot_assets_1   = Dynamic.assets_1;
+                    Dynamic.tot_assets_0   = Dynamic.assets_0 + Dynamic.debts_foreign;
+                    Dynamic.tot_assets_1   = Dynamic.assets_1 + Dynamic.debts_foreign;
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
