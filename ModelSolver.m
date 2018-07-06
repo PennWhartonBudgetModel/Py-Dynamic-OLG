@@ -864,7 +864,12 @@ methods (Static)
 
                     % Calculate capital and output
                     % Note: Dynamic.assets_1 represents current assets at new prices.
-                    Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theCorporation.priceCapital';
+                    new_debt_issued         = deficits + (Dynamic.debts .* Market.bondFundDividends);
+                    Dynamic.debts_foreign   = new_debt_issued .* international.debtTakeUp;
+                    Dynamic.debts_domestic  = Dynamic.debts - Dynamic.debts_foreign;
+                    Dynamic.caps_domestic   = (Dynamic.assets_1 - Dynamic.debts_domestic) ./ theCorporation.priceCapital';
+                    
+                    Dynamic.caps = Dynamic.caps_domestic;  % TEMP: No foreign capital yet.
                     outs         = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
                     Dynamic.outs = outs;  % outs var is used to keep last iteration values
 
@@ -885,10 +890,15 @@ methods (Static)
                         
                         % Recalculate debt and check if D/Y has been fixed
                         %   Note: D/Y for t=ClosureYear is unchanged by Ctilde
-                        Dynamic.debts = ModelSolver.calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, debt_1, budget.debtrates, T_model);
+                        [Dynamic.debts, deficits] = ModelSolver.calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, debt_1, budget.debtrates, T_model);
                         
                         % Re-calculate capital and output
-                        Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theCorporation.priceCapital';
+                        new_debt_issued         = deficits + (Dynamic.debts .* Market.bondFundDividends);
+                        Dynamic.debts_foreign   = new_debt_issued .* international.debtTakeUp;
+                        Dynamic.debts_domestic  = Dynamic.debts - Dynamic.debts_foreign;
+                        Dynamic.caps_domestic   = (Dynamic.assets_1 - Dynamic.debts_domestic) ./ theCorporation.priceCapital';
+
+                        Dynamic.caps = Dynamic.caps_domestic;  % TEMP: No foreign capital yet.
                         too_low_caps = find( Dynamic.caps <= 0 );
                         if( ~isempty(too_low_caps) )
                             % Ctilde did not fix debt explosion in time
@@ -913,10 +923,6 @@ methods (Static)
                     % Calculate foreign debt holdings 
                     %   Idea here is to maintain the household's desired
                     %   portfolio allocation from Steady-State.
-                    domestic_debt_demand   = Dynamic.assets_1 .* ( 1-Market_steady.capshares_1);
-                    Dynamic.debts_foreign  = international.debtTakeUp .* (Dynamic.debts - domestic_debt_demand);
-                    Dynamic.debts_domestic = Dynamic.debts - Dynamic.debts_foreign;
-                    Dynamic.caps_domestic  = Dynamic.caps;
                     Dynamic.caps_foreign   = zeros(1,T_model);
                     Dynamic.invest_foreign = zeros(1,T_model);
                     Dynamic.tot_assets_0   = Dynamic.assets_0 + Dynamic.debts_foreign;
@@ -945,8 +951,8 @@ methods (Static)
                                  Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares_1(1:T_model-1) .* Market.capgains(2:T_model)') ...
                                 ] ./ Dynamic.pops;
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
-                    capshares_0 = (Dynamic.assets_0 - Dynamic.debts) ./ Dynamic.assets_0;
-                    capshares_1 = (Dynamic.assets_1 - Dynamic.debts) ./ Dynamic.assets_1;
+                    capshares_0 = (Dynamic.assets_0 - Dynamic.debts_domestic) ./ Dynamic.assets_0;
+                    capshares_1 = (Dynamic.assets_1 - Dynamic.debts_domestic) ./ Dynamic.assets_1;
 
             end
             
