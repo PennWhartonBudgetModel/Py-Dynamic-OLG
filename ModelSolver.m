@@ -628,6 +628,11 @@ methods (Static)
                 
                 Dynamic.caps_foreign    = Dynamic0.caps_foreign .*ones(1,T_model);
                 
+                % Define the pre-tax returns necessary to return
+                % the world rate from steady-state.
+                effectiveDividendRate = ( Market_steady.equityFundDividends*(1 - initialTaxIndividual.rateForeignCorpIncome) ...
+                                          - Market.capgains ) ...
+                                        ./ (1 - taxIndividual.rateForeignCorpIncome);
                 switch economy
 
                     case {'steady', 'closed'}
@@ -643,11 +648,6 @@ methods (Static)
                         % 
                         % First period capital (inherited from steady state)
                         Dynamic.caps(1) = Market_steady.capshares_0 * Dynamic_steady.assets_0;
-                        % Define the pre-tax returns necessary to return
-                        % the world rate from steady-state.
-                        effectiveDividendRate = ( Market_steady.equityFundDividends*(1 - initialTaxIndividual.rateForeignCorpIncome) ...
-                                                  - Market.capgains ) ...
-                                                ./ (1 - taxIndividual.rateForeignCorpIncome);
                         klRatio = theCorporation.calculateKLRatio( effectiveDividendRate   , ... 
                                                             Dynamic.caps'           , ...
                                                             Dynamic.labeffs'        , ...
