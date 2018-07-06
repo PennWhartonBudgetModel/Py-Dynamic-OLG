@@ -671,6 +671,9 @@ methods (Static)
         else
             s.debtTakeUp = 0.0 .* ones(1,T_model);
         end
+        
+        % TEMP
+        s.capitalTakeUp = s.debtTakeUp;
     end
 
     

@@ -723,12 +723,14 @@ methods (Static)
             % TEMP: Need to figure out how to handle successive iterations.
             %   FOR NOW, rewrite caps_foreign
             caps_foreign = Dynamic.caps_foreign;
+            caps         = Dynamic.caps;
             
             % Generate dynamic aggregates
             [Dynamic, LABs, savings, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {}, {});
             
             % TEMP: See above
             Dynamic.caps_foreign = caps_foreign;
+            Dynamic.caps         = caps;
 
             % Calculate and record additional dynamic aggregates
             % (Note that open economy requires capital calculation before debt calculation 
@@ -869,9 +871,16 @@ methods (Static)
                     Dynamic.debts_domestic  = Dynamic.debts - Dynamic.debts_foreign;
                     Dynamic.caps_domestic   = (Dynamic.assets_1 - Dynamic.debts_domestic) ./ theCorporation.priceCapital';
                     
-                    Dynamic.caps = Dynamic.caps_domestic;  % TEMP: No foreign capital yet.
-                    outs         = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
-                    Dynamic.outs = outs;  % outs var is used to keep last iteration values
+                    klRatio     = theCorporation.calculateKLRatio( effectiveDividendRate   , ...
+                                        Dynamic.caps'           , ...
+                                        Dynamic.labeffs'        , ...
+                                        Market_steady.invtocaps );
+                    open_econ_caps = klRatio' .* Dynamic.labeffs;
+                    
+                    Dynamic.caps_foreign    = (open_econ_caps - Dynamic.caps_domestic) .* international.capitalTakeUp;
+                    Dynamic.caps            = Dynamic.caps_domestic + Dynamic.caps_foreign;
+                    outs                    = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
+                    Dynamic.outs            = outs;  % outs var is used to keep last iteration values
 
                     % Converge to find Ctilde which closes the D/Y ratio
                     Ctilde_error = Inf;
@@ -898,7 +907,10 @@ methods (Static)
                         Dynamic.debts_domestic  = Dynamic.debts - Dynamic.debts_foreign;
                         Dynamic.caps_domestic   = (Dynamic.assets_1 - Dynamic.debts_domestic) ./ theCorporation.priceCapital';
 
-                        Dynamic.caps = Dynamic.caps_domestic;  % TEMP: No foreign capital yet.
+                        % We do not recalculate the KL ratio -- so
+                        % open_econ_caps stays the same
+                        Dynamic.caps_foreign    = (open_econ_caps - Dynamic.caps_domestic) .* international.capitalTakeUp;
+                        Dynamic.caps            = Dynamic.caps_domestic + Dynamic.caps_foreign;
                         too_low_caps = find( Dynamic.caps <= 0 );
                         if( ~isempty(too_low_caps) )
                             % Ctilde did not fix debt explosion in time
