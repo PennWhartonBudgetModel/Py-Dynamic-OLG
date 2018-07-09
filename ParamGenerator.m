@@ -483,15 +483,6 @@ methods (Static)
         s.startyear_benefitbrackets   = 12*scenario.modelunit_dollar*brackets;
         s.startyear_benefitrates      = rates;
         
-        % Deflate nominal brackets
-        budget  = ParamGenerator.budget( scenario );
-        deflator     = budget.deflator;
-        longDeflator = budget.longDeflator;
-        s.ssincmins                 = s.ssincmins                 ./ deflator;
-        s.ssincmaxs                 = s.ssincmaxs                 ./ deflator;
-        s.taxbrackets               = s.taxbrackets               ./ repmat(deflator,size(s.taxbrackets,2),1)';
-        s.startyear_benefitbrackets = s.startyear_benefitbrackets ./ repmat(longDeflator,size(s.startyear_benefitbrackets,2),1)';
-
     end % social_security
     
     
