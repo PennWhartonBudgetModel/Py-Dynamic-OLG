@@ -22,8 +22,8 @@ methods (Static)
         
         % Append caller tag to save directory name and generate calling tag
         %   Obviates conflicts between parallel solver calls
-        save_dir   = [save_dir                                                      , callertag];
-        callingtag = [sprintf('^%s_%s', scenario.counterdeftag, scenario.economytag), callertag];
+        save_dir   = [save_dir                                                          , callertag];
+        callingtag = [sprintf('^%s_%s', scenario.counterdeftag, scenario.transitiontag) , callertag];
         
         
         

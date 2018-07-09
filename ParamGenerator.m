@@ -659,22 +659,28 @@ methods (Static)
         
     
     %%
-    %  OPENESS OF ECONOMY AND INTERNATIONAL STUFF
+    %  OPENNESS OF ECONOMY AND INTERNATIONAL STUFF
     function s = international( scenario )
         
         T_model = ParamGenerator.timing(scenario).T_model;
-        % The debtTakeUp is the percentage of 'optimal' debt that is
-        % acquired by foreigners. The 'optimal' debt is the residual of
-        % U.S. household debt demand.
-        if( scenario.IsPartiallyOpen )
-            s.debtTakeUp = 0.4 .* ones(1,T_model);
-        else
+        
+        % debtTakeUp is the percentage of new debt that is
+        % acquired by foreigners. New Debt = D' - D
+        % capitalTakeUp is the percentage of 'optimal' capital that
+        % is acquired by foreigners. Optimal capital = K_f (open)
+        % which is the amount of capital which would be taken up by
+        % foreigners in the 'open' economy.
+
+        % TEMP: The openness paths should come from file inputs
+        if( strcmp(scenario.OpennessPath, 'closed') )
             s.debtTakeUp = 0.0 .* ones(1,T_model);
+            s.capitalTakeUp = s.debtTakeUp;
+        else
+            s.debtTakeUp = 0.4 .* ones(1,T_model);
+            s.capitalTakeUp = s.debtTakeUp;
         end
         
-        % TEMP
-        s.capitalTakeUp = s.debtTakeUp;
-    end
+    end % international
 
     
     %% ELASTICITY INVERSION
