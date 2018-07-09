@@ -22,8 +22,8 @@ methods (Static)
         
         % Append caller tag to save directory name and generate calling tag
         %   Obviates conflicts between parallel solver calls
-        save_dir   = [save_dir                                                      , callertag];
-        callingtag = [sprintf('^%s_%s', scenario.counterdeftag, scenario.economytag), callertag];
+        save_dir   = [save_dir                                                          , callertag];
+        callingtag = [sprintf('^%s_%s', scenario.counterdeftag, scenario.transitiontag) , callertag];
         
         
         
@@ -118,6 +118,9 @@ methods (Static)
         taxBusiness             = ParamGenerator.taxBusiness  ( scenario );
         % Tax parameters for current policy, steady-state
         initialTaxIndividual    = ParamGenerator.taxIndividual( scenario.steady().currentPolicy() );  
+        
+        % International and economy openess
+        international           = ParamGenerator.international( scenario );
         
         % Define parameters on residual value of bequest function.
         s = ParamGenerator.bequest_motive( scenario );
@@ -625,6 +628,11 @@ methods (Static)
                 
                 Dynamic.caps_foreign    = Dynamic0.caps_foreign .*ones(1,T_model);
                 
+                % Define the pre-tax returns necessary to return
+                % the world rate from steady-state.
+                effectiveDividendRate = ( Market_steady.equityFundDividends*(1 - initialTaxIndividual.rateForeignCorpIncome) ...
+                                          - Market.capgains ) ...
+                                        ./ (1 - taxIndividual.rateForeignCorpIncome);
                 switch economy
 
                     case {'steady', 'closed'}
@@ -640,11 +648,6 @@ methods (Static)
                         % 
                         % First period capital (inherited from steady state)
                         Dynamic.caps(1) = Market_steady.capshares_0 * Dynamic_steady.assets_0;
-                        % Define the pre-tax returns necessary to return
-                        % the world rate from steady-state.
-                        effectiveDividendRate = ( Market_steady.equityFundDividends*(1 - initialTaxIndividual.rateForeignCorpIncome) ...
-                                                  - Market.capgains ) ...
-                                                ./ (1 - taxIndividual.rateForeignCorpIncome);
                         klRatio = theCorporation.calculateKLRatio( effectiveDividendRate   , ... 
                                                             Dynamic.caps'           , ...
                                                             Dynamic.labeffs'        , ...
@@ -720,12 +723,14 @@ methods (Static)
             % TEMP: Need to figure out how to handle successive iterations.
             %   FOR NOW, rewrite caps_foreign
             caps_foreign = Dynamic.caps_foreign;
+            caps         = Dynamic.caps;
             
             % Generate dynamic aggregates
             [Dynamic, LABs, savings, DIST, OPTs, DIST_trans] = generate_aggregates(Market, DIST_steady, {}, {}, {});
             
             % TEMP: See above
             Dynamic.caps_foreign = caps_foreign;
+            Dynamic.caps         = caps;
 
             % Calculate and record additional dynamic aggregates
             % (Note that open economy requires capital calculation before debt calculation 
@@ -861,9 +866,21 @@ methods (Static)
 
                     % Calculate capital and output
                     % Note: Dynamic.assets_1 represents current assets at new prices.
-                    Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theCorporation.priceCapital';
-                    outs         = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
-                    Dynamic.outs = outs;  % outs var is used to keep last iteration values
+                    new_debt_issued         = deficits + (Dynamic.debts .* Market.bondFundDividends);
+                    Dynamic.debts_foreign   = new_debt_issued .* international.debtTakeUp;
+                    Dynamic.debts_domestic  = Dynamic.debts - Dynamic.debts_foreign;
+                    Dynamic.caps_domestic   = (Dynamic.assets_1 - Dynamic.debts_domestic) ./ theCorporation.priceCapital';
+                    
+                    klRatio     = theCorporation.calculateKLRatio( effectiveDividendRate   , ...
+                                        Dynamic.caps'           , ...
+                                        Dynamic.labeffs'        , ...
+                                        Market_steady.invtocaps );
+                    open_econ_caps = klRatio' .* Dynamic.labeffs;
+                    
+                    Dynamic.caps_foreign    = (open_econ_caps - Dynamic.caps_domestic) .* international.capitalTakeUp;
+                    Dynamic.caps            = Dynamic.caps_domestic + Dynamic.caps_foreign;
+                    outs                    = A*(max(Dynamic.caps, 0).^alpha).*(Dynamic.labeffs.^(1-alpha));
+                    Dynamic.outs            = outs;  % outs var is used to keep last iteration values
 
                     % Converge to find Ctilde which closes the D/Y ratio
                     Ctilde_error = Inf;
@@ -882,10 +899,18 @@ methods (Static)
                         
                         % Recalculate debt and check if D/Y has been fixed
                         %   Note: D/Y for t=ClosureYear is unchanged by Ctilde
-                        Dynamic.debts = ModelSolver.calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, debt_1, budget.debtrates, T_model);
+                        [Dynamic.debts, deficits] = ModelSolver.calculate_debts( Dynamic, Gtilde, Ctilde, Ttilde, debt_1, budget.debtrates, T_model);
                         
                         % Re-calculate capital and output
-                        Dynamic.caps = (Dynamic.assets_1 - Dynamic.debts) ./ theCorporation.priceCapital';
+                        new_debt_issued         = deficits + (Dynamic.debts .* Market.bondFundDividends);
+                        Dynamic.debts_foreign   = new_debt_issued .* international.debtTakeUp;
+                        Dynamic.debts_domestic  = Dynamic.debts - Dynamic.debts_foreign;
+                        Dynamic.caps_domestic   = (Dynamic.assets_1 - Dynamic.debts_domestic) ./ theCorporation.priceCapital';
+
+                        % We do not recalculate the KL ratio -- so
+                        % open_econ_caps stays the same
+                        Dynamic.caps_foreign    = (open_econ_caps - Dynamic.caps_domestic) .* international.capitalTakeUp;
+                        Dynamic.caps            = Dynamic.caps_domestic + Dynamic.caps_foreign;
                         too_low_caps = find( Dynamic.caps <= 0 );
                         if( ~isempty(too_low_caps) )
                             % Ctilde did not fix debt explosion in time
@@ -907,13 +932,13 @@ methods (Static)
                     Dynamic.Ttilde = Ttilde;
                     Dynamic.Ctilde = Ctilde;
                     
-                    Dynamic.debts_domestic = Dynamic.debts;
-                    Dynamic.debts_foreign  = zeros(1,T_model);
-                    Dynamic.caps_domestic  = Dynamic.caps;
+                    % Calculate foreign debt holdings 
+                    %   Idea here is to maintain the household's desired
+                    %   portfolio allocation from Steady-State.
                     Dynamic.caps_foreign   = zeros(1,T_model);
                     Dynamic.invest_foreign = zeros(1,T_model);
-                    Dynamic.tot_assets_0   = Dynamic.assets_0;
-                    Dynamic.tot_assets_1   = Dynamic.assets_1;
+                    Dynamic.tot_assets_0   = Dynamic.assets_0 + Dynamic.debts_foreign;
+                    Dynamic.tot_assets_1   = Dynamic.assets_1 + Dynamic.debts_foreign;
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;
@@ -938,8 +963,8 @@ methods (Static)
                                  Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares_1(1:T_model-1) .* Market.capgains(2:T_model)') ...
                                 ] ./ Dynamic.pops;
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
-                    capshares_0 = (Dynamic.assets_0 - Dynamic.debts) ./ Dynamic.assets_0;
-                    capshares_1 = (Dynamic.assets_1 - Dynamic.debts) ./ Dynamic.assets_1;
+                    capshares_0 = (Dynamic.assets_0 - Dynamic.debts_domestic) ./ Dynamic.assets_0;
+                    capshares_1 = (Dynamic.assets_1 - Dynamic.debts_domestic) ./ Dynamic.assets_1;
 
             end
             

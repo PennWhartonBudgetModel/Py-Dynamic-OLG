@@ -9,14 +9,14 @@ classdef Scenario
         % Identifier tags
         basedeftag;         % level 1 in dir structure
         counterdeftag;      % level 2 in dir structure
-        economytag;         % level 3 in dir structure
+        transitiontag;      % level 3 in dir structure
         comparisontag;      % REM: This is for isEquivalent()
         
         %% REQUIRED parameters
         
         % Economy ('steady', 'open', or 'closed')
         economy;
-        IsPartiallyOpen;
+        OpennessPath;       % applies to 'closed' economy -- is string ID of capital and debt takeups
         
         % Preference parameters
         beta;
@@ -70,9 +70,8 @@ classdef Scenario
     
     properties (Constant, Access = private)
     
-        % Define list of required parameters
-        req_params = {...
-            'economy'               ;
+        % Define list of required initial state parameters
+        initial_params = {...
             'beta'                  ;
             'gamma'                 ;
             'sigma'                 ;
@@ -80,13 +79,18 @@ classdef Scenario
             'modelunit_dollar'      ;
             'IsLowReturn'           ;
             'TransitionFirstYear'   ;
-            'TransitionLastYear'    ; 
-            'ClosureYear'           ;
             };
         
+        % Define list of required transition path parameters
+        transition_params = {...
+            'economy'               ;
+            'OpennessPath'          ;
+            'TransitionLastYear'    ; 
+            'ClosureYear'           ;
+            };        
+        
         % Specify default values for optional parameters
-        def_params = struct(...
-            'IsPartiallyOpen'           , false             , ...
+        policy_params = struct(...
             'legal_scale'               , 1.0               , ...
             'prem_legal'                , 1.0               , ...
             'amnesty'                   , 0.0               , ...
@@ -115,8 +119,8 @@ classdef Scenario
             
             assert(isa(params, 'struct'), 'Scenario constructor expects structure of parameter values.');
             
-            % Set required parameters
-            for o = Scenario.req_params'
+            % Set required initial parameters
+            for o = Scenario.initial_params'
                 
                 assert(isfield(params, o{1}) && ~isempty(params.(o{1})), ...
                     sprintf('Scenario constructor requires nonempty <%s> parameter.', o{1}));
@@ -125,13 +129,23 @@ classdef Scenario
                 
             end
             
-            % Set optional parameters, using defaults where unspecified
-            for o = fieldnames(Scenario.def_params)'
+            % Set required transition path parameters
+            for o = Scenario.transition_params'
+                
+                assert(isfield(params, o{1}) && ~isempty(params.(o{1})), ...
+                    sprintf('Scenario constructor requires nonempty <%s> parameter.', o{1}));
+                
+                this.(o{1}) = params.(o{1});
+                
+            end
+            
+            % Set optional policy parameters, using defaults where unspecified
+            for o = fieldnames(Scenario.policy_params)'
                 
                 if isfield(params, o{1})
                     this.(o{1}) = params.(o{1});
                 else
-                    this.(o{1}) = Scenario.def_params.(o{1});
+                    this.(o{1}) = Scenario.policy_params.(o{1});
                 end
                 
             end
@@ -139,8 +153,10 @@ classdef Scenario
             % Validate that there are no unused parameters
             for o = fieldnames(params)'
                 
-                if ( ~isfield(Scenario.def_params, o{1})     ...
-                    && ~any(strcmp(o{1}, Scenario.req_params)) )
+                if ( ~isfield(Scenario.policy_params, o{1})         ...
+                    && ~any(strcmp(o{1}, Scenario.initial_params))  ...
+                    && ~any(strcmp(o{1}, Scenario.transition_params))  ...
+                )
                     warning('Scenario:constructor:noParameterMatch', 'Field <%s> does not match any Scenario fields.', o{1});
                 end
                 
@@ -157,10 +173,8 @@ classdef Scenario
             %   2. Hash the string down to 120 chars
             % NOTE: comparisontag is built for isEquivalent 
             tag = '';
-            for o = Scenario.req_params'
-                if ~any(strcmp(o{1}, {'economy', 'TransitionLastYear', 'ClosureYear'}))
-                    tag = strcat(tag, '_', num2str(this.(o{1})));
-                end
+            for o = Scenario.initial_params'
+                tag = strcat(tag, '_', num2str(this.(o{1})));
             end
             this.basedeftag = Scenario.compactifyTag(tag);
             
@@ -168,7 +182,7 @@ classdef Scenario
                 this.counterdeftag = 'currentpolicy';
             else
                 tag = '';
-                for o = fieldnames(Scenario.def_params)'
+                for o = fieldnames(Scenario.policy_params)'
                     tag = strcat(tag, '_', num2str(this.(o{1})));
                 end
                 this.counterdeftag = Scenario.compactifyTag(tag);
@@ -176,16 +190,16 @@ classdef Scenario
             
             switch (this.economy)
                 case 'steady'
-                    this.economytag = this.economy;
+                    this.transitiontag = this.economy;
                 otherwise 
-                    this.economytag = strcat( this.economy                      ...
-                                            , num2str(this.TransitionLastYear)  ...
-                                            , '_'                               ...
-                                            , num2str(this.ClosureYear)         ...
-                                            );
+                    tag = '';
+                    for o = Scenario.transition_params'
+                        tag = strcat(tag, '_', num2str(this.(o{1})));
+                    end
+                    this.transitiontag = Scenario.compactifyTag(tag);
             end
             
-            this.comparisontag = strcat(this.basedeftag, this.counterdeftag, this.economytag);
+            this.comparisontag = strcat(this.basedeftag, this.counterdeftag, this.transitiontag);
             
         end % Scenario constructor
         
@@ -202,8 +216,8 @@ classdef Scenario
         %   Current policy identified by default values for all optional parameters
         function [flag] = isCurrentPolicy(this)
             flag = true;
-            for o = fieldnames(Scenario.def_params)'
-                if ~isequal(this.(o{1}), Scenario.def_params.(o{1}))
+            for o = fieldnames(Scenario.policy_params)'
+                if ~isequal(this.(o{1}), Scenario.policy_params.(o{1}))
                     flag = false;
                     return;
                 end
@@ -239,7 +253,7 @@ classdef Scenario
         % Get all scenario parameters
         function [params] = getParams(this)
             params = struct();
-            for f = [ Scenario.req_params ; fieldnames(Scenario.def_params) ]'
+            for f = [ Scenario.initial_params ; Scenario.transition_params; fieldnames(Scenario.policy_params) ]'
                 params.(f{1}) = this.(f{1});
             end
         end
@@ -277,8 +291,8 @@ classdef Scenario
         % Generate corresponding current policy scenario
         function [scenario] = currentPolicy(this)
             params = this.getParams();
-            for f = fieldnames(Scenario.def_params)'
-                params.(f{1}) = Scenario.def_params.(f{1});
+            for f = fieldnames(Scenario.policy_params)'
+                params.(f{1}) = Scenario.policy_params.(f{1});
             end
             scenario = Scenario(params);
         end
