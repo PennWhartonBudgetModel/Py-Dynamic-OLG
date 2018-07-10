@@ -401,9 +401,9 @@ methods (Static)
         
         % Find initial year business debt / capital leverage ratios
         %   TEMP: This should come from interface
-        %         For now, this is from Alex's spreadsheet for 2016 values
-        s.initialCorpLeverage           = (20846076 / 15247820);
-        s.initialPassThroughLeverage    = (8184598 / 8927226);
+        %         For now, this is from Barro-Furman 2018
+        s.initialCorpLeverage           = 0.32;
+        s.initialPassThroughLeverage    = 0.32;
 
     end % production
         
