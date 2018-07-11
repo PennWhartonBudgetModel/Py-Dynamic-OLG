@@ -314,6 +314,7 @@ methods (Static)
         % TEMP: This needs to come from file
         s.rateCorporateStatutory = 0.21;
         s.interestDeduction      = 1;
+        s.creditsRate            = 0;
         
         % Allocation of capital income between Corp & Pass-Through -- TEMP
         %   TBD: Read these from file

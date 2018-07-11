@@ -8,7 +8,6 @@ classdef Firm < handle
     properties (Constant)
         SINGLEFIRM          = 0;
         PASSTHROUGH         = 1;
-        MULTIFIRM           = 2;
     end
     
     properties 
@@ -20,6 +19,7 @@ classdef Firm < handle
         expensingRate       ;           % phi_exp
         effectiveTaxRate    ;           % effective tax on profits
         statutoryTaxRate    ;           % statutory tax rate on profits
+        creditsRate         ;           % tax credits as rate on corp GDP
         interestDeduction   ;           % phi_int
         leverageCost        ;           % nu
         
@@ -58,12 +58,14 @@ classdef Firm < handle
                     this.statutoryTaxRate   = paramsTax.rateCorporateStatutory;
                     this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
                     this.interestDeduction  = paramsTax.interestDeduction;
+                    this.creditsRate        = paramsTax.creditsRate;
                     this.initLeverageRatio  = paramsProduction.initialCorpLeverage;
                 case Firm.PASSTHROUGH
                     this.effectiveTaxRate   = 0;  % TEMP: Should come from ParamGenerator as top marginal PIT rate
                     this.statutoryTaxRate   = this.effectiveTaxRate;
                     this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
                     this.interestDeduction  = paramsTax.interestDeduction;
+                    this.creditsRate        = paramsTax.creditsRate;
                     this.initLeverageRatio  = paramsProduction.initialPassThroughLeverage;
             end
             
@@ -126,8 +128,9 @@ classdef Firm < handle
             
             % Combine to get net tax
             if( this.firmType == Firm.SINGLEFIRM )
-                cits  = (y - wagesPaid) .* this.effectiveTaxRate  ...
-                        - expensing .* this.statutoryTaxRate      ...
+                cits  = (y - wagesPaid) .* this.effectiveTaxRate    ...
+                        - expensing .* this.statutoryTaxRate        ...
+                        - y .* this.creditsRate                     ...
                         - debtTaxBenefit;
             else
                 cits  = 0;
