@@ -15,16 +15,19 @@ classdef Firm < handle
         capitalShare        ;           % alpha
         depreciationRate    ;           % delta
         riskPremium         ;           % for high/low return
+        interestRate        ;           % market return on capital (and debt)
+        
+        otherExpensesRate   ;           % unmodelled expenses as rate on corp GDP
         
         expensingRate       ;           % phi_exp
         effectiveTaxRate    ;           % effective tax on profits
         statutoryTaxRate    ;           % statutory tax rate on profits
         creditsRate         ;           % tax credits as rate on corp GDP
+        deductionsRate      ;           % tax deductions as rate on corp GDP
         interestDeduction   ;           % phi_int
         leverageCost        ;           % nu
         
         initLeverageRatio   ;           % stored value of initial leverage ratio 
-        debtTaxBenefitRate  ;           % pre-calculated tax value of another $1 of debt
         
         priceCapital        ;           % See documentation. This is p_K
         priceCapital0 = 1   ;
@@ -60,6 +63,9 @@ classdef Firm < handle
                     this.interestDeduction  = paramsTax.interestDeduction;
                     this.creditsRate        = paramsTax.creditsRate;
                     this.initLeverageRatio  = paramsProduction.initialCorpLeverage;
+                    
+                    this.otherExpensesRate  = paramsProduction.otherExpensesRate;
+                    
                 case Firm.PASSTHROUGH
                     this.effectiveTaxRate   = 0;  % TEMP: Should come from ParamGenerator as top marginal PIT rate
                     this.statutoryTaxRate   = this.effectiveTaxRate;
@@ -67,9 +73,12 @@ classdef Firm < handle
                     this.interestDeduction  = paramsTax.interestDeduction;
                     this.creditsRate        = paramsTax.creditsRate;
                     this.initLeverageRatio  = paramsProduction.initialPassThroughLeverage;
+                    
+                    this.otherExpensesRate  = paramsProduction.otherExpensesRate;
+                    
             end
             
-            this.findLeverageCost( interestRate );
+            this.setInterestRate( interestRate ); % recalculates leverage cost
             
             % Calculate the price of capital (p_K, see docs)
             this.priceCapital   = this.priceCapital0 * (paramsTax.qtobin ./ paramsTax.qtobin0);
@@ -78,19 +87,20 @@ classdef Firm < handle
         
         %%
         %  Reset the interest rate and recalculate leverage cost
-        function findLeverageCost( this, interestRate )
+        function setInterestRate( this, interestRate )
             
             if( interestRate <= 0 )
                 throw(MException('LEVERAGE_COST:NOT_POSITIVE','Interest rate must be positive for leverage cost calculation.'));
             end
             
+            this.interestRate   = interestRate;
+            
             % Calculate or use leverage cost
             % Rem: the leverage cost is size invariant, so set capital=1
             %      also, capital from initLeverageRatio is in $, so already
             %      scaled
-            this.debtTaxBenefitRate = (this.interestDeduction .* this.statutoryTaxRate .* interestRate);
             this.leverageCost       = this.calculateLeverageCost( this.initLeverageRatio, 1);
-        end % resetInterestRate
+        end % setInterestRate
         
         
         %%
@@ -128,6 +138,17 @@ classdef Firm < handle
             
             % Combine to get net tax
             if( this.firmType == Firm.SINGLEFIRM )
+                taxbase =   y                                           ...
+                            - wagesPaid                                 ...
+                            - this.interestRate .* debts                ...
+                            - depreciation                              ...
+                            - this.otherExpensesRate .* y               ...
+                            - this.deductionsRate .* y                  ...
+                            ;
+                cits  = taxbase .* this.statutoryTaxRate            ...
+                        - expensing .* this.statutoryTaxRate        ...
+                        - y .* this.creditsRate                     ...
+                        - debtTaxBenefit;
                 cits  = (y - wagesPaid) .* this.effectiveTaxRate    ...
                         - expensing .* this.statutoryTaxRate        ...
                         - y .* this.creditsRate                     ...
@@ -287,10 +308,10 @@ classdef Firm < handle
         %   nu() = 1/nu (B/K_s)^nu , where K_s = K h p_K; h=0.1
         function [debt, debtCost, taxBenefit] = calculateDebt( this, capital )
             
-            h              = 100;
-            taxBenefitRate = this.debtTaxBenefitRate;
-            nu             = this.leverageCost;
-            capital_scaled = capital .* this.priceCapital .* h;
+            h               = 100;
+            taxBenefitRate  = this.interestDeduction .* this.statutoryTaxRate .* this.interestRate;
+            nu              = this.leverageCost;
+            capital_scaled  = capital .* this.priceCapital .* h;
             
             d       = 1 - this.interestDeduction .* this.statutoryTaxRate;  
             x       = 1/(nu-1);
@@ -308,10 +329,11 @@ classdef Firm < handle
         function [nu] = calculateLeverageCost( this, debt, capital_value )
             
             h               = 100;
+            taxBenefitRate  = this.interestDeduction .* this.statutoryTaxRate .* this.interestRate;
             capital_scaled  = capital_value .* h;
             
             logBK = log( debt ./ capital_scaled );
-            n     = log( this.debtTaxBenefitRate ) ...
+            n     = log( taxBenefitRate ) ...
                       - log( 1 - this.statutoryTaxRate .* this.interestDeduction );
             nu    = 1 + n ./ logBK;
 

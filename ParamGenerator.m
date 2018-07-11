@@ -315,6 +315,7 @@ methods (Static)
         s.rateCorporateStatutory = 0.21;
         s.interestDeduction      = 1;
         s.creditsRate            = 0;
+        s.deductionsRate         = 0;
         
         % Allocation of capital income between Corp & Pass-Through -- TEMP
         %   TBD: Read these from file
@@ -406,6 +407,8 @@ methods (Static)
         s.initialCorpLeverage           = 0.32;
         s.initialPassThroughLeverage    = 0.32;
 
+        % TEMP: Should come from file
+        s.otherExpensesRate = 0;
     end % production
         
     
