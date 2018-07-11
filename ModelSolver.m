@@ -337,20 +337,6 @@ methods (Static)
             DIST_gs = reshape(sum(DIST, 5), [nz,nk,nb,T_life,T_model]);
             f = @(F) sum(sum(reshape(DIST_gs .* F, [], T_model), 1), 3);
             
-            Aggregate.pops     = f(1);                                                                                   % Population
-            Aggregate.bequests = f(OPTs.SAVINGS .* repmat(reshape(1-surv, [1,1,1,T_life,1]), [nz,nk,nb,1,T_model]));     % Bequests
-            Aggregate.labs     = f(OPTs.LABOR);                                                                          % Labor
-            Aggregate.labeffs  = f(OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]));           % Effective labor
-            Aggregate.lfprs    = f(OPTs.LABOR > 0.01) ./ f(1);                                                           % Labor force participation rate
-            Aggregate.incs     = f(OPTs.TAXABLE_INC);                                                                    % Income
-            Aggregate.pits     = f(OPTs.ORD_LIABILITY + OPTs.PREF_LIABILITY);                                                                  % Personal income tax
-            Aggregate.ssts     = f(OPTs.PAYROLL_LIABILITY);                                                              % Capital income tax
-            Aggregate.bens     = f(OPTs.OASI_BENEFITS);                                                                  % Social Security benefits
-            Aggregate.cons     = f(OPTs.CONSUMPTION);                                                                    % Consumption
-            Aggregate.assets_0 = f(repmat(reshape(kv, [1,nk,1,1,1]), [nz, 1,nb,T_life,T_model]));                        % Assets before re-pricing
-            Aggregate.assets_1 = Aggregate.assets_0 .* (ones(1,T_model) + Market.capgains') ...                          % Assets after re-pricing            
-                                    .* (Market.capshares_0./Market.capshares_1);                                         % Note: The definition of assets_1 corresponds to beginning of period assets at new policy prices, that is, accounting for eventual capital gains.
-            
             Aggregate.pops         = f(1);                                                                                   % Population
             Aggregate.bequests     = f(OPTs.SAVINGS .* repmat(reshape(1-surv, [1,1,1,T_life,1]), [nz,nk,nb,1,T_model]));     % Bequests
             Aggregate.labs         = f(OPTs.LABOR);                                                                          % Labor
@@ -368,6 +354,16 @@ methods (Static)
                 OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model])         ...
                     .* reshape(Market.wages, 1, 1, 1, 1, T_model)                                 ...
             );
+        
+            Aggregate.laborIncomeSubjectToSocialSecuritys = f(                                    ...                        % Total labor income subject to social security payroll tax
+                bsxfun(                                                                           ...
+                    @min,                                                                         ...
+                    OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model])     ...
+                        .* reshape(Market.wages, 1, 1, 1, 1, T_model),                            ...
+                    ssincmaxs_indexed                                                             ...
+                )                                                                                 ...
+            );
+
         end
         
         
