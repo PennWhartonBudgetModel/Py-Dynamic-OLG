@@ -316,6 +316,7 @@ methods (Static)
         s.interestDeduction      = 1;
         s.creditsRate            = 0;
         s.deductionsRate         = 0;
+        s.taxbaseAdjustment      = 1;
         
         % Allocation of capital income between Corp & Pass-Through -- TEMP
         %   TBD: Read these from file
