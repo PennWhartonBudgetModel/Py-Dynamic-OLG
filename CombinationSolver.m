@@ -99,7 +99,7 @@ methods (Static)
     %   input_parameters specify filtering on scenario combinatorics provided by input interfaces
     % 
     %     input_parameters.TaxCode = { 'CurrentPolicy' };
-    %     input_parameters.TaxRate = { 0 };
+    %     input_parameters.Description = { 'baseline' };
     % 
     function [currentpolicys, counterfactuals] = generateScenarios(output_parameters, input_parameters)
         
