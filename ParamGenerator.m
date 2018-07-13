@@ -517,7 +517,7 @@ methods (Static)
         projections_debt_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, first_transition_year - 1);
         projections_full_series = InputReader.read_series(projections_file, 'Year', first_transition_year - 1, []                       );
 
-        deepHistory_file = fullfile(PathFinder.getProjectionsInputDir(), 'deepHistory.csv');
+        deepHistory_file = fullfile(PathFinder.getProjectionsInputDir(), 'DeepHistory.csv');
         history_series   = InputReader.read_series(deepHistory_file, 'Year', first_year - T_life + 1  , last_year);
         
         taxcalculator_id = InputReader.find_input_scenario_id(fullfile(PathFinder.getTaxCalculatorInputDir(), 'Map.csv'), scenario);
