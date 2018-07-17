@@ -344,7 +344,7 @@ methods (Static)
             Aggregate.labeffs      = f(OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]));           % Effective labor
             Aggregate.lfprs        = f(OPTs.LABOR > 0.01) ./ f(1);                                                           % Labor force participation rate
             Aggregate.incs         = f(OPTs.TAXABLE_INC);                                                                    % Income
-            Aggregate.pits         = f(OPTs.ORD_LIABILITY + OPTs.PREF_LIABILITY);                                                                  % Personal income tax
+            Aggregate.pits         = f(OPTs.ORD_LIABILITY + OPTs.PREF_LIABILITY);                                            % Personal income tax
             Aggregate.ssts         = f(OPTs.PAYROLL_LIABILITY);                                                              % Capital income tax
             Aggregate.bens         = f(OPTs.OASI_BENEFITS);                                                                  % Social Security benefits
             Aggregate.cons         = f(OPTs.CONSUMPTION);                                                                    % Consumption
@@ -367,6 +367,11 @@ methods (Static)
                 )                                                    ...
             );
 
+            Aggregate.capitalIncomes = Market.equityFundDividends .* (Aggregate.assets_1 .* Market.capshares_1);
+            Aggregate.capitalIncomeSubjectToPITs = (1 - taxIndividual.captaxshare') .* Aggregate.capitalIncomes;
+            Aggregate.averageEffectivePITRates = Aggregate.pits ./ (Aggregate.capitalIncomeSubjectToPITs + Aggregate.laborIncomes);
+            Aggregate.averageEffectivePITRatesProductSocialSecurityBenefits = Aggregate.averageEffectivePITRates .* Aggregate.pits;
+            
         end
         
         
