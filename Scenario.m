@@ -29,6 +29,7 @@ classdef Scenario
 
         % Core economy parameters
         IsLowReturn;
+        AllowBusinessDebt;
 
         % Timing
         TransitionFirstYear;
@@ -69,6 +70,7 @@ classdef Scenario
             'bequest_phi_1'         ;
             'modelunit_dollar'      ;
             'IsLowReturn'           ;
+            'AllowBusinessDebt'     ;
             'TransitionFirstYear'   ;
             };
         

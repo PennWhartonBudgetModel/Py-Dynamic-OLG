@@ -16,6 +16,7 @@ classdef Firm < handle
         depreciationRate    ;           % delta
         riskPremium         ;           % for high/low return
         interestRate        ;           % market return on capital (and debt)
+        allowBusinessDebt   ;           % whether to allow borrowing
         
         otherExpensesRate   ;           % unmodelled expenses as rate on corp GDP
         
@@ -55,6 +56,7 @@ classdef Firm < handle
             this.capitalShare       = paramsProduction.alpha;
             this.depreciationRate   = paramsProduction.depreciation;
             this.riskPremium        = paramsProduction.risk_premium;
+            this.allowBusinessDebt  = paramsProduction.allowBusinessDebt;
             
             switch this.firmType
                 case Firm.SINGLEFIRM
@@ -312,7 +314,16 @@ classdef Firm < handle
         % Calculate optimal debt 
         %   nu() = 1/nu (B/K_s)^nu , where K_s = K h p_K; h=0.1
         function [debt, debtCost, taxBenefit] = calculateDebt( this, capital )
-            
+           
+           % If not using debt, then jump out.
+           if( ~this.allowBusinessDebt )
+                debt        = zeros(size(capital));
+                debtCost    = zeros(size(capital));
+                taxBenefit  = zeros(size(capital));
+                return;
+            end
+
+            % Calculate optimal debt
             h               = 100;
             taxBenefitRate  = this.interestDeduction .* this.statutoryTaxRate .* this.interestRate;
             nu              = this.leverageCost;
