@@ -112,7 +112,7 @@ methods (Static)
             
             input_s  = table2struct(readtable(mapfile, 'ReadRowNames', true))';
             
-            if exist('input_filters', 'var') && ~isempty(input_parameters)
+            if exist('input_parameters', 'var') && ~isempty(input_parameters)
                 for o_ = fieldnames(input_parameters)'
                     if ischar(input_parameters.(o_{1}){1})
                         f = @strcmp; g = @cell;
