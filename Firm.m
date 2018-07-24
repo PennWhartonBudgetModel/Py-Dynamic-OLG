@@ -214,9 +214,6 @@ classdef Firm < handle
             
             while( err_div > tolerance )
                 
-                investment = [caps(2:end) - (1 - this.depreciationRate)*caps(1:end-1); ...
-                              caps(end)*invtocapsT_model ];
-                
                 % Update capital 
                 %  if divRate > dividendRate 
                 %    --> caps gets bigger, and divRate gets smaller
