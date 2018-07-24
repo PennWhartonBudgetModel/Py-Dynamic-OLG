@@ -625,11 +625,8 @@ methods (Static)
             fprintf(' Iteration %2d  ...  ', iter)
             isinitial = iter == 1;
             
-            % Capital prices
-            Market.capgains(1,1) = (theCorporation.priceCapital(1) - theCorporation.priceCapital0)/theCorporation.priceCapital0;
-            for t = 2:T_model
-               Market.capgains(t,1) = (theCorporation.priceCapital(t) - theCorporation.priceCapital(t-1))/theCorporation.priceCapital(t-1);
-            end
+            % Capital prices, TBD: Only from corps for now
+            Market.capgains     = theCorporation.capitalGains();
 
             % Define market conditions in the first iteration
             if isinitial

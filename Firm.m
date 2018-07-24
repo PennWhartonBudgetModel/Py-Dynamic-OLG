@@ -174,6 +174,26 @@ classdef Firm < handle
                   
         end % dividends
         
+        
+        %%
+        % Calculate capital gains rates from value of capital.
+        % Throw error if this will prevent open economy calculation
+        function [capgains] = capitalGains( this )
+            capgains        = zeros(size(this.priceCapital));
+            capgains(1,1)   = (this.priceCapital(1) - this.priceCapital0)/this.priceCapital0;
+            for t = 2:length(capgains)
+               capgains(t,1) = (this.priceCapital(t) - this.priceCapital(t-1))/this.priceCapital(t-1);
+            end
+            
+            % Set arbitrary upper limit to prevent model not solving for
+            % open economy. Note: first period does not matter, since
+            % foreigners cannot invest yet, so we do not fix r_world
+            if( any( capgains(2:end) > (this.depreciationRate - 0.01) ) )
+                error('MODEL ERROR! Capital gains are too high to allow OPEN economy to solve.');
+            end
+        end % capitalGains
+        
+        
         %% 
         % Calculate K/L ratio from dividend rate
         function [KLratio, caps] = calculateKLRatio( this, dividendRate, ...
