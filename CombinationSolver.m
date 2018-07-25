@@ -71,7 +71,7 @@ methods (Static)
             'TransitionFirstYear'   , 2018                      , ...
             'OpennessPath'          , 'closed'                  , ...
             'TransitionLastYear'    , 2099                      , ...
-            'ClosureYear'           , 2040                        ...
+            'ClosureYear'           , 2050                        ...
         );
         
         % Add optional parameters as available
@@ -113,7 +113,7 @@ methods (Static)
             
             input_s  = table2struct(readtable(mapfile, 'ReadRowNames', true))';
             
-            if exist('input_filters', 'var') && ~isempty(input_parameters)
+            if exist('input_parameters', 'var') && ~isempty(input_parameters)
                 for o_ = fieldnames(input_parameters)'
                     if ischar(input_parameters.(o_{1}){1})
                         f = @strcmp; g = @cell;
