@@ -40,15 +40,9 @@ classdef TransitionMoments
         nb     = s.nb;         % num avg. earnings points
         kv     = s.kv;         % asset grid
         
-        % Define tax
-        s = ParamGenerator.tax( scenario );
-        shareCapitalCorporate = s.shareCapitalCorporate;
-        s = ParamGenerator.tax( sc_steady );
-        shareCapitalCorporate_ss = s.shareCapitalCorporate;
-
         %% Import total income without Social Security transfers in the baseline economy and define percentiles
 
-        [totinc_base, ~] = append_decisions('TOTINCbase', nz, nk, nb, T_life, ng, T_model, kv, zs, shareCapitalCorporate, shareCapitalCorporate_ss, steady_dir, base_dir, {});
+        [totinc_base, ~] = append_decisions('TOTINCbase', nz, nk, nb, T_life, ng, T_model, kv, zs, steady_dir, base_dir, {});
         [dist_base, ~] = append_dist(nz, nk, nb, T_life, ng, T_model, steady_dir, base_dir, 1);
         [~ , sort_base, index_base] = get_percentiles(totinc_base, dist_base, T_model);
 
@@ -58,10 +52,10 @@ classdef TransitionMoments
 
         %% Generate groups for other variables based on the distribution of total income without SS in baseline economy
 
-        for var_name = {'CIT', 'K', 'PIT', 'SST', 'BEN', 'LABINC', 'AINC', 'TAX', 'TOTINC', 'TOTINCwSS'}
+        for var_name = {'LABOR', 'SAVINGS', 'CONSUMPTION', 'ASSETS', 'TAXABLE_INC', 'PAYROLL_LIABILITY', 'OASI_BENEFITS', 'ORD_LIABILITY', 'PREF_LIABILITY', 'LABINC', 'TAX', 'TOTINC', 'TOTINCwSS', 'AINC'}
 
             % append steady state values
-            [var, var_static] = append_decisions(var_name{1}, nz, nk, nb, T_life, ng, T_model, kv, zs, shareCapitalCorporate, shareCapitalCorporate_ss, steady_dir, sc_dir, base_dir);
+            [var, var_static] = append_decisions(var_name{1}, nz, nk, nb, T_life, ng, T_model, kv, zs, steady_dir, sc_dir, base_dir);
 
             % generate percentile-like groups (dynamic and static)
             groups.(var_name{1}) = generate_groups(var, dist, sort_base, index_base, T_model);
@@ -73,6 +67,7 @@ classdef TransitionMoments
         end
 
         save(fullfile(sc_dir, 'groups.mat' ), '-struct', 'groups');   
+
 
         % Save deltas in a spreadsheet
         header = {'year'};
@@ -121,8 +116,8 @@ classdef TransitionMoments
 
         end
 
-        % Pre-appends steady state variables from all_decisions mat file
-        function [x, x_static] = append_decisions(x_name, nz, nk, nb, T_life, ng, T_model, kv, zs, shareCapitalCorporate, shareCapitalCorporate_ss, dir_ss, dir_sc, dir_bs)
+        % Pre-appends steady state variables from decisions mat file
+        function [x, x_static] = append_decisions(x_name, nz, nk, nb, T_life, ng, T_model, kv, zs, dir_ss, dir_sc, dir_bs)
 
         % Inputs:  (nz, nk, nb, T_life, ng, T_model) = dimensions of DIST (number of states for each state variable)
         %          x_name = name of variable of interest
@@ -135,7 +130,7 @@ classdef TransitionMoments
         %          x_static = static variable array with pre-appended steady state value
 
             % Assets case
-            if strcmp(x_name, 'K')
+            if strcmp(x_name, 'ASSETS')
 
                 x        = repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,ng,T_model+1]);
                 x_static = repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,ng,T_model+1]);
@@ -149,19 +144,19 @@ classdef TransitionMoments
                 s        = load( fullfile(dir_ss, 'market.mat' ) );
                 wages_ss = s.wages;
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,1]), [1,1,1,1,ng,1]);
-                s = load( fullfile(dir_ss, 'all_decisions.mat' ) );
-                x(:,:,:,:,:,1,:)        = wages_ss*f(s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]));
-                x_static(:,:,:,:,:,1,:) = wages_ss*f(s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]));
+                s = load( fullfile(dir_ss, 'decisions.mat' ) );
+                x(:,:,:,:,:,1,:)        = wages_ss*f(s.OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]));
+                x_static(:,:,:,:,:,1,:) = wages_ss*f(s.OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]));
 
                 s     = load( fullfile(dir_sc, 'market.mat' ) );
                 wages = s.wages;
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model]), [1,1,1,1,ng,1]);
-                s = load( fullfile(dir_sc, 'all_decisions.mat' ) );
-                x(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]));
+                s = load( fullfile(dir_sc, 'decisions.mat' ) );
+                x(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* s.OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]));
                 s     = load( fullfile(dir_bs, 'market.mat' ) );
                 wages_static = s.wages;
-                s = load( fullfile(dir_sc, 'Static_all_decisions.mat' ) );
-                x_static(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages_static, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .*s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]));
+                s = load( fullfile(dir_sc, 'Static_decisions.mat' ) );
+                x_static(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages_static, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .*s.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]));
 
             % Assets income case
             elseif strcmp(x_name, 'AINC')
@@ -170,17 +165,17 @@ classdef TransitionMoments
                 x_static = zeros(nz,nk,nb,T_life,ng,T_model+1);
 
                 s        = load( fullfile(dir_ss, 'market.mat' ) );
-                totrates_ss  = s.totrates;
+                totrates_ss = s.capshares_0*s.equityFundDividends + (1-s.capshares_0)*s.bondFundDividends;
                 x(:,:,:,:,:,1,:)        = totrates_ss*repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,ng,1]);
                 x_static(:,:,:,:,:,1,:) = totrates_ss*repmat(reshape(kv, [1,nk,1,1,1,1]),[nz,1,nb,T_life,ng,1]);
 
                 f = @(X) repmat(reshape(X, [1, 1,1,1,1,T_model]), [nz,nk,nb,T_life,ng,      1]);
                 g = @(X) repmat(reshape(X, [1,nk,1,1,1,      1]), [nz, 1,nb,T_life,ng,T_model]);
                 s     = load( fullfile(dir_sc, 'market.mat' ) );
-                totrates  = s.totrates;
+                totrates = s.capshares_0.*s.equityFundDividends + (1-s.capshares_0).*s.bondFundDividends;
                 x(:,:,:,:,:,2:end,:) = f(totrates).* g(kv);
                 s     = load( fullfile(dir_bs, 'market.mat' ) );
-                totrates_static  = s.totrates;
+                totrates_static  = s.capshares_0.*s.equityFundDividends + (1-s.capshares_0).*s.bondFundDividends;
                 x_static(:,:,:,:,:,2:end,:) = f(totrates_static).* g(kv);
 
             % Total taxes paid case
@@ -190,15 +185,15 @@ classdef TransitionMoments
                 x_static = zeros(nz,nk,nb,T_life,ng,T_model+1);
 
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,1]), [1,1,1,1,ng,1]);
-                s = load( fullfile(dir_ss, 'all_decisions.mat' ) );
-                x(:,:,:,:,:,1,:)        = f(s.CIT + s.PIT + s.SST);
-                x_static(:,:,:,:,:,1,:) = f(s.CIT + s.PIT + s.SST);
+                s = load( fullfile(dir_ss, 'decisions.mat' ) );
+                x(:,:,:,:,:,1,:)        = f(s.OPTs.PAYROLL_LIABILITY + s.OPTs.ORD_LIABILITY + s.OPTs.PREF_LIABILITY);
+                x_static(:,:,:,:,:,1,:) = f(s.OPTs.PAYROLL_LIABILITY + s.OPTs.ORD_LIABILITY + s.OPTs.PREF_LIABILITY);
 
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model]), [1,1,1,1,ng,1]);
-                s = load( fullfile(dir_sc, 'all_decisions.mat' ) );
-                x(:,:,:,:,:,2:end,:) = f(s.CIT + s.PIT + s.SST);
-                s = load( fullfile(dir_sc, 'Static_all_decisions.mat' ) );
-                x_static(:,:,:,:,:,2:end,:) = f(s.CIT + s.PIT + s.SST);
+                s = load( fullfile(dir_sc, 'decisions.mat' ) );
+                x(:,:,:,:,:,2:end,:) = f(s.OPTs.PAYROLL_LIABILITY + s.OPTs.ORD_LIABILITY + s.OPTs.PREF_LIABILITY);
+                s = load( fullfile(dir_sc, 'Static_decisions.mat' ) );
+                x_static(:,:,:,:,:,2:end,:) = f(s.PAYROLL_LIABILITY + s.ORD_LIABILITY + s.PREF_LIABILITY);
 
             % Total income case
             elseif strcmp(x_name, 'TOTINC')
@@ -208,29 +203,27 @@ classdef TransitionMoments
 
                 s        = load( fullfile(dir_ss, 'market.mat' ) );
                 wages_ss = s.wages;
-                totrates_ss = s.totrates;
+                totrates_ss = s.capshares_0*s.equityFundDividends + (1-s.capshares_0)*s.bondFundDividends;
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,1]), [1,1,1,1,ng,1]);
-                s = load( fullfile(dir_ss, 'all_decisions.mat' ) );
-                x(:,:,:,:,:,1,:)        = f(wages_ss*s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]) + ...
-                                          totrates_ss*(1 - shareCapitalCorporate_ss)*repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,1]));
-                x_static(:,:,:,:,:,1,:) = f(wages_ss*s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]) + ...
-                                          totrates_ss*(1 - shareCapitalCorporate_ss)*repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,1]));
+                s = load( fullfile(dir_ss, 'decisions.mat' ) );
+                x(:,:,:,:,:,1,:)        = f(wages_ss*s.OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]) + ...
+                                          totrates_ss*repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,1]));
+                x_static(:,:,:,:,:,1,:) = f(wages_ss*s.OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]) + ...
+                                          totrates_ss*repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,1]));
 
                 s     = load( fullfile(dir_sc, 'market.mat' ) );
                 wages = s.wages;
-                totrates = s.totrates;
+                totrates = s.capshares_0.*s.equityFundDividends + (1-s.capshares_0).*s.bondFundDividends;
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model]), [1,1,1,1,ng,1]);
-                s = load( fullfile(dir_sc, 'all_decisions.mat' ) );
-                x(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]) + ...
-                                         repmat(reshape(totrates, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,T_model]) .* ...
-                                         (1 - repmat(reshape(shareCapitalCorporate, [1,1,1,1,T_model]),[nz,nk,nb,T_life,1])));
+                s = load( fullfile(dir_sc, 'decisions.mat' ) );
+                x(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* s.OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]) + ...
+                                         repmat(reshape(totrates, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,T_model]));
                 s     = load( fullfile(dir_bs, 'market.mat' ) );
                 wages_static = s.wages;
-                totrates_static = s.totrates;
-                s = load( fullfile(dir_sc, 'Static_all_decisions.mat' ) );
-                x_static(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages_static, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .*s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]) + ...
-                                                repmat(reshape(totrates_static, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,T_model]) .* ...
-                                                (1 - repmat(reshape(shareCapitalCorporate, [1,1,1,1,T_model]),[nz,nk,nb,T_life,1])));
+                totrates_static = s.capshares_0.*s.equityFundDividends + (1-s.capshares_0).*s.bondFundDividends;
+                s = load( fullfile(dir_sc, 'Static_decisions.mat' ) );
+                x_static(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages_static, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .*s.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]) + ...
+                                                repmat(reshape(totrates_static, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,T_model]));
 
             % Total income with Social Security transfers case
             elseif strcmp(x_name, 'TOTINCwSS')
@@ -240,29 +233,29 @@ classdef TransitionMoments
 
                 s        = load( fullfile(dir_ss, 'market.mat' ) );
                 wages_ss = s.wages;
-                totrates_ss = s.totrates;
+                totrates_ss = s.capshares_0*s.equityFundDividends + (1-s.capshares_0)*s.bondFundDividends;
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,1]), [1,1,1,1,ng,1]);
-                s = load( fullfile(dir_ss, 'all_decisions.mat' ) );
-                x(:,:,:,:,:,1,:)        = f(wages_ss*s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]) + ...
-                                          totrates_ss*(1 - shareCapitalCorporate_ss)*repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,1]) + s.BEN);
-                x_static(:,:,:,:,:,1,:) = f(wages_ss*s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]) + ...
-                                          totrates_ss*(1 - shareCapitalCorporate_ss)*repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,1]) + s.BEN);
+                s = load( fullfile(dir_ss, 'decisions.mat' ) );
+                x(:,:,:,:,:,1,:)        = f(wages_ss*s.OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]) + ...
+                                          totrates_ss*repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,1]) + s.OPTs.OASI_BENEFITS);
+                x_static(:,:,:,:,:,1,:) = f(wages_ss*s.OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]) + ...
+                                          totrates_ss*repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,1]) + s.OPTs.OASI_BENEFITS);
 
                 s     = load( fullfile(dir_sc, 'market.mat' ) );
                 wages = s.wages;
-                totrates = s.totrates;
+                totrates = s.capshares_0.*s.equityFundDividends + (1-s.capshares_0).*s.bondFundDividends;
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model]), [1,1,1,1,ng,1]);
-                s = load( fullfile(dir_sc, 'all_decisions.mat' ) );
-                x(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]) + ...
-                                         repmat(reshape(totrates, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,T_model]) .* ...
-                                         (1 - repmat(reshape(shareCapitalCorporate, [1,1,1,1,T_model]),[nz,nk,nb,T_life,1])) + s.BEN);
+                s = load( fullfile(dir_sc, 'decisions.mat' ) );
+                x(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* s.OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]) + ...
+                                         repmat(reshape(totrates, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,T_model]) ...
+                                          + s.OPTs.OASI_BENEFITS);
                 s     = load( fullfile(dir_bs, 'market.mat' ) );
                 wages_static = s.wages;
-                totrates_static = s.totrates;
-                s = load( fullfile(dir_sc, 'Static_all_decisions.mat' ) );
-                x_static(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages_static, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .*s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]) + ...
-                                                repmat(reshape(totrates_static, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,T_model]) .* ...
-                                                (1 - repmat(reshape(shareCapitalCorporate, [1,1,1,1,T_model]),[nz,nk,nb,T_life,1])) + s.BEN);
+                totrates_static = s.capshares_0.*s.equityFundDividends + (1-s.capshares_0).*s.bondFundDividends;
+                s = load( fullfile(dir_sc, 'Static_decisions.mat' ) );
+                x_static(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages_static, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .*s.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]) + ...
+                                                repmat(reshape(totrates_static, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,T_model]) ...
+                                                + s.OASI_BENEFITS);
 
             % Total income without Social Security transfers case for baseline economy
             elseif strcmp(x_name, 'TOTINCbase')
@@ -272,36 +265,35 @@ classdef TransitionMoments
 
                 s        = load( fullfile(dir_ss, 'market.mat' ) );
                 wages_ss = s.wages;
-                totrates_ss = s.totrates;
+                totrates_ss = s.capshares_0*s.equityFundDividends + (1-s.capshares_0)*s.bondFundDividends;
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,1]), [1,1,1,1,ng,1]);
-                s = load( fullfile(dir_ss, 'all_decisions.mat' ) );
-                x(:,:,:,:,:,1,:)        = f(wages_ss*s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]) + ...
-                                          totrates_ss*(1 - shareCapitalCorporate_ss).*repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,1]));
+                s = load( fullfile(dir_ss, 'decisions.mat' ) );
+                x(:,:,:,:,:,1,:)        = f(wages_ss*s.OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,1]) + ...
+                                          totrates_ss.*repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,1]));
 
                 s     = load( fullfile(dir_sc, 'market.mat' ) );
                 wages = s.wages;
-                totrates = s.totrates;
+                totrates = s.capshares_0.*s.equityFundDividends + (1-s.capshares_0).*s.bondFundDividends;
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model]), [1,1,1,1,ng,1]);
-                s = load( fullfile(dir_sc, 'all_decisions.mat' ) );
-                x(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* s.LAB .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]) + ...
-                                         repmat(reshape(totrates, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,T_model]) .* ...
-                                         (1 - repmat(reshape(shareCapitalCorporate, [1,1,1,1,T_model]),[nz,nk,nb,T_life,1])));
+                s = load( fullfile(dir_sc, 'decisions.mat' ) );
+                x(:,:,:,:,:,2:end,:) = f(repmat(reshape(wages, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* s.OPTs.LABOR .* repmat(reshape(zs, [nz,1,1,T_life,1]), [1,nk,nb,1,T_model]) + ...
+                                         repmat(reshape(totrates, [1,1,1,1,T_model]), [nz,nk,nb,T_life,1]) .* repmat(reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,T_model]));
 
-            % All other variables (already stored in all_decisions.mat file)    
+            % All other variables (already stored in decisions.mat file)    
             else
 
                 x        = zeros(nz,nk,nb,T_life,ng,T_model+1);
                 x_static = zeros(nz,nk,nb,T_life,ng,T_model+1);
 
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,1]), [1,1,1,1,ng,1]);
-                s = load( fullfile(dir_ss, 'all_decisions.mat' ) );
-                x(:,:,:,:,:,1,:)        = f(s.(x_name));
-                x_static(:,:,:,:,:,1,:) = f(s.(x_name));
+                s = load( fullfile(dir_ss, 'decisions.mat' ) );
+                x(:,:,:,:,:,1,:)        = f(s.OPTs.(x_name));
+                x_static(:,:,:,:,:,1,:) = f(s.OPTs.(x_name));
 
                 f = @(X) repmat(reshape(X, [nz,nk,nb,T_life,1,T_model]), [1,1,1,1,ng,1]);
-                s = load( fullfile(dir_sc, 'all_decisions.mat' ) );
-                x(:,:,:,:,:,2:end,:) = f(s.(x_name));
-                s = load( fullfile(dir_sc, 'Static_all_decisions.mat' ) );
+                s = load( fullfile(dir_sc, 'decisions.mat' ) );
+                x(:,:,:,:,:,2:end,:) = f(s.OPTs.(x_name));
+                s = load( fullfile(dir_sc, 'Static_decisions.mat' ) );
                 x_static(:,:,:,:,:,2:end,:) = f(s.(x_name));
 
             end
