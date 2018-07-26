@@ -71,20 +71,35 @@ classdef TransitionMoments
 
         % Save deltas in a spreadsheet
         header = {'year'};
-        data_table = [2017:1:(2017 + T_model)]';
+        delta_table = [2017:1:(2017 + T_model)]';
         for v = fieldnames( groups )'
             if contains( v{1}, '_delta' )
                 for i = 1:7
                     header_name = sprintf( '%s_%i', v{1}, i );
                     header{end+1} = header_name;
-                    data_table(:,end+1) = groups.(v{1})(:,i);
+                    delta_table(:,end+1) = groups.(v{1})(:,i);
                 end
             end
         end
 
-        T = array2table(data_table, 'VariableNames', header);
-        writetable(T, fullfile(sc_dir, 'groups_table.csv'));
+        delta_table = array2table(delta_table, 'VariableNames', header);
 
+        % Save counter variables in a spreadsheet
+        header = {'year'};
+        counter_table = [2017:1:(2017 + T_model)]';
+        for var_name = {'LABOR', 'SAVINGS', 'CONSUMPTION', 'ASSETS', 'TAXABLE_INC', 'PAYROLL_LIABILITY', 'OASI_BENEFITS', 'ORD_LIABILITY', 'PREF_LIABILITY', 'LABINC', 'TAX', 'TOTINC', 'TOTINCwSS', 'AINC'}
+                for i = 1:7
+                    header_name = sprintf( '%s_%i', var_name{1}, i );
+                    header{end+1} = header_name;
+                    counter_table(:,end+1) = groups.(var_name{1})(:,i);
+                end
+        end
+
+        counter_table = array2table(counter_table, 'VariableNames', header);
+        
+        filename = 'moments.xlsx';
+        writetable(delta_table  ,fullfile(sc_dir, filename),'Sheet','delta'  )
+        writetable(counter_table,fullfile(sc_dir, filename),'Sheet','counter')
 
         %% FUNCTIONS
 
