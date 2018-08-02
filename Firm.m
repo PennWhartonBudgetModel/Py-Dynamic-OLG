@@ -136,7 +136,7 @@ classdef Firm < handle
                           capital(end)*invtocapsT_model ];
             
             % Investment expensing 'subsidy'
-            expensing    = this.expensingRate .* investment .* this.priceCapital;
+            expensing    = max(this.expensingRate .* investment .* this.priceCapital, 0);
             
             % Find optimal debt, interest tax benefit, and leverage cost
             [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( capital );
