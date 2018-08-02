@@ -522,6 +522,12 @@ methods (Static)
                                                             Market_base.rhos',                  ...
                                                             Market_base.wages'                  ...
                                                            );
+            [passDividends, passTaxs, passDebts]  = thePassThrough.dividends(               ...
+                                                            Static.caps'                   ...
+                                                        ,   Market_base.invtocaps(T_model)       ...
+                                                        ,   Market_base.rhos'                    ...
+                                                        ,   Market_base.wages'                   ...
+                                                        );
                                                        
             capincs_foreign         = Market_base.equityFundDividends .* Static.caps_foreign;
             Static.foreignCorpTaxs  = capincs_foreign .* taxIndividual.rateForeignCorpIncome;
@@ -1263,14 +1269,32 @@ methods (Static, Access = private )
         end
         ssbrackets = brackets .* indices;
 
-        % Sort brackets and rates just in case of overlap
-        [ssbrackets, sortindex] = sort(ssbrackets, 2);
-        
-        ssrates = zeros(size(rates));
-        for r = 1:size(sortindex, 1)
-            ssrates(r, :) = rates(r, sortindex(r, :) );
+        % Take initial brackets and see where they are after indexing and
+        % sorting. Then, apply rates to new topology with rates applying
+        % between moved brackets. Resolve any overlaps by taking higher rate.
+        [ssbrackets, new_old_idx]   = sort(ssbrackets, 2); % rem: sort index from sort() is map from new to old location
+        old_new_idx                 = zeros(size(new_old_idx));
+        n_brackets                  = size(old_new_idx, 2);
+        for i = 1:n_brackets          % map sort index from old to new locations 
+            old_new_idx(:, new_old_idx(:, i)) = i; 
         end
 
+        ssrates = -Inf * zeros(size(rates));
+        for year = 1:size(rates,1) % TBD: Can this be vectorized?
+            for r_old = 1:n_brackets
+                r_rate      = rates      (year, r_old);
+                r_new       = old_new_idx(year, r_old);
+                if( r_old == n_brackets ) 
+                    r_newtop = n_brackets + 1; % extends all the way up
+                else
+                    r_newtop = old_new_idx(year, r_old+1);
+                end
+                for rr = r_new:r_newtop-1
+                    ssrates(year, rr)  = max(r_rate, ssrates(year, rr));
+                end
+            end
+        end
+        
         % Calculate tax burdens
         ssburdens = cumsum(diff(ssbrackets, 1, 2).*ssrates(:, 1:end-1), 2); 
         ssburdens = [zeros(size(ssbrackets, 1), 1), ssburdens];  % rem: first burden is zero
