@@ -660,7 +660,15 @@ methods (Static)
     %  OPENNESS OF ECONOMY AND INTERNATIONAL STUFF
     function s = international( scenario )
         
-        T_model = ParamGenerator.timing(scenario).T_model;
+        timing = ParamGenerator.timing(scenario);
+        switch scenario.economy
+            case 'steady'
+                first_year      = timing.TransitionFirstYear - 1;
+                last_year       = first_year;
+            otherwise
+                first_year      = timing.TransitionFirstYear;
+                last_year       = timing.TransitionLastYear - 1;
+        end    
         
         % debtTakeUp is the percentage of new debt that is
         % acquired by foreigners. New Debt = D' - D
@@ -668,15 +676,24 @@ methods (Static)
         % is acquired by foreigners. Optimal capital = K_f (open)
         % which is the amount of capital which would be taken up by
         % foreigners in the 'open' economy.
-
-        % TEMP: The openness paths should come from file inputs
-        if( strcmp(scenario.OpennessPath, 'closed') )
-            s.debtTakeUp = 0.0 .* ones(1,T_model);
-            s.capitalTakeUp = s.debtTakeUp;
-        else
-            s.debtTakeUp = 0.4 .* ones(1,T_model);
-            s.capitalTakeUp = s.debtTakeUp;
+        
+        % TEMP: For compatibility, check if files are there,
+        %       If not, treat as all closed
+        mapfile = fullfile(PathFinder.getOpennessInputDir(), 'Map.csv');
+        if( ~exist( mapfile, 'file' ) )
+            s.debtTakeUp    = zeros(1, timing.T_model);
+            s.capitalTakeUp = zeros(1, timing.T_model);
+            fprintf( 'WARNING! ParamGenerator.international() cannot find input file. Using CLOSED path.\n');
+            return
         end
+        
+        % Get scenario ID, rem: on Scenario.Openness
+        id = InputReader.find_input_scenario_id(mapfile, scenario);
+        
+        opennessfile    = fullfile(PathFinder.getOpennessInputDir(), strcat('Openness_', id, '.csv'));
+        series          = InputReader.read_series(filename, 'Year', 1 + timing.realage_entry, []);
+        s.capitalTakeUp = series.CapitalTakeUp;
+        s.debtTakeUp    = series.DebtTakeUp;
         
     end % international
 
