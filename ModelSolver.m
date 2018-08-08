@@ -450,8 +450,11 @@ methods (Static)
                 % steadys are from guess file
                 Market0     = Market_steady;
                 Dynamic0    = Dynamic_steady;
+                avg_wage_ss = [];
 
-            case 'open'
+            case 'open'               
+                avg_wage_ss = (Market_steady.wages .* Dynamic_steady.labeffs) ...
+                              ./ Dynamic_steady.labs;
                 if( isbase )
                     Market0  = Market_steady;
                     Dynamic0 = Dynamic_steady;
@@ -461,8 +464,9 @@ methods (Static)
                     Dynamic0 = Dynamic_base;
                 end
                 
-             case 'closed'
-                
+             case 'closed'                
+                avg_wage_ss = (Market_steady.wages .* Dynamic_steady.labeffs) ...
+                              ./ Dynamic_steady.labs;
                 if( isbase )
                     % Guess is from open_base
                     Market0  = Market_open;
@@ -725,7 +729,8 @@ methods (Static)
             Market.priceindices        = ModelSolver.generate_index(Market.wages ...
                                                         , Dynamic.labs           ...
                                                         , Dynamic.labeffs        ...
-                                                        , budget, nstartyears    ...
+                                                        , budget, avg_wage_ss    ...
+                                                        , nstartyears            ...
                                                         , realage_entry, T_model, T_life);
             [corpDividends, corpTaxs, corpDebts]  = theCorporation.dividends(               ...
                                                             Dynamic.caps'                   ...
@@ -1313,13 +1318,17 @@ methods (Static, Access = private )
     %       realage_entry = real age at entry, 
     %       T_model       = number of periods in model run, 
     %       T_life        = maximum life spam,
-    function index = generate_index(wages, labs, labeffs, budget, nstartyears, realage_entry, T_model, T_life)
+    function index = generate_index(wages, labs, labeffs, budget, avg_wage_ss, nstartyears, realage_entry, T_model, T_life)
 
         average_wages         = (wages .* labeffs) ./ labs;
-        index.wage_inflations = average_wages./average_wages(1);          % Time-varying indexes
         index.cohort_wages    = ones(T_model, nstartyears);               % Time- and cohort-varying indexes
         index.nominals        = 1./budget.deflator;                       % Time-varying reciprocal CPI indexes from CBO
         
+        if isempty(avg_wage_ss)
+            index.wage_inflations = average_wages./average_wages(1);      % Time-varying indexes STEADY STATE
+        else
+            index.wage_inflations = average_wages./avg_wage_ss;           % Time-varying indexes TRANSITION
+        end
         % Indexes for the boundary cohorts
         cohortage60_at_1      = T_life + 1 - (60 - realage_entry);
         cohortage60_at_Tmodel = cohortage60_at_1 + T_model - 1;
