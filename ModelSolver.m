@@ -486,8 +486,10 @@ methods (Static)
         else
             initialInterestRate = Market_steady.equityFundDividends;
         end
-        theCorporation  = Firm( taxBusiness, production, initialInterestRate, Firm.SINGLEFIRM );
-        thePassThrough  = Firm( taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
+        
+        % Initialize firm
+        theCorporation  = Firm( Dynamic0, Market0, taxBusiness, production, initialInterestRate, Firm.SINGLEFIRM );
+        thePassThrough  = Firm( Dynamic0, Market0, taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
  
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  

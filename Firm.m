@@ -34,6 +34,9 @@ classdef Firm < handle
         priceCapital        ;           % See documentation. This is p_K
         priceCapital0 = 1   ;
         
+        capital             ;           % Capital series
+        KLratio             ;           % Capital to labor ratio
+        invtocapsT_model    ;           % Investment/capital at time T
         firmType            ;           % from the enumeration
         
     end % properties
@@ -42,10 +45,12 @@ classdef Firm < handle
         
         %%
         %  Constructor
-        %     INPUTS:   paramsTax = ParamGenerator.tax()
+        %     INPUTS:   Aggregate = Dynamic or Static aggregates
+        %               Market    = the prices of stuff
+        %               paramsTax = ParamGenerator.tax()
         %               paramsProduction = ParamGenerator.production()
         %               interestRate = Guess at dividends rate
-        function [this] = Firm( paramsTax, paramsProduction, interestRate, firmType )
+        function [this] = Firm( Aggregate, Market, paramsTax, paramsProduction, interestRate, firmType )
             
             this.firmType           = firmType;   
             if( ~(firmType == Firm.SINGLEFIRM || firmType == Firm.PASSTHROUGH) )
@@ -85,6 +90,9 @@ classdef Firm < handle
             
             this.setInterestRate( interestRate ); % recalculates leverage cost
             
+            this.capital    = Aggregate.caps;
+            this.KLratio    = Market.rhos;
+            
             % Calculate the price of capital (p_K, see docs)
             this.priceCapital   = this.priceCapital0 * (paramsTax.qtobin ./ paramsTax.qtobin0);
         end % constructor
@@ -107,6 +115,13 @@ classdef Firm < handle
             this.leverageCost       = this.calculateLeverageCost( this.initLeverageRatio, 1);
         end % setInterestRate
         
+        %%
+        % Wage level the firm is willing to pay
+        %   under competitive market assumptions, this is the MP_L
+        function [wages] = wageRequired( this )
+            alpha = this.capitalShare;
+            wages = this.TFP .* (1 - alpha) .* (this.KLratio .^ alpha);
+        end % wageRequired
         
         %%
         function [divs, cits, debts] = dividends( this, capital, invtocapsT_model, klRatio, wage )
@@ -116,7 +131,8 @@ classdef Firm < handle
             % Outputs: divs = dividend is the return of the corporation net of tax.
             %          cits = corporate income taxes payed by the firms
             
-            % Labor
+                
+            % Labor and capital
             labor = ( capital ./ klRatio );
             
             % Total revenues
