@@ -36,7 +36,7 @@ classdef Firm < handle
         
         capital             ;           % Capital series
         KLratio             ;           % Capital to labor ratio
-        invtocapsT_model    ;           % Investment/capital at time T
+        invtocaps_last      ;           % Investment/capital at time T
         firmType            ;           % from the enumeration
         
     end % properties
@@ -90,8 +90,9 @@ classdef Firm < handle
             
             this.setInterestRate( interestRate ); % recalculates leverage cost
             
-            this.capital    = Aggregate.caps;
-            this.KLratio    = Market.rhos;
+            this.capital        = Aggregate.caps';
+            this.KLratio        = Market.rhos';
+            this.invtocaps_last = Market.invtocaps(end);
             
             % Calculate the price of capital (p_K, see docs)
             this.priceCapital   = this.priceCapital0 * (paramsTax.qtobin ./ paramsTax.qtobin0);
@@ -124,9 +125,8 @@ classdef Firm < handle
         end % wageRequired
         
         %%
-        function [divs, cits, debts] = dividends( this, capital, invtocapsT_model, klRatio, wage )
+        function [divs, cits, debts] = dividends( this, capital, klRatio, wage )
             % Inputs : capital
-            %          investment = GROSS physical investment --> K' - (1-d)K
             %          klRatio & wage (which are consistent in the current iteration)
             % Outputs: divs = dividend is the return of the corporation net of tax.
             %          cits = corporate income taxes payed by the firms
@@ -149,7 +149,7 @@ classdef Firm < handle
             
             % Investment
             investment = [capital(2:end) - (1 - this.depreciationRate)*capital(1:end-1); ...
-                          capital(end)*invtocapsT_model ];
+                          capital(end) * this.invtocaps_last ];
             
             % Investment expensing 'subsidy'
             expensing    = max(this.expensingRate .* investment .* this.priceCapital, 0);
@@ -238,7 +238,7 @@ classdef Firm < handle
                 K_by_L = caps ./ labor;
                 wage   = this.TFP * (1-this.capitalShare) .* (K_by_L .^ this.capitalShare);
                 
-                divs = this.dividends( caps, invtocapsT_model, K_by_L, wage );
+                divs = this.dividends( caps, K_by_L, wage );
                 divRate = divs ./ (caps .* this.priceCapital);
                 
                 err_div = max(abs((divRate(2:end) - dividendRate(2:end)) ./ dividendRate(2:end)));
