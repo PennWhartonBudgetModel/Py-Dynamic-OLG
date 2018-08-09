@@ -127,10 +127,15 @@ classdef Firm < handle
         %%
         function [divs, cits, debts] = dividends( this, capital, klRatio, wage )
             % Inputs : capital
-            %          klRatio & wage (which are consistent in the current iteration)
+            %          klRatio & wage 
             % Outputs: divs = dividend is the return of the corporation net of tax.
-            %          cits = corporate income taxes payed by the firms
+            %          cits = corporate income taxes paid by the firms
             
+            if( nargin == 1 )
+                capital = this.capital;
+                klRatio = this.KLratio;
+                wage = this.wageRequired();
+            end
                 
             % Labor and capital
             labor = ( capital ./ klRatio );
