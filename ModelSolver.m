@@ -480,18 +480,14 @@ methods (Static)
         
              
         %%
-        % Instantiate Firms
+        % Set interest rate for firm leverage calibration
+        %  If economy is steady, then it is a guess and is updated later.
         if( strcmp( scenario.economy, 'steady') )
             initialInterestRate = 0.04;
         else
             initialInterestRate = Market_steady.equityFundDividends;
         end
         
-        % Initialize firm
-        theCorporation  = Firm( Dynamic0, Market0, taxBusiness, production, initialInterestRate, Firm.SINGLEFIRM );
-        thePassThrough  = Firm( Dynamic0, Market0, taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
- 
-
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
         % BEGIN RESULTS GENERATION
         
@@ -521,6 +517,10 @@ methods (Static)
                 Static.(series{1}) = Dynamic_base.(series{1});
             end
             
+            % Make the firm
+            theCorporation  = Firm( Static, Market_base, taxBusiness, production, initialInterestRate, Firm.SINGLEFIRM );
+            thePassThrough  = Firm( Static, Market_base, taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
+ 
             % Calculate static budgetary aggregate variables
             [corpDividends, corpTaxs, corpDebts]  = theCorporation.dividends( ...
                                                             Static.caps',                       ...
@@ -637,9 +637,6 @@ methods (Static)
             fprintf(' Iteration %2d  ...  ', iter)
             isinitial = iter == 1;
             
-            % Capital prices, TBD: Only from corps for now
-            Market.capgains     = theCorporation.capitalGains();
-
             % Define market conditions in the first iteration
             if isinitial
                 Market.beqs                 = Market0.beqs                  .*ones(1,T_model);
@@ -647,6 +644,7 @@ methods (Static)
                 Market.capshares_1          = Market0.capshares_1           .*ones(1,T_model);
                 Market.invtocaps            = Market0.invtocaps             .*ones(1,T_model);
                 Market.equityFundDividends  = Market0.equityFundDividends   .*ones(1,T_model);
+                Market.rhos                 = Market0.rhos                  .*ones(1,T_model);
                 
                 Dynamic.assets_0        = Dynamic0.assets_0     .*ones(1,T_model);
                 Dynamic.assets_1        = Dynamic0.assets_1     .*ones(1,T_model);
@@ -658,6 +656,13 @@ methods (Static)
                 
                 Dynamic.caps_foreign    = Dynamic0.caps_foreign .*ones(1,T_model);
                 
+                % Initialize firm
+                theCorporation  = Firm( Dynamic, Market, taxBusiness, production, initialInterestRate, Firm.SINGLEFIRM );
+                thePassThrough  = Firm( Dynamic, Market, taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
+                
+                % Capital prices, TBD: Only from corps for now
+                Market.capgains = theCorporation.capitalGains();
+
                 % Define the pre-tax returns necessary to return
                 % the world rate from steady-state.
                 effectiveDividendRate = ( Market_steady.equityFundDividends*(1 - initialTaxIndividual.rateForeignCorpIncome) ...
@@ -700,6 +705,14 @@ methods (Static)
                 
                 Market.MPKs      = A*alpha*( Market.rhos.^(alpha-1) );
                 Market.invtocaps = invtocaps;
+                
+                % Initialize firm
+                theCorporation  = Firm( Dynamic, Market, taxBusiness, production, initialInterestRate, Firm.SINGLEFIRM );
+                thePassThrough  = Firm( Dynamic, Market, taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
+                
+                % Capital prices, TBD: Only from corps for now
+                Market.capgains = theCorporation.capitalGains();
+
                 
                 switch economy
 
