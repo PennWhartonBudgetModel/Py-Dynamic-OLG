@@ -125,6 +125,14 @@ classdef Firm < handle
         end % wageRequired
         
         %%
+        % MPK -- just for reporting
+        function [r] = MPK( this )
+            alpha = this.capitalShare;
+            r     = this.TFP .* alpha .* ( this.KLratio .^(alpha-1) ); 
+        end
+        
+        
+        %%
         function [divs, cits, debts] = dividends( this, capital, klRatio, wage )
             % Inputs : capital
             %          klRatio & wage 

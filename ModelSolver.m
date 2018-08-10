@@ -683,7 +683,7 @@ methods (Static)
                 end
                 
                 Market.debtrates = budget.debtrates;
-                Market.MPKs      = A*alpha*( Market.rhos.^(alpha-1) ); % This is just for reporting
+                Market.MPKs      = theCorporation.MPK()';  % Just for reporting
             
             % end initial loop iteration
             else  
@@ -693,7 +693,6 @@ methods (Static)
                 Market.capshares_0 = damper.capshares*Market.capshares_0 + (1-damper.capshares)*capshares_0;
                 Market.capshares_1 = damper.capshares*Market.capshares_1 + (1-damper.capshares)*capshares_1;
                 
-                Market.MPKs      = A*alpha*( Market.rhos.^(alpha-1) );
                 Market.invtocaps = invtocaps;
                 
                 % Initialize firm
@@ -702,6 +701,7 @@ methods (Static)
                 
                 % Capital prices, TBD: Only from corps for now
                 Market.capgains = theCorporation.capitalGains();
+                Market.MPKs     = theCorporation.MPK()';
 
                 
                 switch economy
