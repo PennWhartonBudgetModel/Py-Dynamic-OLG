@@ -35,7 +35,8 @@ classdef Firm < handle
         priceCapital0 = 1   ;
         
         capital             ;           % Capital series
-        KLratio             ;           % Capital to labor ratio
+        labor               ;           % Efficient labor series
+        KLratio             ;           % Capital to labor ratio, ( desired not capital/labor)
         invtocaps_last      ;           % Investment/capital at time T
         firmType            ;           % from the enumeration
         
@@ -91,6 +92,7 @@ classdef Firm < handle
             this.setInterestRate( interestRate ); % recalculates leverage cost
             
             this.capital        = Aggregate.caps';
+            this.labor          = Aggregate.labeffs';
             this.KLratio        = Market.rhos';
             this.invtocaps_last = Market.invtocaps(end);
             
@@ -125,10 +127,22 @@ classdef Firm < handle
         end % wageRequired
         
         %%
-        % MPK -- just for reporting
+        % MPK -- Just for reporting and indexing, not a received payment
         function [r] = MPK( this )
             alpha = this.capitalShare;
             r     = this.TFP .* alpha .* ( this.KLratio .^(alpha-1) ); 
+        end
+        
+        %%
+        % Output -- Just for reporting and indexing, not a received payment
+        %           Used with 'capital' input to solve steady state
+        function [out] = GrossOutput( this, capital, labor )
+            if( nargin == 1 )
+                capital = this.capital;
+                labor   = this.labor;
+            end
+            alpha = this.capitalShare;
+            out   = this.TFP .* (capital .^ alpha) .* ( labor .^(1 - alpha) ); 
         end
         
         
