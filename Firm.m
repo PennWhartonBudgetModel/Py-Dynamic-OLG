@@ -27,7 +27,9 @@ classdef Firm < handle
         creditsRate         ;           % tax credits as rate on corp GDP
         deductionsRate      ;           % tax deductions as rate on corp GDP
         interestDeduction   ;           % phi_int
+        
         leverageCost        ;           % nu
+        capitalAdjustmentCost;          % eta
         
         initLeverageRatio   ;           % stored value of initial leverage ratio 
         
@@ -57,6 +59,9 @@ classdef Firm < handle
             if( ~(firmType == Firm.SINGLEFIRM || firmType == Firm.PASSTHROUGH) )
                 throw(MException('Firm:firmType','firmType must be SingleFirm or PassThrough'));
             end
+            
+            % TEMP -- get this from outside
+            this.capitalAdjustmentCost = 0.0;
             
             this.TFP                = paramsProduction.A;
             this.capitalShare       = paramsProduction.alpha;
@@ -181,6 +186,9 @@ classdef Firm < handle
             % Investment expensing 'subsidy'
             expensing    = max(this.expensingRate .* investment .* this.priceCapital, 0);
             
+            % Capital adjustment cost
+            adjustmentCost = this.capitalAdjustmentCost .* (investment .* investment) ./ capital;
+            
             % Find optimal debt, interest tax benefit, and leverage cost
             [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( capital );
             
@@ -191,6 +199,7 @@ classdef Firm < handle
                             - this.interestRate .* debts                ...
                             - depreciation                              ...
                             - this.otherExpensesRate .* y               ...
+                            - adjustmentCost                            ...
                             ) .* this.taxbaseAdjustment                 ...
                             - this.deductionsRate .* y                  ...
                             ;
@@ -211,6 +220,7 @@ classdef Firm < handle
             divs  = y                                   ... % revenues
                   - wagesPaid                           ... % labor costs
                   - depreciation                        ... % replace depreciated capital
+                  - adjustmentCost                      ... % cap adjustment cost
                   - risk                                ... % discount money lost due to risk
                   - debtCost                            ... % Cost of leverage
                   - cits;                                   % net taxes
