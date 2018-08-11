@@ -622,7 +622,7 @@ methods (Static)
             
             % Increment iteration count
             iter = iter + 1;
-            fprintf(' Iteration %2d  ...  ', iter)
+            fprintf(' Iteration %2d  ...  RUNNING', iter)
             isinitial = iter == 1;
             
             % Define market conditions in the first iteration
@@ -1010,7 +1010,9 @@ methods (Static)
                           (clearing.beqs      < tolerance.beqs     ) && ...
                           (clearing.invtocaps < tolerance.invtocaps);
             
-            fprintf('Errors: K/L = %7.6f beqs = %7.6f I/K = %7.6f capshares = %7.6f\n', ...
+            % Erase 'RUNNING' text and then print errors
+            fprintf('\b\b\b\b\b\b\b');
+            fprintf('Errors: K/L = %7.6f beqs = %7.6f I/K = %7.6f (K)/A = %7.6f\n', ...
                     clearing.rhos, clearing.beqs, clearing.invtocaps, clearing.capshares)
             fprintf(iterlog, '%u,%0.6f,%0.6f,%0.6f,%0.6f\n', iter, ...
                     clearing.rhos, clearing.beqs, clearing.invtocaps, clearing.capshares);
