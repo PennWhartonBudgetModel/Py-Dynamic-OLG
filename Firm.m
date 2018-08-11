@@ -40,6 +40,7 @@ classdef Firm < handle
         labor               ;           % Efficient labor series
         KLratio             ;           % Capital to labor ratio, ( desired not capital/labor)
         invtocaps_last      ;           % Investment/capital at time T
+        invtocaps_0         ;           % Investment/capital at time 0 (steady state)
         firmType            ;           % from the enumeration
         
     end % properties
@@ -62,6 +63,8 @@ classdef Firm < handle
             
             % TEMP -- get this from outside
             this.capitalAdjustmentCost = 0.0;
+            this.invtocaps_0    = 0.2;  
+            % END TEMP
             
             this.TFP                = paramsProduction.A;
             this.capitalShare       = paramsProduction.alpha;
@@ -102,7 +105,11 @@ classdef Firm < handle
             this.invtocaps_last = Market.invtocaps(end);
             
             % Calculate the price of capital (p_K, see docs)
-            this.priceCapital   = this.priceCapital0 * (paramsTax.qtobin ./ paramsTax.qtobin0);
+            investment = [this.capital(2:end) - (1 - this.depreciationRate)*this.capital(1:end-1); ...
+                          this.capital(end) * this.invtocaps_last ];
+            userCostCapital     = paramsTax.qtobin + this.capitalAdjustmentCost .* (investment ./ this.capital);
+            userCostCapital0    = this.priceCapital0 .* (paramsTax.qtobin0 + this.capitalAdjustmentCost .* this.invtocaps_0);
+            this.priceCapital   = this.priceCapital0 * (userCostCapital ./ userCostCapital0);
         end % constructor
         
         
@@ -187,7 +194,8 @@ classdef Firm < handle
             expensing    = max(this.expensingRate .* investment .* this.priceCapital, 0);
             
             % Capital adjustment cost
-            adjustmentCost = this.capitalAdjustmentCost .* (investment .* investment) ./ capital;
+            %    = eta/2 * (I/K)^2 * K
+            adjustmentCost = (this.capitalAdjustmentCost/2) .* (investment .* investment) ./ capital;
             
             % Find optimal debt, interest tax benefit, and leverage cost
             [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( capital );
