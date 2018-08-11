@@ -402,6 +402,7 @@ methods (Static)
             s.risk_premium  = 0.08 - s.depreciation; % "Depreciation rate" to generate r=risk-free rate         ;
         end
         
+        s.capitalAdjustmentCost         = scenario.CapitalAdjustmentCost;
         s.allowBusinessDebt             = scenario.AllowBusinessDebt;
         
         % Find initial year business debt / capital leverage ratios

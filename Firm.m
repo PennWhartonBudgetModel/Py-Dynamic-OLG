@@ -61,15 +61,12 @@ classdef Firm < handle
                 throw(MException('Firm:firmType','firmType must be SingleFirm or PassThrough'));
             end
             
-            % TEMP -- get this from outside
-            this.capitalAdjustmentCost = 0.0;
-            % END TEMP
-            
-            this.TFP                = paramsProduction.A;
-            this.capitalShare       = paramsProduction.alpha;
-            this.depreciationRate   = paramsProduction.depreciation;
-            this.riskPremium        = paramsProduction.risk_premium;
-            this.allowBusinessDebt  = paramsProduction.allowBusinessDebt;
+            this.TFP                    = paramsProduction.A;
+            this.capitalShare           = paramsProduction.alpha;
+            this.depreciationRate       = paramsProduction.depreciation;
+            this.riskPremium            = paramsProduction.risk_premium;
+            this.allowBusinessDebt      = paramsProduction.allowBusinessDebt;
+            this.capitalAdjustmentCost  = paramsProduction.capitalAdjustmentCost;
             
             switch this.firmType
                 case Firm.SINGLEFIRM

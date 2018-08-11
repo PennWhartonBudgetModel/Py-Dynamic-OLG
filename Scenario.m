@@ -38,6 +38,8 @@ classdef Scenario
         % Closure rule (for closed economy)
         ClosureYear;
 
+        % Capital Adjustment Cost (eta)
+        CapitalAdjustmentCost;
 
 
         % OPTIONAL policy parameters
@@ -71,6 +73,7 @@ classdef Scenario
             'modelunit_dollar'      ;
             'IsLowReturn'           ;
             'AllowBusinessDebt'     ;
+            'CapitalAdjustmentCost' ;
             'TransitionFirstYear'   ;
             };
         
@@ -353,8 +356,10 @@ classdef Scenario
             Market.outvars = struct( ...
             'MPKs'               , 'MPK'                     , ...
             'capshares_1'        , 'CapitalShares'           , ...
+            'equityFundPrices'   , 'EquityFundPrices'        , ...
             'equityFundDividends', 'EquityFundDividends'     , ...
             'bondFundDividends'  , 'BondFundDividends'       , ...
+            'capgains'           , 'Capital_Gains'           , ...
             'wages'              , 'MPL'                       ...
             ); 
             Static.outvars       = Dynamic.outvars;
@@ -424,8 +429,10 @@ classdef Scenario
                     case 'MPKs'
                     case 'wages'
                     case 'equityFundDividends'
+                    case 'equityFundPrices'
                     case 'bondFundDividends'
                     case 'capshares_1'
+                    case 'capgains'
                         c = 1;
                     case 'pops'
                         c = HH_2017;

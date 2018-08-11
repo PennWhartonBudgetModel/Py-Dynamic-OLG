@@ -700,6 +700,9 @@ methods (Static)
                 Market.capshares_1 = damper.capshares*Market.capshares_1 + (1-damper.capshares)*capshares_1;
                 
                 Market.invtocaps = invtocaps;
+                if( strcmp( scenario.economy, 'steady' ) )
+                    Market.invtocaps_0 = Market.invtocaps(1);
+                end
                 
                 % Initialize firm
                 theCorporation  = Firm( Dynamic, Market, taxBusiness, production, initialInterestRate, Firm.SINGLEFIRM );
