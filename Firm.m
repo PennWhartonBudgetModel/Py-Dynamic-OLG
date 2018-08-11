@@ -63,7 +63,6 @@ classdef Firm < handle
             
             % TEMP -- get this from outside
             this.capitalAdjustmentCost = 0.0;
-            this.invtocaps_0    = 0.2;  
             % END TEMP
             
             this.TFP                = paramsProduction.A;
@@ -103,6 +102,7 @@ classdef Firm < handle
             this.labor          = Aggregate.labeffs';
             this.KLratio        = Market.rhos';
             this.invtocaps      = Market.invtocaps';
+            this.invtocaps_0    = Market.invtocaps_0;
             
             % Calculate the price of capital (p_K, see docs)
             userCostCapital     = 1 - paramsTax.shareCapitalExpensing .* paramsTax.rateCorporate ...

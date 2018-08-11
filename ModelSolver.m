@@ -630,9 +630,9 @@ methods (Static)
                 Market.beqs                 = Market0.beqs                  .*ones(1,T_model);
                 Market.capshares_0          = Market0.capshares_0           .*ones(1,T_model);
                 Market.capshares_1          = Market0.capshares_1           .*ones(1,T_model);
-                Market.invtocaps            = Market0.invtocaps             .*ones(1,T_model);
                 Market.equityFundDividends  = Market0.equityFundDividends   .*ones(1,T_model);
                 Market.rhos                 = Market0.rhos                  .*ones(1,T_model);
+                Market.invtocaps            = Market0.invtocaps             .*ones(1,T_model);
                 
                 Dynamic.assets_0        = Dynamic0.assets_0     .*ones(1,T_model);
                 Dynamic.assets_1        = Dynamic0.assets_1     .*ones(1,T_model);
@@ -644,6 +644,14 @@ methods (Static)
                 
                 Dynamic.caps_foreign    = Dynamic0.caps_foreign .*ones(1,T_model);
                 
+                % Initialize I/K at t=0 (steady state)
+                switch scenario.economy
+                    case 'steady'
+                        Market.invtocaps_0 = Market0.invtocaps(1);
+                    otherwise
+                        Market.invtocaps_0 = Market_steady.invtocaps(1);
+                end
+
                 % Initialize firm
                 theCorporation  = Firm( Dynamic, Market, taxBusiness, production, initialInterestRate, Firm.SINGLEFIRM );
                 thePassThrough  = Firm( Dynamic, Market, taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
