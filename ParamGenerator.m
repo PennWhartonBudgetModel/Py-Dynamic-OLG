@@ -323,18 +323,18 @@ methods (Static)
         s.shareIncomeCorp               = 1.00;  % Amount of capital to corps
         s.shareIncomePassThrough        = 1 - s.shareIncomeCorp;
         
-        % Calculate Q-Tobin
+        % For cost of capital ...
         switch scenario.economy
             case 'steady'
-                s.qtobin0   = 1 - tax_vars.shareCapitalExpensing(1) * s.rateCorporate(1);
-                s.qtobin    = s.qtobin0;
+                s.init_shareCapitalExpensing = tax_vars.shareCapitalExpensing(1);
+                s.init_rateCorporate         = s.rateCorporate(1);
             otherwise
                 % Read tax params from steady-state, current-policy to make t=0 values
-                file = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('CapitalTaxes_', sstaxplanid, '.csv'));
+                file       = fullfile(PathFinder.getTaxCalculatorInputDir(), strcat('CapitalTaxes_', sstaxplanid, '.csv'));
                 sstax_vars = InputReader.read_series(file, 'Year', first_year - 1, first_year - 1);
-
-                s.qtobin0   = 1 - sstax_vars.shareCapitalExpensing(1) * sstax_vars.rateCorporate(1);
-                s.qtobin    = 1 - tax_vars.shareCapitalExpensing .* s.rateCorporate;
+                
+                s.init_shareCapitalExpensing = sstax_vars.shareCapitalExpensing(1);
+                s.init_rateCorporate         = sstax_vars.rateCorporate(1);
         end  
                
         % Warn if parameters are outside expectations
