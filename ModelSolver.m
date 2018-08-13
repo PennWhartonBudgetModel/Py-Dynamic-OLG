@@ -347,7 +347,7 @@ methods (Static)
             Aggregate.bens         = f(OPTs.OASI_BENEFITS);                                                                  % Social Security benefits
             Aggregate.cons         = f(OPTs.CONSUMPTION);                                                                    % Consumption
             Aggregate.assets_0     = f(repmat(reshape(kv, [1,nk,1,1,1]), [nz, 1,nb,T_life,T_model]));                        % Assets before re-pricing
-            Aggregate.assets_1     = Aggregate.assets_0 .* (ones(1,T_model) + Market.capgains') ...                          % Assets after re-pricing            
+            Aggregate.assets_1     = Aggregate.assets_0 .* (ones(1,T_model) + Market.capgains) ...                          % Assets after re-pricing            
                                     .* (Market.capshares_0./Market.capshares_1);                                             % Note: The definition of assets_1 corresponds to beginning of period assets at new policy prices, that is, accounting for eventual capital gains.
             Aggregate.laborIncomes = f(                              ...                                                     % Total labor income
                 OPTs.LABOR                                           ...
@@ -657,7 +657,7 @@ methods (Static)
                 thePassThrough  = Firm( Dynamic, Market, taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
                 
                 % Capital prices, TBD: Only from corps for now
-                Market.capgains = theCorporation.capitalGains();
+                Market.capgains = theCorporation.capitalGains()';
 
                 % Define the pre-tax returns necessary to return
                 % the world rate from steady-state.
@@ -679,7 +679,7 @@ methods (Static)
                         % 
                         % First period capital (inherited from steady state)
                         Dynamic.caps(1) = Market_steady.capshares_0 * Dynamic_steady.assets_0;
-                        klRatio = theCorporation.calculateKLRatio( effectiveDividendRate   , ... 
+                        klRatio = theCorporation.calculateKLRatio( effectiveDividendRate'   , ... 
                                                             Dynamic.caps'           , ...
                                                             Dynamic.labeffs'        , ...
                                                             Market_steady.invtocaps );
@@ -709,7 +709,7 @@ methods (Static)
                 thePassThrough  = Firm( Dynamic, Market, taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
                 
                 % Capital prices, TBD: Only from corps for now
-                Market.capgains = theCorporation.capitalGains();
+                Market.capgains = theCorporation.capitalGains()';
                 Market.MPKs     = theCorporation.MPK()';
 
                 
@@ -722,7 +722,7 @@ methods (Static)
                         % mix of capital vs. debt changes.
                         % Overwrite the first period capital
                         Dynamic.caps(1) = Market.capshares_0(1) * Dynamic.assets_0(1);
-                        klRatio     = theCorporation.calculateKLRatio( effectiveDividendRate   , ...
+                        klRatio     = theCorporation.calculateKLRatio( effectiveDividendRate'   , ...
                                                                 Dynamic.caps'           , ...
                                                                 Dynamic.labeffs'        , ...
                                                                 Market_steady.invtocaps );
@@ -891,7 +891,7 @@ methods (Static)
                     %       after the new policy took place.
                     %       So we apply today's prices to yesterday's bequests and capshares.
                     beqs      = [Dynamic_steady.bequests * (1 + Market_steady.capshares_1 * Market.capgains(1)), ...
-                                 Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares_1(1:T_model-1) .* Market.capgains(2:T_model)') ...
+                                 Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares_1(1:T_model-1) .* Market.capgains(2:T_model)) ...
                                 ] ./ Dynamic.pops;
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
                     capshares_0 = (Dynamic.assets_0 - Dynamic.debts) ./ Dynamic.assets_0;
@@ -913,7 +913,7 @@ methods (Static)
                     Dynamic.debts_domestic  = Dynamic.debts - Dynamic.debts_foreign;
                     Dynamic.caps_domestic   = (Dynamic.assets_1 - Dynamic.debts_domestic) ./ theCorporation.priceCapital';
                     
-                    klRatio     = theCorporation.calculateKLRatio( effectiveDividendRate   , ...
+                    klRatio     = theCorporation.calculateKLRatio( effectiveDividendRate'   , ...
                                         Dynamic.caps'           , ...
                                         Dynamic.labeffs'        , ...
                                         Market_steady.invtocaps );
@@ -1002,7 +1002,7 @@ methods (Static)
                     %       So we apply today's prices to yesterday's bequests and capshares.
                     rhos      = Dynamic.caps ./ Dynamic.labeffs;
                     beqs      = [Dynamic_steady.bequests * (1 + Market_steady.capshares_1 * Market.capgains(1)), ...
-                                 Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares_1(1:T_model-1) .* Market.capgains(2:T_model)') ...
+                                 Dynamic.bequests(1:T_model-1) .* (1 + Market.capshares_1(1:T_model-1) .* Market.capgains(2:T_model)) ...
                                 ] ./ Dynamic.pops;
                     invtocaps = Dynamic.investment ./ Dynamic.caps;
                     capshares_0 = (Dynamic.assets_0 - Dynamic.debts_domestic) ./ Dynamic.assets_0;
