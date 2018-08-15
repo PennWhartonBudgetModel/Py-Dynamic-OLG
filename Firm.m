@@ -101,14 +101,9 @@ classdef Firm < handle
             this.invtocaps_end  = Market.invtocaps(end);
             
             % Calculate the price of capital (p_K, see docs)
-            investment = [this.capital(2:end) - (1 - this.depreciationRate)*this.capital(1:end-1); ...
-                          this.capital(end) * this.invtocaps_end ];
-            invtocaps  = investment ./ this.capital;
             this.userCostCapital0 = 1 - paramsTax.init_shareCapitalExpensing .* paramsTax.init_rateCorporate ...
                                     + this.capitalAdjustmentCost .* Market.invtocaps_0;
-            userCostCapital     = 1 - paramsTax.shareCapitalExpensing .* paramsTax.rateCorporate ...
-                                    + this.capitalAdjustmentCost .* invtocaps;
-            this.priceCapital   = (this.priceCapital0/this.userCostCapital0) * userCostCapital;
+            this.priceCapital   = this.xpriceCapital();
         end % constructor
         
         
@@ -252,6 +247,25 @@ classdef Firm < handle
                 error('MODEL ERROR! Capital gains are too high to allow OPEN economy to solve.');
             end
         end % capitalGains
+        
+        
+                %%
+        % Calculate the price of capital
+        function [price] = xpriceCapital( this, capital )
+            if( nargin == 1 )
+                capital       = this.capital;
+            end
+            
+            % Gross Investment
+            investment = [capital(2:end) - (1 - this.depreciationRate)*capital(1:end-1); ...
+                          capital(end) * this.invtocaps_end ];
+            invtocaps  = investment ./ capital;
+            
+            userCostCapital     = 1 - this.expensingRate .* this.effectiveTaxRate ...
+                                    + this.capitalAdjustmentCost .* invtocaps;
+            price               = (this.priceCapital0/this.userCostCapital0) * userCostCapital;
+        end % priceCapital
+
         
         
         %% 
