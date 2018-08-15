@@ -297,7 +297,7 @@ classdef Firm < handle
                 wage   = this.TFP * (1-this.capitalShare) .* (K_by_L .^ this.capitalShare);
                 
                 divs = this.dividends( caps, K_by_L, wage );
-                divRate = divs ./ (caps .* this.priceCapital);
+                divRate = divs ./ (caps .* this.xpriceCapital(caps));
                 
                 err_div = max(abs((divRate(2:end) - dividendRate(2:end)) ./ dividendRate(2:end)));
                 
