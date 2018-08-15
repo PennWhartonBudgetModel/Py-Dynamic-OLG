@@ -147,7 +147,7 @@ classdef Firm < handle
         %%
         % Output -- Just for reporting and indexing, not a received payment
         %           Used with 'capital' input to solve steady state
-        function [out] = GrossOutput( this, capital, labor )
+        function [out] = output( this, capital, labor )
             if( nargin == 1 )
                 capital = this.capital;
                 labor   = this.labor;

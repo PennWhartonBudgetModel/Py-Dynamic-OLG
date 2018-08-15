@@ -795,7 +795,7 @@ methods (Static)
                     % (Numerical solver used due to absence of closed form solution)
                     f_debts = @(outs ) budget.debttoout*outs;
                     f_caps  = @(debts) (Dynamic.assets_1 - debts) ./ theCorporation.priceCapital;
-                    f_outs  = @(caps ) theCorporation.GrossOutput( caps, Dynamic.labeffs );
+                    f_outs  = @(caps ) theCorporation.output( caps, Dynamic.labeffs );
                     x_ = fsolve(@(x) x - [f_debts(x(3)); f_caps(x(1)); f_outs(x(2))], zeros(3,1), optimoptions('fsolve', 'Display', 'none'));
                     Dynamic.debts = x_(1);
                     Dynamic.caps  = x_(2);
@@ -836,7 +836,7 @@ methods (Static)
                     
                     % Calculate capital and output
                     Dynamic.caps = Market.rhos .* Dynamic.labeffs;
-                    Dynamic.outs = theCorporation.GrossOutput( Dynamic.caps, Dynamic.labeffs );
+                    Dynamic.outs = theCorporation.output( Dynamic.caps, Dynamic.labeffs );
                     
                     % Note: Dynamic.assets_0 represents current assets at old prices.
                     Dynamic.caps_domestic  = (Market.capshares_1 .* Dynamic.assets_1) ./ theCorporation.priceCapital';
@@ -921,7 +921,7 @@ methods (Static)
                     
                     Dynamic.caps_foreign    = (open_econ_caps - Dynamic.caps_domestic) .* international.capitalTakeUp;
                     Dynamic.caps            = Dynamic.caps_domestic + Dynamic.caps_foreign;
-                    outs                    = theCorporation.GrossOutput( Dynamic.caps, Dynamic.labeffs );
+                    outs                    = theCorporation.output( Dynamic.caps, Dynamic.labeffs );
                     Dynamic.outs            = outs;  % outs var is used to keep last iteration values
 
                     % Converge to find Ctilde which closes the D/Y ratio
@@ -959,7 +959,7 @@ methods (Static)
                             fprintf( 'MODEL ERROR! Capital becomes negative at t=%u \n.', too_low_caps(1) );
                             error( 'Cannot continue with model convergence.' );
                         end
-                        outs         = theCorporation.GrossOutput( Dynamic.caps, Dynamic.labeffs );
+                        outs         = theCorporation.output( Dynamic.caps, Dynamic.labeffs );
                         Dynamic.outs = outs;  % outs var is used to keep last iteration values
                     
                         % Calculate error = max deviation to the upside of target
