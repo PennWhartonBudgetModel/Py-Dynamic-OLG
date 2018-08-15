@@ -35,12 +35,12 @@ classdef Firm < handle
         
         priceCapital        ;           % See documentation. This is p_K
         priceCapital0 = 1   ;
+        userCostCapital0    ;
         
         capital             ;           % Capital series
         labor               ;           % Efficient labor series
         KLratio             ;           % Capital to labor ratio, ( desired not capital/labor)
-        invtocaps           ;           % Investment/capital 
-        invtocaps_0         ;           % Investment/capital at time 0 (steady state)
+        invtocaps_end       ;           % Investment/capital at time T
         firmType            ;           % from the enumeration
         
     end % properties
@@ -98,15 +98,17 @@ classdef Firm < handle
             this.capital        = Aggregate.caps';
             this.labor          = Aggregate.labeffs';
             this.KLratio        = Market.rhos';
-            this.invtocaps      = Market.invtocaps';
-            this.invtocaps_0    = Market.invtocaps_0;
+            this.invtocaps_end  = Market.invtocaps(end);
             
             % Calculate the price of capital (p_K, see docs)
+            investment = [this.capital(2:end) - (1 - this.depreciationRate)*this.capital(1:end-1); ...
+                          this.capital(end) * this.invtocaps_end ];
+            invtocaps  = investment ./ this.capital;
+            this.userCostCapital0 = 1 - paramsTax.init_shareCapitalExpensing .* paramsTax.init_rateCorporate ...
+                                    + this.capitalAdjustmentCost .* Market.invtocaps_0;
             userCostCapital     = 1 - paramsTax.shareCapitalExpensing .* paramsTax.rateCorporate ...
-                                    + this.capitalAdjustmentCost .* this.invtocaps;
-            userCostCapital0    = 1 - paramsTax.init_shareCapitalExpensing .* paramsTax.init_rateCorporate ...
-                                    + this.capitalAdjustmentCost .* this.invtocaps_0;
-            this.priceCapital   = this.priceCapital0 * (userCostCapital ./ userCostCapital0);
+                                    + this.capitalAdjustmentCost .* invtocaps;
+            this.priceCapital   = (this.priceCapital0/this.userCostCapital0) * userCostCapital;
         end % constructor
         
         
@@ -185,7 +187,7 @@ classdef Firm < handle
             
             % Investment
             investment = [capital(2:end) - (1 - this.depreciationRate)*capital(1:end-1); ...
-                          capital(end) * this.invtocaps(end) ];
+                          capital(end) * this.invtocaps_end ];
             
             % Investment expensing 'subsidy'
             expensing    = max(this.expensingRate .* investment .* this.priceCapital, 0);
