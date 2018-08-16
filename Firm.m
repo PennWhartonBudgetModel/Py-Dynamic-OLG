@@ -243,8 +243,9 @@ classdef Firm < handle
             % Set arbitrary upper limit to prevent model not solving for
             % open economy. Note: first period does not matter, since
             % foreigners cannot invest yet, so we do not fix r_world
-            if( any( capgains(2:end) > (this.depreciationRate - 0.01) ) )
-                error('MODEL ERROR! Capital gains are too high to allow OPEN economy to solve.');
+            if( any( capgains(2:end) > (this.depreciationRate - 0.001) ) )
+                fprintf('MODEL ERROR! Capital gains are too high to allow OPEN economy to solve. Capping...');
+                capgains(2:end) = max(capgains(2:end), this.depreciationRate - 0.001);
             end
         end % capitalGains
         
@@ -269,6 +270,49 @@ classdef Firm < handle
         
         
         %% 
+        % Calculate K/L ratio from dividend rate
+        function [KLratio, caps] = new_calculateKLRatio( this, fixedAfterTaxReturn, foreignTaxRates, ...
+                            init_caps, labor )
+            % Inputs : dividendRate = dollars received as dividend per
+            %                         dollar owned of equity
+            %          init_caps = capital initial guess
+            %          labor = efficient units of labor (from last iteration)
+            %          invtocapsT_model = last period guess of I/K
+            % Outputs: KLratio that generates the dividendRate of inputs
+            
+            % Find dividends rate needed to fix returns to target
+            dividendRate    = ( fixedAfterTaxReturn - this.capitalGains() ) ...
+                              ./ (1 - foreignTaxRates);
+        
+            % Initialize variables
+            caps    = init_caps;
+            divRate = dividendRate;
+            
+            tolerance = 1e-12;
+            err_div   = Inf;
+            
+            while( err_div > tolerance )
+                
+                % Update capital 
+                %  if divRate > dividendRate 
+                %    --> caps gets bigger, and divRate gets smaller
+                caps(2:end) = caps(2:end) .* ((1+divRate(2:end)) ./ (1+dividendRate(2:end)) );
+                
+                K_by_L = caps ./ labor;
+                wage   = this.TFP * (1-this.capitalShare) .* (K_by_L .^ this.capitalShare);
+                
+                divs = this.dividends( caps, K_by_L, wage );
+                divRate = divs ./ (caps .* this.xpriceCapital(caps));
+                
+                err_div = max(abs((divRate(2:end) - dividendRate(2:end)) ./ dividendRate(2:end)));
+                
+            end % while
+            
+            % Calculate capital-labor ratio
+            KLratio  = caps ./ labor;
+        end % calculateKLRatio
+
+%% 
         % Calculate K/L ratio from dividend rate
         function [KLratio, caps] = calculateKLRatio( this, dividendRate, ...
                             init_caps, labor, invtocapsT_model )
@@ -306,7 +350,6 @@ classdef Firm < handle
             % Calculate capital-labor ratio
             KLratio  = caps ./ labor;
         end % calculateKLRatio
-
         
         
         
