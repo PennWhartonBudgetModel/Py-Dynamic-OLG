@@ -232,25 +232,21 @@ classdef Firm < handle
         
         %%
         % Calculate capital gains rates from value of capital.
-        % Throw error if this will prevent open economy calculation
-        function [capgains] = capitalGains( this )
-            capgains        = zeros(size(this.priceCapital));
-            capgains(1,1)   = (this.priceCapital(1) - this.priceCapital0)/this.priceCapital0;
-            for t = 2:length(capgains)
-               capgains(t,1) = (this.priceCapital(t) - this.priceCapital(t-1))/this.priceCapital(t-1);
+        function [capgains] = capitalGains( this, capital )
+            if( nargin == 1 )
+                priceCapital = this.priceCapital;
+            else
+                priceCapital = this.xpriceCapital( capital );
             end
-            
-            % Set arbitrary upper limit to prevent model not solving for
-            % open economy. Note: first period does not matter, since
-            % foreigners cannot invest yet, so we do not fix r_world
-            if( any( capgains(2:end) > (this.depreciationRate - 0.001) ) )
-                fprintf('MODEL ERROR! Capital gains are too high to allow OPEN economy to solve. Capping...');
-                capgains(2:end) = max(capgains(2:end), this.depreciationRate - 0.001);
+            capgains        = zeros(size(priceCapital));
+            capgains(1,1)   = (priceCapital(1) - this.priceCapital0)/this.priceCapital0;
+            for t = 2:length(capgains)
+               capgains(t,1) = (priceCapital(t) - priceCapital(t-1))/priceCapital(t-1);
             end
         end % capitalGains
         
         
-                %%
+        %%
         % Calculate the price of capital
         function [price] = xpriceCapital( this, capital )
             if( nargin == 1 )
@@ -297,6 +293,10 @@ classdef Firm < handle
                 %  if divRate > dividendRate 
                 %    --> caps gets bigger, and divRate gets smaller
                 caps(2:end) = caps(2:end) .* ((1+divRate(2:end)) ./ (1+dividendRate(2:end)) );
+                % DEBUG
+                caps = max( 1e-5, caps );
+                % END DEBUG
+                
                 
                 K_by_L = caps ./ labor;
                 wage   = this.TFP * (1-this.capitalShare) .* (K_by_L .^ this.capitalShare);
@@ -306,6 +306,9 @@ classdef Firm < handle
                 
                 err_div = max(abs((divRate(2:end) - dividendRate(2:end)) ./ dividendRate(2:end)));
                 
+                % Update dividends rate since capitalGains change with caps
+                dividendRate    = ( fixedAfterTaxReturn - this.capitalGains(caps) ) ...
+                              ./ (1 - foreignTaxRates);
             end % while
             
             % Calculate capital-labor ratio
