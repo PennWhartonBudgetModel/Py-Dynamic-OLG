@@ -862,9 +862,10 @@ methods (Static)
                     Dynamic.debts_domestic = (1 - Market.capshares_1) .* Dynamic.assets_1;
                     Dynamic.debts_foreign  = Dynamic.debts - Dynamic.debts_domestic;
                     
-                    Dynamic.tot_assets_0   = [theCorporation.priceCapital0 theCorporation.priceCapital(1:T_model-1)'] ...
+                    price                  = theCorporation.priceCapital()';
+                    Dynamic.tot_assets_0   = [theCorporation.priceCapital0 price(1:T_model-1)] ...
                                                .* Dynamic.caps + Dynamic.debts;
-                    Dynamic.tot_assets_1   = theCorporation.priceCapital' .* Dynamic.caps + Dynamic.debts;
+                    Dynamic.tot_assets_1   = price .* Dynamic.caps + Dynamic.debts;
                     
                     % Calculate income
                     Dynamic.labincs = Dynamic.labeffs .* Market.wages;

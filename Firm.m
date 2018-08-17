@@ -10,7 +10,11 @@ classdef Firm < handle
         PASSTHROUGH         = 1;
     end
     
-    properties 
+    properties (Access = public )
+        priceCapital0 = 1;
+    end % public properties
+    
+    properties (Access = private )
         TFP                 ;           % A
         capitalShare        ;           % alpha
         depreciationRate    ;           % delta
@@ -33,8 +37,7 @@ classdef Firm < handle
         
         initLeverageRatio   ;           % stored value of initial leverage ratio 
         
-        priceCapital        ;           % See documentation. This is p_K
-        priceCapital0 = 1   ;
+        priceCapital_       ;           % cached value at time of construction
         userCostCapital0    ;
         
         capital             ;           % Capital series
@@ -103,7 +106,7 @@ classdef Firm < handle
             % Calculate the price of capital (p_K, see docs)
             this.userCostCapital0 = 1 - paramsTax.init_shareCapitalExpensing .* paramsTax.init_rateCorporate ...
                                     + this.capitalAdjustmentCost .* Market.invtocaps_0;
-            this.priceCapital   = this.xpriceCapital();
+            this.priceCapital_    = this.priceCapital();
         end % constructor
         
         
@@ -175,17 +178,17 @@ classdef Firm < handle
             wagesPaid = wage .* labor;
             
             % Replace depreciated capital (rem: at cost to buy it)
-            depreciation = this.depreciationRate .* capital .* this.priceCapital;
+            depreciation = this.depreciationRate .* capital .* this.priceCapital_;
             
             % Risk premium (rem: at cost to buy it)
-            risk = this.riskPremium .* capital .* this.priceCapital;
+            risk = this.riskPremium .* capital .* this.priceCapital_;
             
             % Investment
             investment = [capital(2:end) - (1 - this.depreciationRate)*capital(1:end-1); ...
                           capital(end) * this.invtocaps_end ];
             
             % Investment expensing 'subsidy'
-            expensing    = max(this.expensingRate .* investment .* this.priceCapital, 0);
+            expensing    = max(this.expensingRate .* investment .* this.priceCapital_, 0);
             
             % Capital adjustment cost
             %    = eta/2 * (I/K)^2 * K
@@ -234,9 +237,9 @@ classdef Firm < handle
         % Calculate capital gains rates from value of capital.
         function [capgains] = capitalGains( this, capital )
             if( nargin == 1 )
-                priceCapital = this.priceCapital;
+                priceCapital = this.priceCapital_;
             else
-                priceCapital = this.xpriceCapital( capital );
+                priceCapital = this.priceCapital( capital );
             end
             capgains        = zeros(size(priceCapital));
             capgains(1,1)   = (priceCapital(1) - this.priceCapital0)/this.priceCapital0;
@@ -248,8 +251,12 @@ classdef Firm < handle
         
         %%
         % Calculate the price of capital
-        function [price] = xpriceCapital( this, capital )
+        function [price] = priceCapital( this, capital )
             if( nargin == 1 )
+                if( ~isempty( this.priceCapital_ ) )
+                    price = this.priceCapital_;
+                    return;
+                end
                 capital       = this.capital;
             end
             
@@ -293,16 +300,19 @@ classdef Firm < handle
                 %  if divRate > dividendRate 
                 %    --> caps gets bigger, and divRate gets smaller
                 caps(2:end) = caps(2:end) .* ((1+divRate(2:end)) ./ (1+dividendRate(2:end)) );
-                % DEBUG
-                caps = max( 1e-5, caps );
-                % END DEBUG
+                
+                % To prevent nonsensical results, prevent non-positive
+                % capital.
+                %  TBD: This may keep loop from converging under some
+                %  circumstances.
+                caps        = max( 1e-5, caps );
                 
                 
                 K_by_L = caps ./ labor;
                 wage   = this.TFP * (1-this.capitalShare) .* (K_by_L .^ this.capitalShare);
                 
                 divs = this.dividends( caps, K_by_L, wage );
-                divRate = divs ./ (caps .* this.xpriceCapital(caps));
+                divRate = divs ./ (caps .* this.priceCapital(caps));
                 
                 err_div = max(abs((divRate(2:end) - dividendRate(2:end)) ./ dividendRate(2:end)));
                 
@@ -334,7 +344,7 @@ classdef Firm < handle
             h               = 100;
             taxBenefitRate  = this.interestDeduction .* this.statutoryTaxRate .* this.interestRate;
             nu              = this.leverageCost;
-            capital_scaled  = capital .* this.priceCapital .* h;
+            capital_scaled  = capital .* this.priceCapital_ .* h;
             
             d       = 1 - this.interestDeduction .* this.statutoryTaxRate;  
             x       = 1/(nu-1);
@@ -370,14 +380,14 @@ classdef Firm < handle
             T_model = 25;
             
             % Make sample inputs
-            effectiveDividendRate = ones(T_model,1) .* 0.05;
+            fixedAfterTaxReturn = ones(T_model,1) .* 0.05;
+            foreignTaxRates     = ones(T_model,1) .* 0.10;
             labor = ones(T_model,1);
             init_caps = ones(T_model,1) * 12;
             invtocap_Tmodel = 0.07;
             
-            [klRatio tCaps]     = this.calculateKLRatio( effectiveDividendRate   , ...
-                                        init_caps, labor        , ...
-                                        invtocap_Tmodel );
+            [klRatio tCaps]     = this.calculateKLRatio( fixedAfterTaxReturn, foreignTaxRates, ...
+                            init_caps, labor )
                         
              tempCaps   = klRatio .* labor;
              tempI      = [diff(tempCaps); invtocap_Tmodel * tempCaps(T_model)];
