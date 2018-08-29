@@ -692,9 +692,9 @@ methods (Static)
         id = InputReader.find_input_scenario_id(mapfile, scenario);
         
         opennessfile    = fullfile(PathFinder.getOpennessInputDir(), strcat('Openness_', id, '.csv'));
-        series          = InputReader.read_series(filename, 'Year', 1 + timing.realage_entry, []);
-        s.capitalTakeUp = series.CapitalTakeUp;
-        s.debtTakeUp    = series.DebtTakeUp;
+        series          = InputReader.read_series(opennessfile, 'Year', first_year, last_year);
+        s.capitalTakeUp = series.CapitalTakeUp';
+        s.debtTakeUp    = series.DebtTakeUp';
         
     end % international
 
