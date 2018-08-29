@@ -520,15 +520,16 @@ methods (Static)
             thePassThrough  = Firm( Static, Market_base, taxBusiness, production, initialInterestRate, Firm.PASSTHROUGH );
  
             % Calculate static budgetary aggregate variables
-            [corpDividends, corpTaxs, corpDebts]  = theCorporation.dividends();
-            [passDividends, passTaxs, passDebts]  = thePassThrough.dividends();
+            corpDist  = theCorporation.distributions();
+            passDist  = thePassThrough.distributions();
                                                        
             capincs_foreign         = Market_base.equityFundDividends .* Static.caps_foreign;
             Static.foreignCorpTaxs  = capincs_foreign .* taxIndividual.rateForeignCorpIncome;
             
-            Static.corpTaxs         = corpTaxs';
-            Static.dividends        = corpDividends';
-            Static.corpDebts        = corpDebts';
+            Static.corpTaxs         = corpDist.corpTaxs';
+            Static.dividends        = corpDist.corpDividends';
+            Static.corpDebts        = corpDist.corpDebts';
+            % TBD: Add pass-through aggregates
             
             Static.revs             = Static.pits + Static.ssts + Static.corpTaxs + Static.foreignCorpTaxs;            
             
@@ -743,17 +744,17 @@ methods (Static)
                                                         , budget, avg_wage_ss    ...
                                                         , nstartyears            ...
                                                         , realage_entry, T_model, T_life);
-            [corpDividends, corpTaxs, corpDebts]  = theCorporation.dividends();
-            [passDividends, passTaxs, passDebts]  = thePassThrough.dividends();
+            corpDist  = theCorporation.distributions();
+            passDist  = thePassThrough.distributions();
             % 'Price' of assets -- HH own equal shares of both bond & equity funds
             % (equityFund/bondFund)Dividends are actually dividend rates
             Market.equityFundPrice0     = theCorporation.priceCapital0;
             Market.equityFundPrices     = theCorporation.priceCapital';
-            Market.equityFundDividends  = (corpDividends ./ (Dynamic.caps' .* theCorporation.priceCapital))';
+            Market.equityFundDividends  = (corpDist.corpDividends ./ (Dynamic.caps' .* theCorporation.priceCapital))';
             
             Market.passFundPrice0       = thePassThrough.priceCapital0;
             Market.passFundPrices       = thePassThrough.priceCapital';
-            Market.passFundDividends    = (passDividends ./ (Dynamic.caps' .* thePassThrough.priceCapital))';
+            Market.passFundDividends    = (passDist.passDividends ./ (Dynamic.caps' .* thePassThrough.priceCapital))';
             
             Market.bondFundPrice0       = 1;
             Market.bondFundPrices       = ones(1,T_model);
@@ -778,9 +779,10 @@ methods (Static)
             capincs_foreign         = Market.equityFundDividends .* Dynamic.caps_foreign;
             Dynamic.foreignCorpTaxs = capincs_foreign .* taxIndividual.rateForeignCorpIncome;
                     
-            Dynamic.corpDividends   = corpDividends';
-            Dynamic.corpTaxs        = corpTaxs';
-            Dynamic.corpDebts       = corpDebts';
+            Dynamic.corpDividends   = corpDist.corpDividends';
+            Dynamic.corpTaxs        = corpDist.corpTaxs';
+            Dynamic.corpDebts       = corpDist.corpDebts';
+            % TBD Add pass-through aggregates
 
             Dynamic.revs            = Dynamic.pits + Dynamic.ssts + Dynamic.corpTaxs + Dynamic.foreignCorpTaxs;
 

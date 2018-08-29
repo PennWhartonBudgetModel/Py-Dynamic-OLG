@@ -156,17 +156,31 @@ classdef Firm < handle
         
         
         %%
+        %   Calculate various business payments and taxes
+        function [x] = distributions( this )
+            
+            [divs, cits, debts] = dividends( this, this.capital, this.KLratio, this.wageRequired() );
+            % TEMP until combined
+            if( this.firmType == Firm.SINGLEFIRM )
+                x.corpDividends = divs;
+                x.corpTaxs      = cits;
+                x.corpDebts     = debts;
+            else
+                x.passDividends = divs;
+                x.passTaxs      = cits;
+                x.passDebts     = debts;
+            end
+        end % distributions
+        
+        
+        
+        %%
         function [divs, cits, debts] = dividends( this, capital, klRatio, wage )
             % Inputs : capital
             %          klRatio & wage 
             % Outputs: divs = dividend is the return of the corporation net of tax.
             %          cits = corporate income taxes paid by the firms
             
-            if( nargin == 1 )
-                capital = this.capital;
-                klRatio = this.KLratio;
-                wage = this.wageRequired();
-            end
                 
             % Labor and capital
             labor = ( capital ./ klRatio );
