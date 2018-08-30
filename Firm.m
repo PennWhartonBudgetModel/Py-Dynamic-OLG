@@ -71,29 +71,20 @@ classdef Firm < handle
             this.allowBusinessDebt      = paramsProduction.allowBusinessDebt;
             this.capitalAdjustmentCost  = paramsProduction.capitalAdjustmentCost;
             
+            this.effectiveTaxRate   = paramsTax.rateCorporate;
+            this.statutoryTaxRate   = paramsTax.rateCorporateStatutory;
+            this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
+            this.interestDeduction  = paramsTax.interestDeduction;
+            this.creditsRate        = paramsTax.creditsRate;
+            this.taxbaseAdjustment  = paramsTax.taxbaseAdjustment;
+            this.deductionsRate     = paramsTax.deductionsRate;
+            this.otherExpensesRate  = paramsProduction.otherExpensesRate;
+
             switch this.firmType
                 case Firm.SINGLEFIRM
-                    this.effectiveTaxRate   = paramsTax.rateCorporate;
-                    this.statutoryTaxRate   = paramsTax.rateCorporateStatutory;
-                    this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
-                    this.interestDeduction  = paramsTax.interestDeduction;
-                    this.creditsRate        = paramsTax.creditsRate;
-                    this.taxbaseAdjustment  = paramsTax.taxbaseAdjustment;
-                    this.deductionsRate     = paramsTax.deductionsRate;
                     this.initLeverageRatio  = paramsProduction.initialCorpLeverage;
-                    
-                    this.otherExpensesRate  = paramsProduction.otherExpensesRate;
-                    
                 case Firm.PASSTHROUGH
-                    this.effectiveTaxRate   = 0;  % TEMP: Should come from ParamGenerator as top marginal PIT rate
-                    this.statutoryTaxRate   = this.effectiveTaxRate;
-                    this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
-                    this.interestDeduction  = paramsTax.interestDeduction;
-                    this.creditsRate        = paramsTax.creditsRate;
                     this.initLeverageRatio  = paramsProduction.initialPassThroughLeverage;
-                    
-                    this.otherExpensesRate  = paramsProduction.otherExpensesRate;
-                    
             end
             
             this.setInterestRate( interestRate ); % recalculates leverage cost
@@ -159,23 +150,32 @@ classdef Firm < handle
         %   Calculate various business payments and taxes
         function [x] = distributions( this )
             
-            [divs, cits, debts] = dividends( this, this.capital, this.KLratio, this.wageRequired() );
-            % TEMP until combined
-            if( this.firmType == Firm.SINGLEFIRM )
-                x.corpDividends = divs;
-                x.corpTaxs      = cits;
-                x.corpDebts     = debts;
-            else
-                x.passDividends = divs;
-                x.passTaxs      = cits;
-                x.passDebts     = debts;
-            end
+            wage = this.wageRequired();
+            
+            [divs, cits, debts] = corpDividends( this, this.capital, this.KLratio, wage );
+            x.corpDividends     = divs;
+            x.corpTaxs          = cits;
+            x.corpDebts         = debts;
+            
+            [divs, deductions, debts] = passDividends( this, this.capital, this.KLratio, wage );
+            x.passDividends     = divs;
+            x.passDeductions    = deductions;
+            x.passDebts         = debts;
         end % distributions
         
         
         
+        %% 
+        function divs = dividends( this, capital, klRatio, wage )
+            % TEMP: This should combine pass-through and corp
+            %  for now, just do corp
+            divs = corpDividends( this, capital, klRatio, wage );
+        end % dividends
+        
+        
+        
         %%
-        function [divs, cits, debts] = dividends( this, capital, klRatio, wage )
+        function [divs, cits, debts] = corpDividends( this, capital, klRatio, wage )
             % Inputs : capital
             %          klRatio & wage 
             % Outputs: divs = dividend is the return of the corporation net of tax.
@@ -212,28 +212,24 @@ classdef Firm < handle
             [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( capital );
             
             % Combine to get net tax
-            if( this.firmType == Firm.SINGLEFIRM )
-                taxbase =   ( y                                           ...
-                            - wagesPaid                                 ...
-                            - this.interestRate .* debts                ...
-                            - depreciation                              ...
-                            - this.otherExpensesRate .* y               ...
-                            - adjustmentCost                            ...
-                            ) .* this.taxbaseAdjustment                 ...
-                            - this.deductionsRate .* y                  ...
-                            ;
-                cits  = taxbase .* this.statutoryTaxRate            ...
-                        - expensing .* this.statutoryTaxRate        ...
-                        - y .* this.creditsRate                     ...
-                        - debtTaxBenefit;
-                % TEMP: Until we get correct inputs
-                cits  = (y - wagesPaid) .* this.effectiveTaxRate    ...
-                        - expensing .* this.statutoryTaxRate        ...
-                        - y .* this.creditsRate                     ...
-                        - debtTaxBenefit;
-            else
-                cits  = 0;
-            end
+            taxbase =   ( y                                           ...
+                        - wagesPaid                                 ...
+                        - this.interestRate .* debts                ...
+                        - depreciation                              ...
+                        - this.otherExpensesRate .* y               ...
+                        - adjustmentCost                            ...
+                        ) .* this.taxbaseAdjustment                 ...
+                        - this.deductionsRate .* y                  ...
+                        ;
+            cits  = taxbase .* this.statutoryTaxRate            ...
+                    - expensing .* this.statutoryTaxRate        ...
+                    - y .* this.creditsRate                     ...
+                    - debtTaxBenefit;
+            % TEMP: Until we get correct inputs
+            cits  = (y - wagesPaid) .* this.effectiveTaxRate    ...
+                    - expensing .* this.statutoryTaxRate        ...
+                    - y .* this.creditsRate                     ...
+                    - debtTaxBenefit;
 
             % Calculate returns to owners
             divs  = y                                   ... % revenues
@@ -244,7 +240,61 @@ classdef Firm < handle
                   - debtCost                            ... % Cost of leverage
                   - cits;                                   % net taxes
                   
-        end % dividends
+        end % corpDividends
+        
+        
+        %%
+        function [divs, deductions, debts] = passDividends( this, capital, klRatio, wage )
+            % Inputs : capital
+            %          klRatio & wage 
+            % Outputs: divs = dividend is the return of the corporation net of tax.
+            %          cits = corporate income taxes paid by the firms
+            
+                
+            % Labor and capital
+            labor = ( capital ./ klRatio );
+            
+            % Total revenues
+            y = this.TFP * ( (capital.^this.capitalShare) .* (labor.^(1-this.capitalShare)) );
+            
+            % Wage payments
+            wagesPaid = wage .* labor;
+            
+            % Replace depreciated capital (rem: at cost to buy it)
+            depreciation = this.depreciationRate .* capital .* this.priceCapital_;
+            
+            % Risk premium (rem: at cost to buy it)
+            risk = this.riskPremium .* capital .* this.priceCapital_;
+            
+            % Investment
+            investment = [capital(2:end) - (1 - this.depreciationRate)*capital(1:end-1); ...
+                          capital(end) * this.invtocaps_end ];
+            
+            % Investment expensing 'subsidy'
+            expensing    = max(this.expensingRate .* investment .* this.priceCapital_, 0);
+            
+            % Capital adjustment cost
+            %    = eta/2 * (I/K)^2 * K
+            adjustmentCost = (this.capitalAdjustmentCost/2) .* (investment .* investment) ./ capital;
+            
+            % Find optimal debt, interest tax benefit, and leverage cost
+            [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( capital );
+            
+            % TBD: Calculate as per documentation
+            deductions = 0;
+            
+            % Calculate returns to owners
+            divs  = y                                   ... % revenues
+                  - wagesPaid                           ... % labor costs
+                  - depreciation                        ... % replace depreciated capital
+                  - adjustmentCost                      ... % cap adjustment cost
+                  - risk                                ... % discount money lost due to risk
+                  - debtCost                            ... % Cost of leverage
+                  ;                                   
+                  
+        end % passDividends
+
+        
         
         
         %%
