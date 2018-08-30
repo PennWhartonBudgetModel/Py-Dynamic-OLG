@@ -32,10 +32,12 @@ classdef Firm < handle
         deductionsRate      ;           % tax deductions as rate on corp GDP
         interestDeduction   ;           % phi_int
         
-        leverageCost        ;           % nu
+        corpLeverageCost        ;       % nu_corp
+        passLeverageCost        ;       % nu_pass
         capitalAdjustmentCost;          % eta
         
-        initLeverageRatio   ;           % stored value of initial leverage ratio 
+        corpInitLeverageRatio   ;       % stored value of initial leverage ratio for corps
+        passInitLeverageRatio   ;       % stored value of initial leverage ratio for pass-throughs
         
         priceCapital_       ;           % cached value at time of construction
         userCostCapital0    ;
@@ -44,7 +46,6 @@ classdef Firm < handle
         labor               ;           % Efficient labor series
         KLratio             ;           % Capital to labor ratio, ( desired not capital/labor)
         invtocaps_end       ;           % Investment/capital at time T
-        firmType            ;           % from the enumeration
         
     end % properties
     
@@ -57,12 +58,7 @@ classdef Firm < handle
         %               paramsTax = ParamGenerator.tax()
         %               paramsProduction = ParamGenerator.production()
         %               interestRate = Guess at dividends rate
-        function [this] = Firm( Aggregate, Market, paramsTax, paramsProduction, interestRate, firmType )
-            
-            this.firmType           = firmType;   
-            if( ~(firmType == Firm.SINGLEFIRM || firmType == Firm.PASSTHROUGH) )
-                throw(MException('Firm:firmType','firmType must be SingleFirm or PassThrough'));
-            end
+        function [this] = Firm( Aggregate, Market, paramsTax, paramsProduction, interestRate )
             
             this.TFP                    = paramsProduction.A;
             this.capitalShare           = paramsProduction.alpha;
@@ -80,12 +76,8 @@ classdef Firm < handle
             this.deductionsRate     = paramsTax.deductionsRate;
             this.otherExpensesRate  = paramsProduction.otherExpensesRate;
 
-            switch this.firmType
-                case Firm.SINGLEFIRM
-                    this.initLeverageRatio  = paramsProduction.initialCorpLeverage;
-                case Firm.PASSTHROUGH
-                    this.initLeverageRatio  = paramsProduction.initialPassThroughLeverage;
-            end
+            this.corpInitLeverageRatio  = paramsProduction.initialCorpLeverage;
+            this.passInitLeverageRatio  = paramsProduction.initialPassThroughLeverage;
             
             this.setInterestRate( interestRate ); % recalculates leverage cost
             
@@ -115,7 +107,8 @@ classdef Firm < handle
             % Rem: the leverage cost is size invariant, so set capital=1
             %      also, capital from initLeverageRatio is in $, so already
             %      scaled
-            this.leverageCost       = this.calculateLeverageCost( this.initLeverageRatio, 1);
+            this.corpLeverageCost       = this.calculateLeverageCost( this.corpInitLeverageRatio, 1);
+            this.passLeverageCost       = this.calculateLeverageCost( this.passInitLeverageRatio, 1);
         end % setInterestRate
         
         %%
@@ -209,7 +202,7 @@ classdef Firm < handle
             adjustmentCost = (this.capitalAdjustmentCost/2) .* (investment .* investment) ./ capital;
             
             % Find optimal debt, interest tax benefit, and leverage cost
-            [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( capital );
+            [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( capital, this.corpLeverageCost );
             
             % Combine to get net tax
             taxbase =   ( y                                           ...
@@ -278,7 +271,7 @@ classdef Firm < handle
             adjustmentCost = (this.capitalAdjustmentCost/2) .* (investment .* investment) ./ capital;
             
             % Find optimal debt, interest tax benefit, and leverage cost
-            [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( capital );
+            [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( capital, this.passLeverageCost );
             
             % TBD: Calculate as per documentation
             deductions = 0;
@@ -394,7 +387,7 @@ classdef Firm < handle
         %% 
         % Calculate optimal debt 
         %   nu() = 1/nu (B/K_s)^nu , where K_s = K h p_K; h=0.1
-        function [debt, debtCost, taxBenefit] = calculateDebt( this, capital )
+        function [debt, debtCost, taxBenefit] = calculateDebt( this, capital, leverageCost )
            
            % If not using debt, then jump out.
            if( ~this.allowBusinessDebt )
@@ -407,7 +400,7 @@ classdef Firm < handle
             % Calculate optimal debt
             h               = 100;
             taxBenefitRate  = this.interestDeduction .* this.statutoryTaxRate .* this.interestRate;
-            nu              = this.leverageCost;
+            nu              = leverageCost;
             capital_scaled  = capital .* this.priceCapital_ .* h;
             
             d       = 1 - this.interestDeduction .* this.statutoryTaxRate;  
