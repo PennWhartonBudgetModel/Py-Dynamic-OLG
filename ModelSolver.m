@@ -1230,7 +1230,11 @@ methods (Static, Access = private )
         % wage_index of when it turns 62
         %     1. if cohort turns 62 before t=1: index fixed at t=1
         %     2. if cohort turns 62 after t=T_model: index fixed at t=T_model
-        bracket_idx = wage_index( min(max(year62,1), T_model) ) * ones(T_model,1);
+        if (1 > year62)
+            bracket_idx = ones(T_model,1);
+        else
+            bracket_idx = wage_index( min(year62, T_model) ) * ones(T_model,1);
+        end
         adjbrackets = repmat(brackets, [T_model, 1])                            ... 
                         .* repmat( bracket_idx, [1, size(brackets,1)] );
         
