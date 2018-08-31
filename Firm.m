@@ -5,11 +5,6 @@
 
 classdef Firm < handle
     
-    properties (Constant)
-        SINGLEFIRM          = 0;
-        PASSTHROUGH         = 1;
-    end
-    
     properties (Access = public )
         priceCapital0 = 1;
     end % public properties
@@ -22,8 +17,18 @@ classdef Firm < handle
         interestRate        ;           % market return on capital (and debt)
         allowBusinessDebt   ;           % whether to allow borrowing
         
-        otherExpensesRate   ;           % unmodelled expenses as rate on corp GDP
+        ratioCorpCapital    ;           % portion of total capital which is corp (vs. pass-through)
         
+        corpOtherExpensesRate   ;           % unmodelled expenses as rate on corp GDP
+        corpExpensingRate       ;           % phi_exp
+        corpEffectiveTaxRate    ;           % effective tax on profits
+        corpStatutoryTaxRate    ;           % statutory tax rate on profits
+        corpTaxbaseAdjustment   ;           % match taxbase to empirics
+        corpCreditsRate         ;           % tax credits as rate on corp GDP
+        corpDeductionsRate      ;           % tax deductions as rate on corp GDP
+        corpInterestDeduction   ;           % phi_int
+        
+        otherExpensesRate   ;           % unmodelled expenses as rate on corp GDP
         expensingRate       ;           % phi_exp
         effectiveTaxRate    ;           % effective tax on profits
         statutoryTaxRate    ;           % statutory tax rate on profits
@@ -67,6 +72,11 @@ classdef Firm < handle
             this.allowBusinessDebt      = paramsProduction.allowBusinessDebt;
             this.capitalAdjustmentCost  = paramsProduction.capitalAdjustmentCost;
             
+            % TBD: read these from params
+            this.ratioCorpCapital       = ones(size(paramsTax.rateCorporate));
+            init_rateForPassThrough     = 0.39;  % implied tax rate for pass-through income
+            
+            
             this.effectiveTaxRate   = paramsTax.rateCorporate;
             this.statutoryTaxRate   = paramsTax.rateCorporateStatutory;
             this.expensingRate      = paramsTax.shareCapitalExpensing; % REVISE W/ new interface
@@ -89,6 +99,7 @@ classdef Firm < handle
             % Calculate the price of capital (p_K, see docs)
             this.userCostCapital0 = 1 - paramsTax.init_shareCapitalExpensing .* paramsTax.init_rateCorporate ...
                                     + this.capitalAdjustmentCost .* Market.invtocaps_0;
+            % TBD: Adjust userCostCapital0 to have mix of pass and corp
             this.priceCapital_    = this.priceCapital();
         end % constructor
         
@@ -150,9 +161,9 @@ classdef Firm < handle
             x.corpTaxs          = cits;
             x.corpDebts         = debts;
             
-            [divs, deductions, debts] = passDividends( this, this.capital, this.KLratio, wage );
+            [divs, taxableIncome, debts] = passDividends( this, this.capital, this.KLratio, wage );
             x.passDividends     = divs;
-            x.passDeductions    = deductions;
+            x.passTaxableIncome = taxableIncome;
             x.passDebts         = debts;
         end % distributions
         
@@ -237,7 +248,7 @@ classdef Firm < handle
         
         
         %%
-        function [divs, deductions, debts] = passDividends( this, capital, klRatio, wage )
+        function [divs, taxableIncome, debts] = passDividends( this, capital, klRatio, wage )
             % Inputs : capital
             %          klRatio & wage 
             % Outputs: divs = dividend is the return of the corporation net of tax.
@@ -273,9 +284,6 @@ classdef Firm < handle
             % Find optimal debt, interest tax benefit, and leverage cost
             [debts, debtCost, debtTaxBenefit]  = this.calculateDebt( capital, this.passLeverageCost );
             
-            % TBD: Calculate as per documentation
-            deductions = 0;
-            
             % Calculate returns to owners
             divs  = y                                   ... % revenues
                   - wagesPaid                           ... % labor costs
@@ -284,7 +292,12 @@ classdef Firm < handle
                   - risk                                ... % discount money lost due to risk
                   - debtCost                            ... % Cost of leverage
                   ;                                   
-                  
+            
+            % Taxable income
+            taxableIncome = divs                    ... % dividends
+                          - debtTaxBenefit          ... % interest deduction
+                          - expensing               ... % investment expensing
+                          ;
         end % passDividends
 
         
@@ -322,8 +335,12 @@ classdef Firm < handle
                           capital(end) * this.invtocaps_end ];
             invtocaps  = investment ./ capital;
             
-            userCostCapital     = 1 - this.expensingRate .* this.effectiveTaxRate ...
+            userCostCapitalCorp = 1 - this.expensingRate .* this.effectiveTaxRate ...
                                     + this.capitalAdjustmentCost .* invtocaps;
+            userCostCapitalPass = 1;  % TBD: Fix this
+            userCostCapital     = this.ratioCorpCapital .* userCostCapitalCorp      ...
+                                    + (1-this.ratioCorpCapital) .* userCostCapitalPass;
+                                
             price               = (this.priceCapital0/this.userCostCapital0) * userCostCapital;
         end % priceCapital
 
