@@ -513,6 +513,7 @@ methods (Static)
         end
         
         
+        projections_id = InputReader.find_input_scenario_id(fullfile(PathFinder.getProjectionsInputDir(), 'Map.csv'), scenario);
         projections_file = fullfile(PathFinder.getProjectionsInputDir(), 'Projections.csv');
         projections_series      = InputReader.read_series(projections_file, 'Year', first_year               , last_year                );
         projections_series_long = InputReader.read_series(projections_file, 'Year', first_year               , last_year + 1            );
