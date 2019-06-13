@@ -2,10 +2,14 @@
 # Dynamic model solver.
 
 import PathFinder
+import Scenario
 import os as path
 import shutil
 import numpy as np
 import scipy
+import math
+import time
+import warnings
 
 class ModelSolver:
     
@@ -944,465 +948,411 @@ class ModelSolver:
                 capsharesPM = (Dynamic['assetsPM'] - Dynamic['debts_domestic']) / Dynamic['assetsPM']
 
             # Store g'vt budget residuals to struct
-            Dynamic.Gtilde = Gtilde;
-            Dynamic.Ttilde = Ttilde;
-            Dynamic.Ctilde = Ctilde;
+            Dynamic['Gtilde'] = Gtilde
+            Dynamic['Ttilde'] = Ttilde
+            Dynamic['Ctilde'] = Ctilde
             
-            % Save the out of model adjustment variables
-            Dynamic.infraSpending = budget.infraSpending;
-            Dynamic.lumpSumTaxes = budget.lumpSumTaxes;
+            # Save the out of model adjustment variables
+            Dynamic['infraSpending'] = budget['infraSpending']
+            Dynamic['lumpSumTaxes'] = budget['lumpSumTaxes']
                    
-            % Calculate market clearing series
-            clearing.rhos      = max(abs((Market.rhos      - rhos)      ./ rhos     ));
-            clearing.beqs      = max(abs((Market.beqs      - beqs)      ./ beqs     ));
-            clearing.invtocaps = max(abs((Market.invtocaps - invtocaps) ./ invtocaps));
-            clearing.capshares = max(abs((Market.capsharesPM - capsharesPM) ./ capsharesPM));
+            # Calculate market clearing series
+            clearing['rhos']   = max(abs((Market['rhos']      - rhos)      / rhos     ))
+            clearing['beqs']   = max(abs((Market['beqs']      - beqs)      / beqs     ))
+            clearing['invtocaps'] = max(abs((Market['invtocaps'] - invtocaps) / invtocaps))
+            clearing['capshares'] = max(abs((Market['capsharesPM'] - capsharesPM) / capsharesPM))
                     
-            % Check convergence
-            isConverged = (clearing.rhos      < tolerance.rhos     ) && ...
-                          (clearing.beqs      < tolerance.beqs     ) && ...
-                          (clearing.invtocaps < tolerance.invtocaps);
+            # Check convergence
+            isConverged = ((clearing['rhos']      < tolerance['rhos']     ) and (clearing['beqs']      < tolerance['beqs']     ) and 
+                          (clearing['invtocaps'] < tolerance['invtocaps']))
             
-            % Erase 'RUNNING' text and then print errors
-            fprintf('\b\b\b\b\b\b\b');
-            fprintf('Errors: K/L = %7.6f beqs = %7.6f I/K = %7.6f (K)/A = %7.6f\n', ...
-                    clearing.rhos, clearing.beqs, clearing.invtocaps, clearing.capshares)
+            # Erase 'RUNNING' text and then print errors
+            print('\b\b\b\b\b\b\b')
+            print('Errors: K/L = %7.6f beqs = %7.6f I/K = %7.6f (K)/A = %7.6f\n' % (clearing['rhos'], clearing['beqs'], clearing['invtocaps'], clearing['capshares']))
+        
+        print( '\nFinished at: %s\n' % datetime)
+
+        Dynamic['is_converged'] = isConverged
+        # Issue warning if did not converge
+        if not Dynamic['is_converged']:
+            warnings.warn('Model did not converge.')
+        
+        # Save market conditions, HH policies, and dynamic aggregates
+        scipy.io.savemat(os.join.path(save_dir, 'market.mat'), Market)
+        scipy.io.savemat(os.join.path(save_dir, 'dynamics.mat'), Dynamic)
+        decisions = {'OPTs': OPTs, 'LABs': LABs, 'savings': savings}
+        scipy.io.savemat(os.join.path(save_dir, 'decisions.mat'), decisions)
+        if isSteadyEconomy: 
+            DIST = {'DIST': DIST, 'DIST_trans': DIST_trans}
+            scipy.io.savemat(os.join.path(save_dir, 'distribution.mat'), DIST)
+        else:
+            scipy.io.savemat(os.join.path(save_dir, 'distribution.mat'), DIST)
+        
+        ## Elasticity calculation
+        if isSteadyEconomy:
+
+            # Calculate capital to output ratio
+            captoout = (Dynamic['assetsPM'] - Dynamic['debts']) / Dynamic['outs']
+
+            # Calculate labor elasticity
+            LAB_  = LABs[0]
+            DIST_ = np.sum(DIST['DIST'][:,:,:,:,:,0], axis = 4)
+
+            workind = (LAB_ > 0.01)
+
+            workmass = np.sum(DIST_[workind])
+            frisch   = np.sum(DIST_[workind] * (1 - LAB_[workind]) / LAB_[workind]) * (1 - gamma*(1-sigma))/sigma
+
+            labelas = frisch / workmass
+
+            # Calculate savings elasticity
+            ratedev = 0.01
+            Market_dev = Market
+
+            # Increase rates of return to HH by ratedev
+            #   Note: Cap gains is zero in steady state, so 
+            #         return to HH is only on equity + debt.
+            Market_dev['equityDividendRates'] = Market['equityDividendRates'] * (1 + ratedev)
+            Market_dev['bondDividendRates']   = Market['bondDividendRates']   * (1 + ratedev)
+
+            Dynamic_dev = generate_aggregates(Market_dev, [], [], [], [])
+
+            savelas = (Dynamic_dev['assetsPM'] - Dynamic['assetsPM']) / (Dynamic['assetsPM'] * ratedev)
+
+            # Calculate $GDP/HH
+            outperHH = (Dynamic['outs']/Dynamic['pops'])/scenario['modelunit_dollar']
+
+            # Calculate gini
+            GiniTable = MomentsGenerator(scenario,DIST['DIST'],Market,OPTs).giniTable
+            gini      = GiniTable.model[GiniTable.Gini=='wealth']
+
+            # Save and display elasticities
+            to_save = {'captoout': captoout, 'labelas': labelas, 'savelas': savelas, 'outperHH': outperHH, 'gini': gini,
+                'beta': beta, 'gamma': gamma, 'sigma': sigma, 'modelunit_dollar': modelunit_dollar, 'bequest_phi_1': bequest_phi_1}
+            scipy.io.savemat(os.join.path(save_dir, 'paramsTargets.mat'), to_save)
+
+            print( '\n' )
+            for label in [ ['Beta'          , beta              ] ,
+                           ['Gamma'         , gamma             ] ,
+                           ['Sigma'         , sigma             ] ,
+                           ['Model$'        , modelunit_dollar  ] ,
+                           ['phi_1'         , bequest_phi_1     ] ]:
+                print('\t%-25s= % 7.8f\n' % label)
             
-        end % GE loop
-        
-        fprintf( '\nFinished at: %s\n', datetime );
-
-        Dynamic.is_converged = isConverged;
-        % Issue warning if did not converge
-        if (~Dynamic.is_converged)
-            warning('Model did not converge.')
-        end
-        % Save market conditions, HH policies, and dynamic aggregates
-        save(fullfile(save_dir, 'market.mat'   )    , '-struct', 'Market' )
-        save(fullfile(save_dir, 'dynamics.mat' )    , '-struct', 'Dynamic')
-        save(fullfile(save_dir, 'decisions.mat')    , 'OPTs', 'LABs', 'savings')
-        if( isSteadyEconomy) 
-            DIST = struct('DIST', DIST, 'DIST_trans', DIST_trans);
-            save(fullfile(save_dir, 'distribution.mat'), '-struct', 'DIST')
-        else
-            save(fullfile(save_dir, 'distribution.mat'), 'DIST')
-        end                
-        
-        
-        %% Elasticity calculation
-        if( isSteadyEconomy )
-
-            % Calculate capital to output ratio
-            captoout = (Dynamic.assetsPM - Dynamic.debts) / Dynamic.outs;
-
-
-            % Calculate labor elasticity
-            LAB_  = LABs{1};
-            DIST_ = sum(DIST.DIST(:,:,:,:,:,1), 5);
-
-            workind = (LAB_ > 0.01);
-
-            workmass = sum(DIST_(workind));
-            frisch   = sum(DIST_(workind) .* (1 - LAB_(workind)) ./ LAB_(workind)) * (1 - gamma*(1-sigma))/sigma;
-
-            labelas = frisch / workmass;
-
-
-            % Calculate savings elasticity
-            ratedev = 0.01;
-            Market_dev = Market;
-
-            % Increase rates of return to HH by ratedev
-            %   Note: Cap gains is zero in steady state, so 
-            %         return to HH is only on equity + debt.
-            Market_dev.equityDividendRates = Market.equityDividendRates * (1 + ratedev);
-            Market_dev.bondDividendRates   = Market.bondDividendRates   * (1 + ratedev);
-
-            [Dynamic_dev] = generate_aggregates(Market_dev, {}, {}, {}, {});
-
-            savelas = (Dynamic_dev.assetsPM - Dynamic.assetsPM) / (Dynamic.assetsPM * ratedev);
-
-            % Calculate $GDP/HH
-            outperHH = (Dynamic.outs./Dynamic.pops)./scenario.modelunit_dollar;
-
-            % Calculate gini
-            GiniTable = MomentsGenerator(scenario,DIST.DIST,Market,OPTs).giniTable;
-            gini      = GiniTable.model(GiniTable.Gini=='wealth');
-
-            % Save and display elasticities
-            save(fullfile(save_dir, 'paramsTargets.mat') ...
-                , 'captoout', 'labelas', 'savelas', 'outperHH', 'gini' ...
-                , 'beta', 'gamma', 'sigma', 'modelunit_dollar', 'bequest_phi_1' );
-
-            fprintf( '\n' );
-            for label = { {'Beta'          , beta              } , ...
-                          {'Gamma'         , gamma             } , ...
-                          {'Sigma'         , sigma             } , ...
-                          {'Model$'        , modelunit_dollar  } , ...
-                          {'phi_1'         , bequest_phi_1     } }
-                fprintf('\t%-25s= % 7.8f\n', label{1}{:})
-            end
-            fprintf( '--------------\n' );
-            for label = { {'Capital/Output'        , captoout   } , ...
-                          {'Labor elasticity'      , labelas    } , ...
-                          {'Savings elasticity'    , savelas    } , ...
-                          {'Output/HH'             , outperHH   } , ...
-                          {'Wealth Gini'           , gini       } }
-                fprintf('\t%-25s= % 7.4f\n', label{1}{:})
-            end
-            fprintf('\n');
-
-        end % Calibration information for steady economy
-        
-        
-        %%
-        
-        % Create completion indicator file
-        fclose(fopen(fullfile(save_dir, 'solved'), 'w'));
-        
-        % Attempt to move scenario solution to its final resting place.
-        % (Errors are typically due to multiple simultaneous copy attempts, 
-        % which should result in at least one successful copy)
-        try 
-            movefile(save_dir, PathFinder.getCacheDir( scenario )); 
-        catch e
-            fprintf( 'WARNING! Moving temporary working dir to final cached dir: %s \n', e.getReport() );
-        end
-        
-        % Release MEX file to avoid locks
-        clear mex; %#ok<CLMEX>
-        
-    end % solve
-    
-    
-    %% 
-    % Solve unanticipated shock on transition path
-    %
-    function [save_dir] = solvePolicyShock( scenario, callertag )
-        
-        if( scenario.isSteady() )
-            throw MException('solvePolicyShock:BAD_TIMING', 'Scenario cannot be steady-state.' );
-        end
-        
-        % Identify a temporary directory for output which will be copied
-        % to the scenario's WorkingDir upon completion.
-        [save_dir, callingtag] = PathFinder.getTempWorkingDir(scenario, callertag );
-
-        % Solving 'closed' transition path requires 'open'
-        % ModelSolver.solve() does not have the right dependences for shocked paths
-        % (need to pass initial_state from 'open' when hardyload runs from
-        % 'closed'. Since we don't have that, solve explicitly here.
-        if( ~scenario.isSteady() && ~scenario.isOpen() )
-           ModelSolver.solvePolicyShock( scenario.open(), '' ); 
-        end
-
-        % Create baseline path and shocked path 
-        scenario1 = scenario.currentPolicy();
-        scenario2 = scenario.postShock();
-        
-        scenario1_generator = @() ModelSolver.solve(scenario1, callingtag);
-        scenario1_dir       = PathFinder.getCacheDir(scenario1);
-        Market1             = hardyload('market.mat'        , scenario1_generator, scenario1_dir);
-        Dynamic1            = hardyload('dynamics.mat'      , scenario1_generator, scenario1_dir);
-        Distribution1       = hardyload('distribution.mat'  , scenario1_generator, scenario1_dir);
-        Decisions1          = hardyload('decisions.mat'     , scenario1_generator, scenario1_dir);
-
-        T = scenario2.TransitionFirstYear - scenario1.TransitionFirstYear;
-        
-        % This is a list of the GovtDebt variables that have a nonstandard
-        % size in Market.  They are usually a matrix of (periods, 30) as
-        % opposed to a vector or a singleton. Therefore, these have to be
-        % separately loaded into Markets.  
-        debtVarList ={'effectiveRatesByMaturity', 'debtDistributionByMaturity', 'effectiveRatesByMaturity_next', 'debtDistributionByMaturity_next'};
-        
-        % Find model year for scenario2 t=0 and fetch Market and
-        % Dynamic from that year
-        
-        for p = fieldnames(Market1)'
-            valuename = p{1};
-            % For non-vectors, just copy the whole thing -- these should be
-            % single values (or the priceindices struct)
-            if (max(strcmp(valuename, debtVarList)) > 0)
-                vectorLoc = min(size(Market1.(valuename),1),T);
-                Market.(valuename) = Market1.(valuename)(vectorLoc,:);
-            else
-                if( size(Market1.(valuename), 2) < T ) 
-                    Market.(valuename) = Market1.(valuename);
-                else
-                    Market.(valuename) = Market1.(valuename)(T);
-                end
-            end
-        end
-        for p = fieldnames(Dynamic1)'
-            valuename = p{1};
-            % For non-vectors, just copy the whole thing 
-            if( size(Dynamic1.(valuename), 2) < T )
-                Dynamic.(valuename) = Dynamic1.(valuename);
-            else
-                Dynamic.(valuename) = Dynamic1.(valuename)(T);
-            end
-        end
-        
-        % Create caps_next and debts_next variables
-        Dynamic.caps_next           = Dynamic1.caps             ( min(T+1, end) );
-        Dynamic.caps_domestic_next  = Dynamic1.caps_domestic    ( min(T+1, end) );
-        Dynamic.caps_foreign_next   = Dynamic1.caps_foreign     ( min(T+1, end) );
-        Dynamic.debts_next          = Dynamic1.debts            ( min(T+1, end) );
-        Dynamic.debts_domestic_next = Dynamic1.debts_domestic   ( min(T+1, end) );
-        Dynamic.debts_foreign_next  = Dynamic1.debts_foreign    ( min(T+1, end) );
-        Market.bondDividendRates_next = Market1.bondDividendRates    ( min(T+1, end) );
-        Market.effectiveRatesByMaturity_next = Market1.effectiveRatesByMaturity     ( min(T+1, end),: );
-        Market.debtDistributionByMaturity_next = Market1.debtDistributionByMaturity ( min(T+1, end),: );
-        
-        % Set priceCapital0 so that capgains are correctly calculated
-        Market.priceCapital0        = Market1.equityPrices( T );
-        
-        % Set average wage history for wage index calculations
-        %   Include all history from steady-state, inclusive
-        Market.averageWagesHistory  = [Market1.averageWagesHistory(1) Market1.averageWages];
-        
-        % Pull correct time period from DIST, rem: expecting t=1 population
-        DIST = Distribution1.DIST(:,:,:,:,:,T+1);            
-        
-        % Package initial_state, solve scenario2
-        init_state.Market       = Market; 
-        init_state.Dynamic      = Dynamic; 
-        init_state.DIST         = DIST;
-        init_state.yearSteady   = scenario1.TransitionFirstYear - 1;  % year of steady state
-
-        scenario2_generator = @() ModelSolver.solve(scenario2, callingtag, init_state);
-        scenario2_dir       = PathFinder.getCacheDir(scenario2);
-        Market2             = hardyload('market.mat'        , scenario2_generator, scenario2_dir);
-        Dynamic2            = hardyload('dynamics.mat'      , scenario2_generator, scenario2_dir);
-        Distribution2       = hardyload('distribution.mat'  , scenario2_generator, scenario2_dir);
-        Decisions2          = hardyload('decisions.mat'     , scenario2_generator, scenario2_dir);       
-        
-        Static2             = [];
-        if( ~scenario2.isCurrentPolicy() )
-            Static2         = hardyload('statics.mat', scenario2_generator, scenario2_dir);
-        end
-        
-        % helper function to combine scenario1 files w/ scenario2
-        function [J] = join_series( J1, J2 )
+            print( '--------------\n' )
+            for label in [['Capital/Output'        , captoout   ] , 
+                          ['Labor elasticity'      , labelas    ] ,
+                          ['Savings elasticity'    , savelas    ] ,
+                          ['Output/HH'             , outperHH   ] ,
+                          ['Wealth Gini'           , gini       ]]:
+                print('\t%-25s= % 7.4f\n' % label)
             
-            % This is a list of the GovtDebt variables that have a nonstandard
-            % size in Market.  They are usually a matrix of (periods, 30) as
-            % opposed to a vector or a singleton. Therefore, these have to be
-            % separately loaded into Markets. Removing the "next" variables
-            % for the debt too, as we do not need those anymore.
-            debtVarList ={'effectiveRatesByMaturity', 'debtDistributionByMaturity','effectiveRatesByMaturity_next','debtDistributionByMaturity_next'};
+            print('\n')
+
+        ##        
+        # Create completion indicator file
+        f = open(os.join.path(save_dir, 'solved'), 'w+')
+        f.close()
+        
+        # Attempt to move scenario solution to its final resting place.
+        # (Errors are typically due to multiple simultaneous copy attempts, 
+        # which should result in at least one successful copy)
+        try: 
+            os.rename(save_dir, PathFinder.getCacheDir( scenario ))
+        except Exception as e:
+            print( 'WARNING! Moving temporary working dir to final cached dir: %s \n' % str(e))
+        
+        # Release MEX file to avoid locks
+        #clear mex; %#ok<CLMEX>
+        
+    ## 
+    # Solve unanticipated shock on transition path
+    #
+    def solvePolicyShock( scenario, callertag ):
+        
+        if scenario.isSteady() :
+            raise Exception('Scenario cannot be steady-state.' )
+        
+        # Identify a temporary directory for output which will be copied
+        # to the scenario's WorkingDir upon completion.
+        (save_dir, callingtag) = PathFinder.getTempWorkingDir(scenario, callertag )
+
+        # Solving 'closed' transition path requires 'open'
+        # ModelSolver.solve() does not have the right dependences for shocked paths
+        # (need to pass initial_state from 'open' when hardyload runs from
+        # 'closed'. Since we don't have that, solve explicitly here.
+        if not scenario.isSteady() and not scenario.isOpen():
+           ModelSolver.solvePolicyShock( scenario.open(), '' ) 
+
+        # Create baseline path and shocked path 
+        scenario1 = scenario.currentPolicy()
+        scenario2 = scenario.postShock()
+        
+        scenario1_generator = lambda: ModelSolver.solve(scenario1, callingtag)
+        scenario1_dir       = PathFinder.getCacheDir(scenario1)
+        Market1             = hardyload('market.mat'        , scenario1_generator, scenario1_dir)
+        Dynamic1            = hardyload('dynamics.mat'      , scenario1_generator, scenario1_dir)
+        Distribution1       = hardyload('distribution.mat'  , scenario1_generator, scenario1_dir)
+        Decisions1          = hardyload('decisions.mat'     , scenario1_generator, scenario1_dir)
+
+        T = scenario2.TransitionFirstYear - scenario1.TransitionFirstYear
+        
+        # This is a list of the GovtDebt variables that have a nonstandard
+        # size in Market.  They are usually a matrix of (periods, 30) as
+        # opposed to a vector or a singleton. Therefore, these have to be
+        # separately loaded into Markets.  
+        debtVarList = ['effectiveRatesByMaturity', 'debtDistributionByMaturity', 'effectiveRatesByMaturity_next', 'debtDistributionByMaturity_next']
+        
+        # Find model year for scenario2 t=0 and fetch Market and
+        # Dynamic from that year
+        
+        for p in Market1.keys():
+            valuename = p
+            # For non-vectors, just copy the whole thing -- these should be
+            # single values (or the priceindices struct)
+            if valuename in debtVarList:
+                vectorLoc = min(Market1[valuename].shape[0],T)
+                Market[valuename] = Market1[valuename][vectorLoc,:]
+            else:
+                if Market1[valuename].shape[1] < T :
+                    Market[valuename] = Market1[valuename]
+                else:
+                    Market[valuename] = Market1[valuename][T]
+
+        for p in Dynamic1.keys():
+            valuename = p
+            # For non-vectors, just copy the whole thing 
+            if Dynamic1[valuename].shape[1] < T :
+                Dynamic[valuename] = Dynamic1[valuename]
+            else:
+                Dynamic[valuename] = Dynamic1[valuename][T]
+        
+        # Create caps_next and debts_next variables
+        Dynamic['caps_next']           = Dynamic1['caps'][ min(T+1, len(Dynamic1['caps'])) - 1 ]
+        Dynamic['caps_domestic_next']  = Dynamic1['caps_domestic'][ min(T+1, len(Dynamic1['caps_domestic'])) - 1 ]
+        Dynamic['caps_foreign_next']   = Dynamic1['caps_foreign'][ min(T+1, len(Dynamic1['caps_foreign'])) - 1 ]
+        Dynamic['debts_next']          = Dynamic1['debts'][ min(T+1, len(Dynamic['debts_next'])) - 1 ]
+        Dynamic['debts_domestic_next'] = Dynamic1['debts_domestic'][ min(T+1, len(Dynamic1['debts_domestic'])) - 1 ]
+        Dynamic['debts_foreign_next']  = Dynamic1['debts_foreign'][ min(T+1, len(Dynamic1['debts_foreign'])) - 1 ]
+        Market['bondDividendRates_next'] = Market1['bondDividendRates'][ min(T+1, len(Market1['bondDividendRates'])) - 1 ]
+        Market['effectiveRatesByMaturity_next'] = Market1['effectiveRatesByMaturity'][ min(T+1, len(Market1['effectiveRatesByMaturity'])) - 1, : ]
+        Market['debtDistributionByMaturity_next'] = Market1['debtDistributionByMaturity'][ min(T+1, len(Market1['debtDistributionByMaturity'])) - 1, : ]
+        
+        # Set priceCapital0 so that capgains are correctly calculated
+        Market['priceCapital0']        = Market1['equityPrices'][ T ]
+        
+        # Set average wage history for wage index calculations
+        #   Include all history from steady-state, inclusive
+        Market['averageWagesHistory']  = np.hstack((Market1['averageWagesHistory'][0], Market1['averageWages']))
+        
+        # Pull correct time period from DIST, rem: expecting t=1 population
+        DIST = Distribution1['DIST'][:,:,:,:,:,T]            
+        
+        # Package initial_state, solve scenario2
+        init_state['Market']       = Market 
+        init_state['Dynamic']      = Dynamic 
+        init_state['DIST']         = DIST
+        init_state['yearSteady']   = scenario1['TransitionFirstYear'] - 1  # year of steady state
+
+        scenario2_generator = lambda: ModelSolver.solve(scenario2, callingtag, init_state)
+        scenario2_dir       = PathFinder.getCacheDir(scenario2)
+        Market2             = hardyload('market.mat'        , scenario2_generator, scenario2_dir)
+        Dynamic2            = hardyload('dynamics.mat'      , scenario2_generator, scenario2_dir)
+        Distribution2       = hardyload('distribution.mat'  , scenario2_generator, scenario2_dir)
+        Decisions2          = hardyload('decisions.mat'     , scenario2_generator, scenario2_dir)       
+        
+        Static2             = []
+        if not scenario2.isCurrentPolicy():
+            Static2         = hardyload('statics.mat', scenario2_generator, scenario2_dir)
+        
+        # helper function to combine scenario1 files w/ scenario2
+        def join_series( J1, J2 ):
             
-            for p = fieldnames(J1)'
-                valuename = p{1};
-                % Note: Market (though not Dynamic,Static) has some non-vectors, 
-                %    also implictly checks length
-                if (max(strcmp(valuename, debtVarList)) > 0)
-                    % because those are stored as 2D matrices and need to
-                    % be concatenated differently.
-                    %if strfind(valuename, '_next')
-                    %    J.(valuename) = J1.(valuename);
-                    %else
-                    if ~contains(valuename, '_next')
-                        J.(valuename) = [J1.(valuename)(1:T,:); J2.(valuename)];
-                    end
-                    %end
-                else
-                    if( size(J1.(valuename), 2) >= T )
-                        J.(valuename) = [J1.(valuename)(1:T) J2.(valuename)];
-                    else
-                        if( size(J1.(valuename), 2) == 1 ) 
-                            J.(valuename) = J1.(valuename);
-                        end
-                    end
-                end
-            end
-        end % join_series
-        function [Dist] = join_dist( Dist1, Dist2 )
-            Dist = Dist1.DIST;
-            Dist(:,:,:,:,:,T+1:end) = Dist2.DIST;
-        end % join_dist
-        function [decisions] = join_decisions( D1, D2 )           
-            % Get OPTs variables
-            for p = fieldnames(D1.OPTs)'
-                valuename = p{1};
-                decisions.OPTs.(valuename) = D1.OPTs.(valuename);
-                decisions.OPTs.(valuename)(:,:,:,:,T+1:end) = D2.OPTs.(valuename);
-            end           
-            % Auxiliary variables for concatenating cohort-based LABs and savings
-            T_model1 = size(D1.OPTs.LABOR,5);
-            T_model2 = size(D2.OPTs.LABOR,5);
-            T        = T_model1 - T_model2;
-            % Initialize LABs & savings for all cohorts using scenario1
-            for i = 1:size(D1.LABs,1)
-                decisions.LABs{i}    = D1.LABs{i};
-                decisions.savings{i} = D1.savings{i};
-            end
-            % Update LABs & savings from T+1 on for cohorts alive T_model1 periods
-            for i = (T+1):(size(D1.LABs,1)-T_model1+1)
-                decisions.LABs{i}(:,:,:,T+1:end)    = D2.LABs{i-T};
-                decisions.savings{i}(:,:,:,T+1:end) = D2.savings{i-T};
-            end
-            % Update LABs & savings for cohorts alive for less than T_model1
-            % periods and more than T_model2 periods (born during scenario1)
-            gap = T;
-            for i = (size(D1.LABs,1)-T_model1+2):(size(D1.LABs,1)-T_model2)
-                decisions.LABs{i}(:,:,:,gap:end)    = D2.LABs{i-T};
-                decisions.savings{i}(:,:,:,gap:end) = D2.savings{i-T};
-                gap = gap - 1;
-            end
-            % Get LABs & savings for cohorts born during scenario2
-            for i = (size(D1.LABs,1)-T_model2+1):size(D1.LABs,1)
-                decisions.LABs{i}    = D2.LABs{i-T};
-                decisions.savings{i} = D2.savings{i-T};                
-            end
-            % Transpose
-            decisions.LABs    = decisions.LABs';
-            decisions.savings = decisions.savings';
-        end % join_decisions        
+            # This is a list of the GovtDebt variables that have a nonstandard
+            # size in Market.  They are usually a matrix of (periods, 30) as
+            # opposed to a vector or a singleton. Therefore, these have to be
+            # separately loaded into Markets. Removing the "next" variables
+            # for the debt too, as we do not need those anymore.
+            debtVarList = ['effectiveRatesByMaturity', 'debtDistributionByMaturity','effectiveRatesByMaturity_next','debtDistributionByMaturity_next']
+            
+            for p in J1.keys():
+                valuename = p
+                # Note: Market (though not Dynamic,Static) has some non-vectors, 
+                #    also implictly checks length
+                if valuename in debtVarList:
+                    # because those are stored as 2D matrices and need to
+                    # be concatenated differently.
+                    #if strfind(valuename, '_next')
+                    #    J.(valuename) = J1.(valuename);
+                    #else
+                    if not '_next' in valuename:
+                        J[valuename] = J1[valuename][0:T,:]
+                        J2[valuename]
+                
+                else:
+                    if J1[valuename].shape(1) >= T :
+                        J[valuename] = np.hstack((J1[valuename][0:T], J2[valuename]))
+                    else:
+                        if J1[valuename].shape[1] == 1 : 
+                            J[valuename] = J1[valuename]
+            return J
         
-        % Combine scenario1 and scenario 2 into single file
-        Market    = join_series( Market1 , Market2  );
-        Dynamic   = join_series( Dynamic1, Dynamic2 );
-        DIST      = join_dist( Distribution1, Distribution2 );
-        decisions = join_decisions( Decisions1, Decisions2 );
-        Static  = [];
-        if( ~isempty( Static2 ) )
-            Static = join_series( Dynamic1, Static2 );
-        end
+        def join_dist( Dist1, Dist2 ):
+            Dist = Dist1['DIST']
+            Dist[:,:,:,:,:,T:-1] = Dist2['DIST']
+            return Dist
         
-        % Save the combined Market, Dynamic
-        %   Rem: First build into save_dir, then move
-        if exist(save_dir, 'dir'), rmdir(save_dir, 's'), end, mkdir(save_dir)
-
-        save(fullfile(save_dir, 'market.mat'   )        , '-struct', 'Market' )
-        save(fullfile(save_dir, 'dynamics.mat' )        , '-struct', 'Dynamic')
-        save(fullfile(save_dir, 'distribution.mat' )    , 'DIST')
-        save(fullfile(save_dir, 'decisions.mat')        , '-struct','decisions')
-        if( ~isempty( Static ) )
-            save(fullfile(save_dir, 'statics.mat' ) , '-struct', 'Static' )
-        end
+        def join_decisions( D1, D2 ):           
+            # Get OPTs variables
+            for p in D1['OPTs'].keys():
+                valuename = p
+                decisions['OPTs'][valuename] = D1['OPTs'][valuename]
+                decisions['OPTs'][valuename][:,:,:,:,T:-1] = D2['OPTs'][valuename]
+            
+            # Auxiliary variables for concatenating cohort-based LABs and savings
+            T_model1 = D1['OPTs']['LABOR'].shape[4]
+            T_model2 = D2['OPTs']['LABOR'].shape[4]
+            T        = T_model1 - T_model2
+            # Initialize LABs & savings for all cohorts using scenario1
+            for i in range(D1['LABs'].shape[0]):
+                decisions['LABs'][i]    = D1['LABs'][i]
+                decisions['savings'][i] = D1['savings'][i]
+            
+            # Update LABs & savings from T+1 on for cohorts alive T_model1 periods
+            for i in range(T, D1['LABs'].shape[0] - T_model1 + 1):
+                decisions['LABs'][i][:,:,:,T:-1]    = D2['LABs'][i-T]
+                decisions['savings'][i][:,:,:,T:-1] = D2['savings'][i-T]
+            
+            # Update LABs & savings for cohorts alive for less than T_model1
+            # periods and more than T_model2 periods (born during scenario1)
+            gap = T
+            for i in range(D1['LABs'].shape[0] - T_model1 + 1, D1['LABs'].shape[0] - T_model2):
+                decisions['LABs'][i][:,:,:,(gap-1):-1] = D2['LABs'][i-T]
+                decisions['savings'][i][:,:,:,(gap-1):-1] = D2['savings'][i-T]
+                gap = gap - 1
+            
+            # Get LABs & savings for cohorts born during scenario2
+            for i in range(D1['LABs'].shape[0] - T_model2, D1['LABs'].shape[0]):
+                decisions['LABs'][i]    = D2['LABs'][i-T]
+                decisions['savings'][i] = D2['savings'][i-T]                
+            
+            return decisions
         
-        % Create completion indicator file
-        fclose(fopen(fullfile(save_dir, 'solved'), 'w'));
+        # Combine scenario1 and scenario 2 into single file
+        Market    = join_series( Market1 , Market2  )
+        Dynamic   = join_series( Dynamic1, Dynamic2 )
+        DIST      = join_dist( Distribution1, Distribution2 )
+        decisions = join_decisions( Decisions1, Decisions2 )
+        Static  = []
+        if len(Static2) != 0:
+            Static = join_series( Dynamic1, Static2 )
         
-        % Attempt to move scenario solution to its final resting place.
-        % (Errors are typically due to multiple simultaneous copy attempts, 
-        % which should result in at least one successful copy)
-        try 
-            movefile(save_dir, PathFinder.getCacheDir( scenario )); 
-        catch e
-            fprintf( 'WARNING! Moving temporary working dir to final cached dir: %s \n', e.getReport() );
-        end
+        # Save the combined Market, Dynamic
+        #   Rem: First build into save_dir, then move
+        if os.path.isfile(save_dir):
+            shutil.rmtree(save_dir)
+        os.mkdir(save_dir)
 
-    end % solvePolicyShock
-    
-    
-    
-end % public methods
-
-
-
-
-
-methods (Static, Access = private ) 
-    
-
-    %%
-    % Create indexes for benefits and taxmax calculations and import CPI index
-    %
-    %   Inputs:
-    %       Market.wages    = T_model-dimension vector, 
-    %       Dynamic.labs    = aggregate hours worked
-    %       Dynamic.labeffs = aggregate effective labor
-    %       nstartyears     = number of cohorts, 
-    %       realage_entry   = real age at entry, 
-    %       T_model         = number of periods in model run, 
-    %       T_life          = maximum life spam,
-    function index = generateIndices( Market                                ...
-                                    , budget                                ...
-                                    , nstartyears                           ...
-                                    , realage_entry, T_steady, T_model, T_life)
-
-        % TBD: FIX!  The timing on nominals is wrong when T_steady <> 0
-        index.nominals        = 1./budget.deflator;                       % Time-varying reciprocal CPI indexes from CBO
+        scipy.io.savemat(os.join.path(save_dir, 'market.mat'), Market)
+        scipy.io.savemat(os.join.path(save_dir, 'dynamics.mat'), Dynamic)
+        scipy.io.savemat(os.join.path(save_dir, 'distribution.mat'), DIST)
+        scipy.io.savemat(os.join.path(save_dir, 'decisions.mat'), decisions)
+        if len(Static) != 0:
+            scipy.io.savemat(os.join.path(save_dir, 'statics.mat'), Static)
         
-        % Build long wage index
-        % Index runs from before steady state starts to after model ends
-        % and last household there has died
-        T                   = T_life + T_steady + T_model - 1 + T_life;
-        t_1                 = T_life + T_steady;                    % t=1 in model
-        t_0                 = T_life;                               % t of steady state
-        wage_index          = ones(1,T);
+        # Create completion indicator file
+        f = open(os.join.path(save_dir, 'solved'), 'w+')
+        f.close()
         
-        % Overwrite index with historical values, calculated values for model periods
-        %  For t<t_steady, wages are what they are in steady
-        %  For t>T_model, wages are what they are in T_model (terminal steady state)
-        average_wage0           = Market.averageWagesHistory(1);     % Normalization from steady
-        average_wageTmodel      = Market.averageWages(T_model);
-        average_wages           = [     average_wage0 * ones(1,T_life)          ...
-                                        Market.averageWagesHistory(2:T_steady)  ...
-                                        Market.averageWages                     ...
-                                        average_wageTmodel * ones(1,T_life)];
-        wage_index              = average_wages ./ average_wage0;  
+        # Attempt to move scenario solution to its final resting place.
+        # (Errors are typically due to multiple simultaneous copy attempts, 
+        # which should result in at least one successful copy)
+        try: 
+            os.rename(save_dir, PathFinder.getCacheDir( scenario )) 
+        except Exception as e:
+            print( 'WARNING! Moving temporary working dir to final cached dir: %s \n' % str(e) )
 
-        % Store long index and size/location info
-        index.T_steadyStart     = t_0;
-        index.T_modelStart      = t_1;
-        index.T_modelEnd        = t_1 + T_model - 1;
-        index.T_index           = T;                            
-        index.wage_inflations   = wage_index;
+        return save_dir
+    
+
+    ##
+    # Create indexes for benefits and taxmax calculations and import CPI index
+    #
+    #   Inputs:
+    #       Market.wages    = T_model-dimension vector, 
+    #       Dynamic.labs    = aggregate hours worked
+    #       Dynamic.labeffs = aggregate effective labor
+    #       nstartyears     = number of cohorts, 
+    #       realage_entry   = real age at entry, 
+    #       T_model         = number of periods in model run, 
+    #       T_life          = maximum life spam,
+    def generateIndices( Market, budget, nstartyears, realage_entry, T_steady, T_model, T_life):
+
+        # TBD: FIX!  The timing on nominals is wrong when T_steady <> 0
+        index['nominals']        = 1 / budget['deflator']                       # Time-varying reciprocal CPI indexes from CBO
         
-        index.cohort_wages    = zeros(T_model, nstartyears);    % Time- and cohort-varying indexes
-        for i = 1:nstartyears
-            % Birthyear of i=1   --> T_steady
-            % So Birthyear of i  --> T_steady + i - 1
-            % So year age60 of i --> T_steady + i - 1 + (60 - realage_entry)
-            year_turn60 = T_steady + i - 1 + (60 - realage_entry);
-            index.cohort_wages(:,i) = average_wages(year_turn60)./average_wages(t_1:t_1+T_model-1);
-        end
+        # Build long wage index
+        # Index runs from before steady state starts to after model ends
+        # and last household there has died
+        T                   = T_life + T_steady + T_model - 1 + T_life
+        t_1                 = T_life + T_steady                    # t=1 in model
+        t_0                 = T_life                               # t of steady state
+        wage_index          = np.ones((1,T))
         
-    end % generateIndices
-    
-end % private methods
+        # Overwrite index with historical values, calculated values for model periods
+        #  For t<t_steady, wages are what they are in steady
+        #  For t>T_model, wages are what they are in T_model (terminal steady state)
+        average_wage0           = Market['averageWagesHistory'][0]     # Normalization from steady
+        average_wageTmodel      = Market['averageWages'][T_model - 1]
+        average_wages           = np.hstack(average_wage0 * np.ones((1,T_life)),          
+                                        Market['averageWagesHistory'][1:T_steady],
+                                        Market['averageWages'],                     
+                                        average_wageTmodel * np.ones((1,T_life)))
+        wage_index              = average_wages / average_wage0  
 
-end
+        # Store long index and size/location info
+        index['T_steadyStart']     = t_0
+        index['T_modelStart']      = t_1
+        index['T_modelEnd']        = t_1 + T_model - 1
+        index['T_index']           = T                            
+        index['wage_inflations']   = wage_index
+        
+        index['cohort_wages']    = np.zeros((T_model, nstartyears))    # Time- and cohort-varying indexes
+        for i in range(nstartyears):
+            # Birthyear of i=1   --> T_steady
+            # So Birthyear of i  --> T_steady + i - 1
+            # So year age60 of i --> T_steady + i - 1 + (60 - realage_entry)
+            year_turn60 = T_steady + i - 1 + (60 - realage_entry)
+            index['cohort_wages'][:,i] = average_wages[year_turn60] / average_wages[t_1-1:t_1+T_model-1]
+        
+        return index
 
 
-
-%%
-% Check if file exists and generate before loading if necessary, handling parallel write and read conflicts.
-% 
-function [s] = hardyload(filename, generator, save_dir)
+##
+# Check if file exists and generate before loading if necessary, handling parallel write and read conflicts.
+# 
+def hardyload(filename, generator, save_dir):
     
-    % Check if file exists and generate if necessary
-    filepath = fullfile(save_dir, filename);
-    if ~exist(filepath, 'file')
-        tagged_dir = generator();
-        fprintf( 'INFO: Generated needed dependent scenario to %s \n', tagged_dir );
-    end
+    # Check if file exists and generate if necessary
+    filepath = os.join.path(save_dir, filename)
+    if not os.path.isfile(filepath):
+        tagged_dir = generator()
+        print( 'INFO: Generated needed dependent scenario to %s \n' % tagged_dir)
     
-    % Turn on pause and store current pause state
-    pause0 = pause('on');
+    # Set maximum number of attempts and maximum pause time in seconds
+    maxtries = 200
+    maxpause = 2.0
     
-    % Set maximum number of attempts and maximum pause time in seconds
-    maxtries = 200;
-    maxpause = 2.0;
-    
-    for itry = 1:maxtries
-        try
-            % Attempt load
-            s = load(filepath);
+    for itry in range(maxtries):
+        try:
+            # Attempt load
+            s = scipy.io.loadmat(filepath)
             break
-        catch e
-            if (itry == maxtries)
-                error('Failed to load ''%s'' after %d attempts.\n%s', filepath, maxtries, e.message)
-            end
-            % Take a breather
-            pause(rand * maxpause)
-        end
-    end
+        except Exception as e:
+            if itry == maxtries:
+                raise Exception('Failed to load ''%s'' after %d attempts.\n%s' % (filepath, maxtries, str(e)))
+            
+            # Take a breather
+            time.sleep(math.random() * maxpause)
     
-    % Reset pause state
-    pause(pause0)
-    
-end
+    return s
