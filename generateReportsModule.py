@@ -15,6 +15,7 @@ import pandas as pd
 import shutil
 import openpyxl
 import numbers
+import pickle
 
 class GenerateReports: 
     
@@ -508,7 +509,8 @@ class GenerateReports:
         # transition is skipped.
         
         if isinstance(scenario, str):
-            scenario = sio.loadmat(scenario)
+            with open(scenario, 'rb') as handle:
+                scenario = pickle.load(handle)
         scenario = GenerateReports.deNestStructure(scenario)
         
         steadyState = False
@@ -1773,8 +1775,9 @@ class GenerateReports:
         # to look like.  It has to be a '.mat' file.
         
         # This part is if we're loading it as a '.mat' file
-        if '.mat' in outfile:
-            outputStructure = sio.loadmat(outfile)
+        if '.pkl' in outfile:
+            with open(outfile, 'rb') as handle:
+                outputStructure = pickle.load(handle)
          
         return outputStructure
   
@@ -1802,13 +1805,16 @@ class GenerateReports:
         markets = {}
         
         # Load all of the aggregate values
-        outputDataStructure['steady'] = sio.loadmat(os.join.path(steadyDir, 'dynamics.mat'))
+        with open(os.path.join(steadyDir, 'dynamics.pkl'), 'rb') as handle:
+            outputDataStructure['steady'] = pickle.load(handle)
         if (not steadyState) and ('base' in experiments):
-            outputDataStructure['base']     = sio.loadmat(os.join.path(baseDir,   'dynamics.mat'))
-        if (not steadyState) and ('counter' in experiments):
-            outputDataStructure['counter']  = sio.loadmat(os.join.path(simDir,    'dynamics.mat')) 
+            with open(os.path.join(baseDir,   'dynamics.pkl'), 'rb') as handle:
+                outputDataStructure['base']     = pickle.load(handle)
+            with open(os.path.join(simDir,    'dynamics.pkl'), 'rb') as handle:
+                outputDataStructure['counter']  = pickle.load(handle) 
         if (not steadyState) and ('static'in experiments):
-            outputDataStructure['static']   = sio.loadmat(os.join.path(simDir,    'statics.mat')) 
+            with open(os.path.join(simDir,    'statics.pkl'), 'rb') as handle:
+                outputDataStructure['static']   = pickle.load(handle)
         if steadyState:
             if 'base' in experiments:    
                 outputDataStructure['base'] = outputDataStructure['steady']
@@ -1818,13 +1824,17 @@ class GenerateReports:
                 outputDataStructure['static'] = outputDataStructure['steady']
 
         # Load all of the market values
-        markets['steady']  = sio.loadmat(os.join.path(steadyDir, 'market.mat'))
+        with open(os.path.join(steadyDir, 'market.pkl'), 'rb') as handle:
+            markets['steady']  = pickle.load(handle)
         if (not steadyState) and ('base' in experiments):
-            markets['base'] = sio.loadmat(os.join.path(baseDir, 'market.mat'))
+            with open(os.path.join(baseDir, 'market.pkl'), 'rb') as handle:
+                markets['base'] = pickle.load(handle)
         if (not steadyState) and ('counter' in experiments): 
-            markets['counter'] = sio.loadmat(os.join.path(simDir, 'market.mat')) 
+            with open(os.path.join(simDir, 'market.pkl'), 'rb') as handle:
+                markets['counter'] = pickle.load(handle) 
         if (not steadyState) and ('static' in experiments):
-            markets['static']  = sio.loadmat(os.join.path(baseDir, 'market.mat'))
+            with open(os.path.join(baseDir, 'market.pkl'), 'rb') as handle:
+                markets['static']  = pickle.load(handle)
         if steadyState:
             if 'base' in experiments:
                 markets['base'] = markets['steady']
@@ -1834,13 +1844,17 @@ class GenerateReports:
                 markets['static'] = markets['steady']
 
         # Load all of the distributions
-        dist['steady'] = sio.loadmat(os.join.path(steadyDir, 'distribution.mat'))
+        with open(os.path.join(steadyDir, 'distribution.pkl'), 'rb') as handle:
+            dist['steady'] = pickle.load(handle)
         if (not steadyState) and ('base' in experiments):
-            dist['base'] = sio.loadmat(os.join.path(baseDir, 'distribution.mat'))
+            with open(os.path.join(baseDir, 'distribution.pkl'), 'rb') as handle:
+                dist['base'] = pickle.load(handle)
         if (not steadyState) and ('counter' in experiments):
-            dist['counter'] = sio.loadmat(os.join.path(simDir, 'distribution.mat')) 
+            with open(os.path.join(simDir, 'distribution.pkl'), 'rb') as handle:
+                dist['counter'] = pickle.load(handle) 
         if (not steadyState) and ('static' in experiments):
-            dist['static'] = sio.loadmat(os.join.path(simDir, 'Static_distribution.mat')) 
+            with open(os.path.join(simDir, 'Static_distribut.pkl'), 'rb') as handle:
+                dist['static'] = pickle.load(handle) 
         if steadyState:
             if ('base' in experiments):
                 dist['base'] = dist['steady']
@@ -1850,13 +1864,17 @@ class GenerateReports:
                 dist['static'] = dist['steady']
 
         # Load all of the decisions
-        decisions['steady'] = sio.loadmat(os.join.path(steadyDir, 'decisions.mat'))
+        with open(os.path.join(steadyDir, 'decisions.pkl'), 'rb') as handle:
+            decisions['steady'] = pickle.load(handle)
         if (not steadyState) and ('base' in experiments):
-            decisions['base'] = sio.loadmat(os.join.path(baseDir, 'decisions.mat'))
+            with open(os.path.join(baseDir, 'decisions.pkl'), 'rb') as handle:
+                decisions['base'] = pickle.load(handle)
         if (not steadyState) and ('counter' in experiments):
-            decisions['counter'] = sio.loadmat(os.join.path(simDir, 'decisions.mat')) 
+            with open(os.path.join(simDir, 'decisions.pkl'), 'rb') as handle:
+                decisions['counter'] = pickle.load(handle) 
         if (not steadyState) and ('static' in experiments):
-            decisions['static'] = sio.loadmat(os.join.path(simDir, 'Static_decisions.mat')) 
+            with open(os.path.join(simDir, 'Static_decisions.pkl'), 'rb') as handle:
+                decisions['static'] = pickle.load(handle) 
         if steadyState:
             if 'base' in experiments:
                 decisions['base'] = decisions['steady']

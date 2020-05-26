@@ -9,6 +9,7 @@ import scipy.io as sio
 import os
 import matplotlib.pyplot as plt
 import pandas as pd
+import pickle
 
 
 class MomentsGenerator:
@@ -22,6 +23,9 @@ class MomentsGenerator:
     l_distmodel = None
     l_ginimodel = None
     l_lorenz = None
+    t_distmodel = None
+    t_ginimodel = None
+    t_lorenz = None
     DIST = None
     T_work = None
     T_life = None
@@ -56,7 +60,7 @@ class MomentsGenerator:
         nb          = grids['nb']             # num avg. earnings points
             
         # Useful later for a couple of functions
-        self.kv     = grids.kv
+        self.kv     = grids['kv']
         self.karray = np.tile(np.reshape(grids['kv'], [1,nk,1,1,1,1]),[nz,1,nb,T_life,ng,T_model])
         self.T_work = Tmax_work
         self.T_life = T_life
@@ -64,21 +68,26 @@ class MomentsGenerator:
         ## DISTRIBUTION AND POLICY FUNCTIONS
             
         # Import households distribution
-        if DIST == None:
-            s = sio.loadmat(os.path.join(save_dir, 'distribution.mat' ))
+        if DIST is None:
+            with open(os.path.join(save_dir, 'distribution.pkl' ), 'rb') as handle:
+                s = pickle.load(handle)
             DIST = s['DIST']
-        dist = DIST[:]
-        dist_l = [[[[[[]]]]]]
+        dist = DIST.flatten(order='F')
+        if T_model == 1:
+            DIST = DIST[:,:,:,:,:,np.newaxis]
+        
+        dist_l = np.zeros((nz, nk, nb, T_life, ng, T_model))
         dist_l[0:nz,0:nk,0:nb,0:Tmax_work,0:ng,0:T_model] = DIST[0:nz,0:nk,0:nb,0:Tmax_work,0:ng,0:T_model] # Working age population
         dist_l[0:nz,0:nk,0:nb,Tmax_work-1:T_life,0:ng,0:T_model] = 0 # Retired population
-        dist_l = dist_l[:]/np.sum(dist_l[:])
+        dist_l = dist_l.flatten(order='F')/np.sum(dist_l)
         
         # Useful later for a couple of functions
         self.DIST = DIST
             
         # Import market variables
-        if  Market == None:
-            s = sio.loadmat(os.path.join(save_dir, 'market.mat'))
+        if  Market is None:
+            with open(os.path.join(save_dir, 'market.pkl')) as handle:
+                s = pickle.load(handle)
             wages = s['wages']
             capsharesAM = s['capsharesAM']
             bondDividendRates   = s['bondDividendRates']
@@ -88,38 +97,40 @@ class MomentsGenerator:
             capsharesAM         = Market['capsharesAM']
             bondDividendRates   = Market['bondDividendRates']
             equityDividendRates = Market['equityDividendRates']
-            
+        
+        
         # Import policy functions
         f = lambda X: np.tile(np.reshape(X, [nz,nk,nb,T_life,1,T_model]), [1,1,1,1,ng,1])
-        if (OPTs == None):
-            s = sio.loadmat(os.path.join(save_dir, 'decisions.mat'))
+        if OPTs is None:
+            with open(os.path.join(save_dir, 'decisions.pkl')) as handle:
+                s = pickle.load(handle)
             s = s['OPTs']
-            labinc   = f(s['LABOR']) * np.tile(np.reshape(np.transpose(zs, [3,2,1]), [nz,1,1,T_life,1,T_model]),[1,nk,nb,1,ng,1]) * wages
+            labinc   = f(s['LABOR']) * np.tile(np.reshape(np.transpose(zs, [2,1,0]), [nz,1,1,T_life,1,T_model]),[1,nk,nb,1,ng,1]) * wages
             k        = f(s['SAVINGS'])
             self.ben = f(s['OASI_BENEFITS'])
             self.lab = f(s['LABOR'])
             self.con = f(s['CONSUMPTION'])
         else:
-            labinc   = f(OPTs['LABOR']) * np.tile(np.reshape(np.transpose(zs, [3,2,1]), [nz,1,1,T_life,1,T_model]),[1,nk,nb,1,ng,1]) * wages
+            labinc   = f(OPTs['LABOR']) * np.tile(np.reshape(np.transpose(zs, [2,1,0]), [nz,1,1,T_life,1,T_model]),[1,nk,nb,1,ng,1]) * wages
             k        = f(OPTs['SAVINGS'])
             self.ben = f(OPTs['OASI_BENEFITS'])
             self.lab = f(OPTs['LABOR'])
             self.con = f(OPTs['CONSUMPTION'])
         
         kinc   = ( (1-capsharesAM)*bondDividendRates + capsharesAM*equityDividendRates ) * k
-        totinc = labinc[:] + kinc[:] + self.ben[:]  # Total income
-        labinc = labinc[:]  # Labor income
-        k      = k     [:]  # Asset holdings for tomorrow (k')
+        totinc = labinc.flatten(order='F') + kinc.flatten(order='F') + self.ben.flatten(order='F')  # Total income
+        labinc = labinc.flatten(order='F')  # Labor income
+        k      = k.flatten(order='F')  # Asset holdings for tomorrow (k')
             
         # DATA WEALTH AND INCOME DISTRIBUTIONS
         file = pathFinder.getMicrosimInputPath('SIM_NetPersonalWealth_distribution')
-            
-        self.a_distdata = pd.from_csv(file)
-        self.a_distdata.append([100, None, 1])      # Append last point for graph
+
+        self.a_distdata = pd.read_csv(file)
+        self.a_distdata.append([99.9, float('nan'), 1])      # Append last point for graph
             
         file = pathFinder.getMicrosimInputPath('SIM_PreTaxLaborInc_distribution')
-        self.l_distdata = pd.from_csv(file)
-        self.l_distdata.append([100, None, 1])       # Append last point for graph
+        self.l_distdata = pd.read_csv(file)
+        self.l_distdata.append([99.9, float('nan'), 1])       # Append last point for graph
             
         # MODEL WEALTH AND INCOME DISTRIBUTIONS
             
@@ -132,6 +143,11 @@ class MomentsGenerator:
         self.l_distmodel = get_moments(dist_l,labinc)
         # Gini and Lorenz curve
         (self.l_ginimodel, self.l_lorenz) = gini(dist_l,labinc)
+        
+        # Compute total income distribution
+        self.t_distmodel = get_moments(dist,totinc)
+        # Gini and Lorenz curve
+        (self.t_ginimodel, self.t_lorenz) = gini(dist,labinc)
         
     # Table - data and model Gini and the gap between them
     def giniTable(self):
@@ -146,10 +162,10 @@ class MomentsGenerator:
         l_ginigap = 100*(l_ginidata / self.l_ginimodel - 1);
 
         # MomentsGenerator output
-        gini_table = pd.DataFrame({'Gini': ['wealth', 'lab_income'],
-                                   'data': [a_ginidata, l_ginidata],
-                                   'mode': [self.a_ginimodel, self.l_ginimodel],
-                                   'percent_gap': [a_ginigap, l_ginigap]})
+        gini_table = pd.DataFrame({'Gini': ['wealth', 'lab_income','total_income'],
+                                   'data': [a_ginidata, l_ginidata, float('nan')],
+                                   'model': [self.a_ginimodel, self.l_ginimodel, self.t_ginimodel],
+                                   'percent_gap': [a_ginigap, l_ginigap,float('nan')]})
             
         return gini_table
         
@@ -360,7 +376,8 @@ class MomentsGenerator:
             
         # Calculate SS outlays as a percentage of GDP
         steady_dir    = PathFinder.getCacheDir(self.scenario)
-        s_dynamics    = sio.loadmat(os.join.path(steady_dir, 'dynamics.mat'))
+        with open(os.path.join(steady_dir, 'dynamics.pkl'), 'rb') as handle:
+            s_dynamics    = pickle.load(handle)
         s['SSbentoout']  = np.sum(ben_retired * dist_retired, axis = 1)/s_dynamics['outs']
         s['SStaxtoout']  = s_dynamics['ssts']/s_dynamics['outs']
             
@@ -400,7 +417,7 @@ def get_moments(dist,x):
     moments = pd.DataFrame({'percentile': [], 'threshold': [], 'cumulativeShare': []})
             
     for perc in np.arange(0,1.01,0.01):
-        moments.append(get_percentile(perc,dist,x)) #ok<AGROW>
+        moments = moments.append(get_percentile(perc,dist,x), ignore_index = True) #ok<AGROW>
 
     return moments
 
@@ -420,7 +437,7 @@ def get_percentile(perc, dist, x):
     sortv = np.argsort(x)
     x = np.sort(x)
     dist = dist[sortv]
-    i = np.where(np.cumsum(dist) >= perc)[0]
+    i = np.where(np.cumsum(dist) >= perc)[0][0]
 
     perc_summary = {'percentile': sum(dist[0:i]),
                           'threshold':       x[i],

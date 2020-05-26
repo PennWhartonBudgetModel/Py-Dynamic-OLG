@@ -98,11 +98,13 @@ class InitialGuess:
         steady_dir      = PathFinder.getCacheDir(steadyScenario)
 
         source   = 'cached scenario'
-        if os.path.isfile(os.path.join(steady_dir, 'market.mat')):
-            Market = sio.loadmat(os.path.join(steady_dir, 'market.mat'))
+        if os.path.isfile(os.path.join(steady_dir, 'market.pkl')):
+            with open(os.path.join(steady_dir, 'market.pkl'), 'rb') as handle:
+                Market = pickle.load(handle)
             
-        if os.path.isfile(os.path.join(steady_dir, 'dynamics.mat')):
-            Dynamic  = sio.loadmat(os.path.join(steady_dir, 'dynamics.mat'))
+        if os.path.isfile(os.path.join(steady_dir, 'dynamics.pkl')):
+            with open(os.path.join(steady_dir, 'dynamics.pkl'), 'rb') as handle:
+                Dynamic  = pickle.load(handle)
 
         if len(Market) == 0 or len(Dynamic) == 0:
                 

@@ -9,6 +9,7 @@ from govtDebtModule import GovtDebt
 from momentsGeneratorModule import MomentsGenerator
 from socialSecurityModule import SocialSecurity
 from convergenceModule import Convergence
+from helpersModule import makeIterable, checkOneColumn
 
 import os
 import shutil
@@ -21,6 +22,10 @@ import time
 import warnings
 import datetime
 import shelve
+import copy
+import pickle
+import random
+from numba import jit
 
 class ModelSolver:
     
@@ -66,15 +71,15 @@ class ModelSolver:
         ##
         # Aggregate generation function
         #@staticmethod
+        
         def generate_aggregates(Market, Aggregate, DIST_steady, LABs_static, savings_static, DIST_static):
-            
             # Define dynamic aggregate generation flag
             isdynamic = (len(DIST_static) == 0) or (len(LABs_static) == 0) or (len(savings_static) == 0)
             
             # Set static optimal decision values to empty values for dynamic aggregate generation
             if isdynamic:
-                LABs_static = np.empty((nstartyears,nstartyears))
-                savings_static = np.empty((nstartyears,nstartyears))
+                LABs_static = np.array([[] for i in range(nstartyears)])
+                savings_static = np.array([[] for i in range(nstartyears)])
                 
             # Initialize optimal decision value arrays
             OPTs = {}
@@ -103,7 +108,7 @@ class ModelSolver:
             sstax_brackets_indexed  = theSocialSecurity.payrollTaxBrackets
             sstax_rates_indexed     = theSocialSecurity.payrollTaxRates
             sstax_burdens_indexed   = theSocialSecurity.payrollTaxBurdens
-            
+
             # Package fixed dynamic optimization arguments into anonymous function
             solve_cohort_ = lambda V0, LAB_static, saving_static, T_past, T_shift, T_active, T_works, ssbenefits, cohort_wageindexes: ModelSolver.solve_cohort(
                  V0, LAB_static, saving_static, isdynamic,
@@ -123,7 +128,7 @@ class ModelSolver:
                  Market['capsharesAM'], taxBusiness['shareIncomeCorp'],  taxBusiness['shareIncomePass'],
                  Market['equityDividendRates'], Market['bondDividendRates'], # Equity and bond returns
                  Market['corpDividendRates'], Market['passTaxIncRates'],   # Taxable dividends
-                 Market['equityPrices'], np.hstack((Market['equityPrice0'], Market['equityPrices'][0:T_model-1]))  # Equity prices (pm and am)
+                 Market['equityPrices'], np.hstack((makeIterable(Market['equityPrice0']), Market['equityPrices'][0:T_model-1]))  # Equity prices (pm and am)
                  )
                 
             # Initialize series of terminal utility values
@@ -140,30 +145,32 @@ class ModelSolver:
                 
                 # Define series of terminal utility values
                 V0s[:,:,:,0:T_life-1] = np.copy(OPT['V'][:,:,:,1:T_life])
-             
+            
             if isSteadyEconomy:
                 # Store optimal decision values
                 for o in os:
                     OPTs[o][:,:,:,:,0] = np.copy(OPT[o])
-                
                 LABs[0]    = np.copy(OPT['LABOR'])
                 savings[0] = np.copy(OPT['SAVINGS'])
             else:
                 # Solve transition path cohorts
                 OPTs_cohort = nstartyears * [None]
                 
+         
                 # TBD parallelize for loop
                 for i in range(nstartyears): 
                     
                     # Extract terminal utility values
-                    V0 = np.copy(V0s[:,:,:,T_ends[i]]) ##ok<PFBNS>
+                    V0 = np.copy(V0s[:,:,:,T_ends[i]-1]) ##ok<PFBNS>
                     
                     # Calculate cohort-based year-varying benefits policy
                     ssbenefits = theSocialSecurity.getBenefitsForCohort(i) 
-                    
                     # Solve dynamic optimization
-                    OPTs_cohort[i] = solve_cohort_(V0, LABs_static[i], savings_static[i], T_pasts[i], T_shifts[i], T_actives[i], T_works[i], ssbenefits, Market['priceindices']['cohort_wages'][:,i])
-                    
+                    try:
+                        OPTs_cohort[i] = solve_cohort_(V0, LABs_static[i, None, None, None], savings_static[i, None, None, None], T_pasts[i], T_shifts[i], T_actives[i], T_works[i], ssbenefits, Market['priceindices']['cohort_wages'][:,i])
+                    except:
+                        OPTs_cohort[i] = solve_cohort_(V0, LABs_static[i], savings_static[i], T_pasts[i], T_shifts[i], T_actives[i], T_works[i], ssbenefits, Market['priceindices']['cohort_wages'][:,i])
+                        
                     LABs[i]    = np.copy(OPTs_cohort[i]['LABOR'])
                     savings[i] = np.copy(OPTs_cohort[i]['SAVINGS'])
                     
@@ -174,7 +181,7 @@ class ModelSolver:
                         year = t + T_shifts[i]
                         for o in os:
                             OPTs[o][:,:,:,age,year] = np.copy(OPTs_cohort[i][o][:,:,:,t])
-                            
+                  
             if isdynamic:
                 if isSteadyEconomy:
                     # Determine steady state age distribution without immigration
@@ -200,13 +207,13 @@ class ModelSolver:
                     nyears = 153
                 else:
                     # Define initial population distribution as steady state distribution
-                    DIST_next = np.copy(DIST_steady[:,:,:,:,:,0])
+                    DIST_next = np.copy(DIST_steady)
 
                     # Specify number of distribution generation years as number of model years
                     nyears = T_model
                     
                     # Define initial population distribution as steady state distribution
-                    newDIST_next = np.copy(DIST_steady[:,:,:,:,:,0])
+                    newDIST_next = np.copy(DIST_steady)
                     
                 # We are initializing our entry and exit matrices.  These
                 # matrices will keep track of how many people enter and
@@ -253,7 +260,7 @@ class ModelSolver:
                     entry[:,:,:,42:T_life,:,:] = 0                          # Capping entry at age 62, so people have a chance to earn a work history and accululate assets (else could end up with negative consumption in retirement)
                     exit[:,:,:,:,g['legal'], year-1]    = np.squeeze(np.tile(np.reshape( sNew['legal']['emigrationRate'][min(year, max_Model)-1,:], (1,1,1,T_life,1)), [nz,nk, nb,1,1]))
                     exit[:,:,:,:,g['illegal'], year-1]  = np.squeeze(np.tile(np.reshape( sNew['illegal']['emigrationRate'][min(year, max_Model)-1,:], (1,1,1,T_life,1)), [nz,nk, nb,1,1]))
-       
+                    
                     newDIST_next = ModelSolver.generate_distribution_new(newDIST_year, entry[:,:,:,:,:,min(year, T_model)-1], K, B, nz, nk, nb, T_life, ng, np.squeeze(transz[min(year, T_model)-1,:,:,:]), kv, bv, sNew['surv'][min(year, T_model)-1,:],  np.ones((nz,nk,nb,T_life,ng)) - exit[:,:,:,:,:,min(year, T_model)-1])
                     assert (newDIST_next>=0).all(), 'Negative mass of people at DIST_next.'
                     
@@ -347,37 +354,33 @@ class ModelSolver:
             
             # Generate aggregates
             assert (DIST>=0).all(), 'WARNING! Negative mass of people at DIST.'
-            DIST_gs = np.reshape(np.sum(DIST, axis = 4), [nz,nk,nb,T_life,T_model])
-            
-            breakpoint()
-            
-            q = lambda F: np.sum(np.reshape(DIST_gs * F, (-1, T_model)), axis=0)
-            
-            Aggregate = {}
-            
-            Aggregate['pops']      = q(1)                                                                                        # Population
-            Aggregate['lumpSumTaxes'] = q(OPTs['LUMP_SUM_TAX'])
-            Aggregate['bequests']  = q(OPTs['SAVINGS'] * np.tile(np.reshape(1-surv, (1,1,1,T_life,T_model)), [nz,nk,nb,1,1]))    # Bequests
-            Aggregate['labs']      = q(OPTs['LABOR'])                                                                            # Labor
-            Aggregate['labeffs']   = q(OPTs['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,T_model)), [1,nk,nb,1,1]))         # Effective labor
-            Aggregate['lfprs']     = q(OPTs['LABOR'] > 0.01) / f(1)                                                           # Labor force participation rate
-            Aggregate['incs']      = q(OPTs['TAXABLE_INC'])                                                                   # Income
-            Aggregate['pits']      = q(OPTs['ORD_LIABILITY'] + OPTs['PREF_LIABILITY'])                                        # Personal income tax
-            Aggregate['ssts']      = q(OPTs['PAYROLL_LIABILITY'])                                                             # Capital income tax
-            Aggregate['bens']      = q(OPTs['OASI_BENEFITS'])                                                                 # Social Security benefits
-            Aggregate['cons']      = q(OPTs['CONSUMPTION'])                                                                   # Consumption
-            Aggregate['constax']   = q(OPTs['CONSUMPTION_TAX'])                                                               # Consumption tax
-            Aggregate['assetsAM']  = q(np.tile(np.reshape(kv, (1,nk,1,1,1)), [nz, 1,nb,T_life,T_model]))                      # Assets before re-pricing
-            Aggregate['assetsPM']  = (Aggregate['assetsAM'] * (np.ones((1,T_model)) + Market['capgains'])                      # Assets after re-pricing            
+            DIST_gs = np.reshape(np.sum(DIST, axis = 4), [nz,nk,nb,T_life,T_model], order = 'F')
+                       
+            f = lambda F: np.sum(np.reshape(DIST_gs * F, (-1, T_model), order = 'F'), axis=0)
+         
+            Aggregate['pops']      = f(1)                                                                                        # Population
+            Aggregate['lumpSumTaxes'] = f(OPTs['LUMP_SUM_TAX'])
+            Aggregate['bequests']  = f(OPTs['SAVINGS'] * np.tile(np.reshape(1-np.transpose(surv), (1,1,1,T_life,T_model)), [nz,nk,nb,1,1]))    # Bequests
+            Aggregate['labs']      = f(OPTs['LABOR'])                                                                            # Labor
+            Aggregate['labeffs']   = f(OPTs['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,T_model)), [1,nk,nb,1,1]))         # Effective labor
+            Aggregate['lfprs']     = f(OPTs['LABOR'] > 0.01) / f(1)                                                           # Labor force participation rate
+            Aggregate['incs']      = f(OPTs['TAXABLE_INC'])                                                                  # Income
+            Aggregate['pits']      = f(OPTs['ORD_LIABILITY'] + OPTs['PREF_LIABILITY'])                                        # Personal income tax
+            Aggregate['ssts']      = f(OPTs['PAYROLL_LIABILITY'])                                                             # Capital income tax
+            Aggregate['bens']      = f(OPTs['OASI_BENEFITS'])                                                                 # Social Security benefits
+            Aggregate['cons']      = f(OPTs['CONSUMPTION'])                                                                   # Consumption
+            Aggregate['constax']   = f(OPTs['CONSUMPTION_TAX'])                                                               # Consumption tax
+            Aggregate['assetsAM']  = f(np.tile(np.reshape(kv, (1,nk,1,1,1)), [nz, 1,nb,T_life,T_model]))                      # Assets before re-pricing
+            Aggregate['assetsPM']  = (Aggregate['assetsAM'] * (np.ones(T_model) + Market['capgains'])                      # Assets after re-pricing            
                                     * (Market['capsharesAM']/Market['capsharesPM']))                                           # Note: The definition of assetsPM corresponds to beginning of period assets at new policy prices, that is, accounting for eventual capital gains.
-            Aggregate['laborIncomes'] = q(                                                                                  # Total labor income
+            Aggregate['laborIncomes'] = f(                                                                                  # Total labor income
                 OPTs['LABOR']                                           
-                    * np.reshape(np.transpose((zs, [2,1,0])), [nz,1,1,T_life,T_model])                
-                    * np.reshape(Market.wages, [1,1,1,1,T_model]))
+                    * np.reshape(np.transpose(zs, axes=[2,1,0]), [nz,1,1,T_life,T_model])                
+                    * np.reshape(Market['wages'], [1,1,1,1,T_model]))
         
             F = lambda x, y: min(x, y)
             Fv = np.vectorize(F)
-            Aggregate['laborIncomeSubjectToSocialSecuritys'] = q(                                                            # Total labor income subject to social security payroll tax
+            Aggregate['laborIncomeSubjectToSocialSecuritys'] = f(                                                            # Total labor income subject to social security payroll tax
                 Fv(OPTs['LABOR']
                         * np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,T_model))            
                         * np.reshape(Market['wages'], (1,1,1,1,T_model)), 
@@ -425,12 +428,11 @@ class ModelSolver:
             DIST0       = initial_state['DIST']
             yearSteady  = initial_state['yearSteady']
         else:
-            initial_state   = []      # no initial state for scenario generators
             yearSteady      = scenario.TransitionFirstYear - 1
             if not isSteadyEconomy:
-                Market0   = ModelSolver.hardyload('market.mat'      , steady_generator, steady_dir)
-                Dynamic0  = ModelSolver.hardyload('dynamics.mat'    , steady_generator, steady_dir)
-                s         = ModelSolver.hardyload('distribution.mat', steady_generator, steady_dir)
+                Market0   = ModelSolver.hardyload('market.pkl'      , steady_generator, steady_dir)
+                Dynamic0  = ModelSolver.hardyload('dynamics.pkl'    , steady_generator, steady_dir)
+                s         = ModelSolver.hardyload('distribution.pkl', steady_generator, steady_dir)
                 DIST0     = s['DIST_trans']
             else: # for steady, load initial guess
                 guess       = InitialGuess(scenario)
@@ -457,13 +459,13 @@ class ModelSolver:
         
         if not isBaseline:
             # Load baseline market and dynamics conditions
-            Market_base     = ModelSolver.hardyload('market.mat'  , base_generator, base_dir)
-            Dynamic_base    = ModelSolver.hardyload('dynamics.mat', base_generator, base_dir)
+            Market_base     = ModelSolver.hardyload('market.pkl'  , base_generator, base_dir)
+            Dynamic_base    = ModelSolver.hardyload('dynamics.pkl', base_generator, base_dir)
         if not isSteadyEconomy and not scenario.isOpen():
             # WARNING: This does not work with solvePolicyShock,
             #   ensure these files already exist from solving shocked 'open'
-            Market_open     = ModelSolver.hardyload('market.mat'  , open_generator, open_dir)
-            Dynamic_open    = ModelSolver.hardyload('dynamics.mat', open_generator, open_dir)
+            Market_open     = ModelSolver.hardyload('market.pkl'  , open_generator, open_dir)
+            Dynamic_open    = ModelSolver.hardyload('dynamics.pkl', open_generator, open_dir)
         
         
         ## PARAMETERS
@@ -488,10 +490,10 @@ class ModelSolver:
         startyears              = s['startyears']             # Cohort start years as offsets to year 1
         nstartyears             = len(startyears)
         
-        T_pasts   = max(-startyears, 0)                            # Life years before first model year
-        T_shifts  = max(+startyears, 0)                            # Model years before first life year
-        T_actives = min(startyears+T_life, T_model) - T_shifts     # Life years within modeling period
-        T_ends    = min(T_model-startyears, T_life)                # Maximum age within modeling period
+        T_pasts   = np.array([x if x > 0 else 0 for x in -startyears])                            # Life years before first model year
+        T_shifts  = np.array([x if x > 0 else 0 for x in +startyears])                           # Model years before first life year
+        T_actives = np.array([x if x < T_model else T_model for x in startyears+T_life]) - T_shifts     # Life years within modeling period
+        T_ends    = np.array([x if x < T_life else T_life for x in T_model-startyears])                # Maximum age within modeling period
         T_steady  = scenario.TransitionFirstYear - yearSteady      # Model years after t=0 when the initial state occurred
         
         # Discretized grids, including shock process
@@ -528,7 +530,7 @@ class ModelSolver:
         # Load Social Security parameters
         socialsecurity  = ParamGenerator.social_security( scenario )
         T_works         = socialsecurity['T_works']      # retirement time per cohort 
-        
+
         #  Budget: interest rates, expenditures, and debt
         #       Rem -- budget.debttoout only used in steady economy
         budget = ParamGenerator.budget( scenario )
@@ -567,18 +569,23 @@ class ModelSolver:
         if not isBaseline and not isSteadyEconomy:
             
             # Load baseline optimal decisions and population distribution
-            s      = ModelSolver.hardyload('decisions.mat', base_generator, base_dir)
+            s      = ModelSolver.hardyload('decisions.pkl', base_generator, base_dir)
             LABs_static    = s['LABs']
             savings_static = s['savings']
             
-            s      = ModelSolver.hardyload('distribution.mat', base_generator, base_dir)
-            DIST_static = s['DIST']
+            s      = ModelSolver.hardyload('distribution.pkl', base_generator, base_dir)
+            try:
+                DIST_static = s['DIST']
+            except:
+                DIST_static = s
             
             # Generate static aggregates
             # (Intermediary structure used to filter out extraneous fields)
             Static = {}
+            
             (Static, _, _, Static_DIST, Static_OPTs, _) = generate_aggregates(
                     Market_base, Static, [], LABs_static, savings_static, DIST_static)
+
             
             # Copy additional static aggregates from baseline aggregates
             for series in ['caps', 'caps_domestic', 'caps_foreign', 'capincs', 'labincs', 'outs', 'investment', 'debts_domestic', 'debts_foreign', 'invest_foreign', 'Gtilde', 'Ttilde', 'Ctilde']:
@@ -631,11 +638,11 @@ class ModelSolver:
             #    Rem: Dynamic_base(1) is supposed to be D' debt carried
             #    from steady state (before policy change)
             
-            if scenario['UseStaticDebt']:
+            if scenario.UseStaticDebt:
                 (Static['debts'], Static['deficits']) = GovtDebt.calculateStaticDebt( Static, Dynamic_base['debts'][0], budget, T_model)
             else:
-                Market0['effectiveRatesByMaturity'][0,:]   = Market0['effectiveRatesByMaturity_next']
-                Market0['debtDistributionByMaturity'][0,:] = Market0['debtDistributionByMaturity_next']
+                Market0['effectiveRatesByMaturity']   = Market0['effectiveRatesByMaturity_next']
+                Market0['debtDistributionByMaturity'] = Market0['debtDistributionByMaturity_next']
                 (Static['debts'], Static['deficits'], Market0['bondDividendRates'], Market0['effectiveRatesByMaturity'], Market0['debtDistributionByMaturity']) = GovtDebt.calculateDynamicDebts( Static, Dynamic_base['debts'][0], T_model, budget, Market0['effectiveRatesByMaturity'][0,:], Market0['debtDistributionByMaturity'][0,:], Market0['bondDividendRates'][0]) 
             
             # Total assets
@@ -648,11 +655,13 @@ class ModelSolver:
             Static['is_converged'] = False
                                 
             # Save static aggregates
-            sio.savemat(os.join.path(save_dir, 'statics.mat')              , Static)
-            sio.savemat(os.join.path(save_dir, 'Static_decisions.mat')     , Static_OPTs)
-            sio.savemat(os.join.path(save_dir, 'Static_distribution.mat')  , Static_DIST)        
+            with open(os.path.join(save_dir, 'statics.pkl'), 'wb') as handle:
+                pickle.dump(Static, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(save_dir, 'Static_decisions.pkl'), 'wb') as handle:
+                pickle.dump(Static_OPTs, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(save_dir, 'Static_distribut.pkl'), 'wb') as handle:
+                pickle.dump(Static_DIST, handle, protocol=pickle.HIGHEST_PROTOCOL)        
                 
-        
         ## Dynamic aggregate generation
         
         # Set initial guesses (Market_init, Dynamic_init)
@@ -663,8 +672,8 @@ class ModelSolver:
         
         if guessSource == 'steady':
             # rem: steady guess is from guess file
-            Market_init     = Market0
-            Dynamic_init    = Dynamic0
+            Market_init     = copy.deepcopy(Market0)
+            Dynamic_init    = copy.deepcopy(Dynamic0)
             Market_init['bondDividendRates'] = budget['debtrates'] # Use the long-term average real interest coupon
             
             Market_init['effectiveRatesByMaturity_next'] = np.full((T_model,GovtDebt.maxDuration), np.nan)
@@ -676,30 +685,33 @@ class ModelSolver:
                     
         elif guessSource == 'open':    
             if isBaseline:
+                Market_init = {}
                 for p in Market0.keys():
                     value0         = Market0[p]
                     Market_init[p] = value0
-                    if not isinstance(value0, dict) and value0.shape[1] == 1:
-                        Market_init[p] = value0 * np.ones((1,T_model))
+                    if checkOneColumn(value0):
+                        Market_init[p] = value0 * np.ones(T_model)
+                
+                Dynamic_init = {}
                 for p in Dynamic0.keys():
                     value0          = Dynamic0[p]
                     Dynamic_init[p] = value0
-                    if not isinstance(value0, dict) and value0.shape[1] == 1:
-                        Dynamic_init[p] = value0 * np.ones((1,T_model))
+                    if checkOneColumn(value0):
+                        Dynamic_init[p] = value0 * np.ones(T_model)
             else:
                 # Guess is baseline
-                Market_init  = Market_base
-                Dynamic_init = Dynamic_base
+                Market_init  = copy.deepcopy(Market_base)
+                Dynamic_init = copy.deepcopy(Dynamic_base)
                
         else:                
             if isBaseline:
                 # Guess is from open_base
-                Market_init  = Market_open
-                Dynamic_init = Dynamic_open
+                Market_init  = copy.deepcopy(Market_open)
+                Dynamic_init = copy.deepcopy(Dynamic_open)
             else:
                 # Guess from closed_base
-                Market_init  = Market_base
-                Dynamic_init = Dynamic_base
+                Market_init  = copy.deepcopy(Market_base)
+                Dynamic_init = copy.deepcopy(Dynamic_base)
                 
                
         ##       
@@ -714,8 +726,8 @@ class ModelSolver:
 
         # Initialize Market, Dynamic to guesses 
         #   rem: guesses should be right size.
-        Market  = Market_init
-        Dynamic = Dynamic_init
+        Market  = copy.deepcopy(Market_init)
+        Dynamic = copy.deepcopy(Dynamic_init)
                 
         # After-tax returns to foreign investors (from initial state)
         #   This is used to pin down capital returns when opening
@@ -735,8 +747,8 @@ class ModelSolver:
             Market['priceCapital0']        = Market0['priceCapital0']
         
         # Track previous iteration
-        prevMarket  = Market
-        prevDynamic = Dynamic
+        prevMarket  = copy.deepcopy(Market)
+        prevDynamic = copy.deepcopy(Dynamic)
         
         # Iterate over economy until convergence
         while ( theConvergence.stillConverging() ):
@@ -770,10 +782,9 @@ class ModelSolver:
                     prevDynamic['Gtilde']      = Dynamic_open['Gtilde']
                     prevDynamic['Ttilde']      = Dynamic_open['Ttilde']
                     prevDynamic['Ctilde']      = Dynamic_open['Ctilde']                
-                
+               
             ##
             # Firms sector
-            
             theFirm  = Firm( prevDynamic, prevMarket, taxBusiness, production )
             
             # Capital gains are from price of capital (in Firm)
@@ -801,8 +812,9 @@ class ModelSolver:
                 
                 if not isinstance(Market['equityDividendRates'], np.ndarray):
                     Market['equityDividendRates'] = np.array([Market['equityDividendRates']])
-                Market['averageWagesHistory']  = Market['averageWages'][0]
-                Market['worldAfterTaxReturn']  = Market['equityDividendRates'][0] * (1 - taxBusiness['rateForeignBusinessIncome'][0]) + Market['capgains'][0] # Capgains=0 in steady
+                
+                Market['averageWagesHistory']  = Market['averageWages'].item(0)
+                Market['worldAfterTaxReturn']  = Market['equityDividendRates'].item(0) * (1 - taxBusiness['rateForeignBusinessIncome'].item(0)) + Market['capgains'].item(0) # Capgains=0 in steady
                 Market['investmentToCapital0'] = Dynamic['investment'] / Dynamic['caps']
             
             # Compute price indices
@@ -826,15 +838,48 @@ class ModelSolver:
             Market['bondPrice0']           = 1
             Market['bondPrices']           = np.ones(T_model)
             if scenario.UseStaticDebt:
-                Market['bondDividendRates']    = budget['debtrates'] #rem: dividendrate is per $ of assets
+                Market['bondDividendRates']    = np.copy(budget['debtrates']) #rem: dividendrate is per $ of assets
             
             # Save previous iteration capital for closed economy klRatio
             #prev_iter['caps'] = Dynamic['caps']
             
             # Generate dynamic aggregates
+            
             (Dynamic, LABs, savings, DIST, OPTs, DIST_trans) = generate_aggregates(Market, prevDynamic, DIST0, [], [], [])
             
             
+            
+            #load generate_aggregate outputs "manually" from localsave for now instead of recomputing
+            
+            #LOAD ONLY FOR FIRST PASS THROUGH GENERATE AGGREGATES
+            #IF WORKING FILES WERE CREATED THEN comment THIS out
+            '''
+            shelf = shelve.open('localsave.out')
+            
+            Dynamic = shelf['Dynamic']
+            LABs = shelf['LABs']
+            savings = shelf['savings']
+            DIST = shelf['DIST']
+            OPTs = shelf['OPTs']
+            DIST_trans = shelf['DIST_trans']
+            
+            shelf.close()
+            '''
+            
+            #LOAD ONLY FOR SECOND PASS THROUGH GENERATE AGGREGATES
+            #IF WORKING FILES WERE CREATED THEN UNCOMMENT THIS OUT
+            '''
+            shelf = shelve.open('localsave2.out')
+            
+            Dynamic = shelf['Dynamic']
+            LABs = shelf['LABs']
+            savings = shelf['savings']
+            DIST = shelf['DIST']
+            OPTs = shelf['OPTs']
+            DIST_trans = shelf['DIST_trans']
+            
+            shelf.close()
+            '''
             # Calculate and record additional dynamic aggregates
             # (Note that open economy requires capital calculation before debt calculation 
             # while closed economy requires the reverse)
@@ -862,28 +907,29 @@ class ModelSolver:
             Dynamic['corpForeignWithholding'] = firmDist['corpForeignWithholding']
             Dynamic['passForeignWithholding'] = firmDist['passForeignWithholding']
             
-
+          
             Dynamic['revs'] = (Dynamic['pits'] + Dynamic['ssts'] + Dynamic['corpTaxs'] + Dynamic['constax'] +
                            Dynamic['corpForeignWithholding'] + Dynamic['passForeignWithholding'])
             # TBD: Add foreigner payments of interest on govdebt
-
             if isSteadyEconomy:
                 # Calculate debt, capital, and output
                 # (Numerical solver used due to absence of closed form solution)
                 f_debts = lambda outs: budget['debttoout'] * outs
                 f_caps  = lambda debts: (Dynamic['assetsPM'] - debts) / Market['equityPrices']
-                f_outs  = lambda caps: theFirm.output(caps, Dynamic.labeffs )
-                x_ = scipy.optimize.fsolve(lambda x: x - np.vstack((f_debts(x[2]), f_caps(x[0]), f_outs(x[1]))), np.zeros((3,1)))
+                f_outs  = lambda caps: theFirm.output(caps, Dynamic['labeffs'] )
+                f = lambda x: x - np.hstack((f_debts(x[2]), f_caps(x[0]), f_outs(x[1])))
+                x_ = scipy.optimize.root(f, np.zeros(3),method='lm')
+                x_ = x_.x
                 Dynamic['debts'] = x_[0]
                 Dynamic['caps']  = x_[1]
                 Dynamic['outs']  = x_[2]
 
                 Dynamic['debts_domestic'] = Dynamic['debts']
-                Dynamic['debts_foreign']  = np.zeros((1,T_model))
-                Dynamic['deficits']       = np.zeros((1,T_model))
+                Dynamic['debts_foreign']  = np.zeros(T_model)
+                Dynamic['deficits']       = np.zeros(T_model)
                 Dynamic['caps_domestic']  = Dynamic['caps']
-                Dynamic['caps_foreign']   = np.zeros((1,T_model))
-                Dynamic['invest_foreign'] = np.zeros((1,T_model))
+                Dynamic['caps_foreign']   = np.zeros(T_model)
+                Dynamic['invest_foreign'] = np.zeros(T_model)
                 Dynamic['tot_assetsAM']   = Dynamic['assetsAM']
                 Dynamic['tot_assetsPM']   = Dynamic['assetsPM']
 
@@ -894,8 +940,12 @@ class ModelSolver:
 
                 # Gross investment in physical capital
                 #    and resulting K' for "next" period
+                #global DIST
+                #global OPTs
+                #global DIST_trans
                 DIST_gs            = np.reshape(np.sum(DIST, axis=4), (nz,nk,nb,T_life,T_model))
-                assets_tomorrow    = np.sum(np.sum(np.reshape(DIST_gs * OPTs['SAVINGS'], (-1, T_model)), axis = 0), axis = 2)
+                
+                assets_tomorrow    = np.sum(np.reshape(DIST_gs * OPTs['SAVINGS'], (-1, T_model)), axis = 0)
                 Dynamic['caps_next']  = (Market['capsharesPM'] * (assets_tomorrow - Dynamic['bequests'])) / Market['equityPrices']
                 Dynamic['investment'] = Dynamic['caps_next'] - (1 - depreciation) * Dynamic['caps']
 
@@ -905,8 +955,8 @@ class ModelSolver:
                 # "Next" period debt. 
                 #   TBD: Revise to get real deficit (rem: none in
                 #   steady state)
-                Dynamic['debts_next'] = (Dynamic['debts'][0] * (1 + Market['bondDividendRates'][0])
-                                     + 0.035 * Dynamic['outs'][0]) # TBD: hardcoded deficit for now
+                Dynamic['debts_next'] = (Dynamic['debts'] * (1 + Market['bondDividendRates'][0])
+                                     + 0.035 * Dynamic['outs']) # TBD: hardcoded deficit for now
                 Dynamic['debts_foreign_next'] = 0    # steady-state has no foreigners
 
                 # Update guesses for next iteration
@@ -914,7 +964,7 @@ class ModelSolver:
                 #       Bequests should also be priced according to the new policy.
                 #       So we apply today's prices to yesterday's bequests and capshares.
                 Market['rhos']      = Dynamic['caps'] / Dynamic['labeffs']
-                Market['beqs']      = Dynamic['bequests'] / sum(DIST_trans[:])   
+                Market['beqs']      = makeIterable(Dynamic['bequests'] / np.sum(DIST_trans) )  
                 Market['invtocaps'] = Dynamic['investment'] / Dynamic['caps']
 
                 # NOTE: capshares/capital calculation potentially
@@ -922,28 +972,29 @@ class ModelSolver:
                 #   crowds out capital in the HH assets and the g'vt
                 #   can create an arbitrarily large increase in debt
                 #   from period to period.
-                Market['capsharesAM'] = (Dynamic['assetsAM'] - Dynamic['debts_domestic']) / Dynamic['assetsAM']
+                Market['capsharesAM'] = makeIterable((Dynamic['assetsAM'] - Dynamic['debts_domestic']) / Dynamic['assetsAM'])
                 Market['capsharesPM'] = (Dynamic['assetsPM'] - Dynamic['debts_domestic']) / Dynamic['assetsPM']
             
             else:
                 # Capital(1), Debts(1) come from inital state (K', D')
                 Dynamic['caps'][0] = Dynamic0['caps_next']
-                Market['effectiveRatesByMaturity'][0:T_model,0:GovtDebt['maxDuration']] = None
-                Market['debtDistributionByMaturity'][0:T_model,0:GovtDebt['maxDuration']] = None
-                if not scenario['UseStaticDebt']:
+                Market['effectiveRatesByMaturity'] = np.full((T_model, GovtDebt.maxDuration), float('nan'))
+                Market['debtDistributionByMaturity'] = np.full((T_model, GovtDebt.maxDuration), float('nan'))
+                if not scenario.UseStaticDebt:
                     Market['effectiveRatesByMaturity'][0,:] = Market0['effectiveRatesByMaturity_next']
                     Market['debtDistributionByMaturity'][0,:] = Market0['debtDistributionByMaturity_next']
                     Market['bondDividendRates'][0] = Market0['bondDividendRates_next']
-
+                
                 # Calculate debt and take-up
                 #  NOTE: Foreign debt take-up is for next period debt
                 #        We cumulate the take-ups to generate foreign
                 #        debt holdings
-                if scenario['UseStaticDebt']:
+                
+                if scenario.UseStaticDebt:
                     (Dynamic['debts'], Dynamic['deficits']) = GovtDebt.calculateStaticDebt( Dynamic, Dynamic0['debts_next'], budget, T_model)
                 else:
                     (Dynamic['debts'], Dynamic['deficits'], Market['bondDividendRates'], Market['effectiveRatesByMaturity'],Market['debtDistributionByMaturity']) = (
-                    GovtDebt.calculateDynamicDebts( Dynamic, Dynamic0['debts_next'], T_model, budget, Market['effectiveRatesByMaturity'][0,:], Market['debtDistributionByMaturity'][0,:], Market['bondDividendRates'][0]))
+                    GovtDebt.calculateDynamicDebts( Dynamic, Dynamic0['debts_next'], T_model, budget, Market['effectiveRatesByMaturity'][0], Market['debtDistributionByMaturity'][0], Market['bondDividendRates'][0]))
 
                 debt_foreign_1  = Dynamic0['debts_foreign_next']
                 new_debt_issued = Dynamic['deficits'] + (Dynamic['debts'] * Market['bondDividendRates'])
@@ -953,7 +1004,7 @@ class ModelSolver:
 
                 # Calculate capital and output
                 # Note: Dynamic.assetsPM represents current assets at new prices.
-                klRatio = theFirm.calculateKLRatio(Market['worldAfterTaxReturn'], prevDynamic['caps'], Dynamic['labeffs'])
+                (klRatio, _) = theFirm.calculateKLRatio(Market['worldAfterTaxReturn'], prevDynamic['caps'], Dynamic['labeffs'])
                 open_econ_caps          = klRatio * Dynamic['labeffs']
                 Dynamic['caps_domestic']   = (Dynamic['assetsPM'] - Dynamic['debts_domestic']) / Market['equityPrices']
                 Dynamic['caps_foreign']    = (open_econ_caps - Dynamic['caps_domestic']) * international['capitalTakeUp']
@@ -963,31 +1014,35 @@ class ModelSolver:
 
                 # Converge to find Ctilde which closes the D/Y ratio
                 Ctilde_error    = float('Inf')
-                Ctilde          = np.zeros((1, T_model))
+                Ctilde          = np.zeros(T_model)
                 while Ctilde_error > 1e-13 :
 
                     prev_Ctilde = Ctilde
 
                     # Calculate Ctilde to close debt growth
                     # Rem: This effects outs, so need to converge
-                    closure_debttoout   = Dynamic['debts']['closure_year']/Dynamic['outs']['closure_year']
+                    closure_debttoout   = Dynamic['debts'][closure_year-1]/Dynamic['outs'][closure_year-1]
+                    
                     cont_Ctilde         = GovtDebt.calculateFixedDebts(closure_debttoout,   
                                                                        Dynamic['deficits'][closure_year-2:T_model],         
                                                                        Dynamic['outs'][closure_year-2:T_model],             
                                                                        Dynamic['debts'][closure_year-2],
                                                                        Market['bondDividendRates'][closure_year-2:T_model])
+                    
                     # Update Ctilde
-                    Ctilde = np.hstack((np.zeros((1, closure_year-2)), cont_Ctilde))
-
+                    Ctilde = np.append(np.zeros(closure_year-2), cont_Ctilde)
+                    Dynamic['Ctilde'] = Ctilde
+                  
                     # Recalculate debt and check if D/Y has been fixed
                     #   Note: D/Y for t=ClosureYear is unchanged by Ctilde
-                    if scenario['UseStaticDebt']:
+                    if scenario.UseStaticDebt:
                         (Dynamic['debts'], Dynamic['deficits']) = GovtDebt.calculateStaticDebt( Dynamic, Dynamic0['debts_next'], budget, T_model)
                     else:
                         (Dynamic['debts'], Dynamic['deficits'], Market['bondDividendRates'], Market['effectiveRatesByMaturity'], Market['debtDistributionByMaturity']) = (
                             GovtDebt.calculateDynamicDebts( Dynamic, Dynamic0['debts_next'], T_model, budget, Market['effectiveRatesByMaturity'][0,:], Market['debtDistributionByMaturity'][0,:], Market['bondDividendRates'][0]))
 
                     # Re-calculate capital and output
+                   
                     new_debt_issued         = Dynamic['deficits'] - Ctilde + (Dynamic['debts'] * Market['bondDividendRates'])
                     Dynamic['debts_foreign']   = np.cumsum(np.hstack((debt_foreign_1,                                             
                                             new_debt_issued[0:T_model-1] * international['debtTakeUp'][0:T_model-1]))) 
@@ -1001,11 +1056,11 @@ class ModelSolver:
                     Dynamic['caps']            = Dynamic['caps_domestic'] + Dynamic['caps_foreign']
 
                     # Check for capital going wacky
-                    too_low_caps = np.where(Dynamic['caps'] <= 0)
+                    too_low_caps = np.where(Dynamic['caps'] <= 0)[0]
                     if len(too_low_caps) != 0 :
                         # Ctilde did not fix debt explosion in time
                         raise Exception('Capital becomes negative at t=%u.', too_low_caps[0])
-                    too_high_caps = np.where(Dynamic['caps'] > 1e6)
+                    too_high_caps = np.where(Dynamic['caps'] > 1e6)[0]
                     if len(too_high_caps) != 0 :
                         # Ctilde did not fix debt explosion in time
                         raise Exception( 'Capital becomes >1e6 at t=%u.', too_high_caps[0])
@@ -1033,11 +1088,11 @@ class ModelSolver:
                 #   but this should be final steady state (e.g. if
                 #   pop_growth changes.)
                 Dynamic['investment'] = np.hstack((Dynamic['caps'][1:T_model], 0)) - (1 - depreciation) * np.hstack((Dynamic['caps'][0:T_model-1], 0))
-                Dynamic['investment'][T_model] = Market['invtocaps'][T_model-1] * Dynamic['caps'][T_model]
+                Dynamic['investment'][T_model-1] = Market['invtocaps'][T_model-2] * Dynamic['caps'][T_model-1]
 
                 # Calculate foreign investment series (for reporting)
-                Dynamic['invest_foreign'] = (np.hstack((Dynamic['caps_foreign'][1:T_model], Dynamic['caps_foreign'][T_model])) 
-                                  - (1 - depreciation) * np.hstack((Dynamic['caps_foreign'][0:T_model-1], Dynamic['caps_foreign'][T_model-1])))
+                Dynamic['invest_foreign'] = (np.hstack((Dynamic['caps_foreign'][1:T_model], Dynamic['caps_foreign'][T_model-1])) 
+                                  - (1 - depreciation) * np.hstack((Dynamic['caps_foreign'][0:T_model-1], Dynamic['caps_foreign'][T_model-2])))
 
                 # Update guesses
                 # Note: Dynamic.assets represents current assets at new prices.
@@ -1053,13 +1108,13 @@ class ModelSolver:
                 #   crowds out capital in the HH assets and the g'vt
                 #   can create an arbitrarily large increase in debt
                 #   from period to period.
-                Market['capsharesAM'] = (Dynamic['assetsAM'] - Dynamic['debts_domestic']) / Dynamic['assetsAM']
+                Market['capsharesAM'] = makeIterable((Dynamic['assetsAM'] - Dynamic['debts_domestic']) / Dynamic['assetsAM'])
                 Market['capsharesPM'] = (Dynamic['assetsPM'] - Dynamic['debts_domestic']) / Dynamic['assetsPM']
 
             # Update Market guesses and check for convergence
             Market      = theConvergence.iterate( Market, prevMarket )
-            prevMarket  = Market
-            prevDynamic = Dynamic
+            prevMarket  = copy.deepcopy(Market)
+            prevDynamic = copy.deepcopy(Dynamic)
             
             # Erase 'RUNNING' text and then print convergence status
             print('\b\b\b\b\b\b\b')
@@ -1074,15 +1129,20 @@ class ModelSolver:
             warnings.warn('Model did not converge.')
         
         # Save market conditions, HH policies, and dynamic aggregates
-        scipy.io.savemat(os.join.path(save_dir, 'market.mat'), Market)
-        scipy.io.savemat(os.join.path(save_dir, 'dynamics.mat'), Dynamic)
+        with open(os.path.join(save_dir, 'market.pkl'), 'wb') as handle:
+            pickle.dump(Market, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(os.path.join(save_dir, 'dynamics.pkl'), 'wb') as handle:
+            pickle.dump(Dynamic, handle, protocol=pickle.HIGHEST_PROTOCOL)
         decisions = {'OPTs': OPTs, 'LABs': LABs, 'savings': savings}
-        scipy.io.savemat(os.join.path(save_dir, 'decisions.mat'), decisions)
+        with open(os.path.join(save_dir, 'decisions.pkl'), 'wb') as handle:
+            pickle.dump(decisions, handle, protocol=pickle.HIGHEST_PROTOCOL)
         if isSteadyEconomy: 
             DIST = {'DIST': DIST, 'DIST_trans': DIST_trans}
-            scipy.io.savemat(os.join.path(save_dir, 'distribution.mat'), DIST)
+            with open(os.path.join(save_dir, 'distribution.pkl'), 'wb') as handle:
+                pickle.dump(DIST, handle, protocol=pickle.HIGHEST_PROTOCOL)
         else:
-            scipy.io.savemat(os.join.path(save_dir, 'distribution.mat'), DIST)
+            with open(os.path.join(save_dir, 'distribution.pkl'), 'wb') as handle:
+                pickle.dump(DIST, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
         targets = {}
         
@@ -1091,10 +1151,10 @@ class ModelSolver:
 
             # Calculate capital to output ratio
             captoout = (Dynamic['assetsPM'] - Dynamic['debts']) / Dynamic['outs']
-
+            
             # Calculate labor elasticity
             LAB_  = LABs[0]
-            DIST_ = np.sum(DIST['DIST'][:,:,:,:,:,0], axis = 4)
+            DIST_ = np.sum(DIST['DIST'], axis = 4)
 
             workind = (LAB_ > 0.01)
 
@@ -1105,52 +1165,60 @@ class ModelSolver:
 
             # Calculate savings elasticity
             ratedev = 0.01
-            Market_dev = Market
-
+            Market_dev = copy.deepcopy(Market)
             # Increase rates of return to HH by ratedev
             #   Note: Cap gains is zero in steady state, so 
             #         return to HH is only on equity + debt.
             Market_dev['equityDividendRates'] = Market['equityDividendRates'] * (1 + ratedev)
             Market_dev['bondDividendRates']   = Market['bondDividendRates']   * (1 + ratedev)
-
-            Dynamic_dev = generate_aggregates(Market_dev, Dynamic, [], [], [], [])
-
+            
+            (Dynamic_dev, _, _, _, _, _) = generate_aggregates(Market_dev, Dynamic, [], [], [], [])
+            
+            '''
+            shelf = shelve.open('dd_save.ou')
+            globals()['Dynamic_dev'] = shelf['Dynamic_dev']
+            shelf.close()
+            '''
+            
             savingElastcitity = (Dynamic_dev['assetsPM'] - Dynamic['assetsPM']) / (Dynamic['assetsPM'] * ratedev)
 
             # Calculate $GDP/HH
-            outperHH = (Dynamic['outs']/Dynamic['pops'])/scenario['modelunit_dollar']
+            outperHH = (Dynamic['outs']/Dynamic['pops'])/scenario.modelunit_dollar
 
             # Calculate gini
-            GiniTable = MomentsGenerator(scenario,DIST['DIST'],Market,OPTs).giniTable
-            wealthGini      = GiniTable.model[GiniTable.Gini=='wealth']
+            GiniTable = MomentsGenerator(scenario,DIST['DIST'],Market,OPTs).giniTable()
+            wealthGini      = GiniTable.model[GiniTable.Gini=='wealth'].values
 
             # Save and display elasticities
             targets = {'CapitalToOutput': captoout, 'LaborElasticity': laborElasticity, 'SavingElasticity': savingElastcitity, 'OutputPerHH': outperHH, 'WealthGini': wealthGini}
 
             print( '\n' )
-            for label in [ ['Beta'          , beta              ] ,
-                           ['Gamma'         , gamma             ] ,
-                           ['Sigma'         , sigma             ] ,
-                           ['Model$'        , modelunit_dollar  ] ,
-                           ['phi_1'         , bequest_phi_1     ] ]:
+            for label in [ ('Beta'          , beta              ) ,
+                           ('Gamma'         , gamma             ) ,
+                           ('Sigma'         , sigma             ) ,
+                           ('Model$'        , modelunit_dollar  ) ,
+                           ('phi_1'         , bequest_phi_1     ) ]:
                 print('\t%-25s= % 7.8f\n' % label)
             
             print( '--------------\n' )
-            for label in [['Capital/Output'        , captoout   ] , 
-                          ['Labor elasticity'      , laborElasticity    ] ,
-                          ['Savings elasticity'    , savingElastcitity    ] ,
-                          ['Output/HH'             , outperHH   ] ,
-                          ['Wealth Gini'           , wealthGini       ]]:
+            for label in [('Capital/Output'        , captoout   ) , 
+                          ('Labor elasticity'      , laborElasticity    ) ,
+                          ('Savings elasticity'    , savingElastcitity    ) ,
+                          ('Output/HH'             , outperHH   ) ,
+                          ('Wealth Gini'           , wealthGini       )]:
                 print('\t%-25s= % 7.4f\n' % label)
             
             print('\n')
-            
+        
+        
         ##
         # Save scenario info
-        scipy.io.savemat(os.join.path(save_dir, 'scenario.mat'), targets)
+        with open(os.path.join(save_dir, 'scenario.pkl'), 'wb') as handle:
+            to_save = {'targets': targets, 'scenario': vars(scenario)}
+            pickle.dump(to_save, handle, protocol=pickle.HIGHEST_PROTOCOL)
   
         # Create completion indicator file
-        f = open(os.join.path(save_dir, 'solved'), 'w+')
+        f = open(os.path.join(save_dir, 'solved'), 'w+')
         f.close()
         
         # Attempt to move scenario solution to its final resting place.
@@ -1189,10 +1257,10 @@ class ModelSolver:
         
         scenario1_generator = lambda: ModelSolver.solve(scenario1, callingtag)
         scenario1_dir       = PathFinder.getCacheDir(scenario1)
-        Market1             = ModelSolver.hardyload('market.mat'        , scenario1_generator, scenario1_dir)
-        Dynamic1            = ModelSolver.hardyload('dynamics.mat'      , scenario1_generator, scenario1_dir)
-        Distribution1       = ModelSolver.hardyload('distribution.mat'  , scenario1_generator, scenario1_dir)
-        Decisions1          = ModelSolver.hardyload('decisions.mat'     , scenario1_generator, scenario1_dir)
+        Market1             = ModelSolver.hardyload('market.pkl'        , scenario1_generator, scenario1_dir)
+        Dynamic1            = ModelSolver.hardyload('dynamics.pkl'      , scenario1_generator, scenario1_dir)
+        Distribution1       = ModelSolver.hardyload('distribution.pkl'  , scenario1_generator, scenario1_dir)
+        Decisions1          = ModelSolver.hardyload('decisions.pkl'     , scenario1_generator, scenario1_dir)
 
         T = scenario2.TransitionFirstYear - scenario1.TransitionFirstYear
         
@@ -1258,14 +1326,14 @@ class ModelSolver:
 
         scenario2_generator = lambda: ModelSolver.solve(scenario2, callingtag, init_state)
         scenario2_dir       = PathFinder.getCacheDir(scenario2)
-        Market2             = ModelSolver.hardyload('market.mat'        , scenario2_generator, scenario2_dir)
-        Dynamic2            = ModelSolver.hardyload('dynamics.mat'      , scenario2_generator, scenario2_dir)
-        Distribution2       = ModelSolver.hardyload('distribution.mat'  , scenario2_generator, scenario2_dir)
-        Decisions2          = ModelSolver.hardyload('decisions.mat'     , scenario2_generator, scenario2_dir)       
+        Market2             = ModelSolver.hardyload('market.pkl'        , scenario2_generator, scenario2_dir)
+        Dynamic2            = ModelSolver.hardyload('dynamics.pkl'      , scenario2_generator, scenario2_dir)
+        Distribution2       = ModelSolver.hardyload('distribution.pkl'  , scenario2_generator, scenario2_dir)
+        Decisions2          = ModelSolver.hardyload('decisions.pkl'     , scenario2_generator, scenario2_dir)       
         
         Static2             = []
         if not scenario2.isCurrentPolicy():
-            Static2         = ModelSolver.hardyload('statics.mat', scenario2_generator, scenario2_dir)
+            Static2         = ModelSolver.hardyload('statics.pkl', scenario2_generator, scenario2_dir)
         
         # helper function to combine scenario1 files w/ scenario2
         def join_series( J1, J2 ):
@@ -1357,16 +1425,21 @@ class ModelSolver:
         if os.path.isfile(save_dir):
             shutil.rmtree(save_dir)
         os.mkdir(save_dir)
-
-        scipy.io.savemat(os.join.path(save_dir, 'market.mat'), Market)
-        scipy.io.savemat(os.join.path(save_dir, 'dynamics.mat'), Dynamic)
-        scipy.io.savemat(os.join.path(save_dir, 'distribution.mat'), DIST)
-        scipy.io.savemat(os.join.path(save_dir, 'decisions.mat'), decisions)
+        
+        with open(os.path.join(save_dir, 'market.pkl'), 'wb') as handle:
+            pickle.dump(Market, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(os.path.join(save_dir, 'dynamics.pkl'), 'wb') as handle:
+            pickle.dump(Dynamic, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(os.path.join(save_dir, 'distribution.pkl'), 'wb') as handle:
+            pickle.dump(DIST, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(os.path.join(save_dir, 'decisions.pkl'), 'wb') as handle:
+            pickle.dump(decisions, handle, protocol=pickle.HIGHEST_PROTOCOL)
         if len(Static) != 0:
-            scipy.io.savemat(os.join.path(save_dir, 'statics.mat'), Static)
+            with open(os.path.join(save_dir, 'statics.pkl'), 'wb') as handle:
+                pickle.dump(Static, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
         # Create completion indicator file
-        f = open(os.join.path(save_dir, 'solved'), 'w+')
+        f = open(os.path.join(save_dir, 'solved'), 'w+')
         f.close()
         
         # Attempt to move scenario solution to its final resting place.
@@ -1411,7 +1484,8 @@ class ModelSolver:
         if not isinstance(Market['averageWagesHistory'], np.ndarray):
             Market['averageWagesHistory'] = np.array([Market['averageWagesHistory']])
         average_wage0           = Market['averageWagesHistory'][0]     # Normalization from steady
-        average_wageTmodel      = Market['averageWages'][T_model - 1]
+        
+        average_wageTmodel      = Market['averageWages'].item(T_model - 1)
         average_wages           = np.hstack((average_wage0 * np.ones(T_life),          
                                         Market['averageWagesHistory'][1:T_steady],
                                         Market['averageWages'],                     
@@ -1454,14 +1528,15 @@ class ModelSolver:
         for itry in range(maxtries):
             try:
                 # Attempt load
-                s = scipy.io.loadmat(filepath)
+                with open(filepath, 'rb') as handle:
+                    s = pickle.load(handle)
                 break
             except Exception as e:
                 if itry == maxtries:
                     raise Exception('Failed to load ''%s'' after %d attempts.\n%s' % (filepath, maxtries, str(e)))
                     
                 # Take a breather
-                time.sleep(math.random() * maxpause)
+                time.sleep(random.random() * maxpause)
     
         return s
     
@@ -1497,7 +1572,7 @@ class ModelSolver:
         nb_max          = 50
         T_max           = 100
         nbrackets_max   = 20
-
+        
         assert V0.dtype == 'float64' and (V0.shape[0] <= nz_max) and (V0.shape[1] <= ns_max) and (V0.shape[2] <= nb_max)
         assert LAB_static.dtype == 'float64' and (LAB_static.shape[0] <= nz_max) and (LAB_static.shape[1] <= ns_max) and (LAB_static.shape[2] <= nb_max) and (LAB_static.shape[3] <= T_max)
         assert saving_static.dtype == 'float64' and (saving_static.shape[0] <= nz_max) and (saving_static.shape[1] <= ns_max) and (saving_static.shape[2] <= nb_max) and (saving_static.shape[3] <= T_max)
@@ -1505,11 +1580,11 @@ class ModelSolver:
         assert isinstance(nz, (float, int)) #and (nz.shape[0] == 1) and (nz.shape[1] == 1)
         assert isinstance(ns, (float, int)) #and (ns.shape[0] == 1) and (ns.shape[1] == 1)
         assert isinstance(nb, (float, int)) #and (nb.shape[0] == 1) and (nb.shape[1] == 1)
-        assert isinstance(T_past, (float, int)) #and (T_past.shape[0] == 1) and (T_past.shape[1] == 1)
-        assert isinstance(T_shift, (float, int)) #and (T_shift.shape[0] == 1) and (T_shift.shape[1] == 1)
-        assert isinstance(T_active, (float, int)) #and (T_active.shape[0] == 1) and (T_active.shape[1] == 1)
-        assert isinstance(T_work, (float, int)) #and (T_work.shape[0] == 1) and (T_work.shape[1] == 1)
-        assert isinstance(T_model, (float, int)) #and (T_model.shape[0] == 1) and (T_model.shape[1] == 1)
+        assert isinstance(T_past, (float, int, np.int32)) #and (T_past.shape[0] == 1) and (T_past.shape[1] == 1)
+        assert isinstance(T_shift, (float, int, np.int32)) #and (T_shift.shape[0] == 1) and (T_shift.shape[1] == 1)
+        assert isinstance(T_active, (float, int, np.int32)) #and (T_active.shape[0] == 1) and (T_active.shape[1] == 1)
+        assert isinstance(T_work, (float, int, np.int32)) #and (T_work.shape[0] == 1) and (T_work.shape[1] == 1)
+        assert isinstance(T_model, (float, int, np.int32)) #and (T_model.shape[0] == 1) and (T_model.shape[1] == 1)
         assert zs.dtype == 'float64' and (zs.shape[0] <= T_max) and (zs.shape[1] <= T_max) and (zs.shape[2] <= nz_max)
         assert transz.dtype == 'float64' and (transz.shape[0] <= T_max) and (transz.shape[1] <= T_max) and (transz.shape[2] <= nz_max) and (transz.shape[3] <= nz_max)
         assert sv.dtype == 'float64' and (sv.shape[0] <= ns_max) and len(sv.shape) == 1 #and (sv.shape[1] == 1)
@@ -1549,21 +1624,21 @@ class ModelSolver:
         assert preftax_brackets.dtype == 'float64' and (preftax_brackets.shape[0] <= T_max) and (preftax_brackets.shape[1] <= nbrackets_max)
         assert preftax_burdens.dtype == 'float64' and (preftax_burdens.shape[0] <= T_max) and (preftax_burdens.shape[1] <= nbrackets_max)
         assert preftax_rates.dtype == 'float64' and (preftax_rates.shape[0] <= T_max) and (preftax_rates.shape[1] <= nbrackets_max)
-        
+
         assert capgain_rates.dtype == 'float64' and (capgain_rates.shape[0] <= T_max) and len(capgain_rates.shape) == 1 
         assert capgain_taxrates.dtype == 'float64' and (capgain_taxrates.shape[0] <= T_max) and len(capgain_taxrates.shape) == 1
-
+        
         assert beqs.dtype == 'float64' and (beqs.shape[0] <= T_max) and len(beqs.shape) == 1
         assert wages.dtype == 'float64' and (wages.shape[0] <= T_max) and len(wages.shape) == 1 #and (wages.shape[1] == 1)
         
         assert portfolio_equityshares.dtype == 'float64' and (portfolio_equityshares.shape[0] <= T_max) and len(portfolio_equityshares.shape) == 1
         assert corpincome_shares.dtype == 'float64' and (corpincome_shares.shape[0] <= T_max) and len(corpincome_shares.shape) == 1
         assert passincome_shares.dtype == 'float64' and (passincome_shares.shape[0] <= T_max) and len(passincome_shares.shape) == 1
-        assert equity_dividendrates.dtype == 'float64' and (equity_dividendrates.shape[0] <= T_max) and len(equity_dividendrates.shape) == 1
+        assert equity_dividendrates.dtype == 'float64' and (equity_dividendrates.shape[0] <= T_max) and len(equity_dividendrates.shape) == 1 
         assert bond_dividendrates.dtype == 'float64' and (bond_dividendrates.shape[0] <= T_max) and len(bond_dividendrates.shape) == 1
         assert corp_taxableincrates.dtype == 'float64' and (corp_taxableincrates.shape[0] <= T_max) and len(corp_taxableincrates.shape) == 1
-        assert pass_taxableincrates.dtype == 'float64' and (pass_taxableincrates.shape[0] <= T_max) and len(pass_taxableincrates.shape) == 1
-        assert equity_pricesPM.dtype == 'float64' and (equity_pricesPM.shape[0] <= T_max) and len(equity_pricesPM.shape) == 1
+        assert pass_taxableincrates.dtype == 'float64' and (pass_taxableincrates.shape[0] <= T_max) and len(pass_taxableincrates.shape) == 1 
+        assert equity_pricesPM.dtype == 'float64' and (equity_pricesPM.shape[0]<= T_max) and len(equity_pricesPM.shape) == 1 
         assert equity_pricesAM.dtype == 'float64' and (equity_pricesAM.shape[0]<= T_max) and len(equity_pricesAM.shape) == 1
 
         ## Dynamic optimization
@@ -1586,10 +1661,11 @@ class ModelSolver:
         OPT['LUMP_SUM_TAX']            = np.zeros((nz,ns,nb,T_active))   # Lump sum tax
         
         # Initialize forward-looking utility values
-        V_step = V0
+        V_step = np.copy(V0)
 
         # Specify settings for dynamic optimization subproblems
         # optim_options = optimset('Display', 'off', 'TolFun', 1e-4, 'TolX', 1e-4);
+        
 
         # Solve dynamic optimization problem through backward induction
         for t in range(T_active,0,-1):
@@ -1660,7 +1736,8 @@ class ModelSolver:
             bequest_p_1   = beta * (1-survival_probability)* bequest_phi_1;
             bequest_p_2   = bequest_phi_2;
             bequest_p_3   = bequest_phi_3;
-    
+            
+            
             for ib in range(nb):
                 for ic in range(ns):
             
@@ -1696,6 +1773,7 @@ class ModelSolver:
                             cappref_brackets, cappref_burdens, cappref_rates,
                             capgain_rate,
                             beq )
+                        
                 
                         if isdynamic:
                     
@@ -1746,7 +1824,7 @@ class ModelSolver:
                 
                     else:
                         # Working age person
-                
+                        
                         # Create local instance of average earnings calculation function with fixed parameters
                         calculate_b_ = lambda labinc: ModelSolver.calculate_b(
                                         labinc, age, bv[ib],
@@ -1767,7 +1845,8 @@ class ModelSolver:
                                                 cappref_brackets, cappref_burdens, cappref_rates, 
                                                 capgain_rate, 
                                                 beq)
-                
+                      
+                            
                         for iz in range(nz):
                     
                             # Calculate effective wage
@@ -1811,7 +1890,7 @@ class ModelSolver:
                         
                                 s     = saving_static[iz,ic,ib,t-1]
                                 labor = LAB_static[iz,ic,ib,t-1]
-                                v     = None                       # Utility is not properly defined since consumption can be negative
+                                v     = float('nan')                       # Utility is not properly defined since consumption can be negative
                     
                             # Calculate resources
                             labinc      = wage_eff * labor
@@ -1829,11 +1908,11 @@ class ModelSolver:
                             OPT['ORD_LIABILITY']    [iz,ic,ib,t-1] = ord_liability
                             OPT['PREF_LIABILITY']   [iz,ic,ib,t-1] = pref_liability
                             OPT['PAYROLL_LIABILITY'][iz,ic,ib,t-1] = payroll_liability
-                            OPT['LUMP_SUM_TAX']     [iz,ic,ib,t-1] = lump_sum_tax;
+                            OPT['LUMP_SUM_TAX']     [iz,ic,ib,t-1] = lump_sum_tax
                     
             # Update forward-looking utility values
             V_step = OPT['V'][:,:,:,t-1]
-        
+         
         return OPT
     
     # Retirement age value function
@@ -1891,7 +1970,7 @@ class ModelSolver:
         # Define decision variables and perform bound checks
         s   = x[0]
         lab = x[1]
-    
+        
         labinc = wage_eff * lab
 
         if not ((0 <= lab) and (lab <= 1) and (sv[0] <= s) and (s <= sv[-1])):
@@ -1922,7 +2001,7 @@ class ModelSolver:
         
         # Calculate utility
         v = ((((consumption**gamma)*((1-lab)**(1-gamma)))**(1-sigma))*(1/(1-sigma))           # flow utility
-            + scipy.interpolate.interp2d(np.transpose(sv), bv, np.transpose(EV))(s, b)        # continuation value of life
+            + scipy.interpolate.interp2d(sv, bv, np.transpose(EV), fill_value = float('nan'))(s, b)       # continuation value of life
             + value_bequest )                                                                 # value of bequest
         
         # Negate utility for minimization and force to scalar for C code generation
@@ -1993,7 +2072,7 @@ class ModelSolver:
                     + equity_dividend + bond_dividend                  # Income from assets
                     + equitycapgain                                    # Capital gains due to price changes
                     - (ord_liability + payroll_liability + pref_liability + lump_sum_tax)) # Tax liability without consumption taxes
-        
+
         return (resources, pit_inc, ord_liability, payroll_liability, pref_liability)
     
     ##
@@ -2053,7 +2132,7 @@ class ModelSolver:
     # Generate population distribution for next year from population distribution for current year.
     # 
     ##
-
+    @jit
     def generate_distribution(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kv, bv, surv): #codegen
 
         ## Argument verification
@@ -2088,8 +2167,8 @@ class ModelSolver:
         for age in range(1,T_life):
             
             # Extract optimal decision values
-            k_t = K[:,:,:,age-1]
-            b_t = B[:,:,:,age-1]
+            k_t = np.copy(K[:,:,:,age-1])
+            b_t = np.copy(B[:,:,:,age-1])
             k_shape = k_t.shape
             b_shape = b_t.shape
             k_t_flat = k_t.flatten(order = 'F')
@@ -2145,7 +2224,7 @@ class ModelSolver:
     
     ## Generate population distribution for next year from population distribution for current year.
     #
-    
+    @jit
     def generate_distribution_new(DIST_year, DIST_grow, K, B, nz, nk, nb, T_life, ng, transz, kv, bv, surv, stay): #codegen
         
         ## Argument verification
@@ -2180,8 +2259,8 @@ class ModelSolver:
         for age in range(1,T_life):
             
             # Extract optimal decision values
-            k_t = K[:,:,:,age-1]
-            b_t = B[:,:,:,age-1]
+            k_t = np.copy(K[:,:,:,age-1])
+            b_t = np.copy(B[:,:,:,age-1])
             k_shape = k_t.shape
             b_shape = b_t.shape
             k_t_flat = k_t.flatten(order = 'F')
@@ -2200,6 +2279,7 @@ class ModelSolver:
             jb_lt = np.ones(len(b_t_flat))
             first = bv[0:-1]
             for elem in range(len(b_t_flat)):
+                
                 second = b_t_flat[elem]
                 jb_lt[elem] = np.where(first <= second)[0][-1]
             

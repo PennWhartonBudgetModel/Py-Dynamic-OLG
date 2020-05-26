@@ -5,6 +5,7 @@
 from pathFinderModule import PathFinder
 from inputReaderModule import InputReader
 from scenarioModule import Scenario
+from helpersModule import normal_round
 
 import numpy as np
 import pandas as pd
@@ -14,6 +15,7 @@ import scipy
 import math
 import warnings
 import os
+import pickle
 
 class ParamGenerator:
     
@@ -1120,19 +1122,20 @@ class ParamGenerator:
         # Get T_works (retirement ages)
         nrafile = pathFinder.getOASIcalculatorInputPath( 'retirementAges' )
         T_works        = np.zeros(nstartyears)
+        matlabRound = np.vectorize(normal_round)
         
         if scenario.isSteady() :
             survivalprob = ParamGenerator.demographics(scenario)['surv'][0]
             series       = InputReader.read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry) )
-            T_works      = np.around(series['NRA'])
+            T_works      = matlabRound(series['NRA'])
             mass         = np.ones(T_life)
             for i in range(1,T_life):
                 mass[i] = mass[i-1]*survivalprob[i-1]
-            T_works      = np.around(np.sum((mass * T_works[0:T_life])/np.sum(mass))) - realage_entry
+            T_works      = matlabRound(np.sum((mass * T_works[0:T_life])/np.sum(mass))) - realage_entry
             T_works = np.array([T_works])
         else:
             series       = InputReader.read_series( nrafile, 'birthYear', first_year - (T_life + realage_entry), last_year )
-            T_works      = np.around(series['NRA'])
+            T_works      = matlabRound(series['NRA'])
             T_works      = T_works[0:nstartyears] - realage_entry
         
         s['T_works']           = T_works
@@ -1475,7 +1478,8 @@ class ParamGenerator:
         #END TEMP    
     
         # Load calibration points from calibration input directory
-        s = scipy.io.loadmat(os.path.join(PathFinder.getCalibrationInputDir(), 'calibration.mat'))
+        with open(os.path.join(PathFinder.getCalibrationInputDir(), 'calibration.pkl'), 'rb') as handle:
+            s = pickle.load(handle)
         paramv  = s['paramv'] 
         targetv = s['targetv']
         solved  = s['solved']

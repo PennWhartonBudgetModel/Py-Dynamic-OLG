@@ -7,6 +7,7 @@ import os
 import numpy as np
 import pandas as pd
 import scipy.io as sio
+import pickle
 
 class OutputWriter:
             
@@ -198,7 +199,7 @@ class OutputWriter:
         map.to_csv(mapfile)
         
         # Generate interface dependencies file
-        with open(os.join.path(PathFinder.getSeriesOutputDir(), 'dependencies.csv'), 'w') as fid:
+        with open(os.path.join(PathFinder.getSeriesOutputDir(), 'dependencies.csv'), 'w') as fid:
             fid.write('Component,Interface,Version\n')
             for r in PathFinder.getInputSet():
                 fid.write('%s,%s,%s\n' % (r[0,0], r[0,1], r[0,2]))
@@ -227,14 +228,18 @@ class OutputWriter:
         
         # Load dynamic and static variables
         cacheDir    = PathFinder.getCacheDir(scenario)
-        Dynamic     = sio.loadmat(os.path.join(cacheDir, 'dynamics.mat'))
-        Market      = sio.loadmat(os.path.join(cacheDir, 'market.mat'  ))
+        with open(os.path.join(cacheDir, 'dynamics.pkl'), 'rb') as handle:
+            Dynamic     = pickle.load(handle)
+        with open(os.path.join(cacheDir, 'market.pkl'), 'rb') as handle:
+            Market      = pickle.load(handle)
         if scenario.isCurrentPolicy() or scenario.postShock().isCurrentPolicy():
             Static       = Dynamic
             StaticMarket = Market
         else:
-            Static       = sio.loadmat(os.path.join(cacheDir, 'statics.mat'))
-            StaticMarket = sio.loadmat(os.path.join(PathFinder.getCacheDir(scenario.currentPolicy()), 'market.mat' ))
+            with open(os.path.join(cacheDir, 'statics.pkl'), 'rb') as handle:
+                Static       = pickle.load(handle)
+            with open(os.path.join(PathFinder.getCacheDir(scenario.currentPolicy()), 'market.pkl' ), 'rb') as handle:
+                StaticMarket = pickle.load(handle)
 
         # TEMP TEMP -- This is until Scenario.OpennessPath is not a
         # dependence in ModelSolver.
@@ -247,19 +252,24 @@ class OutputWriter:
             params.OpennessPath = 'baseline'
             bscenario           = Scenario(params)
             if( bscenario.isCurrentPolicy() or bscenario.postShock().isCurrentPolicy() ):
-                dynamicsFile = 'dynamics.mat'
+                dynamicsFile = 'dynamics.pkl'
             else:
-                dynamicsFile = 'statics.mat'
+                dynamicsFile = 'statics.pkl'
             
-            Static          = sio.loadmat(os.path.join(PathFinder.getCacheDir(bscenario), dynamicsFile))
-            StaticMarket    = sio.loadmat(os.path.join(PathFinder.getCacheDir(bscenario.currentPolicy()), 'market.mat' ))
+            with open(os.path.join(PathFinder.getCacheDir(bscenario), dynamicsFile), 'rb') as handle:
+                Static          = pickle.load(handle)
+            with open(os.path.join(PathFinder.getCacheDir(bscenario.currentPolicy()), 'market.pkl' ), 'rb') as handle:
+                StaticMarket    = pickle.load(handle)
+        
         # END TEMP
 
         # Load Dynamics for Microsim baseline add factor fix-up   
         # NOTE: Fix-up factor is going to be Dynamic_base/Dynamic_open_base
         try:
-            Dynamic_open_base   = sio.loadmat(os.join.path(PathFinder.getCacheDir(scenario.currentPolicy().open()), 'dynamics.mat'))
-            Dynamic_base        = sio.loadmat(os.join.path(PathFinder.getCacheDir(scenario.baseline()), 'dynamics.mat'))
+            with open(os.path.join(PathFinder.getCacheDir(scenario.currentPolicy().open()), 'dynamics.pkl'), 'rb') as handle:
+                Dynamic_open_base   = pickle.load(handle)
+            with open(os.path.join(PathFinder.getCacheDir(scenario.baseline()), 'dynamics.pkl')) as handle:
+                Dynamic_base        = pickle.load(handle)
         except:
             raise Exception('WARNING! Cannot read files to make "Dynamic baseline". Skipping...\n' )
             return success
@@ -369,8 +379,10 @@ class OutputWriter:
             StaticMarket['outvars'][o] = 'STATIC_' + p
         
         # Load steady state variables
-        Dynamic_steady = sio.loadmat(os.join.path(PathFinder.getCacheDir(scenario.currentPolicy().steady()), 'dynamics.mat'))
-        Market_steady  = sio.loadmat(os.join.path(PathFinder.getCacheDir(scenario.currentPolicy().steady()), 'market.mat'))
+        with open(os.path.join(PathFinder.getCacheDir(scenario.currentPolicy().steady()), 'dynamics.pkl'), 'rb') as handle:
+            Dynamic_steady = pickle.load(handle)
+        with open(os.path.join(PathFinder.getCacheDir(scenario.currentPolicy().steady()), 'market.pkl'), 'rb') as handle:
+            Market_steady  = pickle.load(handle)
                 
         # Append steady state variables and reset the first year
         firstYear = firstYear - 1
@@ -392,7 +404,7 @@ class OutputWriter:
         
         # Write series to file
         series_table = pd.DataFrame(output_series)
-        series_table.to_csv(os.join.path(outputDir, 'Dynamics.csv' ))
+        series_table.to_csv(os.path.join(outputDir, 'Dynamics.csv' ))
         
         success = 1
         
@@ -402,6 +414,6 @@ class OutputWriter:
     @staticmethod
     def getOutputDir( ID ):
         seriesDir   = PathFinder.getSeriesOutputDir()
-        outputDir   = os.join.path(seriesDir, str(ID))
+        outputDir   = os.path.join(seriesDir, str(ID))
     
         return outputDir

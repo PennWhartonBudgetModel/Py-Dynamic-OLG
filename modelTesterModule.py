@@ -157,17 +157,21 @@ class ModelTester:
         ModelSolver.removeCached(s_baseline)                 # Clear cached Scenario
         
         tagged_dir      = ModelSolver.solve(s_baseline)
-        baseline_dir    = PathFinder.getCacheDir(s_baseline);
-        baseMarket      = sio.loadmat(os.path.join(baseline_dir, 'market.mat'))
-        baseDynamic     = sio.loadmat(os.path.join(baseline_dir, 'dynamics.mat'))   
+        baseline_dir    = PathFinder.getCacheDir(s_baseline)
+        with open(os.path.join(baseline_dir, 'market.pkl'), 'rb') as handle:
+            baseMarket      = pickle.load(handle)
+        with open(os.path.join(baseline_dir, 'dynamics.pkl'), 'rb') as handle:
+            baseDynamic     = pickle.load(handle)   
         
         # Get shocked Market, Dynamic
         ModelSolver.removeCached(s_next)                     # Clear cached scenario
         
         tagged_dir      = ModelSolver.solve(s_next)
         x_dir           = PathFinder.getCacheDir(s_next)
-        xMarket         = sio.loadmat(os.path.join(x_dir, 'market.mat'))
-        xDynamic        = sio.loadmat(os.path.join(x_dir, 'dynamics.mat'))
+        with open(os.path.join(x_dir, 'market.pkl'), 'rb') as handle:
+            xMarket         = pickle.load(handle)
+        with open(os.path.join(x_dir, 'dynamics.pkl'), 'rb') as handle:
+            xDynamic        = pickle.load(handle)
         
         # Compare baseline and shocked path
         print( '\n' )
@@ -271,8 +275,9 @@ class ModelTester:
             setNames = ['market', 'dynamics', 'statics']
         
         # Load target values
-        targetfile = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ModelTester.mat')
-        s = sio.loadmat(targetfile)
+        targetfile = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ModelTester.pkl')
+        with open(targetfile, 'rb') as handle:
+            s = pickle.load(handle)
         target = s.target
 
         # Initialize match flag
@@ -292,8 +297,8 @@ class ModelTester:
             # Extract output and target values by set
             setname = setNames[i]
             output = {}
-            output[testName][setname] = sio.loadmat(os.join.path(cacheDir, ('%s.mat' % setname)))
-
+            with open(os.path.join(cacheDir, ('%s.pkl' % setname)), 'rb') as handle:
+                output[testName][setname] = pickle.load(handle)
             outputset = output[testName][setname]
             targetset = target[testName][setname]
 

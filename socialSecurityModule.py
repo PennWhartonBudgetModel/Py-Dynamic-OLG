@@ -4,6 +4,8 @@
 import numpy as np
 
 
+
+
 class SocialSecurity:
     
     params = None        # Struct of params from ParamGenerator
@@ -93,8 +95,8 @@ class SocialSecurity:
         adjtotben   = np.cumsum(np.diff(adjbrackets, axis = 1) * rates[:, 0:-1], axis = 1) 
         adjtotben   = np.hstack((np.zeros((adjbrackets.shape[0], 1)), adjtotben))  # rem: first column is zero
         
-        # Calculate benefits for each year of retirement until end of time.
-        for t in range((max(retireYear,1) -  1) , self.T_model):
+        # Calculate benefits for each year of retirement until end of time.      
+        for t in range((max(int(retireYear),1) -  1) , self.T_model):
             for ib in range((self.bv).shape[0]):
                 thebracket = np.where(adjbrackets[t,:] <= self.bv[ib])[0][-1]
                 benefits[t,ib] = adjtotben[t,thebracket] + rates[t,thebracket]*(self.bv[ib] - adjbrackets[t,thebracket])

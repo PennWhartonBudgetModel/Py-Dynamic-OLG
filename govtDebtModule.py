@@ -5,7 +5,7 @@
 
 import numpy as np
 
-from helpers import makeIterable
+from helpersModule import makeIterable
 
 class GovtDebt:
     
@@ -86,13 +86,14 @@ class GovtDebt:
         # rule)
         debts = np.append(debtPrev, np.zeros(T_model-1))
         effRate = np.zeros(T_model)
-        deficits = (Aggregate['Gtilde'] + Aggregate['bens'] + (budget['infraSpending'] * Aggregate['pops'])
+        deficits = np.squeeze(Aggregate['Gtilde'] + Aggregate['bens'] + (budget['infraSpending'] * Aggregate['pops'])
                     - Aggregate['Ttilde'] - Aggregate['revs'] - Aggregate['lumpSumTaxes'])
+        Aggregate['Ctilde'] = np.squeeze(Aggregate['Ctilde'])
         
         # This is the distribution in year one of the simulation.  This is
         # going to be the small distribution target for every subsequent
         # year
-        targetDistribution = GovtDebt.getSmallDistribution(debtDistribution[0,:])
+        targetDistribution = GovtDebt.getSmallDistribution(debtDistribution)
         
         # Initializing the density of the debt and the disaggregated
         # effective rate. The effective rate will be updated.
@@ -119,9 +120,11 @@ class GovtDebt:
             # computed externally and is a state variable. 
             
             if t < T_model - 1:
-                (debts[t+1], _, effectiveRatesByMaturity[t+1,:], debtDistribution[t+1,:]) = (
-                    GovtDebt.GovtDebtDistribution(debts[t], debtDistribution[t,:], deficits[t] - Aggregate['Ctilde'][t], effectiveRatesByMaturity[t,:], yieldCurve, budget['deflator'][t+1]/budget['deflator'][t], targetDistribution))
-                if (t > 1):
+                (debts[t+1], _, effectiveRatesByMaturityAddOn, debtDistributionAddOn) = (
+                    GovtDebt.GovtDebtDistribution(debts[t], debtDistribution[t:], deficits[t] - Aggregate['Ctilde'][t], effectiveRatesByMaturity[t:], yieldCurve, budget['deflator'][t+1]/budget['deflator'][t], targetDistribution))
+                effectiveRatesByMaturity = np.vstack((effectiveRatesByMaturity, effectiveRatesByMaturityAddOn))
+                debtDistribution = np.vstack((debtDistribution, debtDistributionAddOn))
+                if (t > 0):
                     effRate[t] = ((debts[t+1] - deficits[t] + Aggregate['Ctilde'][t])/debts[t] - 1)
                 else:
                     effRate[0] = initRate
@@ -136,7 +139,7 @@ class GovtDebt:
                     inflationRate = budget['deflator'][t]/budget['deflator'][t-1]
                 
                 (tmpDebt, _, _, _) = (
-                    GovtDebt.GovtDebtDistribution(debts[t], debtDistribution[t,:], deficits[t] - Aggregate['Ctilde'][t], effectiveRatesByMaturity[t,:], yieldCurve, inflationRate, targetDistribution))
+                    GovtDebt.GovtDebtDistribution(debts[t], debtDistribution[t:], deficits[t] - Aggregate['Ctilde'][t], effectiveRatesByMaturity[t:], yieldCurve, inflationRate, targetDistribution))
                 if (t > 0):
                     effRate[t] = ((tmpDebt - deficits[t] + Aggregate['Ctilde'][t])/debts[t] - 1)
                 else:
@@ -156,7 +159,7 @@ class GovtDebt:
         T = len(deficits)
         # Set debt targets; rem: GDP(T) is not known, so duplicate as kludge
         new_debts = np.append(debt1, np.zeros(T))
-        outs = np.append(outs, outs[T])
+        outs = np.append(outs, outs[T-1])
         residual = np.zeros(T)
         for t in range(T):
             # NOTICE new_debt(t+1) = new_debts(t)*(1+debtrates(t)) + deficit(t) - residual(t)
@@ -177,6 +180,8 @@ class GovtDebt:
         
         # The function returns the new level of debt, the effective rate,
         # and the new distribution of the debt
+        oldDebtDistribution = np.squeeze(oldDebtDistribution)
+        oldEffectiveRates = np.squeeze(oldEffectiveRates)
         
         # Start by calculating the levels of debt at each maturity
         oldDebtLevels = oldDebtDistribution * oldDebt
@@ -193,8 +198,8 @@ class GovtDebt:
         newIssuesTotal = oldDebtLevels[0] + deficit + interestPaid
         
         # Advance the age of all old debt and add the new issues
-        existingDebtLevels = np.hstack((oldDebtLevels[1:GovtDebt.maxDuration], 0))
-        existingDebtRates = np.hstack((oldEffectiveRates[1:GovtDebt.maxDuration], 0))
+        existingDebtLevels = np.append(oldDebtLevels[1:GovtDebt.maxDuration], 0)
+        existingDebtRates = np.append(oldEffectiveRates[1:GovtDebt.maxDuration], 0)
         
         # Determine the distribution of the new issues of debt.
         # newIssuesDebt is a vector the size of issueYears (usually 7
@@ -256,7 +261,7 @@ class GovtDebt:
         
         # This function returns the distribution of bonds at the 1, 2, 3,
         # 5, 7, 10, and 30 year intervals. 
-        
+
         smallDistribution= np.zeros(len(GovtDebt.issueYears))
         for x in range(1, len(smallDistribution)+1):
             smallDistribution[x-1] = np.sum(debtDistribution[(GovtDebt.issueYears[max(x-1,1)-1]+1*(x>1)):GovtDebt.issueYears[x-1]+1])

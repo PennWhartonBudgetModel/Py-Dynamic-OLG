@@ -4,7 +4,7 @@
 
 import numpy as np
 
-from helpers import makeIterable
+from helpersModule import makeIterable
 
 class Firm:
     
@@ -111,23 +111,21 @@ class Firm:
         self.rateForeignerCorpIncome    = paramsTax['rateForeignerCorpIncome']
         self.rateForeignerPassIncome    = paramsTax['rateForeignerPassIncome']
         self.rateForeignBusinessIncome  = paramsTax['rateForeignBusinessIncome']
-            
+        
         self.capital                    = makeIterable(Aggregate['caps'])
         self.caps_foreign               = makeIterable(Aggregate['caps_foreign'])
         self.labor                      = makeIterable(Aggregate['labeffs'])
         self.KLratio                    = Market['rhos']
         try:
-            self.invtocaps_end              = Market['invtocaps'][-1]
-            self.invtocaps_1                = Market['invtocaps'][0]
+            self.invtocaps_end              = np.squeeze(Market['invtocaps'])[-1]
+            self.invtocaps_1                = np.squeeze(Market['invtocaps'])[0]
         except:
-            self.invtocaps_end              = Market['invtocaps']
-            self.invtocaps_1                = Market['invtocaps']
-        self.interestRate               = Market['equityDividendRates']
-        if not isinstance(self.interestRate, np.ndarray):
-            self.interestRate = np.array([self.interestRate])
+            self.invtocaps_end              = np.squeeze(Market['invtocaps'])
+            self.invtocaps_1                = np.squeeze(Market['invtocaps'])
+        self.interestRate               = np.squeeze(makeIterable(Market['equityDividendRates']))
             
-        self.corpLeverageCost           = Market['corpLeverageCost']
-        self.passLeverageCost           = Market['passLeverageCost']
+        self.corpLeverageCost           = np.squeeze(Market['corpLeverageCost'])
+        self.passLeverageCost           = np.squeeze(Market['passLeverageCost'])
         
         # Calculate the price of capital (p_K, see docs)
         # If userCostCapital0 already available use that, otherwise
@@ -145,6 +143,7 @@ class Firm:
             
         # Initialize local instance price of capital
         self.priceCapital_  = self.priceCapital()
+
         
     ##
     # Recalculate capital prices, user cost
@@ -263,7 +262,6 @@ class Firm:
         
         alpha = self.capitalShare
         out = self.TFP * (capital ** alpha) * (labor **(1 - alpha)) 
-        
         for i in range(len(out)):
             if not np.isreal(out[i]):
                 out[i] = 0
@@ -283,19 +281,18 @@ class Firm:
         x['corpDebts'] = debts
         x['corpDividendRates'] = divs / (self.shareIncomeCorp * self.capital * self.priceCapital())
         
-        x.update(corp_aux_vars)
-            
-        if self.shareIncomePass == 0:
-            x['passDividends'] = np.zeros(shape = self.capital.shape)
-            x['passTaxIncRates'] = np.zeros(shape = self.capital.shape)
-            x['passDebts'] = np.zeros(shape = self.capital.shape)
-            x['passDividendRates'] = np.zeros(shape = self.capital.shape)
-            x['pass_aux_vars'] = np.zeros(shape = self.capital.shape)
-            x['passTaxableIncome'] = np.zeros(shape = self.capital.shape)
-            x['passDebtInterest'] = np.zeros(shape = self.capital.shape)
-            x['passDepreciation'] = np.zeros(shape = self.capital.shape)
-            x['passExpensing'] = np.zeros(shape = self.capital.shape)
-            x['passDebtTaxBenefit'] = np.zeros(shape = self.capital.shape)
+        x.update(corp_aux_vars)  
+        if all(v == 0 for v in self.shareIncomePass):
+            x['passDividends'] = np.zeros(len(self.capital))
+            x['passTaxIncRates'] = np.zeros(len(self.capital))
+            x['passDebts'] = np.zeros(len(self.capital))
+            x['passDividendRates'] = np.zeros(len(self.capital))
+            x['pass_aux_vars'] = np.zeros(len(self.capital))
+            x['passTaxableIncome'] = np.zeros(len(self.capital))
+            x['passDebtInterest'] = np.zeros(len(self.capital))
+            x['passDepreciation'] = np.zeros(len(self.capital))
+            x['passExpensing'] = np.zeros(len(self.capital))
+            x['passDebtTaxBenefit'] = np.zeros(len(self.capital))
         else:
             (divs, taxableIncome, debts, pass_aux_vars) = self.passDividends(self.shareIncomePass * self.capital, self.KLratio, wage)
             x['passDividends'] = divs
@@ -320,7 +317,7 @@ class Firm:
         capital = makeIterable(capital)
         
         (corpDivs, _, _, _) = self.corpDividends(self.shareIncomeCorp * capital, klRatio, wage)
-        if self.shareIncomePass == 0:
+        if (self.shareIncomePass == 0).all():
             passDivs = np.zeros(shape = self.capital.shape)
         else:
             (passDivs, _, _, _) = self.passDividends(self.shareIncomePass * capital, klRatio, wage)
@@ -368,29 +365,29 @@ class Firm:
         (debts, debtCost, debtTaxBenefit) = self.calculateDebt(capital, iscorp)
         
         # Combine to get net tax
-        taxbase = ((y # Output
+        taxbase = np.squeeze(((y # Output
               - wagesPaid # Labor costs
               - self.interestRate * debts # Interest paid
               - depreciation # Depreciated K
               - self.rateOtherExpensesCorp * y # Other expenses
               - adjustmentCost # K adjustment cost
               ) * self.shareTaxbaseCorp # Scaling factor to match data
-              - self.rateOtherDeductionsCorp * y) # Deductions
+              - self.rateOtherDeductionsCorp * y)) # Deductions
 
-        cits = (taxbase * self.rateCorpStatutory # Tax net of other deductions
+        cits = np.squeeze((taxbase * self.rateCorpStatutory # Tax net of other deductions
           - expensing * self.rateCorpStatutory # Investment expensing
           - debtTaxBenefit # Interest deduction
-          - y * self.rateCreditsCorp) # Tax credits
+          - y * self.rateCreditsCorp)) # Tax credits
                 
         # Calculate returns to owners
-        divs = (y # revenues
+        divs = np.squeeze((y # revenues
             - wagesPaid # labor costs
             - depreciation # replace depreciated capital
             - risk # discount money lost due to risk
             - adjustmentCost # cap adjustment cost
             - self.rateOtherExpensesCorp * y # Other expenses
             - debtCost # Cost of leverage
-            - cits) # net taxes
+            - cits)) # net taxes
                   
         # Auxiliary variables
         corp_aux_vars = {}
@@ -411,6 +408,7 @@ class Firm:
         # Outputs: divs = dividend is the return of the corporation net of tax.
         #          cits = corporate income taxes paid by the firms
         
+        klRatio = np.squeeze(klRatio)
         capital = makeIterable(capital)
         
         # Labor and capital
@@ -482,6 +480,7 @@ class Firm:
         else:
             priceCapital = self.priceCapital(capital)
         capgains = np.zeros(shape = priceCapital.shape)
+        
         capgains[0] = (priceCapital[0] - self.priceCapital0)/self.priceCapital0
         for t in range(1, len(capgains)):
             capgains[t] = (priceCapital[t] - priceCapital[t-1])/priceCapital[t-1]
@@ -491,11 +490,11 @@ class Firm:
     # Calculate the price of capital
     def priceCapital(self, capital = None):
         if capital is None:
-            if self.priceCapital_ != None:
+            if not self.priceCapital_ is None:
                 price = self.priceCapital_
                 return price
             capital = self.capital
-            
+           
         capital = makeIterable(capital)
             
         # Gross Investment
@@ -512,6 +511,8 @@ class Firm:
         
         # TEMP implies priceCapital0 = 1
         price = userCostCapital/self.userCostCapital0
+        if len(price.shape) > 1:
+            price = np.squeeze(price)
         return price
     
     ##
@@ -538,7 +539,6 @@ class Firm:
         
         tolerance = 1e-12
         err_div   = float('inf')
-        
         while err_div > tolerance:
         
             # Update capital 

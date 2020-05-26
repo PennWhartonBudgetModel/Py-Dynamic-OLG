@@ -8,6 +8,7 @@ import os
 import scipy.io as sio
 import csv
 import shutil
+import pickle
 
 class Scenario:
     
@@ -310,8 +311,9 @@ class Scenario:
         flag = os.path.exists(os.path.join(PathFinder.getCacheDir(self), 'solved'))
         if flag :
             # Check that hashed location is correct scenario
-            s = sio.loadmat(os.path.join(PathFinder.getCacheDir(self), 'scenario.mat' ))
-            flag = self.isEquivalent(s['scenario'])
+            with open(os.path.join(PathFinder.getCacheDir(self), 'scenario.pkl' ), 'rb') as handle:
+                s = pickle.load(handle)
+            flag = self.isEquivalent(Scenario(s['scenario']))
             if not flag :
                 # TBD: Until cache-ing is revised.
                 raise Exception('Scenario:BAD_CACHEING - WARNING! Cached scenario at location is not this scenario. ')
@@ -430,7 +432,8 @@ class Scenario:
         # load solution objects
         from pathFinderModule import PathFinder
         cacheDir = PathFinder.getCacheDir(scenario)
-        OPTs = sio.loadmat(os.path.join(cacheDir, 'decisions.mat'))
+        with open(os.path.join(cacheDir, 'decisions.pkl'), 'rb') as handle:
+            OPTs = pickle.load(handle)
         
         # get the base output directory
         baseOutputDir = PathFinder.getTransitionMatrixOutputDir()
@@ -532,7 +535,8 @@ class Scenario:
                 # save transition matrix into struct
                 transitions['age' + str(age) + 'year' + str(year)] = transitionMatrix
             
-        sio.savemat(os.join.path(outputDir, 'data.mat'), transitions)
+        with open(os.path.join(outputDir, 'data.pkl'), 'wb') as handle:
+            pickle.dump(transitions, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
     # Export scenario to named folder
     def export(self, outputName=None):

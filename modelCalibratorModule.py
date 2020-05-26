@@ -34,7 +34,7 @@ class ModelCalibrator:
     
     # Define calibration point directory and calibration point file path
     pointdir  = os.path.join(PathFinder.getSourceDir(), 'CalibrationPoints')
-    pointfile = lambda ipoint: os.path.join(ModelCalibrator.pointdir, 'point%05d.mat' % ipoint)
+    pointfile = lambda ipoint: os.path.join(ModelCalibrator.pointdir, 'point%05d.pkl' % ipoint)
     
     # Define the moment targets for the reports on how we did
     #   Cell array: { Variable Name, Value, Description }
@@ -149,7 +149,7 @@ class ModelCalibrator:
             solved[i] = s['solved']
         
         # Save consolidated points to calibration output directory
-        with open(os.path.join(outputdir, 'calibration.mat')) as f:
+        with open(os.path.join(outputdir, 'calibration.pkl')) as f:
             pickle.dump(paramv)
             pickle.dump(targetv)
             pickle.dump(solved)
@@ -219,7 +219,8 @@ class ModelCalibrator:
             save_dir    = ModelSolver.solve( scenario )
 
             # find target -- $gdp/pop
-            s_paramsTargets = scipy.io.loadmat(os.join.path(save_dir, 'paramsTargets.mat'))
+            with open(os.path.join(save_dir, 'paramsTargets.pkl'), 'rb') as handle:
+                s_paramsTargets = pickle.load(handle)
             run_outperHH    = s_paramsTargets['outperHH']
             
             err_size        = abs( run_outperHH/target_outperHH - 1 )
@@ -240,11 +241,12 @@ class ModelCalibrator:
             # Find if converged
             #    This only needs to be done after the loop, but
             #    we're about to wipe out the run's files.
-            s_dynamics     = scipy.io.loadmat(os.join.path(save_dir, 'dynamics.mat' ))
+            with open(os.path.join(save_dir, 'dynamics.pkl' ), 'rb') as handle:
+                s_dynamics     = pickle.load(handle)
             is_converged   = s_dynamics['is_converged']
 
             # Delete save directory along with parent directories
-            shutil.rmtree(os.join.path(save_dir, '..', '..'))
+            shutil.rmtree(os.path.join(save_dir, '..', '..'))
             
             iter_num = iter_num + 1
    
@@ -267,14 +269,17 @@ class ModelCalibrator:
 
         delimiter   = [chr(13), chr(10)]  # end-of-line 
         
-        filepath    = os.join.path(save_dir % 'iterations.csv')
+        filepath    = os.path.join(save_dir % 'iterations.csv')
         T           = pd.read_csv(filepath)
         iters       = T.iloc[:,0].values
         iterations  = iters[-1]
 
-        s_dynamics      = scipy.loadmat(os.path.join(save_dir, 'dynamics.mat' ) )
-        s_paramsTargets = scipy.loadmat(os.path.join(save_dir, 'paramsTargets.mat' ) )
-        s_markets       = scipy.loadmat(os.path.join(save_dir, 'market.mat' ) )
+        with open(os.path.join(save_dir, 'dynamics.pkl' ), 'rb') as handle:
+            s_dynamics      = pickle.load(handle)
+        with open(os.path.join(save_dir, 'paramsTargets.pkl'), 'rb') as handle:
+            s_paramsTargets = pickle.load(handle)
+        with open(os.path.join(save_dir, 'market.pkl'), 'rb') as handle:
+            s_markets       = pickle.load(handle)
         
         # Define some helper vars for clarity
         pop             = s_dynamics['pops']    

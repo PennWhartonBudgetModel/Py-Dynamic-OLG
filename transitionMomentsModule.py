@@ -73,7 +73,7 @@ class TransitionMoments:
             # generate deltas
             groups[var_name + '_delta']  = groups[var_name] / groups[var_name + '_static']
 
-        with open(os.path.join(sc_dir, 'groups.mat')) as f:
+        with open(os.path.join(sc_dir, 'groups.pkl')) as f:
             pickle.dump(groups, f)
             
         # Save deltas in a spreadsheet
@@ -122,18 +122,21 @@ class TransitionMoments:
 
             x        = np.zeros((nz,nk,nb,T_life,ng,T_model+1))
 
-            s = scipy.io.loadmat(os.join.path(dir_ss, 'distribution.mat'))
+            with open(os.path.join(dir_ss, 'distribution.pkl'), 'rb') as handle:
+                s = pickle.load(handle)
             x[:,:,:,:,:,0,:] = s['DIST']
 
             if not base:
                 x_static = np.zeros((nz,nk,nb,T_life,ng,T_model+1))
                 x_static[:,:,:,:,:,0,:] = s['DIST']
-                s = scipy.io.loadmat(os.join.path(dir_sc, 'Static_distribution.mat'))
+                with open(os.path.join(dir_sc, 'Static_distribut.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 x_static[:,:,:,:,:,1:,:] = s['Static_DIST']
             else:
                 x_static = []
 
-            s = scipy.io.loadmat(os.join.path(dir_sc, 'distribution.mat' ))
+            with open(os.path.join(dir_sc, 'distribution.pkl'), 'rb') as handle:
+                s = pickle.load(handle)
             x[:,:,:,:,:,1:,:] = s['DIST']
 
             return (x, x_static)
@@ -164,21 +167,27 @@ class TransitionMoments:
                 x        = np.zeros((nz,nk,nb,T_life,ng,T_model+1))
                 x_static = np.zeros((nz,nk,nb,T_life,ng,T_model+1))
 
-                s        = scipy.io.loadmat(os.path.join(dir_ss, 'market.mat'))
+                with open(os.path.join(dir_ss, 'market.pkl'), 'rb') as handle:
+                    s        = pickle.load(handle)
                 wages_ss = s['wages']
                 f = lambda X: np.tile(np.reshape(X, (nz,nk,nb,T_life,1,1)), [1,1,1,1,ng,1])
-                s = scipy.io.loadmat(os.path.join(dir_ss, 'decisions.mat' ))
+                with open(os.path.join(dir_ss, 'decisions.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 x[:,:,:,:,:,0,:]        = wages_ss*f(s['OPTs']['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,1)), [1,nk,nb,1,1]))
                 x_static[:,:,:,:,:,0,:] = wages_ss*f(s['OPTs']['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,1)), [1,nk,nb,1,1]))
 
-                s     = scipy.io.loadmat(os.join.path(dir_sc, 'market.mat' ))
+                with open(os.path.join(dir_sc, 'market.pkl'), 'rb') as handle:
+                    s     = pickle.load(handle)
                 wages = s['wages']
                 f = lambda X: np.tile(np.reshape(X, (nz,nk,nb,T_life,1,T_model)), [1,1,1,1,ng,1])
-                s = scipy.io.loadmat(os.join.path(dir_sc, 'decisions.mat'))
+                with open(os.path.join(dir_sc, 'decisions.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 x[:,:,:,:,:,1:,:] = f(np.tile(np.reshape(wages, (1,1,1,1,T_model)), [nz,nk,nb,T_life,1]) * s['OPTs']['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,T_model)), [1,nk,nb,1,1]))
-                s     = scipy.io.loadmat(os.join.path(dir_bs, 'market.mat'))
+                with open(os.path.join(dir_bs, 'market.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 wages_static = s['wages']
-                s = scipy.io.loadmat(os.join.path(dir_sc, 'Static_decisions.mat'))
+                with open(os.path.join(dir_sc, 'Static_decisions.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 x_static[:,:,:,:,:,1:,:] = f(np.tile(np.reshape(wages_static, [1,1,1,1,T_model]), (nz,nk,nb,T_life,1)) * s['LABOR'] * np.tile(np.reshape(np.transpose(zs, [3,2,1]), (nz,1,1,T_life,T_model)), [1,nk,nb,1,1]))
 
             # Assets income case
@@ -186,18 +195,22 @@ class TransitionMoments:
 
                 x        = np.zeros((nz,nk,nb,T_life,ng,T_model+1))
                 x_static = np.zeros((nz,nk,nb,T_life,ng,T_model+1))
-
-                s        = scipy.io.loadmat(os.join.path(dir_ss, 'market.mat'))
+                
+                with open(os.path.join(dir_ss, 'market.pkl'), 'rb') as handle:
+                    s        = pickle.load(handle)
                 totrates_ss = s['capsharesPM'] * s['equityDividendRates'] + (1 - s['capsharesPM']) * s['bondDividendRates']
                 x[:,:,:,:,:,0,:]        = totrates_ss * np.tile(np.reshape(kv, (1,nk,1,1,1,1)),[nz,1,nb,T_life,ng,1])
                 x_static[:,:,:,:,:,0,:] = totrates_ss * np.tile(np.reshape(kv, (1,nk,1,1,1,1)),[nz,1,nb,T_life,ng,1])
 
                 f = lambda X: np.tile(np.reshape(X, (1, 1,1,1,1,T_model)), [nz,nk,nb,T_life,ng,1])
                 g = lambda X: np.tile(np.reshape(X, (1,nk,1,1,1,1)), [nz, 1,nb,T_life,ng,T_model])
-                s = scipy.io.loadmat(os.join.path(dir_sc, 'market.mat'))
+                
+                with open(os.path.join(dir_sc, 'market.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 totrates = s['capsharesPM'] * s['equityDividendRates'] + (1 - s['capsharesPM']) * s['bondDividendRates']
                 x[:,:,:,:,:,1:,:] = f(totrates) * g(kv)
-                s = scipy.io.loadmat(os.join.path(dir_bs, 'market.mat'))
+                with open(os.path.join(dir_bs, 'market.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 totrates_static = s['capsharesPM'] * s['equityDividendRates'] + (1 - s['capsharesPM']) * s['bondDividendRates']
                 x_static[:,:,:,:,:,1:,:] = f(totrates_static) * g(kv)
 
@@ -208,14 +221,17 @@ class TransitionMoments:
                 x_static = np.zeros((nz,nk,nb,T_life,ng,T_model+1))
 
                 f = lambda X: np.tile(np.reshape(X, (nz,nk,nb,T_life,1,1)), [1,1,1,1,ng,1])
-                s = scipy.io.loadmat(os.join.path(dir_ss, 'decisions.mat'))
+                with open(os.path.join(dir_ss, 'decisions.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 x[:,:,:,:,:,0,:]        = f(s['OPTs']['PAYROLL_LIABILITY'] + s['OPTs']['ORD_LIABILITY'] + s['OPTs']['PREF_LIABILITY'])
                 x_static[:,:,:,:,:,0,:] = f(s['OPTs']['PAYROLL_LIABILITY'] + s['OPTs']['ORD_LIABILITY'] + s['OPTs']['PREF_LIABILITY'])
 
                 f = lambda X: np.tile(np.reshape(X, (nz,nk,nb,T_life,1,T_model)), [1,1,1,1,ng,1])
-                s = scipy.io.loadmat(os.join.path(dir_sc, 'decisions.mat'))
+                with open(os.path.join(dir_sc, 'decisions.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 x[:,:,:,:,:,1:,:] = f(s['OPTs']['PAYROLL_LIABILITY'] + s['OPTs']['ORD_LIABILITY'] + s['OPTs']['PREF_LIABILITY'])
-                s = scipy.io.loadmat(os.join.path(dir_sc, 'Static_decisions.mat'))
+                with open(os.path.join(dir_sc, 'Static_decisions.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 x_static[:,:,:,:,:,1:,:] = f(s['PAYROLL_LIABILITY'] + s['ORD_LIABILITY'] + s['PREF_LIABILITY'])
 
             # Total income case
@@ -224,27 +240,33 @@ class TransitionMoments:
                 x        = np.zeros((nz,nk,nb,T_life,ng,T_model+1))
                 x_static = np.zeros((nz,nk,nb,T_life,ng,T_model+1))
 
-                s = scipy.io.loadmat(os.join.path(dir_ss, 'market.mat'))
+                with open(os.path.join(dir_ss, 'market.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 wages_ss = s['wages']
                 totrates_ss = s['capsharesPM'] * s['equityDividendRates'] + (1 - s['capsharesPM']) * s['bondDividendRates']
                 f = lambda X: np.tile(np.reshape(X, (nz,nk,nb,T_life,1,1)), [1,1,1,1,ng,1])
-                s = scipy.io.loadmat(os.join.path(dir_ss, 'decisions.mat'))
+                with open(os.path.join(dir_ss, 'decisions.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 x[:,:,:,:,:,0,:]        = f(wages_ss*s['OPTs']['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,1)), [1,nk,nb,1,1]) +
                                           totrates_ss*np.tile(np.reshape(kv, (1,nk,1,1,1)),[nz,1,nb,T_life,1]))
                 x_static[:,:,:,:,:,0,:] = f(wages_ss*s['OPTs']['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,1)), [1,nk,nb,1,1]) +
                                           totrates_ss*np.tile(np.reshape(kv, (1,nk,1,1,1)),[nz,1,nb,T_life,1]))
 
-                s     = scipy.io.loadmat(os.join.path(dir_sc, 'market.mat'))
+                with open(os.path.join(dir_sc, 'market.pkl'), 'rb') as handle:
+                    s     = pickle.load(handle)
                 wages = s['wages']
                 totrates = s['capsharesPM'] * s['equityDividendRates'] + (1 - s['capsharesPM']) * s['bondDividendRates']
                 f = lambda X: np.tile(np.reshape(X, (nz,nk,nb,T_life,1,T_model)), [1,1,1,1,ng,1])
-                s = scipy.io.loadmat(os.join.path(dir_sc, 'decisions.mat'))
+                with open(os.path.join(dir_sc, 'decisions.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 x[:,:,:,:,:,1:,:] = f(np.tile(np.reshape(wages, (1,1,1,1,T_model)), [nz,nk,nb,T_life,1]) * s['OPTs']['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,T_model)), [1,nk,nb,1,1]) +
                                          np.tile(np.reshape(totrates, (1,1,1,1,T_model)), [nz,nk,nb,T_life,1]) * np.tile(np.reshape(kv, (1,nk,1,1,1)),[nz,1,nb,T_life,T_model]))
-                s     = scipy.io.loadmat(os.path.join(dir_bs, 'market.mat'))
+                with open(os.path.join(dir_bs, 'market.pkl'), 'rb') as handle:
+                    s     = pickle.load(handle)
                 wages_static = s['wages']
                 totrates_static = s['capsharesPM'] * s['equityDividendRates'] + (1 - s['capsharesPM']) * s['bondDividendRates']
-                s = scipy.io.loadmat(os.join.path(dir_sc, 'Static_decisions.mat'))
+                with open(os.path.join(dir_sc, 'Static_decisions.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 x_static[:,:,:,:,:,1:,:] = f(np.tile(np.reshape(wages_static, (1,1,1,1,T_model)), [nz,nk,nb,T_life,1]) * s['LABOR'] * np.tile(np.reshape(np.tile(zs, [2,1,0]), (nz,1,1,T_life,T_model)), [1,nk,nb,1,1]) +
                                                 np.tile(np.reshape(totrates_static, (1,1,1,1,T_model)), [nz,nk,nb,T_life,1]) * np.tile(np.reshape(kv, [1,nk,1,1,1]),[nz,1,nb,T_life,T_model]))
 
@@ -254,28 +276,34 @@ class TransitionMoments:
                 x        = np.zeros((nz,nk,nb,T_life,ng,T_model+1))
                 x_static = np.zeros((nz,nk,nb,T_life,ng,T_model+1))
 
-                s        = scipy.io.loadmat(os.join.path(dir_ss, 'market.mat'))
+                with open(os.path.join(dir_ss, 'market.pkl'), 'rb') as handle:
+                    s        = pickle.load(handle)
                 wages_ss = s['wages']
                 totrates_ss = s['capsharesPM']*s['equityDividendRates'] + (1-s['capsharesPM'])*s['bondDividendRates']
                 f = lambda X: np.tile(np.reshape(X, (nz,nk,nb,T_life,1,1)), [1,1,1,1,ng,1])
-                s = scipy.io.loadmat(os.join.path(dir_ss, 'decisions.mat'))
+                with open(os.path.join(dir_ss, 'decisions.pkl'), 'rb') as handle:
+                    s = pickle.load(handle)
                 x[:,:,:,:,:,0,:]        = f(wages_ss*s['OPTs']['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,1)), [1,nk,nb,1,1]) + 
                                           totrates_ss*np.tile(np.reshape(kv, (1,nk,1,1,1)),[nz,1,nb,T_life,1]) + s['OPTs']['OASI_BENEFITS'])
                 x_static[:,:,:,:,:,0,:] = f(wages_ss*s['OPTs']['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,1)), [1,nk,nb,1,1]) +
                                           totrates_ss*np.tile(np.reshape(kv, (1,nk,1,1,1)),[nz,1,nb,T_life,1]) + s['OPTs']['OASI_BENEFITS'])
 
-                s     = scipy.io.loadmat(os.join.path(dir_sc, 'market.mat'))
+                with open(os.path.join(dir_sc, 'market.pkl'), 'rb') as handle:
+                    s     = pickle.load(handle)
                 wages = s['wages']
                 totrates = s['capsharesPM'] * s['equityDividendRates'] + (1 - s['capsharesPM']) * s['bondDividendRates']
                 f = lambda X: np.tile(np.reshape(X, (nz,nk,nb,T_life,1,T_model)), [1,1,1,1,ng,1])
-                s = scipy.io.loadmat(os.join.path(dir_sc, 'decisions.mat'))
+                with open(os.path.join(dir_sc, 'decisions.pkl'), 'rb') as handle:    
+                    s = pickle.load(handle)
                 x[:,:,:,:,:,1:,:] = f(np.tile(np.reshape(wages, (1,1,1,1,T_model)), [nz,nk,nb,T_life,1]) * s['OPTs']['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,T_model)), [1,nk,nb,1,1]) + 
                                          np.tile(np.reshape(totrates, (1,1,1,1,T_model)), [nz,nk,nb,T_life,1]) * np.tile(np.reshape(kv, (1,nk,1,1,1)),[nz,1,nb,T_life,T_model])
                                           + s['OPTs']['OASI_BENEFITS'])
-                s     = scipy.io.loadmat(os.join.path(dir_bs, 'market.mat'))
+                with os.path.join((dir_bs, 'market.pkl'), 'rb') as handle: 
+                    s     = pickle.load(handle)
                 wages_static = s['wages']
                 totrates_static = s['capsharesPM']*s['equityDividendRates'] + (1-s['capsharesPM']) * s['bondDividendRates']
-                s = scipy.io.loadmat(os.join.path(dir_sc, 'Static_decisions.mat'))
+                with os.path.join((dir_sc, 'Static_decisions.pkl'), 'rb') as handle: 
+                    s = pickle.load(handle)
                 x_static[:,:,:,:,:,1:,:] = f(np.tile(np.reshape(wages_static, (1,1,1,1,T_model)), [nz,nk,nb,T_life,1]) * s['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,T_model)), [1,nk,nb,1,1]) +
                                                 np.tile(np.reshape(totrates_static, (1,1,1,1,T_model)), [nz,nk,nb,T_life,1]) * np.tile(np.reshape(kv, (1,nk,1,1,1)),[nz,1,nb,T_life,T_model])
                                                 + s['OASI_BENEFITS'])
@@ -286,19 +314,23 @@ class TransitionMoments:
                 x        = np.zeros((nz,nk,nb,T_life,ng,T_model+1))
                 x_static = np.array([])
 
-                s        = scipy.io.loadmat(os.join.path(dir_ss, 'market.mat'))
+                with os.path.join((dir_ss, 'market.pkl'), 'rb') as handle: 
+                    s        = pickle.load(handle)
                 wages_ss = s['wages']
                 totrates_ss = s['capsharesPM']*s['equityDividendRates'] + (1-s['capsharesPM'])*s['bondDividendRates']
                 f = lambda X: np.tile(np.reshape(X, (nz,nk,nb,T_life,1,1)), [1,1,1,1,ng,1])
-                s = scipy.io.loadmat(os.join.path(dir_ss, 'decisions.mat'))
+                with os.path.join((dir_ss, 'decisions.pkl'), 'rb') as handle: 
+                    s = pickle.load(handle)
                 x[:,:,:,:,:,0,:]        = f(wages_ss*s['OPTs']['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,1)), [1,nk,nb,1,1]) +
                                           totrates_ss*np.tile(np.reshape(kv, (1,nk,1,1,1)),[nz,1,nb,T_life,1]))
 
-                s     = scipy.io.loadmat(os.join.path(dir_sc, 'market.mat'))
+                with os.path.join((dir_sc, 'market.pkl'), 'rb') as handle: 
+                    s     = pickle.load(handle)
                 wages = s['wages']
                 totrates = s['capsharesPM']*s['equityDividendRates'] + (1-s['capsharesPM']) * s['bondDividendRates']
                 f = lambda X: np.tile(np.reshape(X, (nz,nk,nb,T_life,1,T_model)), [1,1,1,1,ng,1])
-                s = scipy.io.loadmat(os.join.path(dir_sc, 'decisions.mat'))
+                with os.path.join((dir_sc, 'decisions.pkl'), 'rb') as handle: 
+                    s = pickle.load(handle)
                 x[:,:,:,:,:,1:,:] = f(np.tile(np.reshape(wages, (1,1,1,1,T_model)), [nz,nk,nb,T_life,1]) * s['OPTs']['LABOR'] * np.tile(np.reshape(np.transpose(zs, [2,1,0]), (nz,1,1,T_life,T_model)), [1,nk,nb,1,1]) + 
                                          np.tile(np.reshape(totrates, (1,1,1,1,T_model)), [nz,nk,nb,T_life,1]) * np.tile(np.reshape(kv, (1,nk,1,1,1)),[nz,1,nb,T_life,T_model]))
 
@@ -309,14 +341,17 @@ class TransitionMoments:
                 x_static = np.zeros((nz,nk,nb,T_life,ng,T_model+1))
 
                 f = lambda X: np.tile(np.reshape(X, (nz,nk,nb,T_life,1,1)), [1,1,1,1,ng,1])
-                s = scipy.io.loadmat(os.join.path(dir_ss, 'decisions.mat'))
+                with os.path.join((dir_ss, 'decisions.pkl'), 'rb') as handle: 
+                    s = pickle.load(handle)
                 x[:,:,:,:,:,0,:]        = f(s['OPTs'][x_name])
                 x_static[:,:,:,:,:,0,:] = f(s['OPTs'][x_name])
 
                 f = lambda X: np.tile(np.reshape(X, (nz,nk,nb,T_life,1,T_model)), [1,1,1,1,ng,1])
-                s = scipy.io.loadmat(os.join.path(dir_sc, 'decisions.mat'))
+                with os.path.join((dir_sc, 'decisions.pkl'), 'rb') as handle: 
+                    s = pickle.load(handle)
                 x[:,:,:,:,:,1:,:] = f(s['OPTs'][x_name])
-                s = scipy.io.loadmat(os.join.path(dir_sc, 'Static_decisions.mat'))
+                with os.path.join((dir_sc, 'Static_decisions.pkl'), 'rb') as handle: 
+                    s = pickle.load(handle)
                 x_static[:,:,:,:,:,1:,:] = f(s[x_name])
 
             return (x, x_static)
